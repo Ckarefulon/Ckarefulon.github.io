@@ -1,0 +1,102 @@
+<html>
+<head>
+  <title>Ckarefulo - Dream It Possible</title>
+  <style type="text/css">
+    #lyrics {
+      margin-left: 40px;
+      height: 200px;
+      overflow-y: auto;
+    }
+    #audio {
+      position: absolute;
+      top: 90%;
+      left: 0px;
+    }
+  </style>
+</head>
+
+<body>
+  <div>
+    <div id="lyrics" style="height: 90%;">
+      <div style="line-height: 64px; font-weight: bold; font-size: 40px; opacity: 1"></div>
+    </div>
+    <audio id="audio" src="1.mp3" controls="" style="width: 100%; padding-left: -;"></audio>
+  </div>
+
+  <script type="text/javascript">
+    const lyrics = [
+      [0, "· · · · · ·"],
+      [8, "I will run, I will climb, I will soar<br>我将奔跑，我将攀爬，我将飞翔"],
+      [12, "I'm undefeated<br>永不言败</div>"],
+      [16, "Jumping out of my skin, pull the chord<br>脱离身体的桎梏，拉动琴弦"],
+      [20, "Yeah I believe it<br>哦，我相信。"],
+      [22, "The past, is everything we were don’t make us who we are<br>往昔，逝去的光阴不会决定现在"],
+      [30, "So I'll dream, until I make it real, and all I see is stars<br>所以我们梦想，直到变成真，看到满天星光"],
+      [38, "It's not until you fall that you fly<br>经历跌倒，才能飞翔"],
+      [43, "When your dreams come alive you're unstoppable<br>当你的梦想成真，你是不可阻挡"],
+      [47, "Take a shot, chase the sun, find the beautiful<br>挥着翅膀，追逐太阳，寻找美丽"],
+      [51, "We will glow in the dark turning dust to gold<br>在黑暗中闪耀点石成金"],
+      [55, "And we'll dream it possible<br>我们会梦想成真"],
+      [60, "Possible<br>有可能的"],
+      [66, "Hah~"],
+      [71, "And we'll dream it possible possible<br>我们会梦想成真，有可能的，我们会梦想成真"],
+      [76, "I will chase, I will reach, I will fly<br>我将追逐，我将到达，我将飞翔"],
+      [80, "Until I'm breaking, until I'm breaking<br>直到我摧毁，直到我打破"],
+      [84, "Out of my cage, like a bird in the night<br>囚禁我的牢笼，像在黑夜里自由的鸟儿"],
+      [88, "I know I'm changing, I know I'm changing<br>我知道我在变化，在蜕变"],
+      [91, "In, into something big, better than before<br>变成无比强大，从未有过"],
+      [99, "And if it takes, takes a thousand lives<br>如果需要牺牲，需要无数的生命"],
+      [102, "Then it's worth fighting for<br>那值得去奋斗"],
+      [106, "It's not until you fall that you fly<br>经历跌倒，才能飞翔"],
+      [111, "When your dreams come alive you're unstoppable<br>当你的梦想成真，你是不可阻挡"],
+      [115, "Take a shot, chase the sun, find the beautiful<br>挥着翅膀，追逐太阳，寻找美丽"],
+      [119, "We will glow in the dark turning dust to gold<br>在黑暗中闪耀点石成金"],
+      [123, "And we’ll dream it possible<br>我们会梦想成真"],
+      [129, "Ah~"],
+      [134, "It possible<br>梦想成真"],
+      [143, "From the bottom to the top<br>从低谷到巅峰"],
+      [145, "We're sparking wild fires<br>我们正在迸发野火"],
+      [147, "Never quit and never stop<br>永不放弃，永不停止"],
+      [149, "The rest of our lives<br>点燃未来"],
+      [151, "From the bottom to the top<br>从山谷到巅峰"],
+      [154, "We're sparking wild fires<br>我们正在迸发野火"],
+      [156, "Never quit and never stop<br>永不放弃，永不停止"],
+      [158, "It's not until you fall that you fly<br>经历跌倒，才能飞翔"],
+      [165, "When your dreams come alive you're unstoppable<br>当你的梦想成真，你是不可阻挡"],
+      [169, "Take a shot, chase the sun, find the beautiful<br>挥着翅膀，追逐太阳，寻找美丽"],
+      [173, "We will glow in the dark turning dust to gold<br>在黑暗中闪耀点石成金"],
+      [177, "And we'll dream it possible<br>我们会梦想成真"],
+      [184, "Possible<br>有可能的"],
+      [188, "Hah~"],
+      [193, "And we'll dream it possible<br>我们会梦想成真"],
+    ];
+
+    const audio = document.getElementById("audio");
+    const lyricsDiv = document.getElementById("lyrics");
+
+    audio.addEventListener("timeupdate", () => {
+      for (let i = 0; i < lyrics.length; i++) {
+        if (
+          audio.currentTime > lyrics[i][0] &&
+          (i === lyrics.length - 1 || audio.currentTime < lyrics[i + 1][0])
+        ) {
+          lyricsDiv.innerHTML = "";
+          for (let j = Math.max(0, i - 4); j < lyrics.length; j++) {
+            const [timestamp, text] = lyrics[j];
+            const isCurrentLine = j === i;
+            const html = `<div style="line-height: ${
+              isCurrentLine ? "48px" : "36px"
+            }; font-weight: ${isCurrentLine ? "bold" : "normal"}; font-size: ${
+              isCurrentLine ? "30px" : "24px"
+            }; opacity: ${isCurrentLine ? "1" : "0.5"}">${text}</div>`;
+            lyricsDiv.innerHTML += html;
+          }
+          break;
+        }
+      }
+    });
+
+    audio.play();
+  </script>
+</body>
+</html>
