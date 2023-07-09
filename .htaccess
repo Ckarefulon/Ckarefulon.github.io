@@ -1,3 +1,5 @@
+AddType application/x-font-ttf .ttf
+
 RewriteEngine On
 RewriteBase /
 Options +FollowSymLinks
