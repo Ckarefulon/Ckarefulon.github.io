@@ -5,22 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ckarefulon - Chinese Chess</title>
     <style>
-html, body {
-  margin: 0;
-  padding: 0;
-}
+        html, body {
+            margin: 0;
+            padding: 0;
+        }
 
-svg {
-  width: 100%;
-  height: 88%; /* 上下各留6%的距离 */
-  margin-top: 6%;
-  margin-bottom: 6%;
-}
+        svg {
+            width: 100%;
+            height: 88%; /* 上下各留6%的距离 */
+            margin-top: 6%;
+            margin-bottom: 6%;
+        }
 
         @font-face {
-          font-family: 'Fonts';
-          src: url('Fonts.ttf') format('truetype');
-  }
+            font-family: 'Fonts';
+            src: url('Fonts.ttf') format('truetype');
+        }
+
         body {
             height: 100vh;
             margin: 0;
@@ -30,7 +31,7 @@ svg {
             background-color: #f1f1f1;
             overflow: hidden;
         }
-        
+
         .modal {
             width: 6vh;
             height: 6vh;
@@ -43,12 +44,12 @@ svg {
             cursor: move;
             font-family: 'Fonts', sans-serif;
         }
-        
+
         .black {
             background-color: black;
             color: white;
         }
-        
+
         .red {
             background-color: red;
             color: white;
@@ -57,15 +58,15 @@ svg {
     <script>
         window.addEventListener("DOMContentLoaded", () => {
             const modals = document.querySelectorAll(".modal");
-        
+
             modals.forEach((modal) => {
                 dragElement(modal);
             });
-        
+
             function dragElement(elmnt) {
                 let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
                 elmnt.addEventListener("mousedown", dragMouseDown);
-        
+
                 function dragMouseDown(e) {
                     e = e || window.event;
                     e.preventDefault();
@@ -74,7 +75,7 @@ svg {
                     document.addEventListener("mouseup", closeDragElement);
                     document.addEventListener("mousemove", elementDrag);
                 }
-        
+
                 function elementDrag(e) {
                     e = e || window.event;
                     e.preventDefault();
@@ -85,7 +86,7 @@ svg {
                     elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
                     elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
                 }
-        
+
                 function closeDragElement() {
                     document.removeEventListener("mouseup", closeDragElement);
                     document.removeEventListener("mousemove", elementDrag);
@@ -95,11 +96,6 @@ svg {
     </script>
 </head>
 <body>
-
-
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- Created with Inkscape (http://www.inkscape.org/) -->
-
 <svg
    width="89mm"
    height="100mm"
@@ -108,23 +104,13 @@ svg {
    id="svg5"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg"
- style="
+   style="
     margin-left: 6%;
-    margin-right: 6%;>
+    margin-right: 6%;
+   "
+>
   <defs
      id="defs2">
-    <rect
-       x="-171"
-       y="91.5"
-       width="118.5"
-       height="49.5"
-       id="rect60815" />
-    <rect
-       x="9"
-       y="182"
-       width="131.5"
-       height="24.5"
-       id="rect60809" />
   </defs>
   <g
      id="layer1">
@@ -218,63 +204,44 @@ svg {
        height="9.9937267"
        x="0.99986029"
        y="45.001774" />
-    <text
-       xml:space="preserve"
-       style="font-size:3.175px;fill:#1005e6;fill-opacity:1;stroke:none;stroke-width:0;stroke-linecap:square;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
-       x="5.1593747"
-       y="50.270832"
-       id="text60167"><tspan
-         id="tspan60165"
-         style="stroke-width:0;fill:#1005e6;fill-opacity:1"
-         x="5.1593747"
-         y="50.270832" /></text>
-    <text
-       xml:space="preserve"
-       transform="scale(0.26458333)"
-       id="text60807"
-       style="white-space:pre;shape-inside:url(#rect60809);display:inline;fill:#1005e6;fill-opacity:1;stroke:none;stroke-width:0;stroke-linecap:square;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers" />
   </g>
 </svg>
-
-
-
     <!-- 在这里插入模态框 -->
 
     <!-- 黑色模态框 -->
-    <div class="modal black" style="top: 50px; left: 50px;">車</div>
-    <div class="modal black" style="top: 100px; left: 100px;">馬</div>
-    <div class="modal black" style="top: 150px; left: 150px;">象</div>
-    <div class="modal black" style="top: 200px; left: 200px;">士</div>
-    <div class="modal black" style="top: 250px; left: 250px;">帥</div>
-    <div class="modal black" style="top: 300px; left: 300px;">士</div>
-    <div class="modal black" style="top: 350px; left: 350px;">象</div>
-    <div class="modal black" style="top: 400px; left: 400px;">馬</div>
-    <div class="modal black" style="top: 450px; left: 450px;">車</div>
-    <div class="modal black" style="top: 500px; left: 500px;">炮</div>
-    <div class="modal black" style="top: 550px; left: 550px;">炮</div>
-    <div class="modal black" style="top: 600px; left: 600px;">卒</div>
-    <div class="modal black" style="top: 650px; left: 650px;">卒</div>
-    <div class="modal black" style="top: 700px; left: 700px;">卒</div>
-    <div class="modal black" style="top: 750px; left: 750px;">卒</div>
-    <div class="modal black" style="top: 800px; left: 800px;">卒</div>
+    <div class="modal black" style="top: 26px; left: 405px;">車</div>
+    <div class="modal black" style="top: 26px; left: 480px;">馬</div>
+    <div class="modal black" style="top: 26px; left: 553px;">象</div>
+    <div class="modal black" style="top: 26px; left: 627px;">士</div>
+    <div class="modal black" style="top: 26px; left: 700px;">帥</div>
+    <div class="modal black" style="top: 26px; left: 770px;">士</div>
+    <div class="modal black" style="top: 26px; left: 845px;">象</div>
+    <div class="modal black" style="top: 26px; left: 918px;">馬</div>
+    <div class="modal black" style="top: 26px; left: 990px;">車</div>
+    <div class="modal black" style="top: 174px; left: 480px;">炮</div>
+    <div class="modal black" style="top: 174px; left: 918px;">炮</div>
+    <div class="modal black" style="top: 245px; left: 405px;">卒</div>
+    <div class="modal black" style="top: 245px; left: 553px;">卒</div>
+    <div class="modal black" style="top: 245px; left: 700px;">卒</div>
+    <div class="modal black" style="top: 245px; left: 845px;">卒</div>
+    <div class="modal black" style="top: 245px; left: 990px;">卒</div>
 
     <!-- 红色模态框 -->
-    <div class="modal red" style="top: 850px; left: 50px;">車</div>
-    <div class="modal red" style="top: 900px; left: 100px;">馬</div>
-    <div class="modal red" style="top: 950px; left: 150px;">相</div>
-    <div class="modal red" style="top: 1000px; left: 200px;">仕</div>
-    <div class="modal red" style="top: 1050px; left: 250px;">將</div>
-    <div class="modal red" style="top: 1100px; left: 300px;">仕</div>
-    <div class="modal red" style="top: 1150px; left: 350px;">相</div>
-    <div class="modal red" style="top: 1200px; left: 400px;">馬</div>
-    <div class="modal red" style="top: 1250px; left: 450px;">車</div>
-    <div class="modal red" style="top: 1300px; left: 500px;">炮</div>
-    <div class="modal red" style="top: 1350px; left: 550px;">炮</div>
-    <div class="modal red" style="top: 1400px; left: 600px;">兵</div>
-    <div class="modal red" style="top: 1450px; left: 650px;">兵</div>
-    <div class="modal red" style="top: 1500px; left: 700px;">兵</div>
-    <div class="modal red" style="top: 1550px; left: 750px;">兵</div>
-    <div class="modal red" style="top: 1600px; left: 800px;">兵</div>
+    <div class="modal red" style="top: 680px; left: 405px;">車</div>
+    <div class="modal red" style="top: 680px; left: 480px;">馬</div>
+    <div class="modal red" style="top: 680px; left: 553px;">相</div>
+    <div class="modal red" style="top: 680px; left: 627px;">仕</div>
+    <div class="modal red" style="top: 680px; left: 700px;">將</div>
+    <div class="modal red" style="top: 680px; left: 770px;">仕</div>
+    <div class="modal red" style="top: 680px; left: 845px;">相</div>
+    <div class="modal red" style="top: 680px; left: 918px;">馬</div>
+    <div class="modal red" style="top: 680px; left: 990px;">車</div>
+    <div class="modal red" style="top: 537px; left: 480px;">炮</div>
+    <div class="modal red" style="top: 537px; left: 918px;">炮</div>
+    <div class="modal red" style="top: 464px; left: 405px;">兵</div>
+    <div class="modal red" style="top: 464px; left: 553px;">兵</div>
+    <div class="modal red" style="top: 464px; left: 700px;">兵</div>
+    <div class="modal red" style="top: 464px; left: 845px;">兵</div>
+    <div class="modal red" style="top: 464px; left: 990px;">兵</div>
 </body>
 </html>
-
