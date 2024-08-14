@@ -23,7 +23,9 @@ select option:hover {
     border: 3px solid #24f0ea;
     border-radius: 7px;
     background-color: #a0a2de;
-    color: #55367a
+    color: #55367a;
+    text-align: center;
+    margin-top: 7px;
   }
 iframe {
   border: none;
@@ -50,30 +52,32 @@ function filterContent() {
     const filterA = selects[0].value;
     const filterB = selects[1].value;
     const filterC = selects[2].value;
+    const filterD = selects[3].value;
     contentList.innerHTML = '';
     const items = [
-        { text: "内容1……", attrs: ["壹=贰", "1", "a"] },
-        { text: "内容2……", attrs: ["B", "3", "b"] },
-        { text: "内容3……", attrs: ["C", "2", "a"] },
-        { text: "内容4……", attrs: ["B", "3", "c"] }
+        { text: "T01", attrs: ["壹=乙=贰", "丁=戊=己", "庚=辛", "壬=癸"] },
+        { text: "T12", attrs: ["壹=乙=贰", "丁=己", "庚↔辛", "壬 - 癸"] },
+        { text: "T06", attrs: ["壹=乙=贰", "丁=己", "庚 - 辛", "壬↔癸"] },
+        { text: "T02", attrs: ["壹=贰", "丁=戊=己", "庚↔辛", "壬 - 癸"] },
+        { text: "T03", attrs: ["壹=贰", "丁=戊=己", "庚 - 辛", "壬↔癸"] },
+        { text: "T09", attrs: ["壹=贰", "丁↔戊↔己", "庚=辛", "壬 - 癸"] },
+        { text: "T03", attrs: ["壹=贰", "丁↔戊↔己", "庚 - 辛", "壬=癸"] },
     ];
 
     items.forEach(item => {
         if ((filterA === '' || item.attrs[0] === filterA) &&
             (filterB === '' || item.attrs[1] === filterB) &&
-            (filterC === '' || item.attrs[2] === filterC)) {
+            (filterC === '' || item.attrs[2] === filterC) &&
+            (filterD === '' || item.attrs[3] === filterD)) {
             const li = document.createElement('li');
-            li.textContent = `"${item.text}"，特征：${item.attrs.join(',')}`;
+            li.textContent = `"${item.text}"，特征：${item.attrs.join(', ')}`;
             contentList.appendChild(li);
         }
     });
 }
-    // 为每个下拉列表添加change事件监听器
     selects.forEach(select => {
         select.addEventListener('change', filterContent);
     });
-
-    // 初始筛选（可选）
     filterContent();
 });
 </script>
@@ -96,12 +100,18 @@ function filterContent() {
     <option value="丁↔戊↔己">丁↔戊↔己</option>
 </select>
 <select>
-    <option value="">【庚辛壬癸】</option>
+    <option value="">【庚辛】</option>
     <option value="庚=辛">庚=辛</option>
     <option value="庚↔辛">庚↔辛</option>
+    <option value="庚↔辛">庚 - 辛</option>
+</select>
+<select>
+    <option value="">【壬癸】</option>
     <option value="壬=癸">壬=癸</option>
     <option value="壬↔癸">壬↔癸</option>
+    <option value="壬↔癸">壬 - 癸</option>
 </select>
+
 
 <h1>公式</h1>
 <ul id="content-list"></ul>
