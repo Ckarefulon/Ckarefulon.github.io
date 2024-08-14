@@ -1,0 +1,99 @@
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZBLL</title>
+<style>
+  body {
+    font-family: 'Arial', sans-serif;
+    background-color: #5d4ea8;
+    margin: 0;
+    padding: 20px;
+  }
+select option:hover {
+    background-color: #5d4ea8;
+
+}
+  select {
+    padding: 10px;
+    margin-right: 10px;
+    border: 3px solid #24f0ea;
+    border-radius: 7px;
+    background-color: #a0a2de;
+  }
+  #content-list {
+    list-style: none;
+    padding: 0;
+  }
+  #content-list li {
+    background-color: #a0a2de;
+    border: 3px solid #24f0ea;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 7px;
+  }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selects = document.querySelectorAll('select');
+    const contentList = document.getElementById('content-list');
+function filterContent() {
+    const filterA = selects[0].value;
+    const filterB = selects[1].value;
+    const filterC = selects[2].value;
+    contentList.innerHTML = '';
+    const items = [
+        { text: "内容1……", attrs: ["A", "1", "a"] },
+        { text: "内容2……", attrs: ["B", "3", "b"] },
+        { text: "内容3……", attrs: ["C", "2", "a"] },
+        { text: "内容4……", attrs: ["B", "3", "c"] }
+    ];
+
+    items.forEach(item => {
+        if ((filterA === '' || item.attrs[0] === filterA) &&
+            (filterB === '' || item.attrs[1] === filterB) &&
+            (filterC === '' || item.attrs[2] === filterC)) {
+            const li = document.createElement('li');
+            li.textContent = `"${item.text}"，特征：${item.attrs.join(',')}`;
+            contentList.appendChild(li);
+        }
+    });
+}
+    // 为每个下拉列表添加change事件监听器
+    selects.forEach(select => {
+        select.addEventListener('change', filterContent);
+    });
+
+    // 初始筛选（可选）
+    filterContent();
+});
+</script>
+</head>
+<body>
+<h1>选择特征</h1>
+<select>
+    <option value="">--请选择--</option>
+    <option value="A">A</option>
+    <option value="B">B</option>
+    <option value="C">C</option>
+    <option value="D">D</option>
+</select>
+<select>
+    <option value="">--请选择--</option>
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+</select>
+<select>
+    <option value="">--不选择--</option>
+    <option value="a">a</option>
+    <option value="b">b</option>
+    <option value="c">c</option>
+    <option value="d">d</option>
+</select>
+
+<h1>公式</h1>
+<ul id="content-list"></ul>
+</body>
+</html>
