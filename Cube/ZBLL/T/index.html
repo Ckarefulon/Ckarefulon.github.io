@@ -84,12 +84,12 @@ function filterContent() {
     contentList.innerHTML = '';
     const items = [
         { text: "T01", attrs: ["壹=乙=贰", "丁=戊=己", "庚=辛", "壬=癸"] },
-        { text: "T12", attrs: ["壹=乙=贰", "丁=己", "庚↔辛", "壬 - 癸"] },
-        { text: "T06", attrs: ["壹=乙=贰", "丁=己", "庚 - 辛", "壬↔癸"] },
-        { text: "T02", attrs: ["壹=贰", "丁=戊=己", "庚↔辛", "壬 - 癸"] },
-        { text: "T03", attrs: ["壹=贰", "丁=戊=己", "庚 - 辛", "壬↔癸"] },
-        { text: "T09", attrs: ["壹=贰", "丁↔戊↔己", "庚=辛", "壬 - 癸"] },
-        { text: "T03", attrs: ["壹=贰", "丁↔戊↔己", "庚 - 辛", "壬=癸"] },
+        { text: "T12", attrs: ["壹=乙=贰", "丁=己", "庚↔辛", "壬—癸"] },
+        { text: "T06", attrs: ["壹=乙=贰", "丁=己", "庚—辛", "壬↔癸"] },
+        { text: "T02", attrs: ["壹=贰", "丁=戊=己", "庚↔辛", "壬—癸"] },
+        { text: "T03", attrs: ["壹=贰", "丁=戊=己", "庚—辛", "壬↔癸"] },
+        { text: "T09", attrs: ["壹=贰", "丁↔戊↔己", "庚=辛", "壬—癸"] },
+        { text: "T03", attrs: ["壹=贰", "丁↔戊↔己", "庚—辛", "壬=癸"] },
         { text: "T??", attrs: ["壹=贰", "丁↔戊↔己", "庚↔辛", "壬↔癸"] }
     ];
 
@@ -143,13 +143,13 @@ function filterContent() {
     <option value="">【庚辛】</option>
     <option value="庚=辛">庚=辛</option>
     <option value="庚↔辛">庚↔辛</option>
-    <option value="庚↔辛">庚 - 辛</option>
+    <option value="庚↔辛">庚—辛</option>
 </select>
 <select>
     <option value="">【壬癸】</option>
     <option value="壬=癸">壬=癸</option>
     <option value="壬↔癸">壬↔癸</option>
-    <option value="壬↔癸">壬 - 癸</option>
+    <option value="壬↔癸">壬—癸</option>
 </select>
 
 
