@@ -87,27 +87,31 @@ function filterContent() {
     const filterD = selects[3].value;
     contentList.innerHTML = '';
     const items = [
-        { text: "T72", attrs: ["壹=乙=贰", "丁=戊=己", "庚=辛", "壬=癸"] },
-        { text: "T67", attrs: ["壹=乙=贰", "丁=己", "庚↔辛", "壬—癸"] },
-        { text: "T68", attrs: ["壹=乙=贰", "丁=己", "庚—辛", "壬↔癸"] },
-        { text: "T62", attrs: ["壹=贰", "丁=戊=己", "庚↔辛", "壬—癸"] },
-        { text: "T61", attrs: ["壹=贰", "丁=戊=己", "庚—辛", "壬↔癸"] },
-        { text: "T64", attrs: ["壹=贰", "丁↔戊↔己", "庚=辛", "壬—癸"] },
-        { text: "T66", attrs: ["壹=贰", "丁↔戊↔己", "庚—辛", "壬=癸"] },
-        { text: "T71", attrs: ["壹=贰", "丁↔戊↔己", "庚↔辛", "壬↔癸"] }
+        { text: "T72", attrs: ["壹=乙=贰", "丁=戊=己", "庚=辛", "壬=癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_72" },
+        { text: "T67", attrs: ["壹=乙=贰", "丁=己", "庚↔辛", "壬—癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_67" },
+        { text: "T68", attrs: ["壹=乙=贰", "丁=己", "庚—辛", "壬↔癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_68" },
+        { text: "T62", attrs: ["壹=贰", "丁=戊=己", "庚↔辛", "壬—癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_62" },
+        { text: "T61", attrs: ["壹=贰", "丁=戊=己", "庚—辛", "壬↔癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_61" },
+        { text: "T64", attrs: ["壹=贰", "丁↔戊↔己", "庚=辛", "壬—癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_64" },
+        { text: "T66", attrs: ["壹=贰", "丁↔戊↔己", "庚—辛", "壬=癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_66" },
+        { text: "T71", attrs: ["壹=贰", "丁↔戊↔己", "庚↔辛", "壬↔癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_71" }
     ];
 
-    items.forEach(item => {
-        if ((filterA === '' || item.attrs[0] === filterA) &&
-            (filterB === '' || item.attrs[1] === filterB) &&
-            (filterC === '' || item.attrs[2] === filterC) &&
-            (filterD === '' || item.attrs[3] === filterD)) {
-            const li = document.createElement('li');
-            li.textContent = `"${item.text}"，特征：${item.attrs.join(', ')}`;
-            contentList.appendChild(li);
-        }
-    });
-}
+        items.forEach(item => {
+            if ((filterA === '' || item.attrs[0] === filterA) &&
+                (filterB === '' || item.attrs[1] === filterB) &&
+                (filterC === '' || item.attrs[2] === filterC) &&
+                (filterD === '' || item.attrs[3] === filterD)) {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = item.link;
+                a.textContent = `"${item.text}"，特征：${item.attrs.join(', ')}`;
+                li.appendChild(a);
+                contentList.appendChild(li);
+            }
+        });
+    }
+
     selects.forEach(select => {
         select.addEventListener('change', filterContent);
     });
