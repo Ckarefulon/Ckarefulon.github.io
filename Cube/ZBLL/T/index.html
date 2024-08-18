@@ -2,7 +2,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZBLL</title>
+<title>ZBLL</title>https://github.com/Ckarefulon/Ckarefulon.github.io/projects
 <link rel="icon" type="image/png" href="../../../Favicon.png">
 <style>
   body {
@@ -106,6 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const div = document.createElement('div');
                 div.textContent = `"${item.text}"，特征：${item.attrs.join(', ')}`;
                 div.style.cursor = 'pointer';
+                div.style.backgroundColor = #a0a2de;
                 div.addEventListener('click', function() {
                     window.location.href = item.link;
                 });
