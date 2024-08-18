@@ -4,7 +4,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ZBLL T</title>
 <link rel="icon" type="image/png" href="../../../Favicon.png">
-<base target="_blank">
 <style>
   body {
     background-color: #5d4ea8;
@@ -108,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 div.textContent = `"${item.text}"，特征：${item.attrs.join(', ')}`;
                 div.style.cursor = 'pointer';
                 div.addEventListener('click', function() {
-                    window.location.href = item.link;
+                    window.open(item.link, '_blank');
                 });
                 contentList.appendChild(div);
             }
