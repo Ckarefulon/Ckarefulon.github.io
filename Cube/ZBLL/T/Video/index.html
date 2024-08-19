@@ -104,8 +104,15 @@
     margin-top: 10px;
     border-radius: 13px;
     color: #55367a;
-    box-shadow: 10px 10px 17px;
-  }
+    box-shadow: 10px 10px 17px #55367a,
+                -10px -10px 17px #55367a;
+    transition: all 0.2s ease-out;
+}
+
+#content-list li:hover {
+    box-shadow: inset 10px 10px 17px #55367a,
+                inset -10px -10px 17px #55367a;
+}
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
