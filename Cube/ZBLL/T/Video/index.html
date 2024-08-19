@@ -96,7 +96,14 @@
   #content-list {
     list-style: none;
     padding: 0;
+    box-shadow: 10px 10px 17px,
+                -10px -10px 17px;
+    transition: all 0.2s ease-out;
   }
+  #content-list:hover {
+    box-shadow: inset 10px 10px 17px,
+                inset -10px -10px 17px;
+}
   #content-list li {
     background-color: #a0a2de;
     border: 3px solid #24f0ea;
