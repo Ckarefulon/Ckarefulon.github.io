@@ -1,0 +1,211 @@
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZBLL T</title>
+<link rel="icon" type="image/png" href="../../../Favicon.png">
+<style>
+  body {
+    background-color: #5d4ea8;
+    margin: 0;
+    padding: 20px;
+  }
+  h1{
+    color: #24f0ea;
+    text-shadow: 10px 10px 17px #55367a;
+  }
+  p{
+    margin: 0;
+  }
+  select {
+    padding: 10px;
+    margin-right: 10px;
+    border: 3px solid #24f0ea;
+    border-radius: 13px;
+    background-color: #a0a2de;
+    color: #55367a;
+    text-align: center;
+    margin-top: 7px;
+    box-shadow: 10px 10px 17px;
+  }
+  div{
+    background-color: #a0a2de;
+    border: 3px solid #24f0ea;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 17px;
+    color: #55367a;
+    box-shadow: 10px 10px 17px;
+  }
+  iframe {
+    border: none;
+  }
+  .Top{
+    background-color: #5d4ea8;
+    border: 3px solid #24f0ea;
+    padding: 10px;
+    color: #24f0ea;
+    box-shadow: 0px 17px 25px #55367a;
+    margin: 0;
+    position: fixed;
+    right: 0px;
+    left: 0px;
+    top: 0px;
+    border-radius: 0px 0px 17px 17px;
+    z-index: 998
+  }
+  .None{
+    all: revert;
+    float: right;
+  }
+  .Hide{
+     all: revert;
+     position: fixed;
+     left: 0px;
+     right: 0px;
+     top: 0px;
+     z-index: 999;
+     margin-top: 12.4;
+     text-align: center;
+     color: #24f0ea;
+  }
+  .aNone{
+    all: revert;
+    float: right;
+  }
+  .bNone{
+    all: revert;
+    float: right;
+    margin-right: 7px;
+  }
+  @media (max-width: 427px) {
+    .Hide{
+      display: none;
+    }
+  }
+  @media (max-width: 287px) {
+    .aNone{
+      display: none;
+    }
+  }
+  @media (max-width: 207px) {
+    .bNone{
+      display: none;
+    }
+  }
+  #content-list {
+    list-style: none;
+    padding: 0;
+  }
+  #content-list li {
+    background-color: #a0a2de;
+    border: 3px solid #24f0ea;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 13px;
+    color: #55367a;
+    box-shadow: 10px 10px 17px;
+  }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selects = document.querySelectorAll('select');
+    const contentList = document.getElementById('content-list');
+    
+    function filterContent() {
+        const filterA = selects[0].value;
+        const filterB = selects[1].value;
+        const filterC = selects[2].value;
+        const filterD = selects[3].value;
+        contentList.innerHTML = '';
+        const items = [
+            { text: "T72", attrs: ["壹=乙=贰", "丁=戊=己", "庚=辛", "壬=癸"], link: "https://www.bilibili.com/video/BV1iGYreQEkq" },
+            { text: "T67", attrs: ["壹=乙=贰", "丁=己", "庚↔辛", "壬—癸"], link: "https://www.bilibili.com/video/BV1odYreHEAM" },
+            { text: "T68", attrs: ["壹=乙=贰", "丁=己", "庚—辛", "壬↔癸"], link: "https://www.bilibili.com/video/BV1KeYreqE5X" },
+            { text: "T62", attrs: ["壹=贰", "丁=戊=己", "庚↔辛", "壬—癸"], link: "https://www.bilibili.com/video/BV1EMYresEfq" },
+            { text: "T61", attrs: ["壹=贰", "丁=戊=己", "庚—辛", "壬↔癸"], link: "https://www.bilibili.com/video/BV1iFYyetEbm" },
+            { text: "T64", attrs: ["壹=贰", "丁↔戊↔己", "庚=辛", "壬—癸"], link: "https://www.bilibili.com/video/BV1vHYCeWEE8" },
+            { text: "T66", attrs: ["壹=贰", "丁↔戊↔己", "庚—辛", "壬=癸"], link: "https://www.bilibili.com/video/BV1uaYCe2EK2" },
+            { text: "T71", attrs: ["壹=贰", "丁↔戊↔己", "庚↔辛", "壬↔癸"], link: "https://www.bilibili.com/video/BV1wreseQE7W" },
+            { text: "T38", attrs: ["壹=乙=贰", "丁↔戊＝己", "庚＝辛", "壬—癸"], link: "https://www.bilibili.com/video/BV1PDpSeaEpU" },
+            { text: "T40", attrs: ["壹=乙=贰", "丁＝戊↔己", "庚—辛", "壬=癸"], link: "../../../Video" },  
+            { text: "T45", attrs: ["壹=贰", "丁＝戊↔己", "庚↔辛", "壬—癸"], link: "../../../Video" },
+            { text: "T46", attrs: ["壹=贰", "丁↔戊＝己", "庚—辛", "壬↔癸"], link: "../../../Video" },
+            { text: "T42", attrs: ["壹=贰", "丁＝戊↔己", "庚＝辛", "壬↔癸"], link: "../../../Video" },
+            { text: "T41", attrs: ["壹=贰", "丁↔戊＝己", "庚↔辛", "壬＝癸"], link: "../../../Video" },
+        ];
+
+        items.forEach(item => {
+            if ((filterA === '' || item.attrs[0] === filterA) &&
+                (filterB === '' || item.attrs[1] === filterB) &&
+                (filterC === '' || item.attrs[2] === filterC) &&
+                (filterD === '' || item.attrs[3] === filterD)) {
+                const div = document.createElement('div');
+                div.textContent = `"${item.text}"，特征：${item.attrs.join(', ')}`;
+                div.style.cursor = 'pointer';
+                div.addEventListener('click', function() {
+                    window.open(item.link, '_blank');
+                });
+                contentList.appendChild(div);
+            }
+        });
+    }
+
+    selects.forEach(select => {
+        select.addEventListener('change', filterContent);
+    });
+    filterContent();
+});
+</script>
+</head>
+<body>
+<br/>
+<div class="Top">
+      <div style="float: left;" class="None">Ckarefulon</div>
+      <div class="aNone">Ckareful S.</div>
+      <div class="None"><img style="width: 20px;height: 20px" src="../../../Favicon.png"></div>
+      <div class="bNone">by</div>
+</div>
+<span class="Hide">ZBLL T</span>
+<div style="
+  width: 286px;
+  height: 286px;
+  position: fixed;
+  right: 20px;
+  margin-top: 30px;
+  z-index: 997;
+  background-color: #5d4ea8;
+">
+<iframe src="Cube.svg" width="286" height="286"></iframe>
+</div>
+<h1>选择特征</h1>
+<select>
+    <option value="">【壹乙贰】</option>
+    <option value="壹=贰">壹=贰</option>
+    <option value="壹↔贰">壹↔贰</option>
+    <option value="壹=乙=贰">壹=乙=贰</option>
+    <option value="壹↔乙↔贰">壹↔乙↔贰</option>
+</select>
+<select>
+    <option value="">【丁戊己】</option>
+    <option value="丁=己">丁=己</option>
+    <option value="丁↔己">丁↔己</option>
+    <option value="丁=戊=己">丁=戊=己</option>
+    <option value="丁↔戊↔己">丁↔戊↔己</option>
+</select>
+<select>
+    <option value="">【庚辛】</option>
+    <option value="庚=辛">庚=辛</option>
+    <option value="庚↔辛">庚↔辛</option>
+    <option value="庚—辛">庚—辛</option>
+</select>
+<select>
+    <option value="">【壬癸】</option>
+    <option value="壬=癸">壬=癸</option>
+    <option value="壬↔癸">壬↔癸</option>
+    <option value="壬—癸">壬—癸</option>
+</select>
+<h1>公式</h1>
+<ul id="content-list"></ul>
+</body>
+</html>
