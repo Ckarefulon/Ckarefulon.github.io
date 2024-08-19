@@ -61,6 +61,22 @@ select option:hover {
     all: revert;
     float: right;
   }
+  .Hide{
+     all: revert;
+     position: fixed;
+     left: 0px;
+     right: 0px;
+     top: 0px;
+     z-index: 999;
+     margin-top: 12.4;
+     text-align: center;
+     color: #24f0ea;
+  }
+  @media (max-width: 600px) {
+    .Hide{
+      display: none;
+    }
+  }
   #content-list {
     list-style: none;
     padding: 0;
@@ -75,7 +91,6 @@ select option:hover {
     box-shadow: 10px 10px 17px;
   }
 </style>
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const selects = document.querySelectorAll('select');
@@ -135,17 +150,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="None"><img style="width: 20px;height: 20px" src="../../../Favicon.png"></div>
       <div style="margin-right: 7px;"class="None">by</div>
 </div>
-<span style="all: revert;
-             display: inline;
-             position: fixed;
-             left: 0px;
-             right: 0px;
-             top: 0px;
-             z-index: 999;
-             margin-top: 12.4;
-             text-align: center;
-             color: #24f0ea;
-">ZBLL T</span>
+<span class="Hide">ZBLL T</span>
 <div style="
   width: 267px;
   position: fixed;
