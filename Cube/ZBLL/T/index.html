@@ -6,8 +6,6 @@
 <link rel="icon" type="image/png" href="../../../Favicon.png">
 <style>
   body {
-    min-width: 347px;
-    width: expression((documentElement.clientWidth > 1140) ? "347px" : "auto" );
     background-color: #5d4ea8;
     margin: 0;
     padding: 20px;
@@ -74,8 +72,27 @@ select option:hover {
      text-align: center;
      color: #24f0ea;
   }
+  .aNone{
+    all: revert;
+    float: right;
+  }
+  .bNone{
+    all: revert;
+    float: right;
+    margin-right: 7px;
+  }
   @media (max-width: 427px) {
     .Hide{
+      display: none;
+    }
+  }
+  @media (max-width: 287px) {
+    .aNone{
+      display: none;
+    }
+  }
+  @media (max-width: 207px) {
+    .bNone{
       display: none;
     }
   }
@@ -148,9 +165,9 @@ document.addEventListener('DOMContentLoaded', function() {
 <br/>
 <div class="Top">
       <div style="float: left;" class="None">Ckarefulon</div>
-      <div class="None">Ckareful S.</div>
+      <div class="aNone">Ckareful S.</div>
       <div class="None"><img style="width: 20px;height: 20px" src="../../../Favicon.png"></div>
-      <div style="margin-right: 7px;"class="None">by</div>
+      <div class="bNone">by</div>
 </div>
 <span class="Hide">ZBLL T</span>
 <div style="
