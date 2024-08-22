@@ -16,24 +16,25 @@
         font-weight: bold;
         font-size: 7em;
         margin: auto;
+        padding: 7;
       }
       .Top{
+        box-shadow: 0px 17px 25px #55367a;
+        border-radius: 0px 0px 17px 17px;
         background-color: #5d4ea8;
         border: 3px solid #24f0ea;
-        padding: 10px;
-        color: #24f0ea;
-        box-shadow: 0px 17px 25px #55367a;
-        margin: 0;
         position: fixed;
+        color: #24f0ea;
+        padding: 10px;
+        z-index: 998;
         right: 0px;
         left: 0px;
+        margin: 0;
         top: 0px;
-        border-radius: 0px 0px 17px 17px;
-        z-index: 998
       }
       .None{
-        all: revert;
         float: right;
+        all: revert;
       }
       .Hide{
         all: revert;
@@ -82,7 +83,10 @@
     </div>
     <span class="Hide">ZBLL T</span>
     <br/>
-    <h1 style="color: #24f0ea;">Link to...</h1>
+    <h1 style="position: fixed;
+               color: #24f0ea;
+               top: 37px;
+    ">Link to...</h1>
     <a href="Video">Video</a>
     <a href="Database">Database</a>
   </body>
