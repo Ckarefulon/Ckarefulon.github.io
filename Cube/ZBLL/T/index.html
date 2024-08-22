@@ -4,11 +4,86 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ZBLL T</title>
     <link rel="icon" type="image/png" href="/Favicon.png">
+    <style>
+      body{
+        background-color: #5d4ea8;
+        display: flex;
+      }
+      a{
+        color: #24f0ea;
+        text-shadow: 17px 17px 17px #55367a;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 7em;
+        margin: auto;
+      }
+      .Top{
+        background-color: #5d4ea8;
+        border: 3px solid #24f0ea;
+        padding: 10px;
+        color: #24f0ea;
+        box-shadow: 0px 17px 25px #55367a;
+        margin: 0;
+        position: fixed;
+        right: 0px;
+        left: 0px;
+        top: 0px;
+        border-radius: 0px 0px 17px 17px;
+        z-index: 998
+      }
+      .None{
+        all: revert;
+        float: right;
+      }
+      .Hide{
+        all: revert;
+        position: fixed;
+        left: 0px;
+        right: 0px;
+        top: 0px;
+        z-index: 999;
+        margin-top: 12.4;
+        text-align: center;
+        color: #24f0ea;
+      }
+      .aNone{
+        all: revert;
+        float: right;
+      }
+      .bNone{
+        all: revert;
+        float: right;
+        margin-right: 7px;
+      }
+      @media (max-width: 427px) {
+        .Hide{
+          display: none;
+        }
+      }
+      @media (max-width: 287px) {
+        .aNone{
+          display: none;
+        }
+      }
+      @media (max-width: 207px) {
+        .bNone{
+          display: none;
+        }
+      }
+    </style>
   </head>
   <body>
-    <span>跳转中……</span>
-    <script>
-      window.location.href = "Video"
-    </script>
+    <br/>
+    <div class="Top">
+      <div style="float: left;" class="None">Ckarefulon</div>
+      <div class="aNone">Ckareful S.</div>
+      <div class="None"><img style="width: 20px;height: 20px" src="/Favicon.png"></div>
+      <div class="bNone">by</div>
+    </div>
+    <span class="Hide">ZBLL T</span>
+    <br/>
+    <h1 style="color: #24f0ea;">Link to...</h1>
+    <a href="Video">Video</a>
+    <a href="Database">Database</a>
   </body>
 </html>
