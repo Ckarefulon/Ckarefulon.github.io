@@ -15,6 +15,9 @@
         font-size: 7em;
         margin: auto;
       }
+    p{
+        font-size: larger;
+    }
       .Top{
         background-color: #5d4ea8;
         border: 3px solid #24f0ea;
@@ -80,6 +83,75 @@
     </div>
     <span class="Hide">404</span>
     <h1>404</h1>
-    <img style="width: 37%; position: fixed; left: 7px; bottom: 0px;" src="/404.png">
+    <img id="img1" src="404.png" style="width: 37%; position: fixed; left: 7px; bottom: 0px; cursor: pointer;">
+    <img id="img2" src="All.png" style="width: 37%; display: none; position: fixed; right: 7px; bottom: 7px; cursor: pointer;" onclick="playVideo()">
+    <script>
+document.getElementById('img1').addEventListener('click', function() {
+    var img2 = document.getElementById('img2');
+    if (img2.style.display === "none") {
+        img2.style.display = "block";
+        img1.style.display = "none"
+    } else {
+        img2.style.display = "none";
+    }
+});
+    </script>
+
+<video id="vdeo" width="100%" style="display:none;
+    position: fixed;
+    z-index: 1000;
+    top: 0px;
+    left: 0px;
+">
+  <source src="404.mp4" type="video/mp4">
+</video>
+<div id="err" style="position: fixed;
+z-index: 1001;
+width: 100%; 
+height: 100%;
+left: 0px;
+top: 0px;
+background-color: #5d4ea8;
+color: #24f0ea;
+display: none;
+padding: 70px">
+<p style="
+    font-size: 7em;
+    font-weight: bold;
+    margin-top: 0px;
+">:(</p>
+<p>您的设备遇到一些问题，我们只假装收集一些错误信息，然后重新为您“蓝屏”。</p>
+<p id="counter">0% complete</p>
+</div>
+<script>
+let count = 0;
+const counterElement = document.getElementById('counter');
+
+const updateCounter = () => {
+    if (count > 100) {
+        count = 0;
+        setTimeout(updateCounter, 1700);
+        counterElement.textContent = count + '% complete';
+    } else {
+        count++;
+        counterElement.textContent = count + '% complete';
+        setTimeout(updateCounter, 70);
+    }
+};
+
+function playVideo() {
+    var video = document.getElementById("vdeo");
+    var img2 = document.getElementById("img2");
+    video.style.display = 'block';
+    img2.style.display = 'none';
+    video.play();
+    video.addEventListener('ended', function() {
+        document.getElementById('err').style.display = 'block';
+        setTimeout(() => {
+            updateCounter(); // 1.7秒后开始计数
+        }, 1700);
+    });
+}
+</script>
   </body>
 </html>
