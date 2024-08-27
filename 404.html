@@ -56,6 +56,24 @@
         float: right;
         margin-right: 7px;
       }
+      .container {
+        display: flex;
+        align-items: stretch;
+      }
+      
+      .container img {
+        width: 170px;
+      }
+      
+      .text-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding-right: 10px;
+        padding-left: 10px;
+        box-sizing: border-box;
+        line-height:1.7;
+      }
       @media (max-width: 427px) {
         .Hide{
           display: none;
@@ -83,8 +101,8 @@
     </div>
     <span class="Hide">404</span>
     <h1>404</h1>
-    <img id="img1" src="/404.png" style="width: 37%; position: fixed; left: 7px; bottom: 0px; cursor: pointer;">
-    <img id="img2" src="/All.png" style="width: 37%; display: none; position: fixed; right: 7px; bottom: 7px; cursor: pointer;" onclick="playVideo()">
+    <img id="img1" src="/404/404.png" style="width: 37%; position: fixed; left: 7px; bottom: 0px; cursor: pointer;">
+    <img id="img2" src="/404/All.png" style="width: 37%; display: none; position: fixed; right: 7px; bottom: 7px; cursor: pointer;" onclick="playVideo()">
     <script>
 document.getElementById('img1').addEventListener('click', function() {
     var img2 = document.getElementById('img2');
@@ -103,7 +121,7 @@ document.getElementById('img1').addEventListener('click', function() {
     top: 0px;
     left: 0px;
 ">
-  <source src="/404.mp4" type="video/mp4">
+  <source src="/404/404.mp4" type="video/mp4">
 </video>
 <div id="err" style="position: fixed;
 z-index: 1001;
@@ -114,15 +132,26 @@ top: 0px;
 background-color: #5d4ea8;
 color: #24f0ea;
 display: none;
-padding: 70px">
+padding: 70px;
+padding-top: 34px;
+font-size: 25">
 <p style="
     font-size: 7em;
-    font-weight: bold;
-    margin-top: 0px;
+    margin: 0;
 ">:(</p>
-<p>您的设备遇到一些问题，我们只假装收集一些错误信息，然后重新为您“蓝屏”。</p>
-<p id="counter">0% complete</p>
-<p>错误代码：DO_NOT_TOUCH_THEM!
+<p>您的设备遇到问题，需要重启。</p>
+<p>我们只假装收集某些错误信息，然后为你重新蓝屏</p>
+<p id="counter" style="margin-top: 47px; margin-bottom: 47px;">0% 完成</p>
+<div class="container">
+    <img src="QR.svg"/>
+    <div class="text-container">
+        有关此问题的详细信息和可能的解决万法，请访问<br>
+        https://www.windows.com/stopcode<br>
+        如果致电支持人员，请向他们提供以下信息：<br>
+        终止代码: DO NOT TOUCH THEM
+    </div>
+</div>
+</div>
 </div>
 <script>
 let count = 0;
