@@ -152,20 +152,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const filterD = selects[3].value;
         contentList.innerHTML = '';
         const items = [
-            { text: "T72", attrs: ["壹=乙=贰", "丁=戊=己", "庚=辛", "壬=癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_72" },
-            { text: "T67", attrs: ["壹=乙=贰", "丁=己", "庚↔辛", "壬—癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_67" },
-            { text: "T68", attrs: ["壹=乙=贰", "丁=己", "庚—辛", "壬↔癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_68" },
-            { text: "T62", attrs: ["壹=贰", "丁=戊=己", "庚↔辛", "壬—癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_62" },
-            { text: "T61", attrs: ["壹=贰", "丁=戊=己", "庚—辛", "壬↔癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_61" },
-            { text: "T64", attrs: ["壹=贰", "丁↔戊↔己", "庚=辛", "壬—癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_64" },
-            { text: "T66", attrs: ["壹=贰", "丁↔戊↔己", "庚—辛", "壬=癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_66" },
-            { text: "T71", attrs: ["壹=贰", "丁↔戊↔己", "庚↔辛", "壬↔癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_71" },
-            { text: "T38", attrs: ["壹=乙=贰", "丁↔戊＝己", "庚＝辛", "壬—癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_38" },
-            { text: "T40", attrs: ["壹=乙=贰", "丁＝戊↔己", "庚—辛", "壬=癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_40" },  
-            { text: "T45", attrs: ["壹=贰", "丁＝戊↔己", "庚↔辛", "壬—癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_45" },
-            { text: "T46", attrs: ["壹=贰", "丁↔戊＝己", "庚—辛", "壬↔癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_46" },
-            { text: "T42", attrs: ["壹=贰", "丁＝戊↔己", "庚＝辛", "壬↔癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_42" },
-            { text: "T41", attrs: ["壹=贰", "丁↔戊＝己", "庚↔辛", "壬＝癸"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_41" },
+            { text: "T72", attrs: ["卯=丑=辰", "酉=戌=亥", "巳=午", "未=申"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_72" },
+            { text: "T67", attrs: ["卯=丑=辰", "酉=亥", "巳↔午", "未—申"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_67" },
+            { text: "T68", attrs: ["卯=丑=辰", "酉=亥", "巳—午", "未↔申"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_68" },
+            { text: "T62", attrs: ["卯=辰", "酉=戌=亥", "巳↔午", "未—申"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_62" },
+            { text: "T61", attrs: ["卯=辰", "酉=戌=亥", "巳—午", "未↔申"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_61" },
+            { text: "T64", attrs: ["卯=辰", "酉↔戌↔亥", "巳=午", "未—申"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_64" },
+            { text: "T66", attrs: ["卯=辰", "酉↔戌↔亥", "巳—午", "未=申"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_66" },
+            { text: "T71", attrs: ["卯=辰", "酉↔戌↔亥", "巳↔午", "未↔申"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_71" },
+            { text: "T38", attrs: ["卯=丑=辰", "酉↔戌＝亥", "巳＝午", "未—申"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_38" },
+            { text: "T40", attrs: ["卯=丑=辰", "酉＝戌↔亥", "巳—午", "未=申"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_40" },  
+            { text: "T45", attrs: ["卯=辰", "酉＝戌↔亥", "巳↔午", "未—申"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_45" },
+            { text: "T46", attrs: ["卯=辰", "酉↔戌＝亥", "巳—午", "未↔申"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_46" },
+            { text: "T42", attrs: ["卯=辰", "酉＝戌↔亥", "巳＝午", "未↔申"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_42" },
+            { text: "T41", attrs: ["卯=辰", "酉↔戌＝亥", "巳↔午", "未＝申"], link: "https://speedcubedb.com/a/3x3/ZBLLT/ZBLL_T_41" },
         ];
 
         items.forEach(item => {
@@ -231,30 +231,30 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 <h1>选择特征</h1>
 <select>
-    <option value="">【壹乙贰】</option>
-    <option value="壹=贰">壹=贰</option>
-    <option value="壹↔贰">壹↔贰</option>
-    <option value="壹=乙=贰">壹=乙=贰</option>
-    <option value="壹↔乙↔贰">壹↔乙↔贰</option>
+    <option value="">【卯丑辰】</option>
+    <option value="卯=辰">卯=辰</option>
+    <option value="卯↔辰">卯↔辰</option>
+    <option value="卯=丑=辰">卯=丑=辰</option>
+    <option value="卯↔丑↔辰">卯↔丑↔辰</option>
 </select>
 <select>
-    <option value="">【丁戊己】</option>
-    <option value="丁=己">丁=己</option>
-    <option value="丁↔己">丁↔己</option>
-    <option value="丁=戊=己">丁=戊=己</option>
-    <option value="丁↔戊↔己">丁↔戊↔己</option>
+    <option value="">【酉戌亥】</option>
+    <option value="酉=亥">酉=亥</option>
+    <option value="酉↔亥">酉↔亥</option>
+    <option value="酉=戌=亥">酉=戌=亥</option>
+    <option value="酉↔戌↔亥">酉↔戌↔亥</option>
 </select>
 <select>
-    <option value="">【庚辛】</option>
-    <option value="庚=辛">庚=辛</option>
-    <option value="庚↔辛">庚↔辛</option>
-    <option value="庚—辛">庚—辛</option>
+    <option value="">【巳午】</option>
+    <option value="巳=午">巳=午</option>
+    <option value="巳↔午">巳↔午</option>
+    <option value="巳—午">巳—午</option>
 </select>
 <select>
-    <option value="">【壬癸】</option>
-    <option value="壬=癸">壬=癸</option>
-    <option value="壬↔癸">壬↔癸</option>
-    <option value="壬—癸">壬—癸</option>
+    <option value="">【未申】</option>
+    <option value="未=申">未=申</option>
+    <option value="未↔申">未↔申</option>
+    <option value="未—申">未—申</option>
 </select>
 <h1>公式</h1>
 <ul id="content-list"></ul>
