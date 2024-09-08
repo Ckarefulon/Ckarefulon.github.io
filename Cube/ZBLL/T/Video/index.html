@@ -159,20 +159,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const filterD = selects[3].value;
         contentList.innerHTML = '';
         const items = [
-            { text: "T72", attrs: ["卯=丑=辰", "酉=戌=亥", "巳=午", "未=申"], link: "https://www.bilibili.com/video/BV1iGYreQEkq" },
-            { text: "T67", attrs: ["卯=丑=辰", "酉=亥", "巳↔午", "未—申"], link: "https://www.bilibili.com/video/BV1odYreHEAM" },
-            { text: "T68", attrs: ["卯=丑=辰", "酉=亥", "巳—午", "未↔申"], link: "https://www.bilibili.com/video/BV1KeYreqE5X" },
+            { text: "T72", attrs: ["卯=丑=辰", "酉=戌=亥", "巳=午", "未=申"],   link: "https://www.bilibili.com/video/BV1iGYreQEkq" },
+            { text: "T67", attrs: ["卯=丑=辰", "酉=亥", "巳↔午", "未—申"],      link: "https://www.bilibili.com/video/BV1odYreHEAM" },
+            { text: "T68", attrs: ["卯=丑=辰", "酉=亥", "巳—午", "未↔申"],      link: "https://www.bilibili.com/video/BV1KeYreqE5X" },
             { text: "T38", attrs: ["卯=丑=辰", "酉↔戌＝亥", "巳＝午", "未—申"], link: "https://www.bilibili.com/video/BV1PDpSeaEpU" },
-            { text: "T40", attrs: ["卯=丑=辰", "酉＝戌↔亥", "巳—午", "未=申"], link: "https://www.bilibili.com/video/BV1wgWke6EVL" },  
-            { text: "T62", attrs: ["卯=辰", "酉=戌=亥", "巳↔午", "未—申"], link: "https://www.bilibili.com/video/BV1EMYresEfq" },
-            { text: "T61", attrs: ["卯=辰", "酉=戌=亥", "巳—午", "未↔申"], link: "https://www.bilibili.com/video/BV1iFYyetEbm" },
-            { text: "T64", attrs: ["卯=辰", "酉↔戌↔亥", "巳=午", "未—申"], link: "https://www.bilibili.com/video/BV1vHYCeWEE8" },
-            { text: "T66", attrs: ["卯=辰", "酉↔戌↔亥", "巳—午", "未=申"], link: "https://www.bilibili.com/video/BV1uaYCe2EK2" },
-            { text: "T71", attrs: ["卯=辰", "酉↔戌↔亥", "巳↔午", "未↔申"], link: "https://www.bilibili.com/video/BV1wreseQE7W" },
-            { text: "T45", attrs: ["卯=辰", "酉＝戌↔亥", "巳↔午", "未—申"], link: "https://www.bilibili.com/video/BV1faWrevEoF" },
-            { text: "T46", attrs: ["卯=辰", "酉↔戌＝亥", "巳—午", "未↔申"], link: "../../../Video" },
-            { text: "T42", attrs: ["卯=辰", "酉＝戌↔亥", "巳＝午", "未↔申"], link: "../../../Video" },
-            { text: "T41", attrs: ["卯=辰", "酉↔戌＝亥", "巳↔午", "未＝申"], link: "../../../Video" },
+            { text: "T40", attrs: ["卯=丑=辰", "酉＝戌↔亥", "巳—午", "未=申"],  link: "https://www.bilibili.com/video/BV1wgWke6EVL" },  
+            { text: "T62", attrs: ["卯=辰", "酉=戌=亥", "巳↔午", "未—申"],      link: "https://www.bilibili.com/video/BV1EMYresEfq" },
+            { text: "T61", attrs: ["卯=辰", "酉=戌=亥", "巳—午", "未↔申"],      link: "https://www.bilibili.com/video/BV1iFYyetEbm" },
+            { text: "T64", attrs: ["卯=辰", "酉↔戌↔亥", "巳=午", "未—申"],      link: "https://www.bilibili.com/video/BV1vHYCeWEE8" },
+            { text: "T66", attrs: ["卯=辰", "酉↔戌↔亥", "巳—午", "未=申"],      link: "https://www.bilibili.com/video/BV1uaYCe2EK2" },
+            { text: "T71", attrs: ["卯=辰", "酉↔戌↔亥", "巳↔午", "未↔申"],      link: "https://www.bilibili.com/video/BV1wreseQE7W" },
+            { text: "T45", attrs: ["卯=辰", "酉＝戌↔亥", "巳↔午", "未—申"],     link: "https://www.bilibili.com/video/BV1faWrevEoF" },
+            { text: "T46", attrs: ["卯=辰", "酉↔戌＝亥", "巳—午", "未↔申"],     link: "https://www.bilibili.com/video/BV1KzpeeREhV" },
+            { text: "T42", attrs: ["卯=辰", "酉＝戌↔亥", "巳＝午", "未↔申"],    link: "https://www.bilibili.com/video/BV1zjpie7ETE" },
+            { text: "T41", attrs: ["卯=辰", "酉↔戌＝亥", "巳↔午", "未＝申"],    link: "../../../Video" },
         ];
 
         items.forEach(item => {
