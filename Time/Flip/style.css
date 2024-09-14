@@ -1,0 +1,42 @@
+﻿{
+	margin: 0;
+	padding: 0;
+}
+body
+{
+	display: flex;
+	text-align:center;
+	justify-content: center;
+	align-items: center;
+	/*min-height: 100vh;*/
+	background: #5d4ea8;
+}
+.clock
+{
+	width: auto;
+	zoom: 4;
+}
+.flip-clock-dot
+{
+	background: #24f0ea;
+}
+.flip-clock-meridium a
+{
+                color: #666;
+}
+h1 {
+                color: #24f0ea;
+	text-align:center;
+	zoom: 4;
+}
+#box
+{
+	display: table;
+	position:relative;
+}
+#content 
+{
+	text-align: center;
+	display: table-cell;
+	vertical-align: middle;
+}
