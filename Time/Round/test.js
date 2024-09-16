@@ -90,13 +90,13 @@
         hours:[],
         minutes:[],
         seconds:[],
-        yearUnit:"骞�",
-        monthUnit:"鏈�",
-        dayUnit:"鏃�",
-        weekUnit:"鏄熸湡",
-        hourUnit:"鏃�",
-        minuteUnit:"鍒�",
-        secondUnit:"绉�"
+        yearUnit:"年",
+        monthUnit:"月",
+        dayUnit:"日",
+        weekUnit:"-",
+        hourUnit:"时",
+        minuteUnit:"分",
+        secondUnit:"秒"
         
     }
     
@@ -551,7 +551,7 @@
         //灞曠ず鍒嗛挓
         var secText=$(".second span.current").text();
 
-        if(secText=="0绉�"||secText=="闆剁"||secText=="0 s"){
+        if(secText=="0秒"||secText=="闆剁"||secText=="0 s"){
             var minang1=6*(mini-1);
             var minang2=6*mini;
 
@@ -578,7 +578,7 @@
         //灞曠ず灏忔椂
         var minText=$(".minute span.current").text();
 
-        if((secText=="0绉�"||secText=="闆剁"||secText=="0 s") &&(minText=="0鍒�"||minText=="闆跺垎"||minText=="0 m")){
+        if((secText=="0秒"||secText=="闆剁"||secText=="0 s") &&(minText=="0秒"||minText=="闆跺垎"||minText=="0 m")){
 
             var hourang1=15*(houri-1);
             var hourang2=15*houri;
@@ -604,7 +604,7 @@
         //灞曠ず鏃惰景
         var hourText=$(".hour span.current").text();
 
-        if((secText=="0绉�"||secText=="闆剁"||secText=="0 s") && (minText=="0鍒�"||minText=="闆跺垎"||minText=="0 m")&&isShichen(hourText)){
+        if((secText=="0秒"||secText=="闆剁"||secText=="0 s") && (minText=="0秒"||minText=="闆跺垎"||minText=="0 m")&&isShichen(hourText)){
             var shichenang1=30*(shicheni-1);
             var shichenang2=30*shicheni;
 
@@ -628,7 +628,7 @@
 
 
         //灞曠ず鏄熸湡鍜屾棩鏁�
-        if((secText=="0绉�"||secText=="闆剁"||secText=="0 s") && (minText=="0鍒�"||minText=="闆跺垎"||minText=="0 m")&&(hourText=="0鏃�"||hourText=="闆舵椂"||hourText=="0 h")){
+        if((secText=="0秒"||secText=="闆剁"||secText=="0 s") && (minText=="0分"||minText=="闆跺垎"||minText=="0 m")&&(hourText=="0时"||hourText=="闆舵椂"||hourText=="0 h")){
             var weekang1=(360/7)*(weeki-1);
             var weekang2=(360/7)*weeki;
             var dayang1=(360/Time.days.length)*(dayi-1);
@@ -674,7 +674,7 @@
 
         //灞曠ず鏈�
         var dayText=$(".day span.current").text();
-        if((dayText=="1 day"||dayText==numToSimp(1)+"鏃�"||dayText==numToTrad(1)+"鏃�"||dayText=="1鏃�")&&(secText=="0绉�"||secText=="闆剁"||secText=="0 s") && (minText=="0鍒�"||minText=="闆跺垎"||minText=="0 m")&&(hourText=="0鏃�"||hourText=="闆舵椂"||hourText=="0 h")){
+        if((dayText=="1 day"||dayText==numToSimp(1)+"日"||dayText==numToTrad(1)+"日"||dayText=="1日")&&(secText=="0秒"||secText=="闆剁"||secText=="0 s") && (minText=="0分"||minText=="闆跺垎"||minText=="0 m")&&(hourText=="0时"||hourText=="闆舵椂"||hourText=="0 h")){
 
             var monthang1=30*(monthi-1);
             var monthang2=30*monthi;
@@ -733,7 +733,7 @@
 
         //璺熸柊鍒板勾
 
-        if(month==1&&(dayText=="1 day"||dayText==numToSimp(1)+"鏃�"||dayText==numToTrad(1)+"鏃�"||dayText=="1鏃�")&&(secText=="0绉�"||secText=="闆剁"||secText=="0 s") && (minText=="0鍒�"||minText=="闆跺垎"||minText=="0 m")&&(hourText=="0鏃�"||hourText=="闆舵椂"||hourText=="0 h")){
+        if(month==1&&(dayText=="1 day"||dayText==numToSimp(1)+"日"||dayText==numToTrad(1)+"日"||dayText=="1日")&&(secText=="0秒"||secText=="闆剁"||secText=="0 s") && (minText=="0分"||minText=="闆跺垎"||minText=="0 m")&&(hourText=="0时"||hourText=="闆舵椂"||hourText=="0 h")){
             year++;
             Time.currentTime.year=getYear(type,year);
             $(".year span").html(getYear(type,year)+Time.yearUnit);
