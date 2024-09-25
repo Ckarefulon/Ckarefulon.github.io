@@ -1,0 +1,112 @@
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人设图</title>
+    <link rel="icon" type="image/png" href="/Favicon.png">
+    <style>
+      body{
+        background-color: #5d4ea8;
+        display: flex;
+      }
+      h1{
+        color: #24f0ea;
+        text-shadow: 17px 17px 17px #55367a;
+        font-size: 7em;
+        margin: auto;
+      }
+    p{
+        font-size: larger;
+    }
+      .Top{
+        background-color: #5d4ea8;
+        border: 3px solid #24f0ea;
+        padding: 10px;
+        color: #24f0ea;
+        box-shadow: 0px 17px 25px #55367a;
+        margin: 0;
+        position: fixed;
+        right: 0px;
+        left: 0px;
+        top: 0px;
+        border-radius: 0px 0px 17px 17px;
+        z-index: 998
+      }
+      .None{
+        all: revert;
+        float: right;
+      }
+      .Hide{
+        all: revert;
+        position: fixed;
+        left: 0px;
+        right: 0px;
+        top: 0px;
+        z-index: 999;
+        margin-top: 12.4;
+        text-align: center;
+        color: #24f0ea;
+      }
+      .aNone{
+        all: revert;
+        float: right;
+      }
+      .bNone{
+        all: revert;
+        float: right;
+        margin-right: 7px;
+      }
+      @media (max-width: 427px) {
+        .Hide{
+          display: none;
+        }
+      }
+      @media (max-width: 287px) {
+        .aNone{
+          display: none;
+        }
+      }
+      @media (max-width: 207px) {
+        .bNone{
+          display: none;
+        }
+      }
+      .cntrtxt{
+        all: revert;
+        margin: auto;
+        color: #24f0ea;
+        font-size: 70;
+        font-weight: bold;
+      }
+      .btn{
+        background-color: #24f0ea;
+        color: #5d4ea8;
+        cursor: pointer;
+        margin: 17px;
+        border-radius: 70px;
+        padding: 7px;
+        font-size: 43px;
+        padding-right: 17;
+        padding-left: 17;
+      }
+    </style>
+  </head>
+  <body>
+    <br/>
+    <div class="Top">
+      <div style="float: left;" class="None">Ckarefulon</div>
+      <div class="aNone">Ckareful S.</div>
+      <div class="None"><img style="width: 20px;height: 20px" src="/Favicon.png"></div>
+      <div class="bNone">by</div>
+    </div>
+    <span class="Hide">人设图</span>
+    <div class="cntrtxt">
+      <span style="display: block; text-align: center; font-size: 70; margin: 43;">请确认您已三连评论</span>
+      <span style="margin: 43; font-size: 34;">收集不易，还请三连支持一下，谢谢！</span>
+      <div style="display: flex; margin: 43;">
+        <div class="btn" onclick="window.open('https://www.bilibili.com/video/BV1xKszezE9V/')">去三连评论</div>
+        <div class="btn" onclick="window.open('https://ckarefulon-my.sharepoint.com/:f:/g/personal/careful_ckarefulon_onmicrosoft_com/Ek9_sxG-ujpBm3nvRRLAhqEBpkOqKk6YueP6a9kxfNaU9Q?e=hIkS1C','_self')">已三连评论</div>
+      </div>
+    </div>
+  </body>
+</html>
