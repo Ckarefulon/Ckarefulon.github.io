@@ -5,30 +5,94 @@
     <link id="pagestyle" href="style.css" rel="stylesheet" type="text/css">
     <link rel="icon" type="image/png" href="/Favicon.png">
     <meta name="author" content="小心超人  Careful S.">
+    <style>
+      .Top{
+        background-color: #5d4ea8;
+        border: 3px solid #24f0ea;
+        padding: 10px;
+        color: #24f0ea;
+        box-shadow: 0px 17px 25px #55367a;
+        margin: 0;
+        position: fixed;
+        right: 0px;
+        left: 0px;
+        top: 0px;
+        border-radius: 0px 0px 17px 17px;
+        z-index: 998
+      }
+      .None{
+        all: revert;
+        float: right;
+      }
+      .Hide{
+        all: revert;
+        position: fixed;
+        left: 0px;
+        right: 0px;
+        top: 0px;
+        z-index: 999;
+        margin-top: 12.4;
+        text-align: center;
+        color: #24f0ea;
+      }
+      .aNone{
+        all: revert;
+        float: right;
+      }
+      .bNone{
+        all: revert;
+        float: right;
+        margin-right: 7px;
+      @media (max-width: 427px) {
+        .Hide{
+          display: none;
+        }
+      }
+      @media (max-width: 287px) {
+        .aNone{
+          display: none;
+        }
+      }
+      @media (max-width: 207px) {
+        .bNone{
+          display: none;
+        }
+      }
+    </style>
   </head>
-  <body onLoad="NewScramble();">
-    <span class="custom-dropdown">		
-      <select ID="Level" onchange="this.blur();"> 
-        <option VALUE="1">一步 </option>
-        <option VALUE="2">两步</option>
-        <option VALUE="3">三步</option>
-        <option VALUE="4">四步</option>
-        <option VALUE="5">五步</option>
-        <option VALUE="6">六步</option>
-        <option VALUE="7">七步</option>
-        <option VALUE="8">八步</option>
-      </select>
-    </span>
-    <div class="wrap">
-      <a href="#" class="button" onClick="NewScramble();">Get Scramble</a>
+  <body onLoad="NewScramble();" style="display: flex;">
+    <br/>
+    <div class="Top">
+      <div style="float: left;" class="None">Ckarefulon</div>
+      <div class="aNone">Ckareful S.</div>
+      <div class="None"><img style="width: 20px;height: 20px" src="/Favicon.png"></div>
+      <div class="bNone">by</div>
     </div>
-    <div class="outder">
-      <div class="scramble" ID="Output" STYLE="font-family:Helvetica, Arial; font-size:30pt"></div>
+    <span class="Hide">Cross</span>
+    <div style="margin: auto;">
+      <span class="custom-dropdown">
+        <select ID="Level" onchange="this.blur();"> 
+          <option VALUE="1">一步 </option>
+          <option VALUE="2">两步</option>
+          <option VALUE="3">三步</option>
+          <option VALUE="4">四步</option>
+          <option VALUE="5">五步</option>
+          <option VALUE="6">六步</option>
+          <option VALUE="7">七步</option>
+          <option VALUE="8">八步</option>
+        </select>
+      </span>
+      <div class="wrap">
+        <a href="#" class="button" onClick="NewScramble();">Get Scramble</a>
+      </div>
+      <div class="outder">
+        <div class="scramble" ID="Output" STYLE="font-family:Helvetica, Arial; font-size:30pt"></div>
+      </div>
+      <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+      <script TYPE="text/javascript" SRC="js.js"></script>
+      <script TYPE="text/javascript" SRC="Scrambles.js"></script>
+      <script src="ThemeSwitcher.js"></script>
     </div>
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
-    <script TYPE="text/javascript" SRC="js.js"></script>
-    <script TYPE="text/javascript" SRC="Scrambles.js"></script>
-    <script src="ThemeSwitcher.js"></script>
   </body>
   <script>
     if ('serviceWorker' in navigator) {
