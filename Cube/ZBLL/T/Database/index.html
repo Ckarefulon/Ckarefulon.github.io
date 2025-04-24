@@ -4,6 +4,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ZBLL T (Database)</title>
 <link rel="icon" type="image/png" href="/Favicon.png">
+<script>
+  function detectIE() {
+    const ua = window.navigator.userAgent;
+    return /MSIE |Trident\//.test(ua) && !/Edge\//.test(ua);
+  }
+  const isIE = detectIE();
+  if (isIE) {
+    window.location.href = '/IE.html'; 
+  }
+</script>
 <style>
   body {
     background-color: #5d4ea8;
