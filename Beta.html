@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创意个人主页</title>
+    <link rel="icon" type="image/png" href="/Favicon.png">
+    <style>
+        :root {
+            --bg-color: 93, 78, 168;
+            --accent-color: 36, 240, 234;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            font-size: 14px;
+            color: rgb(var(--accent-color));
+            background: rgb(var(--bg-color));
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        .Top {
+            background-color: rgb(var(--bg-color));
+            border: 3px solid rgb(var(--accent-color));
+            padding: 10px;
+            color: rgb(var(--accent-color));
+            box-shadow: 0px 17px 25px rgba(85, 54, 122, 0.7);
+            margin: 0;
+            position: fixed;
+            right: 0px;
+            left: 0px;
+            top: 0px;
+            border-radius: 0px 0px 17px 17px;
+            z-index: 998;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .None {
+            all: revert;
+            float: right;
+        }
+
+        .Hide {
+            all: revert;
+            position: fixed;
+            left: 0px;
+            right: 0px;
+            top: 0px;
+            z-index: 999;
+            margin-top: 12.4;
+            text-align: center;
+            color: rgb(var(--accent-color));
+        }
+
+        .aNone {
+            all: revert;
+            float: right;
+        }
+
+        .bNone {
+            all: revert;
+            float: right;
+            margin-right: 7px;
+        }
+
+        @media (max-width: 427px) {
+            .Hide {
+                display: none;
+            }
+        }
+
+        @media (max-width: 287px) {
+            .aNone {
+                display: none;
+            }
+        }
+
+        @media (max-width: 207px) {
+            .bNone {
+                display: none;
+            }
+        }
+
+        h1 {
+            color: rgb(var(--accent-color));
+            text-shadow: 10px 10px 17px rgba(85, 54, 122, 0.7);
+            animation: fadeIn 1s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .section {
+            background-color: rgba(160, 162, 222, 0.8);
+            border: 3px solid rgb(var(--accent-color));
+            padding: 20px;
+            margin: 20px auto;
+            border-radius: 17px;
+            color: rgba(85, 54, 122, 0.9);
+            box-shadow: 10px 10px 17px rgba(85, 54, 122, 0.7);
+            max-width: 800px;
+            animation: slideIn 1s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .section:hover {
+            transform: scale(1.02);
+            transition: all 0.3s ease-out;
+        }
+
+        .btn {
+            display: inline-block;
+            background-color: rgb(var(--accent-color));
+            color: rgb(var(--bg-color));
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            margin-top: 10px;
+            transition: all 0.3s ease-out;
+        }
+
+        .btn:hover {
+            background-color: rgba(var(--accent-color), 0.7);
+            transform: translateY(-3px);
+        }
+
+        .skill-list {
+            list-style: none;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .skill-list li {
+            background-color: rgb(var(--accent-color));
+            color: rgb(var(--bg-color));
+            padding: 5px 10px;
+            border-radius: 5px;
+            margin: 5px;
+        }
+
+        .project {
+            margin-bottom: 20px;
+        }
+
+        .project img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <br />
+    <div class="Top">
+        <div style="float: left;" class="None">个人主页</div>
+        <div class="aNone">你的名字</div>
+        <div class="None"><img style="width: 20px;height: 20px" src="/Favicon.png"></div>
+        <div class="bNone">By</div>
+    </div>
+    <span class="Hide">创意个人主页</span>
+
+    <div class="section" style="margin-top: 80px;">
+        <h1>关于我</h1>
+        <p>试验！！信息是假的</p>
+        <a href="#" class="btn">了解更多</a>
+    </div>
+
+    <div class="section">
+        <h1>我的技能</h1>
+        <ul class="skill-list">
+            <li>HTML/CSS</li>
+            <li>JavaScript</li>
+            <li>Python</li>
+            <li>Photoshop</li>
+            <li>Git</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h1>我的作品</h1>
+        <div class="project">
+            <img src="project1.jpg" alt="项目1">
+            <h2>项目1：个人博客网站</h2>
+            <p>这是一个使用HTML、CSS和JavaScript构建的个人博客网站，用于分享我的技术心得和生活感悟。</p>
+            <a href="#" class="btn">查看详情</a>
+        </div>
+        <div class="project">
+            <img src="project2.jpg" alt="项目2">
+            <h2>项目2：小游戏开发</h2>
+            <p>使用Python和Pygame库开发的一款简单小游戏，充满了乐趣和挑战。</p>
+            <a href="#" class="btn">查看详情</a>
+        </div>
+    </div>
+
+    <div class="section">
+        <h1>联系我</h1>
+        <p>如果你对我的作品感兴趣，或者有任何问题，欢迎通过以下方式联系我：</p>
+        <p>邮箱：your_email@example.com</p>
+        <p>社交媒体：[你的社交媒体链接]</p>
+    </div>
+</body>
+
+</html>
