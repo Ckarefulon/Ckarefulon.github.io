@@ -5,7 +5,12 @@
 <title>ZBLL T (Video)</title>
 <link rel="icon" type="image/png" href="/Favicon.png">
 <script>
-  if (isIE()) {
+  function detectIE() {
+    const ua = window.navigator.userAgent;
+    return /MSIE |Trident\//.test(ua) && !/Edge\//.test(ua);
+  }
+  const isIE = detectIE();
+  if (isIE) {
     window.location.href = '/IE.html'; 
   }
 </script>
