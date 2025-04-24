@@ -6,31 +6,31 @@
     <title>IE 提示</title>
     <link rel="icon" type="image/png" href="/Favicon.png">
     <style>
-        body{
+        body {
             background-color: #5d4ea8;
-            /* 添加浏览器前缀 */
-            display: -webkit-box;
-            display: -moz-box;
-            display: -ms-flexbox;
-            display: -webkit-flex;
-            display: flex;
+            margin: 0;
+            position: relative;
+            height: 100vh;
         }
-        h1{
+        h1 {
             color: #24f0ea;
-            /* 老旧浏览器不支持 text-shadow，可不处理 */
             text-shadow: 17px 17px 17px #55367a;
             font-size: 7em;
-            margin: auto;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            /* 通过负边距将元素向上和向左移动自身宽度和高度的一半 */
+            margin-top: -0.5em; 
+            margin-left: -2em; 
         }
-        p{
+        p {
             font-size: larger;
         }
-        .Top{
+        .Top {
             background-color: #5d4ea8;
             border: 3px solid #24f0ea;
             padding: 10px;
             color: #24f0ea;
-            /* 老旧浏览器不支持 box-shadow，可不处理 */
             -webkit-box-shadow: 0px 17px 25px #55367a;
             -moz-box-shadow: 0px 17px 25px #55367a;
             box-shadow: 0px 17px 25px #55367a;
@@ -39,17 +39,16 @@
             right: 0px;
             left: 0px;
             top: 0px;
-            /* 为 border-radius 添加浏览器前缀 */
             -webkit-border-radius: 0px 0px 17px 17px;
             -moz-border-radius: 0px 0px 17px 17px;
             border-radius: 0px 0px 17px 17px;
-            z-index: 998
+            z-index: 998;
         }
-        .None{
+        .None {
             all: revert;
             float: right;
         }
-        .Hide{
+        .Hide {
             all: revert;
             position: fixed;
             left: 0px;
@@ -60,17 +59,16 @@
             text-align: center;
             color: #24f0ea;
         }
-        .aNone{
+        .aNone {
             all: revert;
             float: right;
         }
-        .bNone{
+        .bNone {
             all: revert;
             float: right;
             margin-right: 7px;
         }
         .container {
-            /* 添加浏览器前缀 */
             display: -webkit-box;
             display: -moz-box;
             display: -ms-flexbox;
@@ -81,13 +79,10 @@
             -ms-align-items: stretch;
             align-items: stretch;
         }
-        
         .container img {
             width: 170px;
         }
-        
         .text-container {
-            /* 添加浏览器前缀 */
             display: -webkit-box;
             display: -moz-box;
             display: -ms-flexbox;
@@ -103,20 +98,28 @@
             justify-content: center;
             padding-right: 10px;
             padding-left: 10px;
-            /* 老旧浏览器不支持 box-sizing，可不处理 */
             -webkit-box-sizing: border-box;
             -moz-box-sizing: border-box;
             box-sizing: border-box;
-            line-height:1.7;
+            line-height: 1.7;
         }
-        .center-container {
-            display: table-cell;
-            vertical-align: middle;
-            text-align: center;
+        @media (max - width: 427px) {
+            .Hide {
+                display: none;
+            }
+        }
+        @media (max - width: 287px) {
+            .aNone {
+                display: none;
+            }
+        }
+        @media (max - width: 207px) {
+            .bNone {
+                display: none;
+            }
         }
     </style>
     <script>
-        // 模拟 @media 查询
         function checkScreenSize() {
             if (window.innerWidth <= 427) {
                 document.querySelector('.Hide').style.display = 'none';
@@ -134,9 +137,7 @@
                 document.querySelector('.bNone').style.display = '';
             }
         }
-        // 页面加载时检查屏幕尺寸
         window.onload = checkScreenSize;
-        // 窗口大小改变时检查屏幕尺寸
         window.onresize = checkScreenSize;
     </script>
 </head>
@@ -149,9 +150,6 @@
         <div class="bNone">by</div>
     </div>
     <span class="Hide">IE 提示</span>
-    <div class="center-container">
-        <h1>本站暂不支持 IE</h1>
-    </div>
+    <h1>本站暂不支持 IE</h1>
 </body>
 </html>
-    
