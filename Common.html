@@ -1,0 +1,107 @@
+<template id="common-content">
+  <!-- 1. 公共头部配置（meta、favicon、IE检测、公共样式） -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/Favicon.png">
+  <script>
+    // IE检测脚本
+    function detectIE() {
+      const ua = window.navigator.userAgent;
+      return /MSIE |Trident\//.test(ua) && !/Edge\//.test(ua);
+    }
+    const isIE = detectIE();
+    if (isIE) {
+      window.location.href = '/IE.html'; 
+    }
+  </script>
+  <style>
+    /* 公共样式 */
+    body{
+      background-color: #5d4ea8;
+      display: flex;
+    }
+    .Top{
+      background-color: #5d4ea8;
+      border: 3px solid #24f0ea;
+      padding: 10px;
+      color: #24f0ea;
+      box-shadow: 0px 17px 25px #55367a;
+      margin: 0;
+      position: fixed;
+      right: 0px;
+      left: 0px;
+      top: 0px;
+      border-radius: 0px 0px 17px 17px;
+      z-index: 998
+    }
+    .None{
+      all: revert;
+      float: right;
+    }
+    .Hide{
+      all: revert;
+      position: fixed;
+      left: 0px;
+      right: 0px;
+      top: 0px;
+      z-index: 999;
+      margin-top: 12.4;
+      text-align: center;
+      color: #24f0ea;
+    }
+    .aNone{
+      all: revert;
+      float: right;
+    }
+    .bNone{
+      all: revert;
+      float: right;
+      margin-right: 7px;
+    }
+    /* 公共媒体查询 */
+    @media (max-width: 427px) {
+      .Hide{ display: none; }
+    }
+    @media (max-width: 287px) {
+      .aNone{ display: none; }
+    }
+    @media (max-width: 207px) {
+      .bNone{ display: none; }
+    }
+  </style>
+
+  <!-- 2. 公共导航栏 -->
+  <div class="Top">
+    <div style="float: left;" class="None">Ckarefulon</div>
+    <div class="aNone">Ckareful S.</div>
+    <div class="None"><img style="width: 20px;height: 20px" src="/Avatar.png"></div>
+    <div class="bNone">by</div>
+  </div>
+</template>
+
+<script>
+  // 内置加载逻辑：将上面的公共内容插入到页面中
+  (async function loadCommon() {
+    try {
+      // 获取当前页面中预留的两个容器（head容器和body导航容器）
+      const headContainer = document.getElementById('common-head');
+      const headerContainer = document.getElementById('common-header');
+      
+      // 提取template中的公共内容
+      const commonContent = document.getElementById('common-content').content;
+      
+      // 1. 将头部内容（meta、script、style）插入到页面head的容器中
+      const headParts = commonContent.querySelectorAll('meta, link, script, style');
+      headParts.forEach(part => {
+        headContainer.appendChild(part.cloneNode(true));
+      });
+      
+      // 2. 将导航栏（.Top）插入到页面body的容器中
+      const headerPart = commonContent.querySelector('.Top');
+      headerContainer.appendChild(headerPart.cloneNode(true));
+      
+    } catch (err) {
+      console.error('加载公共部分失败:', err);
+    }
+  })();
+</script>
