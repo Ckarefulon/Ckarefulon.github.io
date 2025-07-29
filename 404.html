@@ -1,19 +1,8 @@
 <html>
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>404</title>
-    <link rel="icon" type="image/png" href="/Favicon.png">
-    <script>
-      function detectIE() {
-        const ua = window.navigator.userAgent;
-        return /MSIE |Trident\//.test(ua) && !/Edge\//.test(ua);
-      }
-      const isIE = detectIE();
-      if (isIE) {
-        window.location.href = '/IE.html'; 
-      }
-    </script>
+    <div id="common-head"></div>
+    <script src="common.html" type="text/html"></script>
     <style>
       body{
         background-color: #5d4ea8;
@@ -25,46 +14,8 @@
         font-size: 7em;
         margin: auto;
       }
-    p{
+      p{
         font-size: larger;
-    }
-      .Top{
-        background-color: #5d4ea8;
-        border: 3px solid #24f0ea;
-        padding: 10px;
-        color: #24f0ea;
-        box-shadow: 0px 17px 25px #55367a;
-        margin: 0;
-        position: fixed;
-        right: 0px;
-        left: 0px;
-        top: 0px;
-        border-radius: 0px 0px 17px 17px;
-        z-index: 998
-      }
-      .None{
-        all: revert;
-        float: right;
-      }
-      .Hide{
-        all: revert;
-        position: fixed;
-        left: 0px;
-        right: 0px;
-        top: 0px;
-        z-index: 999;
-        margin-top: 12.4;
-        text-align: center;
-        color: #24f0ea;
-      }
-      .aNone{
-        all: revert;
-        float: right;
-      }
-      .bNone{
-        all: revert;
-        float: right;
-        margin-right: 7px;
       }
       .container {
         display: flex;
@@ -84,114 +35,91 @@
         box-sizing: border-box;
         line-height:1.7;
       }
-      @media (max-width: 427px) {
-        .Hide{
-          display: none;
-        }
-      }
-      @media (max-width: 287px) {
-        .aNone{
-          display: none;
-        }
-      }
-      @media (max-width: 207px) {
-        .bNone{
-          display: none;
-        }
-      }
     </style>
   </head>
   <body>
-    <br/>
-    <div class="Top">
-      <div style="float: left;" class="None">Ckarefulon</div>
-      <div class="aNone">Ckareful S.</div>
-      <div class="None"><img style="width: 20px;height: 20px" src="/Avatar.png"></div>
-      <div class="bNone">by</div>
-    </div>
+    <div id="common-header"></div>
     <span class="Hide">404</span>
     <h1>404</h1>
     <img id="img1" src="/404/404.png" style="width: 37%; position: fixed; left: 7px; bottom: 0px; cursor: pointer;">
     <img id="img2" src="/404/All.png" style="width: 37%; display: none; position: fixed; right: 7px; bottom: 7px; cursor: pointer;" onclick="playVideo()">
     <script>
-document.getElementById('img1').addEventListener('click', function() {
-    var img2 = document.getElementById('img2');
-    if (img2.style.display === "none") {
-        img2.style.display = "block";
-        img1.style.display = "none"
-    } else {
-        img2.style.display = "none";
-    }
-});
+      document.getElementById('img1').addEventListener('click', function() {
+        var img2 = document.getElementById('img2');
+        if (img2.style.display === "none") {
+          img2.style.display = "block";
+          img1.style.display = "none"
+        } else {
+          img2.style.display = "none";
+        }
+      });
     </script>
 
-<video id="vdeo" width="100%" style="display:none;
-    position: fixed;
-    z-index: 1000;
-    top: 0px;
-    left: 0px;
-">
-  <source src="/404/404.mp4" type="video/mp4">
-</video>
-<div id="err" style="position: fixed;
-z-index: 1001;
-width: 100%; 
-height: 100%;
-left: 0px;
-top: 0px;
-background-color: #5d4ea8;
-color: #24f0ea;
-display: none;
-padding: 70px;
-padding-top: 34px;
-font-size: 25">
-<p style="
-    font-size: 7em;
-    margin: 0;
-">:(</p>
-<p>您的设备遇到问题，需要重启。</p>
-<p>我们只假装收集某些错误信息，然后为你重新蓝屏</p>
-<p id="counter" style="margin-top: 47px; margin-bottom: 47px;">0% 完成</p>
-<div class="container">
-    <img src="/404/QR.svg"/>
-    <div class="text-container">
-        有关此问题的详细信息和可能的解决万法，请访问<br>
-        https://www.windows.com/stopcode<br>
-        如果致电支持人员，请向他们提供以下信息：<br>
-        终止代码: DO NOT TOUCH THEM
+    <video id="vdeo" width="100%" style="display:none;
+      position: fixed;
+      z-index: 1000;
+      top: 0px;
+      left: 0px;
+    ">
+      <source src="/404/404.mp4" type="video/mp4">
+    </video>
+    <div id="err" style="position: fixed;
+      z-index: 1001;
+      width: 100%; 
+      height: 100%;
+      left: 0px;
+      top: 0px;
+      background-color: #5d4ea8;
+      color: #24f0ea;
+      display: none;
+      padding: 70px;
+      padding-top: 34px;
+      font-size: 25">
+      <p style="
+        font-size: 7em;
+        margin: 0;
+      ">:(</p>
+      <p>您的设备遇到问题，需要重启。</p>
+      <p>我们只假装收集某些错误信息，然后为你重新蓝屏</p>
+      <p id="counter" style="margin-top: 47px; margin-bottom: 47px;">0% 完成</p>
+      <div class="container">
+        <img src="/404/QR.svg"/>
+        <div class="text-container">
+          有关此问题的详细信息和可能的解决万法，请访问<br>
+          https://www.windows.com/stopcode<br>
+          如果致电支持人员，请向他们提供以下信息：<br>
+          终止代码: DO NOT TOUCH THEM
+        </div>
+      </div>
     </div>
-</div>
-</div>
-</div>
-<script>
-let count = 0;
-const counterElement = document.getElementById('counter');
+    <script>
+      let count = 0;
+      const counterElement = document.getElementById('counter');
+      const updateCounter = () => {
+        if (count > 100) {
+          count = 0;
+          setTimeout(updateCounter, 1700);
+          counterElement.textContent = count + '% complete';
+        } else {
+          count++;
+          counterElement.textContent = count + '% complete';
+          setTimeout(updateCounter, 70);
+        }
+      };
 
-const updateCounter = () => {
-    if (count > 100) {
-        count = 0;
-        setTimeout(updateCounter, 1700);
-        counterElement.textContent = count + '% complete';
-    } else {
-        count++;
-        counterElement.textContent = count + '% complete';
-        setTimeout(updateCounter, 70);
-    }
-};
-
-function playVideo() {
-    var video = document.getElementById("vdeo");
-    var img2 = document.getElementById("img2");
-    video.style.display = 'block';
-    img2.style.display = 'none';
-    video.play();
-    video.addEventListener('ended', function() {
-        document.getElementById('err').style.display = 'block';
-        setTimeout(() => {
+      function playVideo() {
+        var video = document.getElementById("vdeo");
+        var img2 = document.getElementById("img2");
+        video.style.display = 'block';
+        img2.style.display = 'none';
+        video.play();
+        video.addEventListener('ended', function() {
+          document.getElementById('err').style.display = 'block';
+          setTimeout(() => {
             updateCounter(); // 1.7秒后开始计数
-        }, 1700);
-    });
-}
-</script>
+          }, 1700);
+        });
+      }
+    </script>
   </body>
 </html>
