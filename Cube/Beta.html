@@ -1,51 +1,30 @@
-<!DOCTYPE html>
 <html translate="no">
-<head>
-    <title>Cube</title>    
+  <head>
+    <title>Cube</title>
+    <script src="/Js/jquery.min.js"></script>
     <div id="common-head"></div>
     <style>
-        a {
-            color: #24f0ea;
-            text-shadow: 17px 17px 17px #55367a;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 7em;
-            margin: auto;
-            padding: 17px;
-            display: inline-block;
-        }
-        .Hide {
-            display: none;
-        }
+      a{
+        color: #24f0ea;
+        text-shadow: 17px 17px 17px #55367a;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 7em;
+        margin: auto;
+        padding: 17;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div id="common-header"></div>
     <span class="Hide">Cube</span>
     <a href="ZBLL">ZBLL</a>
     <a href="Cross">Cross</a>
-
     <script>
-        // 等待DOM加载完成
-        document.addEventListener('DOMContentLoaded', function() {
-            // 使用Fetch API加载Common.html
-            fetch('/Common.html')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Failed to load Common.html: ${response.status}`);
-                    }
-                    return response.text();
-                })
-                .then(html => {
-                    // 将内容插入到两个容器中
-                    document.getElementById('common-head').innerHTML = html;
-                    document.getElementById('common-header').innerHTML = html;
-                })
-                .catch(error => {
-                    console.error('Error loading Common.html:', error);
-                    // 可以在这里添加错误处理UI
-                });
-        });
+      $(document).ready(function() {
+        $('#common-head').load('/Common.html #head');
+        $('#common-header').load('/Common.html #header');
+      });
     </script>
-</body>
+  </body>
 </html>
