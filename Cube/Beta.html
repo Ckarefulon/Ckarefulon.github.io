@@ -12,10 +12,14 @@
             font-size: 7em;
             margin: auto;
             padding: 17px;
-            display: inline-block; /* 确保内边距生效 */
+            display: inline-block;
         }
         .Hide {
             display: none;
+        }
+        .error {
+            color: red;
+            font-size: 16px;
         }
     </style>
 </head>
@@ -26,44 +30,62 @@
     <a href="Cross">Cross</a>
 
     <script>
-        // 等待DOM完全加载
+        // 等待DOM加载完成
         document.addEventListener('DOMContentLoaded', function() {
-            loadHeader();
-            loadHeader2(); // 加载第二个头部（如果需要）
+            // 尝试加载头部
+            loadHeader('Common.html', 'common-head')
+                .catch(() => loadHeaderFromScriptTag())
+                .catch(error => showError('common-head', error));
+            
+            // 尝试加载第二个头部
+            loadHeader('CommonHeader.html', 'common-header')
+                .catch(error => showError('common-header', error));
         });
 
-        // 加载第一个头部
-        function loadHeader() {
-            fetch('Common.html') // 相对路径，根据实际情况调整
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`加载失败: ${response.status}`);
-                    }
-                    return response.text();
-                })
-                .then(html => {
-                    document.getElementById('common-head').innerHTML = html;
-                    console.log('头部加载成功');
-                })
-                .catch(error => {
-                    console.error('加载头部时出错:', error);
-                    // 可以在这里添加备选内容
-                    document.getElementById('common-head').innerHTML = 
-                        '<div class="error">头部加载失败</div>';
-                });
+        // 使用Fetch API加载头部
+        async function loadHeader(filePath, targetId) {
+            try {
+                const response = await fetch(filePath);
+                if (!response.ok) throw new Error(`HTTP错误: ${response.status}`);
+                
+                const html = await response.text();
+                document.getElementById(targetId).innerHTML = html;
+                console.log(`${filePath} 加载成功`);
+            } catch (error) {
+                console.error(`加载 ${filePath} 失败:`, error);
+                throw error;
+            }
         }
 
-        // 加载第二个头部（如果需要）
-        function loadHeader2() {
-            fetch('CommonHeader.html') // 第二个头部文件
-                .then(response => response.text())
-                .then(html => {
-                    document.getElementById('common-header').innerHTML = html;
-                })
-                .catch(error => {
-                    console.error('加载第二个头部时出错:', error);
-                });
+        // 备选方案：从script标签加载
+        function loadHeaderFromScriptTag() {
+            const scriptTag = document.querySelector('script[type="text/html"]');
+            if (scriptTag) {
+                document.getElementById('common-head').innerHTML = scriptTag.innerHTML;
+                console.log('从script标签加载头部成功');
+                return Promise.resolve();
+            }
+            return Promise.reject(new Error('找不到script标签'));
         }
+
+        // 显示错误信息
+        function showError(targetId, error) {
+            const target = document.getElementById(targetId);
+            target.innerHTML = `
+                <div class="error">
+                    加载失败: ${error.message}
+                    <br>请确保文件存在且路径正确
+                </div>
+            `;
+        }
+    </script>
+
+    <!-- 备选方案：内联头部内容 -->
+    <script type="text/html" id="inline-header">
+        <div class="inline-header">
+            <h1>备选头部</h1>
+            <p>如果外部文件加载失败，将显示此内容</p>
+        </div>
     </script>
 </body>
 </html>
