@@ -2,7 +2,18 @@
   <head>
     <title>Cube</title>    
     <div id="common-head"></div>
-    <script src="/Common.html" type="text/html"></script>
+    <script>
+      window.onload = function() {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', '/Common.html', true);
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState === 4 && xhr.status === 200) {
+            document.getElementById('common-head').innerHTML = xhr.responseText;
+          }
+        };
+        xhr.send();
+      };
+    </script>
     <style>
       a{
         color: #24f0ea;
