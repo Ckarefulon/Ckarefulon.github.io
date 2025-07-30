@@ -32,13 +32,13 @@
     <script>
         // 等待DOM加载完成
         document.addEventListener('DOMContentLoaded', function() {
-            // 尝试加载头部
-            loadHeader('Common.html', 'common-head')
+            // 使用绝对路径加载头部
+            loadHeader('/Common.html', 'common-head')
                 .catch(() => loadHeaderFromScriptTag())
                 .catch(error => showError('common-head', error));
             
-            // 尝试加载第二个头部
-            loadHeader('CommonHeader.html', 'common-header')
+            // 使用绝对路径加载第二个头部
+            loadHeader('/Common.html', 'common-header')
                 .catch(error => showError('common-header', error));
         });
 
