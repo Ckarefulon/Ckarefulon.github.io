@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C大调三和弦演奏器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#3B82F6',
+            secondary: '#10B981',
+            accent: '#F59E0B',
+            dark: '#1E293B',
+            light: '#F8FAFC'
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .chord-hover {
+        @apply transition-all duration-300 hover:scale-105 hover:shadow-lg active:scale-95;
+      }
+      .btn-octave {
+        @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+      }
+      /* 增强的视觉淡出动画 */
+      .audio-fade-out {
+        animation: audioFadeOut 0.5s ease-out forwards;
+      }
+      @keyframes audioFadeOut {
+        0% { 
+          transform: scale(1); 
+          box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
+          opacity: 1;
+        }
+        50% { 
+          transform: scale(0.95); 
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+          opacity: 0.7;
+        }
+        100% { 
+          transform: scale(1); 
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+          opacity: 1;
+        }
+      }
+      /* 当前播放的和弦高亮（增强对比） */
+      .playing {
+        @apply bg-primary/20 border-2 border-primary shadow-lg shadow-primary/20;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-light to-gray-100 min-h-screen font-sans">
+  <div class="container mx-auto px-4 py-8 max-w-5xl">
+    <header class="text-center mb-8">
+      <h1 class="text-[clamp(1.8rem,5vw,3rem)] font-bold text-dark mb-2">C大调三和弦演奏器</h1>
+      <p class="text-gray-600 text-lg">增强版淡出效果 | 点击和弦播放</p>
+    </header>
+    
+    <!-- 八度控制区域 -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-8 flex justify-center items-center gap-4">
+      <button id="octave-down" class="btn-octave bg-primary/90 text-white hover:bg-primary focus:ring-primary">
+        <<i class="fa fa-chevron-down mr-1"></</i> 降八度
+      </button>
+      <div id="octave-display" class="px-6 py-2 bg-gray-100 rounded-lg text-lg font-semibold text-dark">
+        基准八度
+      </div>
+      <button id="octave-up" class="btn-octave bg-primary/90 text-white hover:bg-primary focus:ring-primary">
+        <<i class="fa fa-chevron-up mr-1"></</i> 升八度
+      </button>
+    </div>
+    
+    <!-- 和弦方块区域 -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-12">
+      <div class="chord-item bg-white rounded-xl shadow-md p-6 flex flex-col items-center justify-center chord-hover cursor-pointer" data-chord="C">
+        <h3 class="text-2xl font-bold text-primary mb-1">C</h3>
+        <p class="text-sm text-gray-500">C-E-G</p>
+      </div>
+      
+      <div class="chord-item bg-white rounded-xl shadow-md p-6 flex flex-col items-center justify-center chord-hover cursor-pointer" data-chord="Dm">
+        <h3 class="text-2xl font-bold text-primary mb-1">Dm</h3>
+        <p class="text-sm text-gray-500">D-F-A</p>
+      </div>
+      
+      <div class="chord-item bg-white rounded-xl shadow-md p-6 flex flex-col items-center justify-center chord-hover cursor-pointer" data-chord="Em">
+        <h3 class="text-2xl font-bold text-primary mb-1">Em</h3>
+        <p class="text-sm text-gray-500">E-G-B</p>
+      </div>
+      
+      <div class="chord-item bg-white rounded-xl shadow-md p-6 flex flex-col items-center justify-center chord-hover cursor-pointer" data-chord="F">
+        <h3 class="text-2xl font-bold text-primary mb-1">F</h3>
+        <p class="text-sm text-gray-500">F-A-C</p>
+      </div>
+      
+      <div class="chord-item bg-white rounded-xl shadow-md p-6 flex flex-col items-center justify-center chord-hover cursor-pointer" data-chord="G">
+        <h3 class="text-2xl font-bold text-primary mb-1">G</h3>
+        <p class="text-sm text-gray-500">G-B-D</p>
+      </div>
+      
+      <div class="chord-item bg-white rounded-xl shadow-md p-6 flex flex-col items-center justify-center chord-hover cursor-pointer" data-chord="Am">
+        <h3 class="text-2xl font-bold text-primary mb-1">Am</h3>
+        <p class="text-sm text-gray-500">A-C-E</p>
+      </div>
+      
+      <div class="chord-item bg-white rounded-xl shadow-md p-6 flex flex-col items-center justify-center chord-hover cursor-pointer" data-chord="Bdim">
+        <h3 class="text-2xl font-bold text-primary mb-1">Bdim</h3>
+        <p class="text-sm text-gray-500">B-D-F</p>
+      </div>
+    </div>
+    
+    <footer class="text-center text-gray-500 text-sm">
+      <p>增强版淡出效果：延长过渡时间 + 指数衰减 + 强化视觉反馈</p>
+    </footer>
+  </div>
+
+  <script>
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    let currentOscillators = []; // 存储当前播放的振荡器
+    let currentChordElement = null; // 记录当前播放的和弦元素
+    let octaveOffset = 0;
+
+    // C大调三和弦基准频率（Hz）
+    const chordNotes = {
+      'C': [261.63, 329.63, 392.00],    // C4, E4, G4
+      'Dm': [293.66, 349.23, 440.00],   // D4, F4, A4
+      'Em': [329.63, 392.00, 493.88],   // E4, G4, B4
+      'F': [349.23, 440.00, 523.25],    // F4, A4, C5
+      'G': [392.00, 493.88, 587.33],    // G4, B4, D5
+      'Am': [440.00, 523.25, 659.25],   // A4, C5, E5
+      'Bdim': [493.88, 587.33, 698.46]  // B4, D5, F5
+    };
+
+    // 更新八度显示
+    function updateOctaveDisplay() {
+      const display = document.getElementById('octave-display');
+      if (octaveOffset > 0) display.textContent = `升${octaveOffset}个八度`;
+      else if (octaveOffset < 0) display.textContent = `降${-octaveOffset}个八度`;
+      else display.textContent = '基准八度';
+    }
+
+    /**
+     * 增强版淡出效果：
+     * 1. 延长淡出时间到0.5秒，更易感知
+     * 2. 使用指数衰减曲线，更接近自然声音衰减
+     * 3. 增强视觉同步效果（缩放+透明度+阴影变化）
+     */
+    function stopAndFadePrevious() {
+      // 1. 音频淡出增强
+      currentOscillators.forEach(({ oscillator, gain }) => {
+        const currentTime = audioContext.currentTime;
+        // 记录当前音量作为起点
+        gain.gain.setValueAtTime(gain.gain.value, currentTime);
+        // 使用指数衰减（更自然的淡出曲线），0.5秒内衰减到几乎无声
+        gain.gain.exponentialRampToValueAtTime(0.001, currentTime + 0.5);
+        
+        // 淡出结束后彻底停止
+        setTimeout(() => {
+          oscillator.stop();
+          oscillator.disconnect();
+        }, 500);
+      });
+      currentOscillators = [];
+
+      // 2. 视觉淡出增强
+      if (currentChordElement) {
+        // 添加增强的淡出动画类
+        currentChordElement.classList.add('audio-fade-out');
+        currentChordElement.classList.remove('playing');
+        
+        // 动画结束后清除状态
+        setTimeout(() => {
+          currentChordElement.classList.remove('audio-fade-out');
+        }, 500);
+        currentChordElement = null;
+      }
+    }
+
+    function playChord(chordName, element) {
+      // 激活音频上下文（浏览器安全限制）
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+
+      // 先淡出上一个和弦
+      stopAndFadePrevious();
+
+      // 播放新和弦
+      const baseNotes = chordNotes[chordName];
+      const notesWithOctave = baseNotes.map(note => note * Math.pow(2, octaveOffset));
+
+      notesWithOctave.forEach(frequency => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        // 稍微调整音色，让和弦更和谐
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+        // 初始音量稍低，避免切换时的突兀感
+        gainNode.gain.value = 0.12;
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.start();
+
+        currentOscillators.push({ oscillator, gain: gainNode });
+      });
+
+      // 标记当前播放的和弦（增强的高亮效果）
+      currentChordElement = element;
+      element.classList.add('playing');
+    }
+
+    // 八度控制事件
+    document.getElementById('octave-down').addEventListener('click', () => {
+      if (octaveOffset > -2) {
+        octaveOffset--;
+        updateOctaveDisplay();
+      }
+    });
+
+    document.getElementById('octave-up').addEventListener('click', () => {
+      if (octaveOffset < 2) {
+        octaveOffset++;
+        updateOctaveDisplay();
+      }
+    });
+
+    // 和弦点击事件
+    document.querySelectorAll('.chord-item').forEach(item => {
+      item.addEventListener('click', () => {
+        playChord(item.dataset.chord, item);
+      });
+    });
+
+    // 初始化
+    updateOctaveDisplay();
+
+    // 页面可见性处理
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        audioContext.suspend();
+      } else {
+        audioContext.resume();
+      }
+    });
+  </script>
+</body>
+</html>
