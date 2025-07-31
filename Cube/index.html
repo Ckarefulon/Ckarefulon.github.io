@@ -1,19 +1,8 @@
 <html translate="no">
   <head>
-    <title>Cube</title>    
+    <title>Cube</title>
+    <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.6.0.min.js"></script>
     <div id="common-head"></div>
-    <script>
-      window.onload = function() {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', '/Common.html', true);
-        xhr.onreadystatechange = function() {
-          if (xhr.readyState === 4 && xhr.status === 200) {
-            document.getElementById('common-head').innerHTML = xhr.responseText;
-          }
-        };
-        xhr.send();
-      };
-    </script>
     <style>
       a{
         color: #24f0ea;
@@ -31,5 +20,11 @@
     <span class="Hide">Cube</span>
     <a href="ZBLL">ZBLL</a>
     <a href="Cross">Cross</a>
+    <script>
+      $(document).ready(function() {
+        $('#common-head').load('/Common.html #head');
+        $('#common-header').load('/Common.html #header');
+      });
+    </script>
   </body>
 </html>
