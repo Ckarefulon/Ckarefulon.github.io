@@ -1,8 +1,8 @@
 <html>
   <head>
     <title>404</title>
+    <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.6.0.min.js"></script>
     <div id="common-head"></div>
-    <script src="/Common.html" type="text/html"></script>
     <style>
       h1{
         color: #24f0ea;
@@ -116,6 +116,12 @@
           }, 1700);
         });
       }
+    </script>
+    <script>
+      $(document).ready(function() {
+        $('#common-head').load('/Common.html #head');
+        $('#common-header').load('/Common.html #header');
+      });
     </script>
   </body>
 </html>
