@@ -4,27 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>蓝牙设备扫描器</title>
-    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
 </head>
 <body>
-    <!-- 顶部导航栏 -->
-    <header>
-        <div>
-            <div>
-                <<i class="fa fa-bluetooth-b"></</i>
-                <h1>蓝牙设备扫描器</h1>
-            </div>
-            <div>
-                <button id="theme-toggle">
-                    <<i class="fa fa-moon-o"></</i>
-                </button>
-                <button id="help-button">
-                    <<i class="fa fa-question-circle"></</i>
-                </button>
-            </div>
-        </div>
-    </header>
-
     <!-- 主要内容区 -->
     <main>
         <!-- 状态信息 -->
@@ -32,19 +13,14 @@
             <div>
                 <div>
                     <div>
-                        <<i class="fa fa-info-circle"></</i>
                         <div>
                             <h2>当前状态</h2>
-                            <p id="connection-status">
-                                <<i class="fa fa-circle"></</i>未连接到任何设备
-                            </p>
+                            <p id="connection-status">未连接到任何设备</p>
                         </div>
                     </div>
                     <div>
                         <span>当前设备:</span>
-                        <span id="current-device">
-                            <<i class="fa fa-bluetooth-b"></</i>未选择
-                        </span>
+                        <span id="current-device">未选择</span>
                     </div>
                 </div>
             </div>
@@ -54,29 +30,18 @@
         <section>
             <div>
                 <div>
-                    <h2>
-                        <<i class="fa fa-cubes"></</i>蓝牙设备
-                    </h2>
+                    <h2>蓝牙设备</h2>
                     <div>
-                        <button id="scan-devices">
-                            <<i class="fa fa-search"></</i>扫描设备
-                        </button>
-                        <button id="connect-selected" disabled>
-                            <<i class="fa fa-link"></</i>连接
-                        </button>
-                        <button id="disconnect" disabled>
-                            <<i class="fa fa-unlink"></</i>断开连接
-                        </button>
-                        <button id="scan-devices-no-filter">
-                            <<i class="fa fa-search"></</i>不筛选扫描设备
-                        </button>
+                        <button id="scan-devices">扫描设备</button>
+                        <button id="connect-selected" disabled>连接</button>
+                        <button id="disconnect" disabled>断开连接</button>
+                        <button id="scan-devices-no-filter">不筛选扫描设备</button>
                     </div>
                 </div>
                 
                 <!-- 设备列表 -->
                 <div id="devices-list">
                     <div>
-                        <<i class="fa fa-bluetooth-searching"></</i>
                         <p>点击"扫描设备"开始搜索蓝牙设备</p>
                     </div>
                 </div>
@@ -86,20 +51,16 @@
         <!-- 设备操作区 -->
         <section>
             <div>
-                <h2>
-                    <<i class="fa fa-sliders"></</i>设备操作
-                </h2>
+                <h2>设备操作</h2>
                 
-                <div id="device-controls">
+                <div id="device-controls" style="opacity: 0.5; pointer-events: none;">
                     <!-- 设备控制命令 -->
                     <div>
                         <div>
                             <h3>发送命令</h3>
                             <div>
                                 <input type="text" id="command-input" placeholder="输入命令...">
-                                <button id="send-command">
-                                    <<i class="fa fa-paper-plane"></</i>发送
-                                </button>
+                                <button id="send-command">发送</button>
                             </div>
                         </div>
                         
@@ -114,7 +75,7 @@
                         </div>
                     </div>
                     
-                    <!-- 数据可视化 -->
+                    <!-- 数据接收区 -->
                     <div>
                         <h3>数据接收</h3>
                         <div id="data-display">
@@ -125,7 +86,6 @@
                 
                 <!-- 未连接提示 -->
                 <div id="no-device-connected">
-                    <<i class="fa fa-exclamation-circle"></</i>
                     <h3>未连接到任何设备</h3>
                     <p>请先从设备列表中选择一个蓝牙设备并连接</p>
                 </div>
@@ -136,12 +96,8 @@
         <section>
             <div>
                 <div>
-                    <h2>
-                        <<i class="fa fa-history"></</i>操作日志
-                    </h2>
-                    <button id="clear-logs">
-                        <<i class="fa fa-trash-o"></</i>清空日志
-                    </button>
+                    <h2>操作日志</h2>
+                    <button id="clear-logs">清空日志</button>
                 </div>
                 
                 <div id="logs-container">
@@ -160,60 +116,6 @@
         </div>
     </footer>
 
-    <!-- 帮助模态框 -->
-    <div id="help-modal">
-        <div>
-            <div>
-                <div>
-                    <h3>使用帮助</h3>
-                    <button id="close-help">
-                        <<i class="fa fa-times"></</i>
-                    </button>
-                </div>
-            </div>
-            <div>
-                <div>
-                    <div>
-                        <h4>蓝牙设备扫描器使用指南</h4>
-                        <p>本应用程序允许您扫描附近的蓝牙设备，连接到它们，并与之交换数据。</p>
-                    </div>
-                    
-                    <div>
-                        <h4>如何使用</h4>
-                        <ol>
-                            <li>确保您的设备蓝牙已开启</li>
-                            <li>点击"扫描设备"按钮开始搜索附近的蓝牙设备</li>
-                            <li>从列表中选择您要连接的设备</li>
-                            <li>点击"连接"按钮建立连接</li>
-                            <li>连接成功后，您可以在设备操作区发送命令和接收数据</li>
-                        </ol>
-                    </div>
-                    
-                    <div>
-                        <h4>功能说明</h4>
-                        <ul>
-                            <li><strong>扫描设备</strong>: 搜索并显示附近的蓝牙设备</li>
-                            <li><strong>不筛选扫描设备</strong>: 搜索所有蓝牙设备，不进行筛选</li>
-                            <li><strong>连接/断开连接</strong>: 管理与所选蓝牙设备的连接</li>
-                            <li><strong>发送命令</strong>: 向已连接的蓝牙设备发送数据</li>
-                            <li><strong>预设命令</strong>: 提供常用命令的快捷方式</li>
-                            <li><strong>数据接收</strong>: 显示从蓝牙设备接收到的数据</li>
-                            <li><strong>操作日志</strong>: 记录应用程序的操作和事件</li>
-                        </ul>
-                    </div>
-                    
-                    <div>
-                        <h4>兼容性</h4>
-                        <p>此应用程序使用Web Bluetooth API，目前仅在部分现代浏览器中支持。请使用最新版本的Chrome、Edge或Opera浏览器以获得最佳体验。</p>
-                    </div>
-                </div>
-            </div>
-            <div>
-                <button id="close-help-btn">我知道了</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // 全局变量
@@ -221,7 +123,6 @@
             let server = null;
             let characteristic = null;
             let selectedDevice = null;
-            let isDarkMode = false;
             
             // DOM 元素
             const scanDevicesBtn = document.getElementById('scan-devices');
@@ -238,11 +139,6 @@
             const dataDisplay = document.getElementById('data-display');
             const logsContainer = document.getElementById('logs-container');
             const clearLogsBtn = document.getElementById('clear-logs');
-            const helpButton = document.getElementById('help-button');
-            const helpModal = document.getElementById('help-modal');
-            const closeHelp = document.getElementById('close-help');
-            const closeHelpBtn = document.getElementById('close-help-btn');
-            const themeToggle = document.getElementById('theme-toggle');
             const scanDevicesNoFilterBtn = document.getElementById('scan-devices-no-filter');
             
             // 初始化日志
@@ -273,10 +169,6 @@
             });
             
             clearLogsBtn.addEventListener('click', clearLogs);
-            helpButton.addEventListener('click', showHelp);
-            closeHelp.addEventListener('click', hideHelp);
-            closeHelpBtn.addEventListener('click', hideHelp);
-            themeToggle.addEventListener('click', toggleTheme);
             
             // 蓝牙核心功能
             function checkBluetoothSupport() {
@@ -285,7 +177,7 @@
             
             function scanForDevices() {
                 log('开始扫描蓝牙设备...');
-                devicesList.innerHTML = '<div><<i class="fa fa-spinner fa-spin"></</i><p>正在扫描蓝牙设备...</p></div>';
+                devicesList.innerHTML = '<div><p>正在扫描蓝牙设备...</p></div>';
                 
                 const filters = [
                     { services: ['00001800-0000-1000-8000-00805f9b34fb'] },
@@ -313,29 +205,25 @@
                         <div data-id="${device.id}">
                             <div>
                                 <div>
-                                    <<i class="fa fa-bluetooth-b"></</i>
                                     <div>
                                         <h3>${device.name || '未知设备'}</h3>
                                         <p>ID: ${device.id.substring(0, 8)}...</p>
                                     </div>
                                 </div>
-                                <div>
-                                    <<i class="fa fa-check-circle"></</i>已选中
-                                </div>
+                                <div>已选中</div>
                             </div>
                         </div>
                     `;
                     
                     selectedDevice = device;
                     connectSelectedBtn.removeAttribute('disabled');
-                    currentDevice.innerHTML = `<<i class="fa fa-bluetooth-b"></</i>${device.name || '未知设备'}`;
+                    currentDevice.textContent = device.name || '未知设备';
                     device.addEventListener('gattserverdisconnected', onDeviceDisconnected);
                 })
                 .catch(error => {
                     log('扫描设备时出错: ' + error, 'error');
                     devicesList.innerHTML = `
                         <div>
-                            <<i class="fa fa-exclamation-circle"></</i>
                             <p>扫描设备失败: ${error.message}</p>
                             <p>请确保蓝牙已开启且设备处于可发现状态</p>
                         </div>
@@ -345,7 +233,7 @@
             
             function scanForDevicesNoFilter() {
                 log('开始不筛选扫描蓝牙设备...');
-                devicesList.innerHTML = '<div><<i class="fa fa-spinner fa-spin"></</i><p>正在不筛选扫描蓝牙设备...</p></div>';
+                devicesList.innerHTML = '<div><p>正在不筛选扫描蓝牙设备...</p></div>';
                 
                 navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
@@ -365,29 +253,25 @@
                         <div data-id="${device.id}">
                             <div>
                                 <div>
-                                    <<i class="fa fa-bluetooth-b"></</i>
                                     <div>
                                         <h3>${device.name || '未知设备'}</h3>
                                         <p>ID: ${device.id.substring(0, 8)}...</p>
                                     </div>
                                 </div>
-                                <div>
-                                    <<i class="fa fa-check-circle"></</i>已选中
-                                </div>
+                                <div>已选中</div>
                             </div>
                         </div>
                     `;
                     
                     selectedDevice = device;
                     connectSelectedBtn.removeAttribute('disabled');
-                    currentDevice.innerHTML = `<<i class="fa fa-bluetooth-b"></</i>${device.name || '未知设备'}`;
+                    currentDevice.textContent = device.name || '未知设备';
                     device.addEventListener('gattserverdisconnected', onDeviceDisconnected);
                 })
                 .catch(error => {
                     log('扫描设备时出错: ' + error, 'error');
                     devicesList.innerHTML = `
                         <div>
-                            <<i class="fa fa-exclamation-circle"></</i>
                             <p>扫描设备失败: ${error.message}</p>
                             <p>请确保蓝牙已开启且设备处于可发现状态</p>
                         </div>
@@ -402,7 +286,7 @@
                 }
                 
                 log('正在连接到设备: ' + selectedDevice.name);
-                updateConnectionStatus('正在连接...', 'warning');
+                updateConnectionStatus('正在连接...');
                 
                 selectedDevice.gatt.connect()
                 .then(gattServer => {
@@ -434,9 +318,10 @@
                     characteristic = char;
                     log('已获取特征');
                     
-                    updateConnectionStatus('已连接', 'success');
-                    deviceControls.classList.remove('opacity-50', 'pointer-events-none');
-                    noDeviceConnected.classList.add('hidden');
+                    updateConnectionStatus('已连接');
+                    deviceControls.style.opacity = '1';
+                    deviceControls.style.pointerEvents = 'auto';
+                    noDeviceConnected.style.display = 'none';
                     disconnectBtn.removeAttribute('disabled');
                     connectSelectedBtn.setAttribute('disabled', 'true');
                     
@@ -455,7 +340,7 @@
                 })
                 .catch(error => {
                     log('连接设备时出错: ' + error, 'error');
-                    updateConnectionStatus('连接失败', 'error');
+                    updateConnectionStatus('连接失败');
                     resetConnectionState();
                 });
             }
@@ -467,7 +352,7 @@
                 }
                 
                 log('正在断开连接...');
-                updateConnectionStatus('正在断开连接...', 'warning');
+                updateConnectionStatus('正在断开连接...');
                 
                 if (characteristic && characteristic.properties.notify) {
                     characteristic.stopNotifications()
@@ -482,15 +367,16 @@
                 
                 server.disconnect();
                 log('已断开与设备的连接');
-                updateConnectionStatus('未连接', 'default');
+                updateConnectionStatus('未连接');
                 resetConnectionState();
             }
             
             function resetConnectionState() {
                 server = null;
                 characteristic = null;
-                deviceControls.classList.add('opacity-50', 'pointer-events-none');
-                noDeviceConnected.classList.remove('hidden');
+                deviceControls.style.opacity = '0.5';
+                deviceControls.style.pointerEvents = 'none';
+                noDeviceConnected.style.display = 'block';
                 disconnectBtn.setAttribute('disabled', 'true');
                 connectSelectedBtn.removeAttribute('disabled');
                 dataDisplay.innerHTML = '<p>等待接收数据...</p>';
@@ -541,33 +427,26 @@
                 }
             }
             
-            function updateConnectionStatus(statusText, statusType) {
-                let iconClass = '';
-                switch(statusType) {
-                    case 'success': iconClass = 'fa-circle text-success'; break;
-                    case 'error': iconClass = 'fa-circle text-danger'; break;
-                    case 'warning': iconClass = 'fa-circle text-warning'; break;
-                    default: iconClass = 'fa-circle';
-                }
-                connectionStatus.innerHTML = `<<i class="fa ${iconClass}"></</i>${statusText}`;
+            function updateConnectionStatus(statusText) {
+                connectionStatus.textContent = statusText;
             }
             
             function log(message, type = 'info') {
                 const now = new Date();
                 const timeString = now.toLocaleTimeString();
                 const logItem = document.createElement('div');
-                logItem.innerHTML = `<span>${timeString}</span> <<i class="fa ${getLogIcon(type)}"></</i> <span>${message}</span>`;
+                
+                let prefix = '';
+                switch(type) {
+                    case 'error': prefix = '[错误]'; break;
+                    case 'warning': prefix = '[警告]'; break;
+                    case 'success': prefix = '[成功]'; break;
+                    default: prefix = '[信息]';
+                }
+                
+                logItem.innerHTML = `<span>[${timeString}]</span> <span>${prefix}</span> ${message}`;
                 logsContainer.appendChild(logItem);
                 logsContainer.scrollTop = logsContainer.scrollHeight;
-            }
-            
-            function getLogIcon(type) {
-                switch(type) {
-                    case 'error': return 'fa-exclamation-circle';
-                    case 'warning': return 'fa-exclamation-triangle';
-                    case 'success': return 'fa-check-circle';
-                    default: return 'fa-info-circle';
-                }
             }
             
             function clearLogs() {
@@ -575,23 +454,9 @@
                 log('日志已清空');
             }
             
-            function showHelp() {
-                helpModal.style.display = 'block';
-            }
-            
-            function hideHelp() {
-                helpModal.style.display = 'none';
-            }
-            
-            function toggleTheme() {
-                isDarkMode = !isDarkMode;
-                themeToggle.innerHTML = isDarkMode ? '<<i class="fa fa-sun-o"></</i>' : '<<i class="fa fa-moon-o"></</i>';
-                log(isDarkMode ? '已切换到深色模式' : '已切换到浅色模式');
-            }
-            
             function onDeviceDisconnected() {
                 log('设备已断开连接', 'warning');
-                updateConnectionStatus('未连接', 'default');
+                updateConnectionStatus('未连接');
                 resetConnectionState();
             }
             
@@ -624,7 +489,7 @@
             }
             
             function showError(message) {
-                logsContainer.innerHTML = `<div><span>[错误]</span> <<i class="fa fa-exclamation-circle"></</i> <span>${message}</span></div>`;
+                logsContainer.innerHTML = `<div><span>[错误]</span> ${message}</div>`;
             }
         });
     </script>
