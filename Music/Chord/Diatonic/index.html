@@ -1,0 +1,213 @@
+<html>
+  <head>
+    <title>C大调 基础和弦</title>
+    <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#24f0ea',    // 青色
+              secondary: '#5d4ea8',  // 紫色
+            },
+          },
+        }
+      }
+    </script>
+    
+    <style type="text/tailwindcss">
+      @layer utilities {
+        .chord-hover {
+          @apply transition-all duration-300 hover:scale-105 hover:shadow-xl active:scale-95;
+        }
+        .btn-octave {
+          @apply px-6 py-3 rounded-[17px] font-bold transition-all duration-300 focus:outline-none;
+        }
+        .playing {
+          @apply bg-primary/20;
+        }
+        .fading {
+          @apply opacity-70;
+        }
+        /* 通用按钮边框样式 */
+        .custom-border {
+          border: 3px solid #24f0ea !important;
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-secondary min-h-screen flex flex-col items-center justify-center p-4 md:p-8 text-primary">
+    <div id="common-head"></div>
+    <div id="common-header"></div>
+    
+    <!-- 标题区域 -->
+    <h1 class="text-[clamp(1.8rem,5vw,3rem)] font-bold mb-8 text-center tracking-wider">
+      C大调 基础和弦
+    </h1>
+    
+    <!-- 八度控制区域 -->
+    <div class="flex justify-center items-center gap-6 mb-10 w-full max-w-md">
+      <button id="octave-down" class="btn-octave bg-primary text-secondary custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)] hover:bg-primary/80">
+        降八度
+      </button>
+      <button id="octave-up" class="btn-octave bg-primary text-secondary custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)] hover:bg-primary/80">
+        升八度
+      </button>
+    </div>
+    
+    <!-- 7个和弦按钮 -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-6 w-full max-w-5xl">
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="C">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">C</h3>
+        <p class="text-sm text-primary/80">C-E-G</p>
+      </div>
+      
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="Dm">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">Dm</h3>
+        <p class="text-sm text-primary/80">D-F-A</p>
+      </div>
+      
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="Em">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">Em</h3>
+        <p class="text-sm text-primary/80">E-G-B</p>
+      </div>
+      
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="F">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">F</h3>
+        <p class="text-sm text-primary/80">F-A-C</p>
+      </div>
+      
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="G">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">G</h3>
+        <p class="text-sm text-primary/80">G-B-D</p>
+      </div>
+      
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="Am">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">Am</h3>
+        <p class="text-sm text-primary/80">A-C-E</p>
+      </div>
+      
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="Bdim">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">Bdim</h3>
+        <p class="text-sm text-primary/80">B-D-F</p>
+      </div>
+    </div>
+
+
+  <script>
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    let currentOscillators = [];
+    let currentChord = null;
+    let currentChordElement = null;
+    let octaveOffset = 0;
+    const fadeDuration = 100; // 快速淡出
+
+    // 和弦基准频率
+    const chordNotes = {
+      'C': [261.63, 329.63, 392.00],
+      'Dm': [293.66, 349.23, 440.00],
+      'Em': [329.63, 392.00, 493.88],
+      'F': [349.23, 440.00, 523.25],
+      'G': [392.00, 493.88, 587.33],
+      'Am': [440.00, 523.25, 659.25],
+      'Bdim': [493.88, 587.33, 698.46]
+    };
+
+    // 淡出并停止当前和弦
+    function stopAndFadeCurrent() {
+      return new Promise((resolve) => {
+        if (currentOscillators.length === 0) {
+          resolve();
+          return;
+        }
+
+        if (currentChordElement) currentChordElement.classList.add('fading');
+
+        currentOscillators.forEach(({ oscillator, gain }) => {
+          const currentTime = audioContext.currentTime;
+          gain.gain.setValueAtTime(gain.gain.value, currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, currentTime + fadeDuration / 1000);
+          setTimeout(() => {
+            oscillator.stop();
+            oscillator.disconnect();
+          }, fadeDuration);
+        });
+
+        setTimeout(() => {
+          currentOscillators = [];
+          if (currentChordElement) {
+            currentChordElement.classList.remove('playing', 'fading');
+            currentChordElement = null;
+          }
+          currentChord = null;
+          resolve();
+        }, fadeDuration);
+      });
+    }
+
+    // 播放和弦
+    function playChord(chordName, element) {
+      if (audioContext.state === 'suspended') audioContext.resume();
+
+      const baseNotes = chordNotes[chordName];
+      const notesWithOctave = baseNotes.map(note => note * Math.pow(2, octaveOffset));
+
+      notesWithOctave.forEach(frequency => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+        gainNode.gain.value = 0.12;
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.start();
+        currentOscillators.push({ oscillator, gain: gainNode });
+      });
+
+      currentChord = chordName;
+      currentChordElement = element;
+      element.classList.add('playing');
+    }
+
+    // 切换和弦逻辑
+    async function toggleChord(chordName, element) {
+      if (audioContext.state === 'suspended') await audioContext.resume();
+
+      if (currentChord === chordName) {
+        await stopAndFadeCurrent();
+        return;
+      }
+
+      await stopAndFadeCurrent();
+      playChord(chordName, element);
+    }
+
+    // 八度控制事件
+    document.getElementById('octave-down').addEventListener('click', () => {
+        if (octaveOffset > -2) octaveOffset--;
+      });
+    
+      document.getElementById('octave-up').addEventListener('click', () => {
+        if (octaveOffset < 2) octaveOffset++;
+      });
+    
+      // 和弦点击事件
+      document.querySelectorAll('.chord-item').forEach(item => {
+        item.addEventListener('click', () => toggleChord(item.dataset.chord, item));
+      });
+    
+      // 页面可见性处理
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) audioContext.suspend();
+        else audioContext.resume();
+      });
+    </script>
+      <script>
+        $(document).ready(function() {
+          $('#common-head').load('/Common.html #head');
+          $('#common-header').load('/Common.html #header');
+        });
+      </script>
+    </body>
+  </html>
