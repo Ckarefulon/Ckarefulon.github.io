@@ -3,8 +3,6 @@
     <title>Cube</title>
     <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.6.0.min.js"></script>
     <div id="common-head"></div>
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>eruda.init();</script>
     <style>
       a{
         color: #24f0ea;
@@ -18,15 +16,13 @@
     </style>
   </head>
   <body>
+    <script>
+      $('#common-head').load('/Common.html #head');
+      $('#common-header').load('/Common.html #header');
+    </script>
     <div id="common-header"></div>
     <span class="Hide">Cube</span>
     <a href="ZBLL">ZBLL</a>
     <a href="Cross">Cross</a>
-    <script>
-      $(document).ready(function() {
-        $('#common-head').load('/Common.html #head');
-        $('#common-header').load('/Common.html #header');
-      });
-    </script>
   </body>
 </html>
