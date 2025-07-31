@@ -51,7 +51,7 @@
       </button>
     </div>
     
-    <!-- 7个和弦按钮 -->
+    <!-- 8个和弦按钮（新增了随机按钮） -->
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-6 w-full max-w-5xl">
       <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="C">
         <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">C</h3>
@@ -87,6 +87,12 @@
         <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">Bdim</h3>
         <p class="text-sm text-primary/80">B-D-F</p>
       </div>
+      
+      <!-- 新增的随机和弦按钮，样式与其他按钮保持一致 -->
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" id="random-chord">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">随机</h3>
+        <p class="text-sm text-primary/80" id="current-random-chord">点击播放</p>
+      </div>
     </div>
 
 
@@ -97,6 +103,8 @@
     let currentChordElement = null;
     let octaveOffset = 0;
     const fadeDuration = 100; // 快速淡出
+    // 存储所有和弦名称的数组
+    const allChords = ['C', 'Dm', 'Em', 'F', 'G', 'Am', 'Bdim'];
 
     // 和弦基准频率
     const chordNotes = {
@@ -178,6 +186,25 @@
       playChord(chordName, element);
     }
 
+    // 随机选择一个和弦并播放
+    async function playRandomChord() {
+      // 停止当前播放的和弦
+      await stopAndFadeCurrent();
+      
+      // 随机选择一个和弦
+      const randomIndex = Math.floor(Math.random() * allChords.length);
+      const randomChord = allChords[randomIndex];
+      
+      // 更新随机按钮上显示的和弦名称
+      document.getElementById('current-random-chord').textContent = randomChord;
+      
+      // 获取对应和弦的元素
+      const chordElement = document.querySelector(`[data-chord="${randomChord}"]`);
+      
+      // 播放随机选中的和弦
+      playChord(randomChord, chordElement);
+    }
+
     // 八度控制事件
     document.getElementById('octave-down').addEventListener('click', () => {
         if (octaveOffset > -2) octaveOffset--;
@@ -189,8 +216,14 @@
     
       // 和弦点击事件
       document.querySelectorAll('.chord-item').forEach(item => {
-        item.addEventListener('click', () => toggleChord(item.dataset.chord, item));
+        // 排除随机按钮
+        if (item.id !== 'random-chord') {
+          item.addEventListener('click', () => toggleChord(item.dataset.chord, item));
+        }
       });
+      
+      // 随机和弦按钮点击事件
+      document.getElementById('random-chord').addEventListener('click', playRandomChord);
     
       // 页面可见性处理
       document.addEventListener('visibilitychange', () => {
