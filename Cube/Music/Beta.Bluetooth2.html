@@ -1,0 +1,243 @@
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 全局变量
+    let bluetoothDevice = null;
+    let server = null;
+    let characteristic = null;
+    let selectedDevice = null;
+
+    // 初始化检查
+    log('蓝牙设备扫描器已启动');
+    if (!checkBluetoothSupport()) {
+        log('您的浏览器不支持Web Bluetooth API', 'error');
+        return;
+    }
+    log('浏览器支持Web Bluetooth API');
+
+    // 核心功能函数
+    function checkBluetoothSupport() {
+        return !!navigator.bluetooth;
+    }
+
+    // 扫描设备（带筛选）
+    function scanForDevices() {
+        log('开始扫描蓝牙设备...');
+        const filters = [
+            { services: ['00001800-0000-1000-8000-00805f9b34fb'] },
+            { services: ['00001801-0000-1000-8000-00805f9b34fb'] },
+            { services: ['0000180a-0000-1000-8000-00805f9b34fb'] },
+            { namePrefix: 'BLE' },
+            { namePrefix: 'HC-' }
+        ];
+
+        navigator.bluetooth.requestDevice({
+            filters: filters,
+            optionalServices: [
+                '00001800-0000-1000-8000-00805f9b34fb',
+                '00001801-0000-1000-8000-00805f9b34fb',
+                '0000180a-0000-1000-8000-00805f9b34fb',
+                '0000ffe0-0000-1000-8000-00805f9b34fb',
+                '0000fff0-0000-1000-8000-00805f9b34fb'
+            ]
+        })
+        .then(device => {
+            log('已发现设备: ' + device.name);
+            bluetoothDevice = device;
+            selectedDevice = device;
+            device.addEventListener('gattserverdisconnected', onDeviceDisconnected);
+        })
+        .catch(error => {
+            log('扫描设备时出错: ' + error, 'error');
+        });
+    }
+
+    // 扫描设备（无筛选）
+    function scanForDevicesNoFilter() {
+        log('开始不筛选扫描蓝牙设备...');
+        navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [
+                '00001800-0000-1000-8000-00805f9b34fb',
+                '00001801-0000-1000-8000-00805f9b34fb',
+                '0000180a-0000-1000-8000-00805f9b34fb',
+                '0000ffe0-0000-1000-8000-00805f9b34fb',
+                '0000fff0-0000-1000-8000-00805f9b34fb'
+            ]
+        })
+        .then(device => {
+            log('已发现设备: ' + device.name);
+            bluetoothDevice = device;
+            selectedDevice = device;
+            device.addEventListener('gattserverdisconnected', onDeviceDisconnected);
+        })
+        .catch(error => {
+            log('扫描设备时出错: ' + error, 'error');
+        });
+    }
+
+    // 连接设备
+    function connectToDevice() {
+        if (!selectedDevice) {
+            log('没有选中的设备', 'error');
+            return;
+        }
+
+        log('正在连接到设备: ' + selectedDevice.name);
+        selectedDevice.gatt.connect()
+        .then(gattServer => {
+            server = gattServer;
+            log('已连接到 GATT 服务器');
+            
+            const serviceUUIDs = [
+                '0000ffe0-0000-1000-8000-00805f9b34fb',
+                '0000fff0-0000-1000-8000-00805f9b34fb',
+                '00001800-0000-1000-8000-00805f9b34fb',
+                '00001801-0000-1000-8000-00805f9b34fb'
+            ];
+            return tryGetService(server, serviceUUIDs);
+        })
+        .then(service => {
+            log('已获取服务');
+            const characteristicUUIDs = [
+                '0000ffe1-0000-1000-8000-00805f9b34fb',
+                '0000fff1-0000-1000-8000-00805f9b34fb',
+                '00002a00-0000-1000-8000-00805f9b34fb',
+                '00002a01-0000-1000-8000-00805f9b34fb'
+            ];
+            return tryGetCharacteristic(service, characteristicUUIDs);
+        })
+        .then(char => {
+            characteristic = char;
+            log('已获取特征');
+            
+            if (characteristic.properties.notify) {
+                characteristic.startNotifications()
+                .then(() => {
+                    log('已启用特征通知');
+                    characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged);
+                })
+                .catch(error => {
+                    log('启用通知失败: ' + error, 'warning');
+                });
+            }
+            log('设备连接成功，可以开始通信');
+        })
+        .catch(error => {
+            log('连接设备时出错: ' + error, 'error');
+            resetConnectionState();
+        });
+    }
+
+    // 断开连接
+    function disconnectDevice() {
+        if (!server || !server.connected) {
+            log('没有活动的连接', 'warning');
+            return;
+        }
+
+        log('正在断开连接...');
+        if (characteristic && characteristic.properties.notify) {
+            characteristic.stopNotifications()
+            .then(() => {
+                log('已停止特征通知');
+                characteristic.removeEventListener('characteristicvaluechanged', handleCharacteristicValueChanged);
+            })
+            .catch(error => {
+                log('停止通知失败: ' + error, 'warning');
+            });
+        }
+
+        server.disconnect();
+        log('已断开与设备的连接');
+        resetConnectionState();
+    }
+
+    // 发送命令
+    function sendCommand(command) {
+        if (!command) {
+            log('命令不能为空', 'warning');
+            return;
+        }
+
+        if (!characteristic) {
+            log('未连接到设备，无法发送命令', 'error');
+            return;
+        }
+
+        log('发送命令: ' + command);
+        const dataArray = stringToBytes(command);
+        
+        if (characteristic.properties.writeWithoutResponse) {
+            characteristic.writeValueWithoutResponse(dataArray)
+            .then(() => log('命令发送成功 (无响应)'))
+            .catch(error => log('发送命令失败: ' + error, 'error'));
+        } else if (characteristic.properties.write) {
+            characteristic.writeValue(dataArray)
+            .then(() => log('命令发送成功'))
+            .catch(error => log('发送命令失败: ' + error, 'error'));
+        } else {
+            log('特征不支持写入操作', 'error');
+        }
+    }
+
+    // 辅助函数
+    function resetConnectionState() {
+        server = null;
+        characteristic = null;
+    }
+
+    function handleCharacteristicValueChanged(event) {
+        const value = event.target.value;
+        const dataString = bytesToString(value);
+        log('接收到数据: ' + dataString);
+    }
+
+    function tryGetService(server, serviceUUIDs) {
+        let promise = Promise.reject(new Error('No services found'));
+        for (const uuid of serviceUUIDs) {
+            promise = promise.catch(() => server.getPrimaryService(uuid));
+        }
+        return promise;
+    }
+
+    function tryGetCharacteristic(service, characteristicUUIDs) {
+        let promise = Promise.reject(new Error('No characteristics found'));
+        for (const uuid of characteristicUUIDs) {
+            promise = promise.catch(() => service.getCharacteristic(uuid));
+        }
+        return promise;
+    }
+
+    function bytesToString(buffer) {
+        return String.fromCharCode.apply(null, new Uint8Array(buffer));
+    }
+
+    function stringToBytes(str) {
+        const array = new Uint8Array(str.length);
+        for (let i = 0; i < str.length; i++) {
+            array[i] = str.charCodeAt(i);
+        }
+        return array;
+    }
+
+    function onDeviceDisconnected() {
+        log('设备已断开连接', 'warning');
+        resetConnectionState();
+    }
+
+    function log(message, type = 'info') {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString();
+        console.log(`[${timeString}] ${message}`);
+    }
+
+    // 暴露接口供外部调用（模拟原UI触发）
+    window.bluetoothLogic = {
+        scan: scanForDevices,
+        scanNoFilter: scanForDevicesNoFilter,
+        connect: connectToDevice,
+        disconnect: disconnectDevice,
+        send: sendCommand
+    };
+});
+</script>
