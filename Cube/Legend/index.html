@@ -1,32 +1,13 @@
 <html>
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>图例</title>
-    <link rel="icon" type="image/png" href="/Favicon.png">
+    <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.6.0.min.js"></script>
+    <div id="head"></div>
     <style>
       body{
         background-color: #5d4ea8;
         margin: 0;
         padding: 20px;
-      }
-      .Top{
-        background-color: #5d4ea8;
-        border: 3px solid #24f0ea;
-        padding: 10px;
-        color: #24f0ea;
-        box-shadow: 0px 17px 25px #55367a;
-        margin: 0;
-        position: fixed;
-        right: 0px;
-        left: 0px;
-        top: 0px;
-        border-radius: 0px 0px 17px 17px;
-        z-index: 999
-      }
-      .None{
-        all: revert;
-        float: right;
       }
       h1{
         color: #24f0ea;
@@ -47,17 +28,17 @@
     </style>
   </head>
   <body>
-    <br/>
-    <div class="Top">
-      <div style="float: left;" class="None">Ckarefulon</div>
-      <div class="None">Ckareful S.</div>
-      <div class="None"><img style="width: 20px;height: 20px" src="/Favicon.png"></div>
-      <div style="margin-right: 7px;"class="None">by</div>
-    </div>
+    <div id="header"></div>
     <h1>图例</h1>
     <div><p>=\t颜色相同</p></div>
     <div><p>↔\t颜色相对，如蓝↔绿</p></div>
     <div><p> - \t颜色不同，如红 - 蓝</p></div>
     <div><p>√\t颜色已在正确的位置</p></div>
-  </body>
+    <script>
+      $(document).ready(function() {
+        $('#common-head').load('/Common.html #head');
+        $('#common-header').load('/Common.html #header');
+      });
+    </script>
+</body>
 </html>
