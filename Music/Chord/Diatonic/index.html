@@ -2,6 +2,7 @@
   <head>
     <title>C大调 基础和弦</title>
     <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.6.0.min.js"></script>
+    <div id="common-head"></div>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -38,14 +39,8 @@
     </style>
   </head>
   <body class="bg-secondary min-h-screen flex flex-col items-center justify-center p-4 md:p-8 text-primary">
-    <div id="common-head"></div>
     <div id="common-header"></div>
-    
-    <!-- 标题区域 -->
-    <h1 class="text-[clamp(1.8rem,5vw,3rem)] font-bold mb-8 text-center tracking-wider">
-      C大调 基础和弦
-    </h1>
-    
+    <span class="Hide">基础和弦</span>
     <!-- 八度控制区域 -->
     <div class="flex justify-center items-center gap-6 mb-10 w-full max-w-md">
       <button id="octave-down" class="btn-octave bg-primary text-secondary custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)] hover:bg-primary/80">
