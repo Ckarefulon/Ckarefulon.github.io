@@ -1,8 +1,8 @@
 <html>
   <head>
     <title>提示：视频正在制作中……</title>
+    <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.6.0.min.js"></script>
     <div id="common-head"></div>
-    <script src="/Common.html" type="text/html"></script>
     <style>
       h1{
         color: #24f0ea;
@@ -16,5 +16,11 @@
     <div id="common-header"></div>
     <span class="Hide" translate="no">提示</span>
     <h1>视频正在制作中…</h1>
-  </body>
+    <script>
+      $(document).ready(function() {
+        $('#common-head').load('/Common.html #head');
+        $('#common-header').load('/Common.html #header');
+      });
+    </script>
+    </body>
 </html>
