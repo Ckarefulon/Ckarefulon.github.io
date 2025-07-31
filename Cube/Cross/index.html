@@ -1,10 +1,9 @@
 <html>
   <head>
-    <meta name="viewport" content="user-scalable=no, width=device-width, minimum-scale=1.0, maximum-scale=1.0" />
     <title>Cross</title>
+    <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.6.0.min.js"></script>
     <link id="pagestyle" href="style.css" rel="stylesheet" type="text/css">
     <div id="common-head"></div>
-    <script src="/Common.html" type="text/html"></script>
   </head>
   <body onLoad="NewScramble();" style="display: flex;">
     <div id="common-header"></div>
@@ -45,4 +44,10 @@
       });
     }
   </script>
+    <script>
+      $(document).ready(function() {
+        $('#common-head').load('/Common.html #head');
+        $('#common-header').load('/Common.html #header');
+      });
+    </script>
 </html>
