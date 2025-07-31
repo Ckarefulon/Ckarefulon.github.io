@@ -1,8 +1,8 @@
 <html>
-  <head><script src="https://cdn.jsdelivr.net/npm/eruda"></script><script>eruda.init({lang: 'zh-CN'});</script>
+  <head>
     <title>ZBLL T (Database)</title>
     <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.6.0.min.js"></script>
-    <div id="common-head" style="display: none;"></div>
+    <div id="common-head"></div>
     <style>
       body {
         background-color: #5d4ea8;
@@ -27,7 +27,7 @@
         margin-top: 7px;
         box-shadow: 10px 10px 17px;
       }
-      div{
+      .div-base {
         background-color: #a0a2de;
         border: 3px solid #24f0ea;
         padding: 10px;
@@ -40,7 +40,6 @@
         border: none;
       }
       .overlay {
-        all: revert;
         margin: 0;
         position: fixed;
         top: 0;
@@ -55,10 +54,14 @@
         backdrop-filter: blur(7px);
       }
       .popup {
-        margin: 0;
         background-color: #5d4ea8;
+        border: 3px solid #24f0ea;
+        padding: 10px;
+        margin-top: 10px;
+        border-radius: 17px;
         color: #24f0ea;
         box-shadow: 0px 0px;
+        margin: 0;
         padding: 20px;
         position: relative;
       }
@@ -120,6 +123,7 @@
               (filterC === '' || item.attrs[2] === filterC) &&
               (filterD === '' || item.attrs[3] === filterD)) {
             const div = document.createElement('div');
+            div.classList.add('div-base');
             div.textContent = `"${item.text}"，特征：${item.attrs.join(', ')}`;
             div.style.cursor = 'pointer';
             div.addEventListener('click', function() {
@@ -138,7 +142,7 @@
     </script>
   </head>
   <body>
-    <div id="common-header" style="display: none;"></div>
+    <div id="common-header"></div>
     <span class="Hide" translate="no">ZBLL T</span>
     <div class="overlay" id="overlay">
       <div class="popup">
@@ -158,7 +162,7 @@
         document.getElementById('overlay').style.display = 'none';
       }
     </script>
-    <div style="
+    <div class="div-base" style="
       width: 286px;
       height: 286px;
       position: fixed;
