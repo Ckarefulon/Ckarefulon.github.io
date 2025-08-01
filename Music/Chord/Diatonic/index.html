@@ -1,0 +1,246 @@
+<html>
+  <head>
+    <title>C大调 基础和弦</title>
+    <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.6.0.min.js"></script>
+    <div id="common-head"></div>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#24f0ea',    // 青色
+              secondary: '#5d4ea8',  // 紫色
+            },
+          },
+        }
+      }
+    </script>
+    
+    <style type="text/tailwindcss">
+      @layer utilities {
+        .chord-hover {
+          @apply transition-all duration-300 hover:scale-105 hover:shadow-xl active:scale-95;
+        }
+        .btn-octave {
+          @apply px-6 py-3 rounded-[17px] font-bold transition-all duration-300 focus:outline-none;
+        }
+        .playing {
+          @apply bg-primary/20;
+        }
+        .fading {
+          @apply opacity-70;
+        }
+        /* 通用按钮边框样式 */
+        .custom-border {
+          border: 3px solid #24f0ea !important;
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-secondary min-h-screen flex flex-col items-center justify-center p-4 md:p-8 text-primary" id="main-bg">
+    <div id="common-header"></div>
+    <span class="Hide">基础和弦</span>
+    <!-- 八度控制区域 -->
+    <div class="flex justify-center items-center gap-6 mb-10 w-full max-w-md">
+      <!-- 青色八度按钮 -->
+      <button id="octave-down" class="btn-octave bg-primary text-secondary custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)] hover:bg-primary/80">
+        降八度
+      </button>
+      <button id="octave-up" class="btn-octave bg-primary text-secondary custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)] hover:bg-primary/80">
+        升八度
+      </button>
+    </div>
+    
+    <!-- 8个和弦按钮（包含随机按钮） -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-6 w-full max-w-5xl" id="chord-container">
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="C">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">C</h3>
+        <p class="text-sm text-primary/80">C-E-G</p>
+      </div>
+      
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="Dm">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">Dm</h3>
+        <p class="text-sm text-primary/80">D-F-A</p>
+      </div>
+      
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="Em">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">Em</h3>
+        <p class="text-sm text-primary/80">E-G-B</p>
+      </div>
+      
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="F">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">F</h3>
+        <p class="text-sm text-primary/80">F-A-C</p>
+      </div>
+      
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="G">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">G</h3>
+        <p class="text-sm text-primary/80">G-B-D</p>
+      </div>
+      
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="Am">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">Am</h3>
+        <p class="text-sm text-primary/80">A-C-E</p>
+      </div>
+      
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="Bdim">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">Bdim</h3>
+        <p class="text-sm text-primary/80">B-D-F</p>
+      </div>
+      
+      <!-- 随机和弦按钮 -->
+      <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" id="random-chord">
+        <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">随机</h3>
+        <p class="text-sm text-primary/80" id="current-random-chord">点击播放</p>
+      </div>
+    </div>
+
+
+  <script>
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    let currentOscillators = []; // 存储当前播放的振荡器
+    let currentChordElement = null; // 当前播放的和弦元素
+    let octaveOffset = 0;
+    const fadeDuration = 100; // 快速淡出
+    const allChords = ['C', 'Dm', 'Em', 'F', 'G', 'Am', 'Bdim'];
+
+    // 和弦基准频率
+    const chordNotes = {
+      'C': [261.63, 329.63, 392.00],
+      'Dm': [293.66, 349.23, 440.00],
+      'Em': [329.63, 392.00, 493.88],
+      'F': [349.23, 440.00, 523.25],
+      'G': [392.00, 493.88, 587.33],
+      'Am': [440.00, 523.25, 659.25],
+      'Bdim': [493.88, 587.33, 698.46]
+    };
+
+    // 停止当前播放的和弦
+    function stopCurrentChord() {
+      return new Promise((resolve) => {
+        if (currentOscillators.length === 0) {
+          resolve();
+          return;
+        }
+
+        // 添加淡出效果
+        if (currentChordElement) {
+          currentChordElement.classList.add('fading');
+        }
+
+        // 所有振荡器淡出并停止
+        currentOscillators.forEach(({ oscillator, gain }) => {
+          const currentTime = audioContext.currentTime;
+          gain.gain.setValueAtTime(gain.gain.value, currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, currentTime + fadeDuration / 1000);
+          setTimeout(() => {
+            oscillator.stop();
+            oscillator.disconnect();
+          }, fadeDuration);
+        });
+
+        setTimeout(() => {
+          // 清空振荡器数组
+          currentOscillators = [];
+          // 移除播放状态样式
+          if (currentChordElement) {
+            currentChordElement.classList.remove('playing', 'fading');
+            currentChordElement = null;
+          }
+          // 重置随机按钮显示
+          document.getElementById('current-random-chord').textContent = '点击播放';
+          resolve();
+        }, fadeDuration);
+      });
+    }
+
+    // 播放和弦（先停止当前的，再播放新的）
+    async function playChord(chordName, element) {
+      // 先停止当前播放的和弦
+      await stopCurrentChord();
+      
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      // 标记新的和弦为播放状态
+      currentChordElement = element;
+      element.classList.add('playing');
+
+      const baseNotes = chordNotes[chordName];
+      const notesWithOctave = baseNotes.map(note => note * Math.pow(2, octaveOffset));
+
+      // 创建新的振荡器
+      notesWithOctave.forEach(frequency => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+        gainNode.gain.value = 0.12;
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.start();
+        
+        currentOscillators.push({ oscillator, gain: gainNode });
+      });
+    }
+
+    // 随机选择一个和弦并播放（先停止当前的）
+    async function playRandomChord() {
+      const randomIndex = Math.floor(Math.random() * allChords.length);
+      const randomChord = allChords[randomIndex];
+      
+      // 更新随机按钮上显示的和弦名称
+      document.getElementById('current-random-chord').textContent = randomChord;
+      
+      // 获取对应和弦的元素并播放
+      const chordElement = document.querySelector(`[data-chord="${randomChord}"]`);
+      await playChord(randomChord, chordElement);
+    }
+
+    // 点击紫色背景停止播放
+    document.getElementById('main-bg').addEventListener('click', async (e) => {
+      // 检查点击目标是否是和弦按钮区域或八度按钮
+      const isChordArea = e.target.closest('#chord-container');
+      const isOctaveButton = e.target.closest('.btn-octave');
+      
+      // 只有点击紫色背景区域（非和弦按钮且非八度按钮）才停止
+      if (!isChordArea && !isOctaveButton) {
+        await stopCurrentChord();
+      }
+    });
+
+    // 八度控制事件
+    document.getElementById('octave-down').addEventListener('click', () => {
+      if (octaveOffset > -2) octaveOffset--;
+    });
+    
+    document.getElementById('octave-up').addEventListener('click', () => {
+      if (octaveOffset < 2) octaveOffset++;
+    });
+    
+    // 和弦点击事件（点击新和弦时自动停止上一个）
+    document.querySelectorAll('.chord-item').forEach(item => {
+      if (item.id !== 'random-chord') {
+        item.addEventListener('click', () => playChord(item.dataset.chord, item));
+      }
+    });
+    
+    // 随机和弦按钮点击事件
+    document.getElementById('random-chord').addEventListener('click', playRandomChord);
+    
+    // 页面可见性处理
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) audioContext.suspend();
+      else audioContext.resume();
+    });
+  </script>
+  <script>
+    $(document).ready(function() {
+      $('#common-head').load('/Common.html #head');
+      $('#common-header').load('/Common.html #header');
+    });
+  </script>
+</body>
+</html>
