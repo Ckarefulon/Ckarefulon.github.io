@@ -86,8 +86,10 @@
                   inset 0px 0px 17px #24f0ea;
   </style>
   <script>
-    document.querySelectorAll('.Box').forEach(box => {
-      box.onclick = () => box.classList.toggle('Act');
+    document.body.addEventListener('click', (e) => {
+      if (e.target.classList.contains('Box')) {
+        e.target.classList.toggle('Act');
+      }
     });
   </script>
 </div>
