@@ -14,7 +14,7 @@
     }
   </script>
   <style>
-    .Top{
+    .Top {
       background-color: #5d4ea8;
       border: 3px solid #24f0ea;
       padding: 10px;
@@ -28,11 +28,11 @@
       border-radius: 0px 0px 17px 17px;
       z-index: 998;
     }
-    .None{
+    .None {
       all: revert;
       float: right;
     }
-    .Hide{
+    .Hide {
       all: revert;
       position: fixed;
       left: 0px;
@@ -43,11 +43,11 @@
       text-align: center;
       color: #24f0ea;
     }
-    .aNone{
+    .aNone {
       all: revert;
       float: right;
     }
-    .bNone{
+    .bNone {
       all: revert;
       float: right;
       margin-right: 7px;
@@ -63,14 +63,14 @@
     }
   </style>
   <style>
-    :where(.Box){
+    :where(.Box) {
       background-color: #5d4ea8;
       color: #24f0ea;
       border: 3px solid #24f0ea;
       border-radius: 17px;
       box-shadow: 10px 10px 17px #55367a;
     }
-    :where(.Btn){
+    :where(.Btn) {
       background-color: #24f0ea;
       color: #5d4ea8;
       border: none;
@@ -78,7 +78,19 @@
       box-shadow: 10px 10px 17px #55367a;
       cursor: pointer;
     }
+    :where(.Hvr):hover {
+      box-shadow: insert 0px 0px 17px #24f0ea;
+    }
+    :where(.Box.Act) {
+      box-shadow: insert 7px 7px 7px #55367a;
+      box-shadow: insert 0px 0px 17px #24f0ea;
+    }
   </style>
+  <script>
+    document.querySelectorAll('.Box').forEach(btn => {
+      btn.onclick = () => btn.classList.toggle('Act');
+    });
+  </script>
 </div>
 
 
