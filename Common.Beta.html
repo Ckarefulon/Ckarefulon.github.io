@@ -79,12 +79,11 @@
       cursor: pointer;
     }
     :where(.Hvr):hover {
-      box-shadow: insert 0px 0px 17px #24f0ea;
+      box-shadow: inset 0px 0px 17px #24f0ea;
     }
     :where(.Box.Act) {
-      box-shadow: insert 7px 7px 7px #55367a;
-      box-shadow: insert 0px 0px 17px #24f0ea;
-    }
+      box-shadow: inset 7px 7px 7px #55367a,
+                  inset 0px 0px 17px #24f0ea;
   </style>
   <script>
     document.querySelectorAll('.Box').forEach(btn => {
