@@ -9,8 +9,8 @@
         theme: {
           extend: {
             colors: {
-              primary: '#24f0ea',    // 青色
-              secondary: '#5d4ea8',  // 紫色
+              primary: '#24f0ea',
+              secondary: '#5d4ea8',
             },
           },
         }
@@ -31,7 +31,6 @@
         .fading {
           @apply opacity-70;
         }
-        /* 通用按钮边框样式 */
         .custom-border {
           border: 3px solid #24f0ea !important;
         }
@@ -41,9 +40,7 @@
   <body class="bg-secondary min-h-screen flex flex-col items-center justify-center p-4 md:p-8 text-primary" id="main-bg">
     <div id="common-header"></div>
     <span class="Hide" style="z-index: 7777;">基础和弦</span>
-    <!-- 八度控制区域 -->
     <div class="flex justify-center items-center gap-6 mb-10 w-full max-w-md">
-      <!-- 青色八度按钮 -->
       <button id="octave-down" class="btn-octave bg-primary text-secondary custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)] hover:bg-primary/80">
         降八度
       </button>
@@ -52,7 +49,6 @@
       </button>
     </div>
     
-    <!-- 8个和弦按钮（包含随机按钮） -->
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-6 w-full max-w-5xl" id="chord-container">
       <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" data-chord="C">
         <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">C</h3>
@@ -89,7 +85,6 @@
         <p class="text-sm text-primary/80">B-D-F</p>
       </div>
       
-      <!-- 随机和弦按钮 -->
       <div class="chord-item bg-secondary rounded-[17px] p-6 flex flex-col items-center justify-center chord-hover cursor-pointer custom-border shadow-[10px_10px_17px_rgba(0,0,0,0.3)]" id="random-chord">
         <h3 class="text-2xl md:text-3xl font-bold text-primary mb-1">随机</h3>
         <p class="text-sm text-primary/80" id="current-random-chord">点击播放</p>
@@ -99,15 +94,14 @@
 
   <script>
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    let currentOscillators = []; // 存储当前播放的振荡器
-    let currentChordElement = null; // 当前播放的和弦元素
+    let currentOscillators = [];
+    let currentChordElement = null;
     let octaveOffset = 0;
-    const fadeDuration = 100; // 快速淡出
+    const fadeDuration = 100;
     const allChords = ['C', 'Dm', 'Em', 'F', 'G', 'Am', 'Bdim'];
-    let history = []; // 记录最近选择（最多存储6条）
-    let remainingChords = [...allChords]; // 待覆盖的和弦列表
+    let remainingChords = [...allChords]; // 用于保证7次不重复（本轮待选和弦）
+    let recentChords = []; // 用于保证三次不重复（存储最近2次，+新选的=3次）
 
-    // 和弦基准频率
     const chordNotes = {
       'C': [261.63, 329.63, 392.00],
       'Dm': [293.66, 349.23, 440.00],
@@ -118,20 +112,13 @@
       'Bdim': [493.88, 587.33, 698.46]
     };
 
-    // 停止当前播放的和弦
     function stopCurrentChord() {
       return new Promise((resolve) => {
         if (currentOscillators.length === 0) {
           resolve();
           return;
         }
-
-        // 添加淡出效果
-        if (currentChordElement) {
-          currentChordElement.classList.add('fading');
-        }
-
-        // 所有振荡器淡出并停止
+        if (currentChordElement) currentChordElement.classList.add('fading');
         currentOscillators.forEach(({ oscillator, gain }) => {
           const currentTime = audioContext.currentTime;
           gain.gain.setValueAtTime(gain.gain.value, currentTime);
@@ -141,38 +128,25 @@
             oscillator.disconnect();
           }, fadeDuration);
         });
-
         setTimeout(() => {
-          // 清空振荡器数组
           currentOscillators = [];
-          // 移除播放状态样式
           if (currentChordElement) {
             currentChordElement.classList.remove('playing', 'fading');
             currentChordElement = null;
           }
-          // 重置随机按钮显示
           document.getElementById('current-random-chord').textContent = '点击播放';
           resolve();
         }, fadeDuration);
       });
     }
 
-    // 播放和弦（先停止当前的，再播放新的）
     async function playChord(chordName, element) {
       await stopCurrentChord();
-      
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-      }
-
-      // 标记新的和弦为播放状态
+      if (audioContext.state === 'suspended') await audioContext.resume();
       currentChordElement = element;
       element.classList.add('playing');
-
       const baseNotes = chordNotes[chordName];
       const notesWithOctave = baseNotes.map(note => note * Math.pow(2, octaveOffset));
-
-      // 创建新的振荡器
       notesWithOctave.forEach(frequency => {
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
@@ -182,61 +156,40 @@
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
         oscillator.start();
-        
         currentOscillators.push({ oscillator, gain: gainNode });
       });
-
-      // 更新剩余和弦和历史记录
-      remainingChords = remainingChords.filter(chord => chord !== chordName);
-      history.push(chordName);
-      if (history.length > 6) {
-        history.shift(); // 移除最早的记录
-      }
-      // 所有和弦已覆盖，重置剩余列表
-      if (remainingChords.length === 0) {
-        remainingChords = [...allChords];
-      }
     }
 
-    // 随机和弦选取逻辑（确保10次内覆盖所有和弦）
     async function playRandomChord() {
-      // 可用和弦 = 优先从剩余未覆盖的和弦中选，且排除最近6次已选的
-      let available = remainingChords.filter(chord => !history.includes(chord));
-      
-      // 边界情况1：剩余和弦都在最近历史中，放宽限制
-      if (available.length === 0) {
-        available = remainingChords;
+      // 若本轮7次抽完，重置为新轮次（保留最近2次用于三次去重检查）
+      if (remainingChords.length === 0) {
+        remainingChords = [...allChords];
+        // 保留最近2次记录（确保和新轮次的第一个组成三次不重复）
+        if (recentChords.length >= 2) recentChords = recentChords.slice(-2);
       }
       
-      // 边界情况2：剩余和弦为空（理论上不会发生）
-      if (available.length === 0) {
-        available = allChords.filter(chord => !history.includes(chord));
-      }
+      // 从本轮待选和弦中，过滤掉最近2次出现的（确保新选的+最近2次=三次无重复）
+      const available = remainingChords.filter(chord => !recentChords.includes(chord));
       
-      // 边界情况3：所有和弦都在历史中，清空历史
-      if (available.length === 0) {
-        history = [];
-        available = remainingChords.length > 0 ? remainingChords : allChords;
-      }
-
-      // 随机选择并播放
+      // 随机选择并更新状态
       const randomIndex = Math.floor(Math.random() * available.length);
       const randomChord = available[randomIndex];
+      remainingChords.splice(remainingChords.indexOf(randomChord), 1); // 从本轮待选中移除
+      recentChords.push(randomChord); // 加入最近记录
+      if (recentChords.length > 2) recentChords.shift(); // 只保留最近2次
+      
+      // 播放和弦
       document.getElementById('current-random-chord').textContent = randomChord;
       const chordElement = document.querySelector(`[data-chord="${randomChord}"]`);
       await playChord(randomChord, chordElement);
     }
 
-    // 点击紫色背景停止播放
     document.getElementById('main-bg').addEventListener('click', async (e) => {
       const isChordArea = e.target.closest('#chord-container');
       const isOctaveButton = e.target.closest('.btn-octave');
-      if (!isChordArea && !isOctaveButton) {
-        await stopCurrentChord();
-      }
+      if (!isChordArea && !isOctaveButton) await stopCurrentChord();
     });
 
-    // 八度控制事件
     document.getElementById('octave-down').addEventListener('click', () => {
       if (octaveOffset > -2) octaveOffset--;
     });
@@ -245,7 +198,6 @@
       if (octaveOffset < 2) octaveOffset++;
     });
     
-    // 和弦点击事件
     document.querySelectorAll('.chord-item').forEach(item => {
       if (item.id !== 'random-chord') {
         item.addEventListener('click', () => {
@@ -255,10 +207,8 @@
       }
     });
     
-    // 随机和弦按钮点击事件
     document.getElementById('random-chord').addEventListener('click', playRandomChord);
     
-    // 页面可见性处理
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) audioContext.suspend();
       else audioContext.resume();
