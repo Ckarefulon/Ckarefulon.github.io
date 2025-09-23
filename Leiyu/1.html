@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多媒体控制中心</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .media-fullscreen {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                object-fit: cover;
+            }
+            .fade-transition {
+                transition: opacity 0.7s ease-in-out;
+            }
+        }
+    </style>
+</head>
+<body class="overflow-hidden bg-black">
+    <!-- 音频元素 - 不显示在页面上 -->
+    <audio id="audio1" src="Back.mp3" preload="auto"></audio>
+    <audio id="audio2" src="Back.mp3" preload="auto"></audio>
+
+    <!-- 视频层级从低到高排列 (HTML中后面的元素层级更高) -->
+    <!-- 最底层: Back.mp4 -->
+    <video id="Back.mp4" class="media-fullscreen" loop playsinline muted>
+        <source src="Back.mp4" type="video/mp4">
+    </video>
+
+    <!-- 第三部分视频 -->
+    <video id="6.mp4" class="media-fullscreen hidden opacity-0 fade-transition" playsinline muted>
+        <source src="6.mp4" type="video/mp4">
+    </video>
+    <video id="5.mp4" class="media-fullscreen hidden opacity-0 fade-transition" playsinline muted>
+        <source src="5.mp4" type="video/mp4">
+    </video>
+    <video id="4.mp4" class="media-fullscreen hidden opacity-0 fade-transition" playsinline muted>
+        <source src="4.mp4" type="video/mp4">
+    </video>
+
+    <!-- Open.mp4 -->
+    <video id="Open.mp4" class="media-fullscreen" playsinline muted>
+        <source src="Open.mp4" type="video/mp4">
+    </video>
+
+    <!-- Back.png -->
+    <img id="Back.png" src="Back.png" class="media-fullscreen object-cover">
+
+    <!-- 第二部分视频 -->
+    <video id="3.mp4" class="media-fullscreen hidden" playsinline muted>
+        <source src="3.mp4" type="video/mp4">
+    </video>
+    <video id="2.mp4" class="media-fullscreen hidden" playsinline muted>
+        <source src="2.mp4" type="video/mp4">
+    </video>
+    <video id="1.mp4" class="media-fullscreen hidden" playsinline muted>
+        <source src="1.mp4" type="video/mp4">
+    </video>
+
+    <!-- 第一部分视频 -->
+    <video id="pre6.mp4" class="media-fullscreen hidden" playsinline muted>
+        <source src="pre6.mp4" type="video/mp4">
+    </video>
+    <video id="pre5.mp4" class="media-fullscreen hidden" playsinline muted>
+        <source src="pre5.mp4" type="video/mp4">
+    </video>
+    <video id="pre4.mp4" class="media-fullscreen hidden" playsinline muted>
+        <source src="pre4.mp4" type="video/mp4">
+    </video>
+    <video id="pre3.mp4" class="media-fullscreen hidden" playsinline muted>
+        <source src="pre3.mp4" type="video/mp4">
+    </video>
+    <video id="pre2.mp4" class="media-fullscreen hidden" playsinline muted>
+        <source src="pre2.mp4" type="video/mp4">
+    </video>
+    <video id="pre1.mp4" class="media-fullscreen hidden" playsinline muted>
+        <source src="pre1.mp4" type="video/mp4">
+    </video>
+
+    <!-- 提示信息 -->
+    <div class="fixed bottom-4 left-0 right-0 text-white text-center z-50 opacity-70 text-sm">
+        <p>按空格键控制pre系列视频 | 按1-3键控制第一组视频 | 按4-6键控制第二组视频</p>
+    </div>
+
+    <script>
+        // 音频控制逻辑
+        const audio1 = document.getElementById('audio1');
+        const audio2 = document.getElementById('audio2');
+        let audioFadeTime = 0.7; // 0.7秒淡入淡出
+        
+        // 音频1播放函数 - 带淡入淡出
+        function playAudio1() {
+            audio1.volume = 0;
+            audio1.play();
+            
+            // 淡入
+            let volume = 0;
+            const fadeInInterval = setInterval(() => {
+                volume += 0.05;
+                if (volume >= 1) {
+                    volume = 1;
+                    clearInterval(fadeInInterval);
+                }
+                audio1.volume = volume;
+            }, audioFadeTime * 1000 / 20);
+            
+            // 音频结束前0.7秒开始淡出
+            audio1.addEventListener('timeupdate', function fadeOutHandler() {
+                if (audio1.duration - audio1.currentTime <= audioFadeTime) {
+                    let volume = 1;
+                    const fadeOutInterval = setInterval(() => {
+                        volume -= 0.05;
+                        if (volume <= 0) {
+                            volume = 0;
+                            clearInterval(fadeOutInterval);
+                            audio1.removeEventListener('timeupdate', fadeOutHandler);
+                            // 播放结束后立即重新开始
+                            audio1.currentTime = 0;
+                            playAudio1();
+                        }
+                        audio1.volume = volume;
+                    }, audioFadeTime * 1000 / 20);
+                }
+            }, { once: true });
+        }
+        
+        // 音频2播放函数 - 带淡入淡出
+        function playAudio2() {
+            audio2.volume = 0;
+            audio2.play();
+            
+            // 淡入
+            let volume = 0;
+            const fadeInInterval = setInterval(() => {
+                volume += 0.05;
+                if (volume >= 1) {
+                    volume = 1;
+                    clearInterval(fadeInInterval);
+                }
+                audio2.volume = volume;
+            }, audioFadeTime * 1000 / 20);
+            
+            // 音频结束前0.7秒开始淡出
+            audio2.addEventListener('timeupdate', function fadeOutHandler() {
+                if (audio2.duration - audio2.currentTime <= audioFadeTime) {
+                    let volume = 1;
+                    const fadeOutInterval = setInterval(() => {
+                        volume -= 0.05;
+                        if (volume <= 0) {
+                            volume = 0;
+                            clearInterval(fadeOutInterval);
+                            audio2.removeEventListener('timeupdate', fadeOutHandler);
+                            // 播放结束后立即重新开始
+                            audio2.currentTime = 0;
+                            playAudio2();
+                        }
+                        audio2.volume = volume;
+                    }, audioFadeTime * 1000 / 20);
+                }
+            }, { once: true });
+        }
+        
+        // 启动音频播放 - 第一个立即播放，第二个延迟7秒
+        playAudio1();
+        setTimeout(playAudio2, 7000);
+        
+        // 视频控制逻辑
+        // 获取所有视频元素
+        const preVideos = Array.from({length: 6}, (_, i) => document.getElementById(`pre${i+1}.mp4`));
+        const numberedVideos1 = Array.from({length: 3}, (_, i) => document.getElementById(`${i+1}.mp4`));
+        const numberedVideos2 = Array.from({length: 3}, (_, i) => document.getElementById(`${i+4}.mp4`));
+        const backVideo = document.getElementById('Back.mp4');
+        const openVideo = document.getElementById('Open.mp4');
+        const backImage = document.getElementById('Back.png');
+        
+        // 第一部分：空格键控制pre系列视频
+        let preVideoIndex = 0;
+        let preSequenceComplete = false;
+        
+        function handlePreVideoSequence() {
+            // 隐藏当前视频（如果有）
+            if (preVideoIndex > 0 && preVideoIndex <= 6) {
+                const currentVideo = preVideoIndex <= 6 ? preVideos[preVideoIndex - 1] : null;
+                if (currentVideo) {
+                    currentVideo.classList.add('hidden');
+                    currentVideo.pause();
+                    currentVideo.currentTime = 0;
+                }
+            }
+            
+            // 播放下一个视频，直到pre6
+            if (preVideoIndex < 6) {
+                const nextVideo = preVideos[preVideoIndex];
+                nextVideo.classList.remove('hidden');
+                nextVideo.play();
+                
+                // 视频结束时保持最后一帧
+                nextVideo.onended = function() {
+                    // 不做任何操作，保持最后一帧
+                };
+            }
+            
+            preVideoIndex++;
+            if (preVideoIndex > 6) {
+                preSequenceComplete = true;
+            }
+        }
+        
+        // 第二部分：数字键1-3控制视频
+        function playNumberedVideo(video) {
+            // 隐藏所有同组视频
+            numberedVideos1.forEach(v => {
+                v.classList.add('hidden');
+                v.pause();
+                v.currentTime = 0;
+            });
+            
+            // 显示并播放指定视频
+            video.classList.remove('hidden');
+            video.play();
+            
+            // 视频结束后隐藏
+            video.onended = function() {
+                video.classList.add('hidden');
+                video.currentTime = 0;
+            };
+        }
+        
+        // 处理Open.mp4播放
+        function playOpenVideo() {
+            // 隐藏Back.png
+            backImage.classList.add('hidden');
+            
+            // 播放Open.mp4
+            openVideo.currentTime = 0;
+            openVideo.classList.remove('hidden');
+            openVideo.play();
+            
+            // 视频结束前0.7秒开始渐隐
+            const fadeOutTime = 0.7;
+            const checkFadeOut = function() {
+                if (openVideo.duration - openVideo.currentTime <= fadeOutTime) {
+                    openVideo.style.opacity = 1;
+                    let opacity = 1;
+                    const interval = setInterval(() => {
+                        opacity -= 0.05;
+                        if (opacity <= 0) {
+                            opacity = 0;
+                            clearInterval(interval);
+                            openVideo.classList.add('hidden');
+                            openVideo.currentTime = 0;
+                            openVideo.style.opacity = 1; // 重置不透明度
+                        }
+                        openVideo.style.opacity = opacity;
+                    }, fadeOutTime * 1000 / 20);
+                    openVideo.removeEventListener('timeupdate', checkFadeOut);
+                }
+            };
+            
+            openVideo.addEventListener('timeupdate', checkFadeOut);
+        }
+        
+        // 第三部分：数字键4-6控制视频（带渐入渐出）
+        function playFadingVideo(video) {
+            // 隐藏所有同组视频
+            numberedVideos2.forEach(v => {
+                v.classList.add('hidden');
+                v.pause();
+                v.currentTime = 0;
+                v.style.opacity = 0;
+            });
+            
+            // 显示并渐显指定视频
+            video.classList.remove('hidden');
+            video.currentTime = 0;
+            video.play();
+            
+            // 渐入效果
+            let opacity = 0;
+            const fadeInInterval = setInterval(() => {
+                opacity += 0.05;
+                if (opacity >= 1) {
+                    opacity = 1;
+                    clearInterval(fadeInInterval);
+                }
+                video.style.opacity = opacity;
+            }, 35); // 0.7秒内完成20步
+            
+            // 视频结束前0.7秒开始渐隐
+            const fadeOutTime = 0.7;
+            const checkFadeOut = function() {
+                if (video.duration - video.currentTime <= fadeOutTime) {
+                    let opacity = 1;
+                    const interval = setInterval(() => {
+                        opacity -= 0.05;
+                        if (opacity <= 0) {
+                            opacity = 0;
+                            clearInterval(interval);
+                            video.classList.add('hidden');
+                            video.currentTime = 0;
+                        }
+                        video.style.opacity = opacity;
+                    }, fadeOutTime * 1000 / 20);
+                    video.removeEventListener('timeupdate', checkFadeOut);
+                }
+            };
+            
+            video.addEventListener('timeupdate', checkFadeOut);
+        }
+        
+        // Back.mp4 特殊处理 - 循环播放并平滑过渡
+        backVideo.addEventListener('timeupdate', function() {
+            // 视频快结束时（最后0.7秒）开始淡出
+            if (backVideo.duration - backVideo.currentTime <= audioFadeTime) {
+                backVideo.style.opacity = (backVideo.duration - backVideo.currentTime) / audioFadeTime;
+            } else if (backVideo.currentTime <= audioFadeTime) {
+                // 视频开始时淡入
+                backVideo.style.opacity = backVideo.currentTime / audioFadeTime;
+            } else {
+                backVideo.style.opacity = 1;
+            }
+        });
+        
+        // 键盘事件处理
+        document.addEventListener('keydown', function(e) {
+            // 空格键处理
+            if (e.code === 'Space') {
+                e.preventDefault(); // 防止页面滚动
+                
+                if (!preSequenceComplete) {
+                    // 第一部分：处理pre视频序列
+                    handlePreVideoSequence();
+                } else {
+                    // 第二部分：处理Open.mp4
+                    playOpenVideo();
+                }
+            }
+            
+            // 数字键1-3处理
+            if (e.code === 'Digit1') {
+                playNumberedVideo(numberedVideos1[0]);
+            } else if (e.code === 'Digit2') {
+                playNumberedVideo(numberedVideos1[1]);
+            } else if (e.code === 'Digit3') {
+                playNumberedVideo(numberedVideos1[2]);
+            }
+            
+            // 数字键4-6处理
+            if (e.code === 'Digit4') {
+                playFadingVideo(numberedVideos2[0]);
+            } else if (e.code === 'Digit5') {
+                playFadingVideo(numberedVideos2[1]);
+            } else if (e.code === 'Digit6') {
+                playFadingVideo(numberedVideos2[2]);
+            }
+        });
+        
+        // 页面加载完成后初始化Back.mp4
+        window.addEventListener('load', function() {
+            backVideo.play();
+        });
+    </script>
+</body>
+</html>
