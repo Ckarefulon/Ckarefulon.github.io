@@ -295,6 +295,125 @@
 			background: rgba(36, 37, 31, 0.05);
 		}
 
+		.button.small {
+			min-height: 34px;
+			padding: 0 10px;
+			font-size: 13px;
+		}
+
+		.hiddenFileInput {
+			display: none;
+		}
+
+		.importDropZone {
+			min-height: 58px;
+			display: grid;
+			place-items: center;
+			margin-bottom: 10px;
+			padding: 12px;
+			border: 1px dashed rgba(40, 104, 216, 0.42);
+			border-radius: 8px;
+			background: rgba(40, 104, 216, 0.06);
+			color: #245cb8;
+			text-align: center;
+			font-weight: 700;
+		}
+
+		.importDropZone.isDragging {
+			border-color: var(--blue);
+			background: rgba(40, 104, 216, 0.12);
+		}
+
+		.textImport {
+			display: none;
+			margin-top: 10px;
+		}
+
+		.textImport.isVisible {
+			display: grid;
+			gap: 8px;
+		}
+
+		.stateTextarea {
+			width: 100%;
+			min-height: 92px;
+			resize: vertical;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			padding: 10px;
+			background: #fff;
+			color: var(--ink);
+			font: 13px/1.45 "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+		}
+
+		.stateOptions {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin-top: 12px;
+			color: var(--muted);
+			font-size: 13px;
+		}
+
+		.importStatus {
+			margin-top: 10px;
+			color: var(--muted);
+			font-size: 13px;
+		}
+
+		.stateList {
+			display: grid;
+			gap: 8px;
+			margin-top: 12px;
+		}
+
+		.stateCard {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			gap: 10px;
+			align-items: center;
+			padding: 10px;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: rgba(255, 255, 255, 0.58);
+		}
+
+		.stateCard strong {
+			display: block;
+			overflow-wrap: anywhere;
+			font-size: 14px;
+		}
+
+		.stateCard small {
+			display: block;
+			margin-top: 4px;
+			color: var(--muted);
+			font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+			font-size: 11px;
+			overflow-wrap: anywhere;
+		}
+
+		.statePreview {
+			grid-column: 1 / -1;
+			width: 100%;
+			height: 116px;
+			border-top: 1px solid var(--line);
+			padding-top: 8px;
+			cursor: grab;
+			touch-action: none;
+			user-select: none;
+		}
+
+		.statePreview.isDragging {
+			cursor: grabbing;
+		}
+
+		.statePreview > div {
+			width: 108px;
+			height: 108px;
+			margin: 0 auto;
+		}
+
 		.metrics {
 			display: grid;
 			grid-template-columns: 1fr 1fr;
@@ -534,6 +653,25 @@
 				</div>
 			</section>
 
+			<section class="panelSection stateImport" id="stateImport">
+				<div id="stateDropZone" class="importDropZone">拖入 TXT 状态文件</div>
+				<div class="controls">
+					<button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button>
+					<button id="toggleTextImportBtn" class="button secondary" type="button">粘贴文本</button>
+				</div>
+				<input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain">
+				<div id="textImportBox" class="textImport">
+					<textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea>
+					<button id="parseStateTextBtn" class="button small" type="button">导入文本</button>
+				</div>
+				<label class="stateOptions">
+					<input id="showStateThumbs" type="checkbox">
+					<span>显示状态缩略图</span>
+				</label>
+				<div id="stateImportStatus" class="importStatus">未导入状态</div>
+				<div id="stateList" class="stateList"></div>
+			</section>
+
 			<section class="history">
 				<div class="historyTitle">
 					<span>最近转动</span>
@@ -545,7 +683,7 @@
 		</aside>
 	</main>
 
-	<script src="smart-cube-assets/lib/jquery-1.8.0.js"></script>
+	<script src="assets/lib/jquery-1.8.0.js"></script>
 	<script>
 		(function() {
 			"use strict";
@@ -684,21 +822,21 @@
 			};
 		})();
 	</script>
-	<script src="smart-cube-assets/lib/lzstring.js"></script>
-	<script src="smart-cube-assets/lib/sha256.js"></script>
-	<script src="smart-cube-assets/lib/isaac.js"></script>
-	<script src="smart-cube-assets/lib/mathlib.js"></script>
-	<script src="smart-cube-assets/lib/pnltri.js"></script>
-	<script src="smart-cube-assets/lib/threemin.js"></script>
-	<script src="smart-cube-assets/twisty/twisty.js"></script>
-	<script src="smart-cube-assets/twisty/twistynnn.js"></script>
-	<script src="smart-cube-assets/hardware/bluetooth.js"></script>
-	<script src="smart-cube-assets/hardware/giikercube.js"></script>
-	<script src="smart-cube-assets/hardware/gocube.js"></script>
-	<script src="smart-cube-assets/hardware/gancube.js"></script>
-	<script src="smart-cube-assets/hardware/moyucube.js"></script>
-	<script src="smart-cube-assets/hardware/moyu32cube.js"></script>
-	<script src="smart-cube-assets/hardware/qiyicube.js"></script>
+	<script src="assets/lib/lzstring.js"></script>
+	<script src="assets/lib/sha256.js"></script>
+	<script src="assets/lib/isaac.js"></script>
+	<script src="assets/lib/mathlib.js"></script>
+	<script src="assets/lib/pnltri.js"></script>
+	<script src="assets/lib/threemin.js"></script>
+	<script src="assets/twisty/twisty.js"></script>
+	<script src="assets/twisty/twistynnn.js"></script>
+	<script src="assets/hardware/bluetooth.js"></script>
+	<script src="assets/hardware/giikercube.js"></script>
+	<script src="assets/hardware/gocube.js"></script>
+	<script src="assets/hardware/gancube.js"></script>
+	<script src="assets/hardware/moyucube.js"></script>
+	<script src="assets/hardware/moyu32cube.js"></script>
+	<script src="assets/hardware/qiyicube.js"></script>
 	<script>
 		(function() {
 			"use strict";
@@ -706,6 +844,11 @@
 			var app = {
 				twistyScene: null,
 				moveHistory: [],
+				importedStates: [],
+				showStateThumbs: false,
+				thumbnailScenes: [],
+				thumbnailYaw: 0,
+				thumbnailPitch: 0,
 				moveCount: 0,
 				deviceName: "",
 				batteryLevel: null,
@@ -731,6 +874,16 @@
 						log: document.getElementById("log"),
 						lastTs: document.getElementById("lastTs"),
 						manualMoves: document.getElementById("manualMoves"),
+						stateDropZone: document.getElementById("stateDropZone"),
+						chooseStateFileBtn: document.getElementById("chooseStateFileBtn"),
+						stateFileInput: document.getElementById("stateFileInput"),
+						toggleTextImportBtn: document.getElementById("toggleTextImportBtn"),
+						textImportBox: document.getElementById("textImportBox"),
+						stateTextInput: document.getElementById("stateTextInput"),
+						parseStateTextBtn: document.getElementById("parseStateTextBtn"),
+						showStateThumbs: document.getElementById("showStateThumbs"),
+						stateImportStatus: document.getElementById("stateImportStatus"),
+						stateList: document.getElementById("stateList"),
 						macHelp: document.getElementById("macHelp"),
 						macHelpReason: document.getElementById("macHelpReason")
 					};
@@ -788,6 +941,7 @@
 							self.playMove(button.getAttribute("data-move"), "manual", Date.now());
 						}
 					});
+					this.bindStateImport();
 					window.addEventListener("resize", function() {
 						self.resizeTwisty();
 					});
@@ -809,6 +963,328 @@
 							self.playMove(event.shiftKey ? move + "'" : move, "keyboard", Date.now());
 						}
 					});
+				},
+
+				bindStateImport: function() {
+					var self = this;
+					this.elements.chooseStateFileBtn.addEventListener("click", function() {
+						self.elements.stateFileInput.click();
+					});
+					this.elements.stateFileInput.addEventListener("change", function(event) {
+						self.importFiles(event.target.files);
+						event.target.value = "";
+					});
+					this.elements.toggleTextImportBtn.addEventListener("click", function() {
+						self.elements.textImportBox.classList.toggle("isVisible");
+						var isVisible = self.elements.textImportBox.classList.contains("isVisible");
+						self.elements.toggleTextImportBtn.textContent = isVisible ? "收起文本框" : "粘贴文本";
+						if (isVisible) {
+							self.elements.stateTextInput.focus();
+						}
+					});
+					this.elements.parseStateTextBtn.addEventListener("click", function() {
+						self.importStateText(self.elements.stateTextInput.value, "text");
+					});
+					this.elements.showStateThumbs.addEventListener("change", function(event) {
+						self.showStateThumbs = event.target.checked;
+						self.renderStateList();
+					});
+					this.elements.stateList.addEventListener("click", function(event) {
+						var button = event.target.closest("[data-state-index]");
+						if (button) {
+							self.applyImportedState(Number(button.getAttribute("data-state-index")));
+						}
+					});
+					this.bindThumbnailDrag();
+					this.elements.stateDropZone.addEventListener("dragover", function(event) {
+						event.preventDefault();
+						self.elements.stateDropZone.classList.add("isDragging");
+					});
+					this.elements.stateDropZone.addEventListener("dragleave", function() {
+						self.elements.stateDropZone.classList.remove("isDragging");
+					});
+					this.elements.stateDropZone.addEventListener("drop", function(event) {
+						event.preventDefault();
+						self.elements.stateDropZone.classList.remove("isDragging");
+						self.importFiles(event.dataTransfer && event.dataTransfer.files);
+					});
+				},
+
+				bindThumbnailDrag: function() {
+					var self = this;
+					var drag = {
+						active: false,
+						preview: null,
+						x: 0,
+						y: 0,
+						yaw: 0,
+						pitch: 0
+					};
+					this.elements.stateList.addEventListener("pointerdown", function(event) {
+						var preview = event.target.closest(".statePreview");
+						if (!preview || event.button !== 0) {
+							return;
+						}
+						drag.active = true;
+						drag.preview = preview;
+						drag.x = event.clientX;
+						drag.y = event.clientY;
+						drag.yaw = self.thumbnailYaw;
+						drag.pitch = self.thumbnailPitch;
+						preview.classList.add("isDragging");
+						preview.setPointerCapture(event.pointerId);
+						event.preventDefault();
+					});
+					this.elements.stateList.addEventListener("pointermove", function(event) {
+						if (!drag.active) {
+							return;
+						}
+						var rect = drag.preview.getBoundingClientRect();
+						var limit = Math.PI / 4;
+						var dragSpan = Math.max(90, Math.min(rect.width, rect.height) * 0.85);
+						var scale = limit / dragSpan;
+						self.setThumbnailDrag(drag.yaw - (event.clientX - drag.x) * scale, drag.pitch + (event.clientY - drag.y) * scale);
+						event.preventDefault();
+					});
+					["pointerup", "pointercancel", "pointerleave"].forEach(function(type) {
+						self.elements.stateList.addEventListener(type, function(event) {
+							if (!drag.active) {
+								return;
+							}
+							drag.active = false;
+							if (drag.preview) {
+								drag.preview.classList.remove("isDragging");
+								try {
+									drag.preview.releasePointerCapture(event.pointerId);
+								} catch (error) {
+								}
+							}
+							drag.preview = null;
+						});
+					});
+				},
+
+				setThumbnailDrag: function(yaw, pitch) {
+					var limit = Math.PI / 4;
+					var length = Math.sqrt(yaw * yaw + pitch * pitch);
+					if (length > limit) {
+						yaw = yaw / length * limit;
+						pitch = pitch / length * limit;
+					}
+					this.thumbnailYaw = yaw;
+					this.thumbnailPitch = pitch;
+					for (var i = 0; i < this.thumbnailScenes.length; i++) {
+						if (this.thumbnailScenes[i] && this.thumbnailScenes[i].setViewDrag) {
+							this.thumbnailScenes[i].setViewDrag(yaw, pitch);
+						}
+					}
+				},
+
+				importFiles: function(files) {
+					var self = this;
+					var file = files && files[0];
+					if (!file) {
+						return;
+					}
+					this.setImportStatus("正在读取 " + file.name);
+					file.arrayBuffer().then(function(buffer) {
+						self.importStateText(self.decodeTextBuffer(buffer), file.name);
+					}).catch(function(error) {
+						self.setImportStatus("读取失败: " + String(error && error.message || error));
+					});
+				},
+
+				decodeTextBuffer: function(buffer) {
+					try {
+						return new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+					} catch (error) {
+						try {
+							return new TextDecoder("gb18030").decode(buffer);
+						} catch (fallbackError) {
+							return new TextDecoder("utf-8").decode(buffer);
+						}
+					}
+				},
+
+				importStateText: function(text, source) {
+					var result = this.parseStateDefinitions(text || "");
+					this.importedStates = result.states;
+					this.renderStateList();
+					this.setImportStatus("已导入 " + result.states.length + " 个状态" + (result.skipped ? "，跳过 " + result.skipped + " 条" : ""));
+					this.log("state", "import " + result.states.length + " from " + (source || "text"));
+				},
+
+				parseStateDefinitions: function(text) {
+					var entries = String(text).replace(/锛[\?\uFFFD]/g, "：").replace(/[\r\n]+/g, "").split(";");
+					var states = [];
+					var skipped = 0;
+					for (var i = 0; i < entries.length; i++) {
+						var entry = entries[i].trim();
+						if (!entry) {
+							continue;
+						}
+						var colon = this.findStateDelimiter(entry);
+						if (colon < 0) {
+							skipped++;
+							continue;
+						}
+						var name = entry.slice(0, colon).trim();
+						var alg = entry.slice(colon + 1).trim();
+						try {
+							var moves = this.parseMoveSequence(alg);
+							if (!name || moves.length === 0) {
+								skipped++;
+								continue;
+							}
+							states.push({
+								name: name,
+								alg: moves.join(""),
+								moves: moves
+							});
+						} catch (error) {
+							skipped++;
+						}
+					}
+					return {
+						states: states,
+						skipped: skipped
+					};
+				},
+
+				findStateDelimiter: function(entry) {
+					var english = entry.indexOf(":");
+					var chinese = entry.indexOf("：");
+					if (english < 0) {
+						return chinese;
+					}
+					if (chinese < 0) {
+						return english;
+					}
+					return Math.min(english, chinese);
+				},
+
+				parseMoveSequence: function(alg) {
+					var source = String(alg).replace(/[‘’`´鈥欌€榒]/g, "'").replace(/\s+/g, "");
+					var moves = [];
+					var index = 0;
+					while (index < source.length) {
+						var face = source.charAt(index);
+						if (!/[URFDLBXYZ]/i.test(face)) {
+							throw new Error("bad move");
+						}
+						var token = face;
+						index++;
+						if (source.charAt(index) === "2") {
+							token += "2";
+							index++;
+						}
+						if (source.charAt(index) === "'") {
+							token += "'";
+							index++;
+						}
+						var move = this.normalizeMove(token);
+						if (!move) {
+							throw new Error("bad move");
+						}
+						moves.push(move.text);
+					}
+					return moves;
+				},
+
+				setImportStatus: function(text) {
+					this.elements.stateImportStatus.textContent = text;
+				},
+
+				renderStateList: function() {
+					var self = this;
+					this.thumbnailScenes = [];
+					this.elements.stateList.innerHTML = "";
+					var frag = document.createDocumentFragment();
+					this.importedStates.forEach(function(state, index) {
+						var card = document.createElement("div");
+						card.className = "stateCard";
+
+						var info = document.createElement("div");
+						var name = document.createElement("strong");
+						name.textContent = state.name;
+						var alg = document.createElement("small");
+						alg.textContent = state.alg;
+						info.appendChild(name);
+						info.appendChild(alg);
+
+						var apply = document.createElement("button");
+						apply.className = "button small";
+						apply.type = "button";
+						apply.textContent = "应用";
+						apply.setAttribute("data-state-index", String(index));
+
+						card.appendChild(info);
+						card.appendChild(apply);
+						if (self.showStateThumbs) {
+							var preview = document.createElement("div");
+							preview.className = "statePreview";
+							card.appendChild(preview);
+							self.renderStatePreview(preview, state);
+						}
+						frag.appendChild(card);
+					});
+					this.elements.stateList.appendChild(frag);
+				},
+
+				renderStatePreview: function(container, state) {
+					var previewScene = new twistyjs.TwistyScene();
+					container.appendChild(previewScene.getDomElement());
+					previewScene.initializeTwisty({
+						type: "cube",
+						dimension: this.cubeDimension,
+						stickerWidth: 1.9,
+						scale: 0.92,
+						allowDragging: false,
+						faceColors: [0xffffff, 0xf05a3b, 0x2dbb70, 0xffd447, 0xff941f, 0x2f69df]
+					});
+					var moves = this.buildTwistyMoves(state.moves, false);
+					if (moves.length) {
+						previewScene.applyMoves(moves);
+					}
+					previewScene.resize();
+					this.thumbnailScenes.push(previewScene);
+					if (previewScene.setViewDrag) {
+						previewScene.setViewDrag(this.thumbnailYaw, this.thumbnailPitch);
+					}
+				},
+
+				applyImportedState: function(index) {
+					var state = this.importedStates[index];
+					if (!state) {
+						return;
+					}
+					this.moveHistory = [];
+					this.moveCount = 0;
+					this.initTwisty();
+					var moves = this.buildTwistyMoves(state.moves, true);
+					if (moves.length) {
+						this.twistyScene.applyMoves(moves);
+					}
+					this.renderMoves();
+					this.elements.moveCount.textContent = "0";
+					this.elements.lastTs.textContent = this.formatTime(Date.now());
+					this.log("state", "applied " + state.name);
+				},
+
+				buildTwistyMoves: function(tokens, updateOrientationState) {
+					var moves = [];
+					for (var i = 0; i < tokens.length; i++) {
+						var move = this.normalizeMove(tokens[i]);
+						if (!move) {
+							continue;
+						}
+						move = this.mapManualMove(move);
+						moves.push(move.twisty);
+						if (updateOrientationState && move.type === "orientation") {
+							this.updateOrientation(move.axis, move.pow);
+						}
+					}
+					return moves;
 				},
 
 				bindViewDrag: function() {
@@ -976,6 +1452,9 @@
 						this.log("skip", "无法识别转动: " + rawMove);
 						return;
 					}
+					if (!(options && options.fromCube)) {
+						move = this.mapManualMove(move);
+					}
 					if (move.type === "orientation") {
 						this.applyOrientationMove(move);
 						this.pushHistory(move.text, source, timestamp);
@@ -1039,6 +1518,46 @@
 						pow: pow,
 						twisty: [1, this.cubeDimension, axis, pow]
 					};
+				},
+
+				mapManualMove: function(move) {
+					if (!move) {
+						return move;
+					}
+					if (move.type === "face") {
+						var face = this.mapUiFace(move.face);
+						return {
+							text: move.text,
+							type: "face",
+							face: face,
+							uiFace: move.face,
+							pow: move.pow,
+							twisty: [1, 1, face, move.pow]
+						};
+					}
+					if (move.type === "orientation") {
+						var axis = this.mapUiFace(move.axis);
+						return {
+							text: move.text,
+							type: "orientation",
+							axis: axis,
+							uiAxis: move.axis,
+							pow: move.pow,
+							twisty: [1, this.cubeDimension, axis, move.pow]
+						};
+					}
+					return move;
+				},
+
+				mapUiFace: function(face) {
+					return {
+						U: "U",
+						R: "B",
+						F: "R",
+						D: "D",
+						L: "F",
+						B: "L"
+					}[face] || face;
 				},
 
 				applyOrientationMove: function(move) {
