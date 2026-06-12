@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>练习模式</title>
+	<title>训练模式</title>
 	<style>
 		:root {
 			color-scheme: light;
@@ -536,6 +536,44 @@
 			gap: 10px;
 		}
 
+		.practicePanel {
+			gap: 0;
+		}
+
+		.practiceControls {
+			grid-template-columns: minmax(0, 1fr) 132px;
+			align-items: stretch;
+		}
+
+		.practiceModeSelect {
+			min-height: 42px;
+			width: 100%;
+			padding: 0 34px 0 12px;
+			border: 1px solid var(--controlBorder);
+			border-radius: 8px;
+			background:
+				linear-gradient(45deg, transparent 50%, var(--muted) 50%) calc(100% - 18px) 18px / 6px 6px no-repeat,
+				linear-gradient(135deg, var(--muted) 50%, transparent 50%) calc(100% - 12px) 18px / 6px 6px no-repeat,
+				var(--controlBg);
+			color: var(--controlText);
+			font: inherit;
+			font-weight: 700;
+			appearance: none;
+			cursor: pointer;
+			transition: border-color 0.14s ease, box-shadow 0.14s ease, background-color 0.22s ease;
+		}
+
+		.practiceModeSelect:hover,
+		.practiceModeSelect:focus-visible {
+			border-color: var(--cyan);
+			box-shadow: 0 0 0 3px rgba(36, 240, 234, 0.10);
+			outline: none;
+		}
+
+		.importButtons {
+			grid-template-columns: 1fr 1fr;
+		}
+
 		.button {
 			min-height: 42px;
 			border: 1px solid var(--primaryBorder);
@@ -640,42 +678,64 @@
 
 		.stateList {
 			display: grid;
-			gap: 8px;
+			grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+			gap: 10px;
 			margin-top: 12px;
 		}
 
 		.stateCard {
 			display: grid;
-			grid-template-columns: minmax(0, 1fr) auto;
-			gap: 10px;
+			grid-template-rows: 124px auto;
+			gap: 8px;
 			align-items: center;
+			justify-items: center;
+			min-height: 174px;
 			padding: 10px;
 			border: 1px solid var(--line);
 			border-radius: 8px;
 			background: var(--controlBg);
+			color: var(--ink);
+			cursor: pointer;
+			font: inherit;
+			text-align: center;
+			transition: transform 0.14s ease, border-color 0.14s ease, background 0.22s ease, box-shadow 0.14s ease;
+		}
+
+		.stateCard:hover,
+		.stateCard:focus-visible {
+			border-color: rgba(36, 240, 234, 0.68);
+			background: var(--controlHoverBg);
+			box-shadow: inset 0 0 0 1px rgba(36, 240, 234, 0.08);
+			outline: none;
+			transform: translateY(-1px);
+		}
+
+		.stateCard.isActive {
+			border-color: rgba(93, 78, 168, 0.68);
+			box-shadow: inset 0 0 0 1px rgba(93, 78, 168, 0.20), 0 0 0 3px var(--accentSoft);
 		}
 
 		.stateCard strong {
 			display: block;
+			width: 100%;
 			overflow-wrap: anywhere;
 			font-size: 14px;
+			line-height: 1.25;
 		}
 
 		.stateCard small {
-			display: block;
-			margin-top: 4px;
-			color: var(--muted);
-			font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-			font-size: 11px;
+			display: none;
+		}
+
+		.stateName {
+			width: 100%;
+			color: var(--ink);
 			overflow-wrap: anywhere;
 		}
 
 		.statePreview {
-			grid-column: 1 / -1;
 			width: 100%;
-			height: 116px;
-			border-top: 1px solid var(--line);
-			padding-top: 8px;
+			height: 124px;
 			cursor: grab;
 			touch-action: none;
 			user-select: none;
@@ -686,9 +746,13 @@
 		}
 
 		.statePreview > div {
-			width: 108px;
-			height: 108px;
+			width: 116px;
+			height: 116px;
 			margin: 0 auto;
+		}
+
+		.practiceDiagnostics {
+			display: none;
 		}
 
 		.metrics {
@@ -864,13 +928,13 @@
 						<span></span><span></span><span></span>
 						<span></span><span></span><span></span>
 						</span>
-						<span id="modeLabel" class="modeText">练习模式</span>
+						<span id="modeLabel" class="modeText">训练模式</span>
 						<span class="modeChevron" aria-hidden="true"></span>
 					</button>
 					<div id="modeMenu" class="modeMenu" role="menu">
-						<a class="modeOption" href="Practice.html" role="menuitem">
+						<a class="modeOption" href="index.html" role="menuitem">
 							<span class="practiceIcon" aria-hidden="true"></span>
-							<span class="modeText">训练模式</span>
+							<span class="modeText">练习模式</span>
 						</a>
 						<a class="modeOption" href="Formula.html" role="menuitem">
 							<span class="formulaIcon" aria-hidden="true"></span>
@@ -886,16 +950,25 @@
 			<div id="cubeStage"></div>
 		</section>
 
-		<aside class="panel">
-			<header class="panelHeader">
-				<h1>蓝牙魔方同步</h1>
-				<p>当前版本默认从复原态开始显示，后续可以接入自定义初始状态。</p>
-			</header>
+		<aside class="panel practicePanel">
+			<section class="panelSection">
+				<div class="controls practiceControls">
+					<button id="connectBtn" class="button" type="button">连接魔方</button>
+					<select id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式">
+						<option value="sequence">顺序模式</option>
+						<option value="random">随机模式</option>
+					</select>
+				</div>
+			</section>
 
 			<section class="panelSection">
-				<div class="controls">
-					<button id="connectBtn" class="button" type="button">连接魔方</button>
-					<button id="resetBtn" class="button secondary" type="button">重置视图</button>
+				<div class="moves" id="orientationMoves" aria-label="整体旋转">
+					<button class="moveButton rotation" type="button" data-move="x">x</button>
+					<button class="moveButton rotation" type="button" data-move="y">y</button>
+					<button class="moveButton rotation" type="button" data-move="z">z</button>
+					<button class="moveButton rotation" type="button" data-move="x'">x'</button>
+					<button class="moveButton rotation" type="button" data-move="y'">y'</button>
+					<button class="moveButton rotation" type="button" data-move="z'">z'</button>
 				</div>
 			</section>
 
@@ -913,45 +986,9 @@
 				<div id="macHelpReason" class="macHelpReason"></div>
 			</section>
 
-			<section class="panelSection">
-				<div class="metrics">
-					<div class="metric">
-						<span>设备</span>
-						<strong id="deviceName">-</strong>
-					</div>
-					<div class="metric">
-						<span>转动数</span>
-						<strong id="moveCount">0</strong>
-					</div>
-				</div>
-			</section>
-
-			<section class="panelSection">
-				<div class="moves" id="manualMoves" aria-label="手动测试转动">
-					<button class="moveButton" type="button" data-move="U">U</button>
-					<button class="moveButton" type="button" data-move="R">R</button>
-					<button class="moveButton" type="button" data-move="F">F</button>
-					<button class="moveButton" type="button" data-move="D">D</button>
-					<button class="moveButton" type="button" data-move="L">L</button>
-					<button class="moveButton" type="button" data-move="B">B</button>
-					<button class="moveButton" type="button" data-move="U'">U'</button>
-					<button class="moveButton" type="button" data-move="R'">R'</button>
-					<button class="moveButton" type="button" data-move="F'">F'</button>
-					<button class="moveButton" type="button" data-move="D'">D'</button>
-					<button class="moveButton" type="button" data-move="L'">L'</button>
-					<button class="moveButton" type="button" data-move="B'">B'</button>
-					<button class="moveButton rotation" type="button" data-move="x">x</button>
-					<button class="moveButton rotation" type="button" data-move="y">y</button>
-					<button class="moveButton rotation" type="button" data-move="z">z</button>
-					<button class="moveButton rotation" type="button" data-move="x'">x'</button>
-					<button class="moveButton rotation" type="button" data-move="y'">y'</button>
-					<button class="moveButton rotation" type="button" data-move="z'">z'</button>
-				</div>
-			</section>
-
 			<section class="panelSection stateImport" id="stateImport">
 				<div id="stateDropZone" class="importDropZone">拖入 TXT 状态文件</div>
-				<div class="controls">
+				<div class="controls importButtons">
 					<button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button>
 					<button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button>
 				</div>
@@ -960,21 +997,16 @@
 					<textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea>
 					<button id="parseStateTextBtn" class="button small" type="button">导入文本</button>
 				</div>
-				<label class="stateOptions">
-					<input id="showStateThumbs" type="checkbox">
-					<span>显示状态缩略图</span>
-				</label>
 				<div id="stateImportStatus" class="importStatus">未导入状态</div>
 				<div id="stateList" class="stateList"></div>
 			</section>
 
-			<section class="history">
-				<div class="historyTitle">
-					<span>最近转动</span>
-					<span id="lastTs">--:--</span>
-				</div>
-				<div id="moveList" class="moveList"></div>
-				<div id="log" class="log"></div>
+			<section class="practiceDiagnostics" aria-hidden="true">
+				<strong id="deviceName">-</strong>
+				<strong id="moveCount">0</strong>
+				<span id="lastTs">--:--</span>
+				<div id="moveList"></div>
+				<div id="log"></div>
 			</section>
 		</aside>
 	</main>
@@ -1139,13 +1171,25 @@
 
 			var app = {
 				twistyScene: null,
+				virtualCubie: null,
 				moveHistory: [],
 				importedStates: [],
-				showStateThumbs: false,
+				showStateThumbs: true,
 				thumbnailScenes: [],
 				thumbnailYaw: 0,
 				thumbnailPitch: 0,
 				moveCount: 0,
+				movesSinceState: 0,
+				currentStateIndex: -1,
+				practiceMode: "sequence",
+				randomBag: [],
+				recentStateIndices: [],
+				solveSwitchTimer: null,
+				solvedAdvancePending: false,
+				seenUnsolvedSinceState: false,
+				seenUnsolvedFaceletSinceState: false,
+				seenUnsolvedVirtualSinceState: false,
+				lastFaceletSolved: false,
 				deviceName: "",
 				batteryLevel: null,
 				connected: false,
@@ -1165,14 +1209,14 @@
 						modeCurrent: document.getElementById("modeCurrent"),
 						themeToggle: document.getElementById("themeToggle"),
 						connectBtn: document.getElementById("connectBtn"),
-						resetBtn: document.getElementById("resetBtn"),
+						practiceModeSelect: document.getElementById("practiceModeSelect"),
+						orientationMoves: document.getElementById("orientationMoves"),
 						statusPill: document.getElementById("statusPill"),
 						deviceName: document.getElementById("deviceName"),
 						moveCount: document.getElementById("moveCount"),
 						moveList: document.getElementById("moveList"),
 						log: document.getElementById("log"),
 						lastTs: document.getElementById("lastTs"),
-						manualMoves: document.getElementById("manualMoves"),
 						stateDropZone: document.getElementById("stateDropZone"),
 						chooseStateFileBtn: document.getElementById("chooseStateFileBtn"),
 						stateFileInput: document.getElementById("stateFileInput"),
@@ -1180,7 +1224,6 @@
 						textImportBox: document.getElementById("textImportBox"),
 						stateTextInput: document.getElementById("stateTextInput"),
 						parseStateTextBtn: document.getElementById("parseStateTextBtn"),
-						showStateThumbs: document.getElementById("showStateThumbs"),
 						stateImportStatus: document.getElementById("stateImportStatus"),
 						stateList: document.getElementById("stateList"),
 						macHelp: document.getElementById("macHelp"),
@@ -1251,10 +1294,11 @@
 							self.connect();
 						}
 					});
-					this.elements.resetBtn.addEventListener("click", function() {
-						self.resetView();
+					this.elements.practiceModeSelect.addEventListener("change", function(event) {
+						self.practiceMode = event.target.value === "random" ? "random" : "sequence";
+						self.randomBag = [];
 					});
-					this.elements.manualMoves.addEventListener("click", function(event) {
+					this.elements.orientationMoves.addEventListener("click", function(event) {
 						var button = event.target.closest("[data-move]");
 						if (button) {
 							self.playMove(button.getAttribute("data-move"), "manual", Date.now());
@@ -1268,22 +1312,6 @@
 					document.addEventListener("keydown", function(event) {
 						if (event.key === "Escape") {
 							self.closeModeMenu();
-							return;
-						}
-						var keyMap = {
-							u: "U",
-							r: "R",
-							f: "F",
-							d: "D",
-							l: "L",
-							b: "B",
-							x: "x",
-							y: "y",
-							z: "z"
-						};
-						var move = keyMap[event.key && event.key.toLowerCase()];
-						if (move && !event.altKey && !event.ctrlKey && !event.metaKey) {
-							self.playMove(event.shiftKey ? move + "'" : move, "keyboard", Date.now());
 						}
 					});
 					document.addEventListener("click", function() {
@@ -1338,14 +1366,23 @@
 					this.elements.parseStateTextBtn.addEventListener("click", function() {
 						self.importStateText(self.elements.stateTextInput.value, "text");
 					});
-					this.elements.showStateThumbs.addEventListener("change", function(event) {
-						self.showStateThumbs = event.target.checked;
-						self.renderStateList();
-					});
 					this.elements.stateList.addEventListener("click", function(event) {
+						if (self.thumbnailWasDragged || Date.now() < (self.thumbnailDragUntil || 0)) {
+							return;
+						}
 						var button = event.target.closest("[data-state-index]");
 						if (button) {
 							self.applyImportedState(Number(button.getAttribute("data-state-index")));
+						}
+					});
+					this.elements.stateList.addEventListener("keydown", function(event) {
+						if (event.key !== "Enter" && event.key !== " ") {
+							return;
+						}
+						var card = event.target.closest("[data-state-index]");
+						if (card) {
+							event.preventDefault();
+							self.applyImportedState(Number(card.getAttribute("data-state-index")));
 						}
 					});
 					this.bindThumbnailDrag();
@@ -1371,7 +1408,8 @@
 						x: 0,
 						y: 0,
 						yaw: 0,
-						pitch: 0
+						pitch: 0,
+						moved: false
 					};
 					this.elements.stateList.addEventListener("pointerdown", function(event) {
 						var preview = event.target.closest(".statePreview");
@@ -1384,6 +1422,7 @@
 						drag.y = event.clientY;
 						drag.yaw = self.thumbnailYaw;
 						drag.pitch = self.thumbnailPitch;
+						drag.moved = false;
 						preview.classList.add("isDragging");
 						preview.setPointerCapture(event.pointerId);
 						event.preventDefault();
@@ -1396,6 +1435,11 @@
 						var limit = Math.PI / 4;
 						var dragSpan = Math.max(90, Math.min(rect.width, rect.height) * 0.85);
 						var scale = limit / dragSpan;
+						if (Math.abs(event.clientX - drag.x) + Math.abs(event.clientY - drag.y) > 4) {
+							drag.moved = true;
+							self.thumbnailWasDragged = true;
+							self.thumbnailDragUntil = Date.now() + 250;
+						}
 						self.setThumbnailDrag(drag.yaw - (event.clientX - drag.x) * scale, drag.pitch + (event.clientY - drag.y) * scale);
 						event.preventDefault();
 					});
@@ -1413,6 +1457,12 @@
 								}
 							}
 							drag.preview = null;
+							if (drag.moved) {
+								self.thumbnailDragUntil = Date.now() + 250;
+								setTimeout(function() {
+									self.thumbnailWasDragged = false;
+								}, 260);
+							}
 						});
 					});
 				},
@@ -1462,9 +1512,16 @@
 				importStateText: function(text, source) {
 					var result = this.parseStateDefinitions(text || "");
 					this.importedStates = result.states;
+					this.currentStateIndex = -1;
+					this.randomBag = [];
+					this.recentStateIndices = [];
+					this.cancelSolvedAdvance();
 					this.renderStateList();
 					this.setImportStatus("已导入 " + result.states.length + " 个状态" + (result.skipped ? "，跳过 " + result.skipped + " 条" : ""));
 					this.log("state", "import " + result.states.length + " from " + (source || "text"));
+					if (result.states.length > 0) {
+						this.applyImportedState(0);
+					}
 				},
 
 				parseStateDefinitions: function(text) {
@@ -1556,29 +1613,23 @@
 					this.importedStates.forEach(function(state, index) {
 						var card = document.createElement("div");
 						card.className = "stateCard";
-
-						var info = document.createElement("div");
-						var name = document.createElement("strong");
-						name.textContent = state.name;
-						var alg = document.createElement("small");
-						alg.textContent = state.alg;
-						info.appendChild(name);
-						info.appendChild(alg);
-
-						var apply = document.createElement("button");
-						apply.className = "button small";
-						apply.type = "button";
-						apply.textContent = "应用";
-						apply.setAttribute("data-state-index", String(index));
-
-						card.appendChild(info);
-						card.appendChild(apply);
-						if (self.showStateThumbs) {
-							var preview = document.createElement("div");
-							preview.className = "statePreview";
-							card.appendChild(preview);
-							self.renderStatePreview(preview, state);
+						card.setAttribute("role", "button");
+						card.setAttribute("tabindex", "0");
+						card.setAttribute("data-state-index", String(index));
+						if (index === self.currentStateIndex) {
+							card.classList.add("isActive");
 						}
+
+						var preview = document.createElement("div");
+						preview.className = "statePreview";
+						card.appendChild(preview);
+						self.renderStatePreview(preview, state);
+
+						var name = document.createElement("strong");
+						name.className = "stateName";
+						name.textContent = state.name;
+						card.appendChild(name);
+
 						frag.appendChild(card);
 					});
 					this.elements.stateList.appendChild(frag);
@@ -1611,20 +1662,206 @@
 					if (!state) {
 						return;
 					}
+					this.cancelSolvedAdvance();
+					this.currentStateIndex = index;
+					this.movesSinceState = 0;
+					this.seenUnsolvedSinceState = false;
+					this.seenUnsolvedFaceletSinceState = false;
+					this.seenUnsolvedVirtualSinceState = false;
+					this.lastFaceletSolved = false;
+					this.recordStateVisit(index);
+					this.setActiveStateCard(index);
 					this.moveHistory = [];
 					this.moveCount = 0;
 					this.initTwisty();
-					var moves = this.buildTwistyMoves(state.moves, true);
+					this.resetVirtualState();
+					var moves = this.buildTwistyMoves(state.moves, true, true);
 					if (moves.length) {
 						this.twistyScene.applyMoves(moves);
 					}
+					this.seenUnsolvedVirtualSinceState = !this.isVirtualStateSolved();
+					this.seenUnsolvedSinceState = this.seenUnsolvedVirtualSinceState;
 					this.renderMoves();
 					this.elements.moveCount.textContent = "0";
 					this.elements.lastTs.textContent = this.formatTime(Date.now());
+					this.setImportStatus("当前状态：" + state.name);
 					this.log("state", "applied " + state.name);
 				},
 
-				buildTwistyMoves: function(tokens, updateOrientationState) {
+				setActiveStateCard: function(index) {
+					var cards = this.elements.stateList.querySelectorAll("[data-state-index]");
+					for (var i = 0; i < cards.length; i++) {
+						cards[i].classList.toggle("isActive", Number(cards[i].getAttribute("data-state-index")) === index);
+					}
+				},
+
+				recordStateVisit: function(index) {
+					var recent = [];
+					for (var i = 0; i < this.recentStateIndices.length; i++) {
+						if (this.recentStateIndices[i] !== index) {
+							recent.push(this.recentStateIndices[i]);
+						}
+					}
+					recent.unshift(index);
+					recent.length = Math.min(recent.length, Math.max(1, Math.min(4, this.importedStates.length)));
+					this.recentStateIndices = recent;
+					this.randomBag = this.randomBag.filter(function(item) {
+						return item !== index;
+					});
+				},
+
+				cancelSolvedAdvance: function() {
+					if (this.solveSwitchTimer) {
+						clearTimeout(this.solveSwitchTimer);
+						this.solveSwitchTimer = null;
+					}
+					this.solvedAdvancePending = false;
+				},
+
+				scheduleSolvedAdvance: function() {
+					var self = this;
+					if (this.solvedAdvancePending || this.importedStates.length === 0) {
+						return;
+					}
+					this.solvedAdvancePending = true;
+					this.setImportStatus("已还原，0.7 秒后切换");
+					this.solveSwitchTimer = setTimeout(function() {
+						self.solveSwitchTimer = null;
+						self.solvedAdvancePending = false;
+						self.advancePracticeState();
+					}, 700);
+				},
+
+				advancePracticeState: function() {
+					if (!this.importedStates.length) {
+						return;
+					}
+					var nextIndex = this.practiceMode === "random" ? this.pickRandomStateIndex() : this.pickSequentialStateIndex();
+					this.applyImportedState(nextIndex);
+				},
+
+				pickSequentialStateIndex: function() {
+					if (!this.importedStates.length) {
+						return -1;
+					}
+					if (this.currentStateIndex < 0) {
+						return 0;
+					}
+					return (this.currentStateIndex + 1) % this.importedStates.length;
+				},
+
+				pickRandomStateIndex: function() {
+					var count = this.importedStates.length;
+					if (count <= 1) {
+						return 0;
+					}
+					if (!this.randomBag.length) {
+						this.refillRandomBag();
+					}
+					if (!this.randomBag.length) {
+						return this.pickSequentialStateIndex();
+					}
+					return this.randomBag.shift();
+				},
+
+				refillRandomBag: function() {
+					var count = this.importedStates.length;
+					var recentLimit = Math.min(3, Math.max(1, count - 1));
+					var recent = this.recentStateIndices.slice(0, recentLimit);
+					var preferred = [];
+					var delayed = [];
+					for (var i = 0; i < count; i++) {
+						if (recent.indexOf(i) === -1) {
+							preferred.push(i);
+						} else {
+							delayed.push(i);
+						}
+					}
+					this.shuffle(preferred);
+					this.shuffle(delayed);
+					this.randomBag = preferred.concat(delayed);
+				},
+
+				shuffle: function(items) {
+					for (var i = items.length - 1; i > 0; i--) {
+						var j = Math.floor(Math.random() * (i + 1));
+						var tmp = items[i];
+						items[i] = items[j];
+						items[j] = tmp;
+					}
+					return items;
+				},
+
+				updateSolveDetection: function(facelet, hadCubeMove) {
+					if (!this.importedStates.length || this.currentStateIndex < 0) {
+						return;
+					}
+					var normalizedFacelet = String(facelet || "").toUpperCase().replace(/[^URFDLB]/g, "");
+					var hasFacelet = normalizedFacelet.length === 54;
+					var faceletSolved = hasFacelet && this.isFaceletSolved(normalizedFacelet);
+					var virtualSolved = !!this.virtualCubie && this.isVirtualStateSolved();
+					var canAdvanceByFacelet = faceletSolved && (this.seenUnsolvedFaceletSinceState || hadCubeMove && this.movesSinceState > 0);
+					var canAdvanceByVirtual = virtualSolved && this.seenUnsolvedVirtualSinceState && this.movesSinceState > 0;
+					if (canAdvanceByFacelet || canAdvanceByVirtual) {
+						this.lastFaceletSolved = true;
+						this.scheduleSolvedAdvance();
+						return;
+					}
+					if (hasFacelet && !faceletSolved) {
+						this.seenUnsolvedFaceletSinceState = true;
+						this.seenUnsolvedSinceState = true;
+					}
+					if (this.virtualCubie && !virtualSolved) {
+						this.seenUnsolvedVirtualSinceState = true;
+						this.seenUnsolvedSinceState = true;
+					}
+					if (hasFacelet && !faceletSolved || this.virtualCubie && !virtualSolved) {
+						this.cancelSolvedAdvance();
+					}
+				},
+
+				isFaceletSolved: function(facelet) {
+					facelet = String(facelet || "").toUpperCase().replace(/[^URFDLB]/g, "");
+					var solved = window.mathlib && mathlib.SOLVED_FACELET || kernel.getProp("giiSolved", "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB");
+					solved = String(solved || "").toUpperCase().replace(/[^URFDLB]/g, "");
+					if (facelet === solved) {
+						return true;
+					}
+					if (facelet.length !== 54) {
+						return false;
+					}
+					var centers = [];
+					for (var offset = 0; offset < 54; offset += 9) {
+						var color = facelet.charAt(offset);
+						if (!color) {
+							return false;
+						}
+						for (var i = 1; i < 9; i++) {
+							if (facelet.charAt(offset + i) !== color) {
+								return false;
+							}
+						}
+						centers.push(facelet.charAt(offset + 4));
+					}
+					return new Set(centers).size === 6;
+				},
+
+				resetVirtualState: function() {
+					this.virtualCubie = window.mathlib && mathlib.CubieCube ? new mathlib.CubieCube() : null;
+				},
+
+				applyMoveToVirtualState: function(move) {
+					if (!this.virtualCubie || !move || move.type !== "face" || !this.virtualCubie.selfMoveStr) {
+						return;
+					}
+					this.virtualCubie.selfMoveStr(this.formatMoveText(move.face, move.pow));
+				},
+
+				isVirtualStateSolved: function() {
+					return !!(this.virtualCubie && this.virtualCubie.isEqual && this.virtualCubie.isEqual());
+				},
+
+				buildTwistyMoves: function(tokens, updateOrientationState, trackVirtualState) {
 					var moves = [];
 					for (var i = 0; i < tokens.length; i++) {
 						var move = this.normalizeMove(tokens[i]);
@@ -1633,6 +1870,9 @@
 						}
 						move = this.mapManualMove(move);
 						moves.push(move.twisty);
+						if (trackVirtualState) {
+							this.applyMoveToVirtualState(move);
+						}
 						if (updateOrientationState && move.type === "orientation") {
 							this.updateOrientation(move.axis, move.pow);
 						}
@@ -1786,17 +2026,19 @@
 					if (hardware) {
 						this.setDevice(hardware, this.batteryLevel);
 					}
-					if (!prevMoves || prevMoves.length === 0) {
-						this.log("state", "收到初始状态");
-						return;
-					}
 					if (this.ignoreMoves) {
 						this.log("state", "已读取设备初始状态");
 						return;
 					}
-					this.playMove(prevMoves[0], hardware || "cube", lastTs && (lastTs[1] || lastTs[0]) || Date.now(), {
-						fromCube: true
-					});
+					var hasMoves = prevMoves && prevMoves.length > 0;
+					if (hasMoves) {
+						this.playMove(prevMoves[0], hardware || "cube", lastTs && (lastTs[1] || lastTs[0]) || Date.now(), {
+							fromCube: true
+						});
+					} else {
+						this.log("state", "收到状态");
+					}
+					this.updateSolveDetection(facelet, hasMoves);
 				},
 
 				playMove: function(rawMove, source, timestamp, options) {
@@ -1817,8 +2059,12 @@
 					if (options && options.fromCube) {
 						move = this.transformCubeMove(move);
 					}
+					this.applyMoveToVirtualState(move);
 					this.twistyScene.addMoves([move.twisty]);
 					this.moveCount += 1;
+					if (options && options.fromCube) {
+						this.movesSinceState += 1;
+					}
 					this.pushHistory(move.text, source, timestamp);
 					this.elements.moveCount.textContent = String(this.moveCount);
 					this.log("move", move.text + (source ? " · " + source : ""));
