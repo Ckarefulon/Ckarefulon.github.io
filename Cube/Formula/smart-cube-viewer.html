@@ -1,0 +1,1305 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Smart Cube Viewer</title>
+	<style>
+		:root {
+			color-scheme: light;
+			--bg: #f5f6f1;
+			--ink: #24251f;
+			--muted: #6b6d63;
+			--line: #d7dacb;
+			--panel: rgba(255, 255, 250, 0.88);
+			--green: #1f9d68;
+			--blue: #2868d8;
+			--orange: #e77b26;
+			--red: #c93d3d;
+			--shadow: 0 18px 50px rgba(36, 37, 31, 0.12);
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		html,
+		body {
+			height: 100%;
+			margin: 0;
+		}
+
+		body {
+			background:
+				linear-gradient(115deg, rgba(31, 157, 104, 0.16), transparent 42%),
+				linear-gradient(290deg, rgba(231, 123, 38, 0.14), transparent 45%),
+				var(--bg);
+			color: var(--ink);
+			font: 15px/1.45 Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+			overflow: hidden;
+		}
+
+		button,
+		input {
+			font: inherit;
+		}
+
+		.app {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) 340px;
+			gap: 18px;
+			height: 100dvh;
+			padding: 18px;
+			min-height: 0;
+		}
+
+		.stage {
+			position: relative;
+			min-width: 0;
+			min-height: 420px;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background:
+				radial-gradient(circle at 48% 54%, rgba(255, 255, 255, 0.9), rgba(244, 245, 235, 0.65) 35%, rgba(231, 234, 221, 0.45) 68%, rgba(223, 227, 212, 0.2)),
+				linear-gradient(180deg, rgba(255, 255, 255, 0.64), rgba(245, 246, 239, 0.22));
+			box-shadow: var(--shadow);
+			overflow: hidden;
+		}
+
+		#cubeStage {
+			position: absolute;
+			inset: 0;
+			display: grid;
+			place-items: center;
+			padding: min(5vh, 44px);
+			cursor: grab;
+			touch-action: none;
+			user-select: none;
+		}
+
+		#cubeStage.isDragging {
+			cursor: grabbing;
+		}
+
+		#cubeStage > div {
+			width: min(82vh, 82vw);
+			height: min(82vh, 82vw);
+			max-width: 760px;
+			max-height: 760px;
+		}
+
+		#cubeStage canvas {
+			display: block;
+			margin: auto;
+		}
+
+		.touchcube {
+			position: absolute;
+			inset: 0;
+			width: 100%;
+			height: 100%;
+			border-collapse: collapse;
+			color: transparent;
+			opacity: 0;
+			pointer-events: none;
+		}
+
+		.topbar {
+			position: absolute;
+			top: 18px;
+			left: 18px;
+			right: 18px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			z-index: 2;
+			pointer-events: none;
+		}
+
+		.brand {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			min-width: 0;
+			padding: 10px 12px;
+			border: 1px solid rgba(215, 218, 203, 0.82);
+			border-radius: 8px;
+			background: var(--panel);
+			backdrop-filter: blur(14px);
+			pointer-events: auto;
+		}
+
+		.logo {
+			width: 30px;
+			height: 30px;
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			grid-template-rows: repeat(3, 1fr);
+			gap: 2px;
+			padding: 3px;
+			border-radius: 6px;
+			background: #1d1e1a;
+			flex: 0 0 auto;
+		}
+
+		.logo span:nth-child(1),
+		.logo span:nth-child(4),
+		.logo span:nth-child(7) { background: #ffffff; }
+		.logo span:nth-child(2),
+		.logo span:nth-child(5),
+		.logo span:nth-child(8) { background: #1f9d68; }
+		.logo span:nth-child(3),
+		.logo span:nth-child(6),
+		.logo span:nth-child(9) { background: #e77b26; }
+
+		.brand strong {
+			display: block;
+			white-space: nowrap;
+			font-size: 15px;
+		}
+
+		.brand small {
+			display: block;
+			color: var(--muted);
+			white-space: nowrap;
+			font-size: 12px;
+		}
+
+		.statusPill {
+			max-width: 42vw;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			padding: 9px 12px;
+			border: 1px solid rgba(215, 218, 203, 0.82);
+			border-radius: 999px;
+			background: var(--panel);
+			color: var(--muted);
+			backdrop-filter: blur(14px);
+			pointer-events: auto;
+		}
+
+		.statusPill[data-state="connected"] {
+			color: var(--green);
+			border-color: rgba(31, 157, 104, 0.3);
+		}
+
+		.statusPill[data-state="error"] {
+			color: var(--red);
+			border-color: rgba(201, 61, 61, 0.28);
+		}
+
+		.panel {
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+			max-height: calc(100dvh - 36px);
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: rgba(255, 255, 250, 0.82);
+			box-shadow: var(--shadow);
+			overflow-x: hidden;
+			overflow-y: auto;
+			scrollbar-gutter: stable;
+		}
+
+		.panelHeader,
+		.panelSection {
+			flex: 0 0 auto;
+			padding: 16px;
+			border-bottom: 1px solid var(--line);
+		}
+
+		.panelHeader h1 {
+			margin: 0;
+			font-size: 20px;
+			line-height: 1.15;
+			letter-spacing: 0;
+		}
+
+		.panelHeader p {
+			margin: 8px 0 0;
+			color: var(--muted);
+			font-size: 13px;
+		}
+
+		.macHelp {
+			display: none;
+			background: #20211e;
+			color: #fff;
+		}
+
+		.macHelp.isVisible {
+			display: block;
+		}
+
+		.macHelp strong {
+			display: block;
+			margin-bottom: 8px;
+			font-size: 14px;
+		}
+
+		.macHelp p {
+			margin: 0;
+			color: #f2f3ea;
+			font-size: 13px;
+		}
+
+		.macHelp code {
+			color: #ffffff;
+			font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+			font-size: 12px;
+		}
+
+		.macHelpReason {
+			margin-top: 9px;
+			color: #ffc66d;
+			font-size: 13px;
+		}
+
+		.controls {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+		}
+
+		.button {
+			min-height: 42px;
+			border: 1px solid #2f312b;
+			border-radius: 8px;
+			background: #2f312b;
+			color: #fff;
+			cursor: pointer;
+			transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+		}
+
+		.button:hover {
+			transform: translateY(-1px);
+			background: #1f211c;
+		}
+
+		.button:disabled {
+			cursor: progress;
+			opacity: 0.68;
+			transform: none;
+		}
+
+		.button.secondary {
+			background: transparent;
+			color: var(--ink);
+			border-color: var(--line);
+		}
+
+		.button.secondary:hover {
+			background: rgba(36, 37, 31, 0.05);
+		}
+
+		.metrics {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+		}
+
+		.metric {
+			min-height: 68px;
+			padding: 10px;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: rgba(255, 255, 255, 0.5);
+		}
+
+		.metric span {
+			display: block;
+			color: var(--muted);
+			font-size: 12px;
+		}
+
+		.metric strong {
+			display: block;
+			margin-top: 6px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			font-size: 18px;
+			letter-spacing: 0;
+		}
+
+		.moves {
+			display: grid;
+			grid-template-columns: repeat(6, minmax(0, 1fr));
+			gap: 7px;
+		}
+
+		.moveButton {
+			aspect-ratio: 1;
+			min-height: 40px;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: #fff;
+			color: var(--ink);
+			cursor: pointer;
+			font-weight: 700;
+		}
+
+		.moveButton:hover {
+			border-color: rgba(40, 104, 216, 0.38);
+			color: var(--blue);
+		}
+
+		.moveButton.rotation {
+			background: rgba(40, 104, 216, 0.08);
+			color: #245cb8;
+		}
+
+		.history {
+			flex: 0 0 auto;
+			min-height: 0;
+			display: flex;
+			flex-direction: column;
+		}
+
+		.historyTitle {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 12px 16px;
+			border-bottom: 1px solid var(--line);
+			color: var(--muted);
+			font-size: 13px;
+		}
+
+		.moveList {
+			min-height: 68px;
+			padding: 14px 16px 10px;
+			display: flex;
+			flex-wrap: wrap;
+			align-content: flex-start;
+			gap: 8px;
+		}
+
+		.moveChip {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-width: 34px;
+			height: 30px;
+			padding: 0 9px;
+			border-radius: 8px;
+			background: #2f312b;
+			color: #fff;
+			font-weight: 700;
+		}
+
+		.log {
+			min-height: 130px;
+			max-height: 230px;
+			overflow: auto;
+			padding: 12px 16px 16px;
+			border-top: 1px solid var(--line);
+			background: rgba(36, 37, 31, 0.04);
+			color: #3f4138;
+			font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+			font-size: 12px;
+			white-space: pre-wrap;
+		}
+
+		@media (max-width: 900px) {
+			body {
+				overflow: auto;
+			}
+
+			.app {
+				grid-template-columns: 1fr;
+				height: auto;
+				min-height: 100%;
+			}
+
+			.stage {
+				min-height: 62vh;
+			}
+
+			.panel {
+				min-height: 460px;
+				max-height: none;
+			}
+		}
+
+		@media (max-width: 520px) {
+			.app {
+				padding: 10px;
+				gap: 10px;
+			}
+
+			.topbar {
+				top: 10px;
+				left: 10px;
+				right: 10px;
+				align-items: stretch;
+				flex-direction: column;
+			}
+
+			.statusPill {
+				max-width: none;
+				border-radius: 8px;
+			}
+
+			.controls,
+			.metrics {
+				grid-template-columns: 1fr;
+			}
+		}
+	</style>
+</head>
+<body>
+	<main class="app">
+		<section class="stage" aria-label="虚拟魔方">
+			<div class="topbar">
+				<div class="brand">
+					<div class="logo" aria-hidden="true">
+						<span></span><span></span><span></span>
+						<span></span><span></span><span></span>
+						<span></span><span></span><span></span>
+					</div>
+					<div>
+						<strong>Smart Cube Viewer</strong>
+						<small>BLE move stream</small>
+					</div>
+				</div>
+				<div id="statusPill" class="statusPill" data-state="idle">未连接</div>
+			</div>
+			<div id="cubeStage"></div>
+		</section>
+
+		<aside class="panel">
+			<header class="panelHeader">
+				<h1>蓝牙魔方同步</h1>
+				<p>当前版本默认从复原态开始显示，后续可以接入自定义初始状态。</p>
+			</header>
+
+			<section class="panelSection">
+				<div class="controls">
+					<button id="connectBtn" class="button" type="button">连接魔方</button>
+					<button id="resetBtn" class="button secondary" type="button">重置视图</button>
+				</div>
+			</section>
+
+			<section id="macHelp" class="panelSection macHelp" aria-live="polite">
+				<strong>MAC 地址提示</strong>
+				<p>
+					请输入智能硬件的MAC地址（xx:xx:xx:xx:xx:xx），你可以通过这个链接
+					<code>chrome://bluetooth-internals/#devices</code>
+					找到MAC地址，或者修改以下配置让csTimer自动获取蓝牙地址：<br>
+					Chrome：在浏览器设置里打开
+					<code>chrome://flags/#enable-experimental-web-platform-features</code><br>
+					Bluefy：在浏览器设置里开启
+					<code>Enable BLE Advertisements</code>
+				</p>
+				<div id="macHelpReason" class="macHelpReason"></div>
+			</section>
+
+			<section class="panelSection">
+				<div class="metrics">
+					<div class="metric">
+						<span>设备</span>
+						<strong id="deviceName">-</strong>
+					</div>
+					<div class="metric">
+						<span>转动数</span>
+						<strong id="moveCount">0</strong>
+					</div>
+				</div>
+			</section>
+
+			<section class="panelSection">
+				<div class="moves" id="manualMoves" aria-label="手动测试转动">
+					<button class="moveButton" type="button" data-move="U">U</button>
+					<button class="moveButton" type="button" data-move="R">R</button>
+					<button class="moveButton" type="button" data-move="F">F</button>
+					<button class="moveButton" type="button" data-move="D">D</button>
+					<button class="moveButton" type="button" data-move="L">L</button>
+					<button class="moveButton" type="button" data-move="B">B</button>
+					<button class="moveButton" type="button" data-move="U'">U'</button>
+					<button class="moveButton" type="button" data-move="R'">R'</button>
+					<button class="moveButton" type="button" data-move="F'">F'</button>
+					<button class="moveButton" type="button" data-move="D'">D'</button>
+					<button class="moveButton" type="button" data-move="L'">L'</button>
+					<button class="moveButton" type="button" data-move="B'">B'</button>
+					<button class="moveButton rotation" type="button" data-move="x">x</button>
+					<button class="moveButton rotation" type="button" data-move="y">y</button>
+					<button class="moveButton rotation" type="button" data-move="z">z</button>
+					<button class="moveButton rotation" type="button" data-move="x'">x'</button>
+					<button class="moveButton rotation" type="button" data-move="y'">y'</button>
+					<button class="moveButton rotation" type="button" data-move="z'">z'</button>
+				</div>
+			</section>
+
+			<section class="history">
+				<div class="historyTitle">
+					<span>最近转动</span>
+					<span id="lastTs">--:--</span>
+				</div>
+				<div id="moveList" class="moveList"></div>
+				<div id="log" class="log"></div>
+			</section>
+		</aside>
+	</main>
+
+	<script src="smart-cube-assets/lib/jquery-1.8.0.js"></script>
+	<script>
+		(function() {
+			"use strict";
+
+			window.DEBUG = false;
+			window.DEBUGBL = false;
+			Math.TAU = Math.TAU || Math.PI * 2;
+
+			if (!Array.prototype.at) {
+				Array.prototype.at = function(index) {
+					index = Math.trunc(index) || 0;
+					if (index < 0) index += this.length;
+					return this[index];
+				};
+			}
+
+			window.requestAnimFrame = window.requestAnimationFrame ||
+				window.webkitRequestAnimationFrame ||
+				window.mozRequestAnimationFrame ||
+				function(callback) { return setTimeout(callback, 16); };
+
+			window.execMain = function(fn, args) {
+				return fn.apply(null, args || []);
+			};
+
+			var propStore = {
+				vrcOri: "18,6",
+				vrcSpeed: "90",
+				giiRST: "n",
+				giiMacMap: localStorage.getItem("smartCubeMacMap") || "{}"
+			};
+
+			var MAC_HELP_TEXT = [
+				"请输入智能硬件的MAC地址（xx:xx:xx:xx:xx:xx）。",
+				"你可以通过 chrome://bluetooth-internals/#devices 找到MAC地址，或者修改以下配置让csTimer自动获取蓝牙地址：",
+				"Chrome：在浏览器设置里打开 chrome://flags/#enable-experimental-web-platform-features",
+				"Bluefy：在浏览器设置里开启 Enable BLE Advertisements"
+			].join("\n");
+
+			window.kernel = {
+				getProp: function(key, fallback) {
+					if (key === "giiSolved") {
+						return propStore.giiSolved || (window.mathlib && mathlib.SOLVED_FACELET) ||
+							"UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB";
+					}
+					return key in propStore ? propStore[key] : fallback;
+				},
+				setProp: function(key, value) {
+					propStore[key] = value;
+					if (key === "giiMacMap") {
+						localStorage.setItem("smartCubeMacMap", value);
+					}
+				}
+			};
+
+			window.GIIKER_NOBLEMSG = "当前浏览器不可用 Web Bluetooth。请使用支持 Web Bluetooth 的浏览器，并通过 localhost 或 https 打开。";
+			window.GIIKER_REQMACMSG = MAC_HELP_TEXT;
+			window.CONFIRM_GIIRST = "是否把当前魔方状态标记为复原？";
+			window.LGHINT_BTCONSUC = "蓝牙已连接";
+			window.LGHINT_BTDISCON = "蓝牙已断开";
+			window.LGHINT_BTNOTSUP = "暂不支持这个智能硬件";
+			window.LGHINT_BTINVMAC = "MAC 地址格式不正确";
+
+			window.logohint = {
+				push: function(message) {
+					if (window.smartCubeApp) {
+						window.smartCubeApp.log("hint", message);
+						if (/mac|地址|not support|不支持|invalid/i.test(String(message))) {
+							window.smartCubeApp.showMacHelp(String(message));
+						}
+					} else {
+						console.log(message);
+					}
+				}
+			};
+
+			window.giikerutil = {
+				chkAvail: function() {
+					if (!navigator.bluetooth) {
+						return Promise.reject(window.GIIKER_NOBLEMSG);
+					}
+					if (!navigator.bluetooth.getAvailability) {
+						return Promise.resolve();
+					}
+					return navigator.bluetooth.getAvailability().then(function(available) {
+						if (!available) {
+							return Promise.reject(window.GIIKER_NOBLEMSG);
+						}
+					});
+				},
+				log: function() {
+					if (window.smartCubeApp) {
+						window.smartCubeApp.log.apply(window.smartCubeApp, arguments);
+					} else {
+						console.log.apply(console, arguments);
+					}
+				},
+				reqMacAddr: function(forcePrompt, isWrongKey, deviceMac, defaultMac) {
+					var rawMap = kernel.getProp("giiMacMap", "{}");
+					var savedMap = {};
+					try {
+						savedMap = JSON.parse(rawMap);
+					} catch (error) {
+						savedMap = {};
+					}
+					var key = "last";
+					var mac = deviceMac || savedMap[key] || defaultMac || "";
+					if (!mac || forcePrompt && !deviceMac) {
+						if (window.smartCubeApp) {
+							window.smartCubeApp.showMacHelp(isWrongKey ? "上一次 MAC 可能不正确，请重新输入。" : "这个设备需要 MAC 地址来解密蓝牙数据。");
+						}
+						mac = prompt((isWrongKey ? "上一次 MAC 可能不正确。\n" : "") + window.GIIKER_REQMACMSG, mac || "xx:xx:xx:xx:xx:xx");
+					}
+					if (!mac || !/^([0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i.test(mac)) {
+						window.logohint.push(window.LGHINT_BTINVMAC);
+						if (window.smartCubeApp) {
+							window.smartCubeApp.showMacHelp("MAC 地址格式不正确，连接无法继续。");
+							window.smartCubeApp.setStatus("error", "MAC 地址格式不正确");
+						}
+						return;
+					}
+					savedMap[key] = mac;
+					kernel.setProp("giiMacMap", JSON.stringify(savedMap));
+					return mac;
+				},
+				markSolved: function() {
+					if (window.smartCubeApp) {
+						window.smartCubeApp.log("view", "忽略硬件复原标记，当前页面只同步转动");
+					}
+				},
+				updateBattery: function(value) {
+					if (window.smartCubeApp) {
+						window.smartCubeApp.setDevice(value && value[1], value && value[0]);
+					}
+				}
+			};
+		})();
+	</script>
+	<script src="smart-cube-assets/lib/lzstring.js"></script>
+	<script src="smart-cube-assets/lib/sha256.js"></script>
+	<script src="smart-cube-assets/lib/isaac.js"></script>
+	<script src="smart-cube-assets/lib/mathlib.js"></script>
+	<script src="smart-cube-assets/lib/pnltri.js"></script>
+	<script src="smart-cube-assets/lib/threemin.js"></script>
+	<script src="smart-cube-assets/twisty/twisty.js"></script>
+	<script src="smart-cube-assets/twisty/twistynnn.js"></script>
+	<script src="smart-cube-assets/hardware/bluetooth.js"></script>
+	<script src="smart-cube-assets/hardware/giikercube.js"></script>
+	<script src="smart-cube-assets/hardware/gocube.js"></script>
+	<script src="smart-cube-assets/hardware/gancube.js"></script>
+	<script src="smart-cube-assets/hardware/moyucube.js"></script>
+	<script src="smart-cube-assets/hardware/moyu32cube.js"></script>
+	<script src="smart-cube-assets/hardware/qiyicube.js"></script>
+	<script>
+		(function() {
+			"use strict";
+
+			var app = {
+				twistyScene: null,
+				moveHistory: [],
+				moveCount: 0,
+				deviceName: "",
+				batteryLevel: null,
+				connected: false,
+				ignoreMoves: false,
+				hasValidCubeState: false,
+				macWarningVisible: false,
+				cubeDimension: 3,
+				orientationMatrix: null,
+				viewYaw: 0,
+				viewPitch: 0,
+				elements: {},
+
+				init: function() {
+					this.elements = {
+						cubeStage: document.getElementById("cubeStage"),
+						connectBtn: document.getElementById("connectBtn"),
+						resetBtn: document.getElementById("resetBtn"),
+						statusPill: document.getElementById("statusPill"),
+						deviceName: document.getElementById("deviceName"),
+						moveCount: document.getElementById("moveCount"),
+						moveList: document.getElementById("moveList"),
+						log: document.getElementById("log"),
+						lastTs: document.getElementById("lastTs"),
+						manualMoves: document.getElementById("manualMoves"),
+						macHelp: document.getElementById("macHelp"),
+						macHelpReason: document.getElementById("macHelpReason")
+					};
+
+					this.initTwisty();
+					this.bindUI();
+					this.setStatus("idle", "未连接");
+					this.log("ready", "页面已就绪");
+					if (!navigator.bluetooth) {
+						this.setStatus("error", "浏览器不支持 Web Bluetooth");
+						this.log("error", "请通过 Chrome/Edge 等支持 Web Bluetooth 的浏览器访问 localhost");
+					}
+				},
+
+				initTwisty: function() {
+					this.elements.cubeStage.innerHTML = "";
+					this.elements.cubeStage.dataset.roll = "0";
+					this.orientationMatrix = this.identityMatrix();
+					this.viewYaw = 0;
+					this.viewPitch = 0;
+					this.twistyScene = new twistyjs.TwistyScene();
+					this.elements.cubeStage.appendChild(this.twistyScene.getDomElement());
+					this.twistyScene.initializeTwisty({
+						type: "cube",
+						dimension: this.cubeDimension,
+						stickerWidth: 1.72,
+						scale: 0.96,
+						allowDragging: false,
+						faceColors: [0xffffff, 0xf05a3b, 0x2dbb70, 0xffd447, 0xff941f, 0x2f69df]
+					});
+					this.resizeTwisty();
+				},
+
+				resizeTwisty: function() {
+					if (this.twistyScene) {
+						this.twistyScene.resize();
+					}
+				},
+
+				bindUI: function() {
+					var self = this;
+					this.elements.connectBtn.addEventListener("click", function() {
+						if (self.connected) {
+							self.disconnect();
+						} else {
+							self.connect();
+						}
+					});
+					this.elements.resetBtn.addEventListener("click", function() {
+						self.resetView();
+					});
+					this.elements.manualMoves.addEventListener("click", function(event) {
+						var button = event.target.closest("[data-move]");
+						if (button) {
+							self.playMove(button.getAttribute("data-move"), "manual", Date.now());
+						}
+					});
+					window.addEventListener("resize", function() {
+						self.resizeTwisty();
+					});
+					this.bindViewDrag();
+					document.addEventListener("keydown", function(event) {
+						var keyMap = {
+							u: "U",
+							r: "R",
+							f: "F",
+							d: "D",
+							l: "L",
+							b: "B",
+							x: "x",
+							y: "y",
+							z: "z"
+						};
+						var move = keyMap[event.key && event.key.toLowerCase()];
+						if (move && !event.altKey && !event.ctrlKey && !event.metaKey) {
+							self.playMove(event.shiftKey ? move + "'" : move, "keyboard", Date.now());
+						}
+					});
+				},
+
+				bindViewDrag: function() {
+					var self = this;
+					var drag = {
+						active: false,
+						x: 0,
+						y: 0,
+						yaw: 0,
+						pitch: 0
+					};
+					this.elements.cubeStage.addEventListener("pointerdown", function(event) {
+						if (event.button !== 0) {
+							return;
+						}
+						drag.active = true;
+						drag.x = event.clientX;
+						drag.y = event.clientY;
+						drag.yaw = self.viewYaw;
+						drag.pitch = self.viewPitch;
+						self.elements.cubeStage.classList.add("isDragging");
+						self.elements.cubeStage.setPointerCapture(event.pointerId);
+						event.preventDefault();
+					});
+					this.elements.cubeStage.addEventListener("pointermove", function(event) {
+						if (!drag.active) {
+							return;
+						}
+						var rect = self.elements.cubeStage.getBoundingClientRect();
+						var limit = Math.PI / 4;
+						var dragSpan = Math.max(140, Math.min(rect.width, rect.height) * 0.45);
+						var scale = limit / dragSpan;
+						self.setViewDrag(drag.yaw - (event.clientX - drag.x) * scale, drag.pitch + (event.clientY - drag.y) * scale);
+						event.preventDefault();
+					});
+					["pointerup", "pointercancel", "pointerleave"].forEach(function(type) {
+						self.elements.cubeStage.addEventListener(type, function(event) {
+							if (!drag.active) {
+								return;
+							}
+							drag.active = false;
+							self.elements.cubeStage.classList.remove("isDragging");
+							try {
+								self.elements.cubeStage.releasePointerCapture(event.pointerId);
+							} catch (error) {
+							}
+						});
+					});
+				},
+
+				nudgeCamera: function(keyCode, repeat) {
+					if (!this.twistyScene || !this.twistyScene.keydown) {
+						return;
+					}
+					repeat = repeat || 1;
+					for (var i = 0; i < repeat; i++) {
+						this.twistyScene.keydown({
+							keyCode: keyCode,
+							altKey: false,
+							ctrlKey: false,
+							preventDefault: function() {}
+						});
+					}
+				},
+
+				setViewDrag: function(yaw, pitch) {
+					var limit = Math.PI / 4;
+					var length = Math.sqrt(yaw * yaw + pitch * pitch);
+					if (length > limit) {
+						yaw = yaw / length * limit;
+						pitch = pitch / length * limit;
+					}
+					this.viewYaw = yaw;
+					this.viewPitch = pitch;
+					if (this.twistyScene && this.twistyScene.setViewDrag) {
+						this.twistyScene.setViewDrag(yaw, pitch);
+					}
+				},
+
+				connect: function() {
+					var self = this;
+					if (!window.GiikerCube) {
+						this.setStatus("error", "蓝牙适配层未加载");
+						return;
+					}
+					this.elements.connectBtn.disabled = true;
+					this.ignoreMoves = true;
+					this.hasValidCubeState = false;
+					this.hideMacHelp();
+					this.setStatus("idle", "等待选择设备");
+					GiikerCube.setCallback(function(facelet, prevMoves, lastTs, hardware) {
+						self.onCubeCallback(facelet, prevMoves, lastTs, hardware);
+					});
+					GiikerCube.setEventCallback(function(info) {
+						if (info === "disconnect") {
+							self.connected = false;
+							self.elements.connectBtn.textContent = "连接魔方";
+							self.setStatus("idle", "已断开");
+							self.log("bluetooth", "设备连接已断开");
+						}
+					});
+					GiikerCube.init().then(function() {
+						self.ignoreMoves = false;
+						self.connected = true;
+						self.elements.connectBtn.textContent = "断开连接";
+						self.hideMacHelp();
+						self.setStatus("connected", "已连接" + (self.deviceName ? " · " + self.deviceName : ""));
+						self.log("bluetooth", "连接成功");
+					}).catch(function(error) {
+						self.ignoreMoves = false;
+						self.connected = false;
+						self.showConnectionError(error);
+					}).then(function() {
+						self.elements.connectBtn.disabled = false;
+					});
+				},
+
+				disconnect: function() {
+					var self = this;
+					this.elements.connectBtn.disabled = true;
+					Promise.resolve(GiikerCube.stop()).catch(function(error) {
+						self.log("error", String(error && error.message || error));
+					}).then(function() {
+						self.connected = false;
+						self.hasValidCubeState = false;
+						self.elements.connectBtn.textContent = "连接魔方";
+						self.elements.connectBtn.disabled = false;
+						self.setStatus("idle", "未连接");
+					});
+				},
+
+				resetView: function() {
+					this.moveHistory = [];
+					this.moveCount = 0;
+					this.hideMacHelp();
+					this.initTwisty();
+					this.renderMoves();
+					this.elements.moveCount.textContent = "0";
+					this.elements.lastTs.textContent = "--:--";
+					this.log("view", "视图已重置");
+				},
+
+				onCubeCallback: function(facelet, prevMoves, lastTs, hardware) {
+					this.hasValidCubeState = true;
+					this.hideMacHelp();
+					if (hardware) {
+						this.setDevice(hardware, this.batteryLevel);
+					}
+					if (!prevMoves || prevMoves.length === 0) {
+						this.log("state", "收到初始状态");
+						return;
+					}
+					if (this.ignoreMoves) {
+						this.log("state", "已读取设备初始状态");
+						return;
+					}
+					this.playMove(prevMoves[0], hardware || "cube", lastTs && (lastTs[1] || lastTs[0]) || Date.now(), {
+						fromCube: true
+					});
+				},
+
+				playMove: function(rawMove, source, timestamp, options) {
+					var move = this.normalizeMove(rawMove);
+					if (!move) {
+						this.log("skip", "无法识别转动: " + rawMove);
+						return;
+					}
+					if (move.type === "orientation") {
+						this.applyOrientationMove(move);
+						this.pushHistory(move.text, source, timestamp);
+						this.log("view", move.text + (source ? " · " + source : ""));
+						return;
+					}
+					if (options && options.fromCube) {
+						move = this.transformCubeMove(move);
+					}
+					this.twistyScene.addMoves([move.twisty]);
+					this.moveCount += 1;
+					this.pushHistory(move.text, source, timestamp);
+					this.elements.moveCount.textContent = String(this.moveCount);
+					this.log("move", move.text + (source ? " · " + source : ""));
+				},
+
+				pushHistory: function(text, source, timestamp) {
+					this.moveHistory.unshift({
+						text: text,
+						source: source || "",
+						time: timestamp || Date.now()
+					});
+					if (this.moveHistory.length > 7) {
+						this.moveHistory.length = 7;
+					}
+					this.elements.lastTs.textContent = this.formatTime(timestamp || Date.now());
+					this.renderMoves();
+				},
+
+				normalizeMove: function(rawMove) {
+					if (!rawMove) {
+						return null;
+					}
+					var text = String(rawMove).replace(/[’‘`]/g, "'").replace(/\s+/g, "");
+					var match = /^([URFDLB])([2']?)$/i.exec(text);
+					if (match) {
+						var face = match[1].toUpperCase();
+						var facePow = match[2] === "2" ? 2 : match[2] === "'" ? -1 : 1;
+						return {
+							text: face + match[2],
+							type: "face",
+							face: face,
+							pow: facePow,
+							twisty: [1, 1, face, facePow]
+						};
+					}
+					match = /^([XYZ])([2']?)$/i.exec(text);
+					if (!match) {
+						return null;
+					}
+					var axis = {
+						X: "R",
+						Y: "U",
+						Z: "F"
+					}[match[1].toUpperCase()];
+					var pow = match[2] === "2" ? 2 : match[2] === "'" ? -1 : 1;
+					return {
+						text: match[1].toLowerCase() + match[2],
+						type: "orientation",
+						axis: axis,
+						pow: pow,
+						twisty: [1, this.cubeDimension, axis, pow]
+					};
+				},
+
+				applyOrientationMove: function(move) {
+					this.twistyScene.addMoves([move.twisty]);
+					this.updateOrientation(move.axis, move.pow);
+				},
+
+				rollView: function(direction) {
+					var current = Number(this.elements.cubeStage.dataset.roll || "0");
+					current = (current + direction * 90) % 360;
+					this.elements.cubeStage.dataset.roll = String(current);
+					var inner = this.elements.cubeStage.firstElementChild;
+					if (inner) {
+						inner.style.transform = "rotate(" + current + "deg)";
+						inner.style.transformOrigin = "50% 50%";
+					}
+				},
+
+				transformCubeMove: function(move) {
+					if (!move || move.type !== "face") {
+						return move;
+					}
+					if (!this.orientationMatrix) {
+						this.orientationMatrix = this.identityMatrix();
+					}
+					var targetFace = this.faceFromNormal(this.matrixVectorMultiply(this.orientationMatrix, this.faceNormal(move.face)));
+					if (!targetFace) {
+						return move;
+					}
+					var transformed = this.matrixMultiply(
+						this.matrixMultiply(this.orientationMatrix, this.rotationMatrix(move.face, move.pow)),
+						this.matrixTranspose(this.orientationMatrix)
+					);
+					var pows = Math.abs(move.pow) === 2 ? [2] : [move.pow, -move.pow];
+					for (var i = 0; i < pows.length; i++) {
+						if (this.matrixEquals(transformed, this.rotationMatrix(targetFace, pows[i]))) {
+							return {
+								text: this.formatMoveText(targetFace, pows[i]),
+								rawText: move.text,
+								type: "face",
+								face: targetFace,
+								pow: pows[i],
+								twisty: [1, 1, targetFace, pows[i]]
+							};
+						}
+					}
+					return {
+						text: this.formatMoveText(targetFace, move.pow),
+						rawText: move.text,
+						type: "face",
+						face: targetFace,
+						pow: move.pow,
+						twisty: [1, 1, targetFace, move.pow]
+					};
+				},
+
+				updateOrientation: function(axis, pow) {
+					if (!this.orientationMatrix) {
+						this.orientationMatrix = this.identityMatrix();
+					}
+					this.orientationMatrix = this.matrixMultiply(this.rotationMatrix(axis, pow), this.orientationMatrix);
+				},
+
+				formatMoveText: function(face, pow) {
+					return face + (Math.abs(pow) === 2 ? "2" : pow < 0 ? "'" : "");
+				},
+
+				identityMatrix: function() {
+					return [
+						[1, 0, 0],
+						[0, 1, 0],
+						[0, 0, 1]
+					];
+				},
+
+				rotationMatrix: function(face, pow) {
+					var base = {
+						U: [[0, 0, -1], [0, 1, 0], [1, 0, 0]],
+						R: [[1, 0, 0], [0, 0, 1], [0, -1, 0]],
+						F: [[0, 1, 0], [-1, 0, 0], [0, 0, 1]],
+						D: [[0, 0, 1], [0, 1, 0], [-1, 0, 0]],
+						L: [[1, 0, 0], [0, 0, -1], [0, 1, 0]],
+						B: [[0, -1, 0], [1, 0, 0], [0, 0, 1]]
+					}[face];
+					var turns = ((pow % 4) + 4) % 4;
+					var result = this.identityMatrix();
+					for (var i = 0; i < turns; i++) {
+						result = this.matrixMultiply(result, base);
+					}
+					return result;
+				},
+
+				matrixMultiply: function(a, b) {
+					var result = this.identityMatrix();
+					for (var row = 0; row < 3; row++) {
+						for (var col = 0; col < 3; col++) {
+							result[row][col] = a[row][0] * b[0][col] + a[row][1] * b[1][col] + a[row][2] * b[2][col];
+						}
+					}
+					return result;
+				},
+
+				matrixTranspose: function(matrix) {
+					return [
+						[matrix[0][0], matrix[1][0], matrix[2][0]],
+						[matrix[0][1], matrix[1][1], matrix[2][1]],
+						[matrix[0][2], matrix[1][2], matrix[2][2]]
+					];
+				},
+
+				faceNormal: function(face) {
+					return {
+						U: [0, 1, 0],
+						R: [1, 0, 0],
+						F: [0, 0, 1],
+						D: [0, -1, 0],
+						L: [-1, 0, 0],
+						B: [0, 0, -1]
+					}[face];
+				},
+
+				faceFromNormal: function(normal) {
+					var key = normal.join(",");
+					return {
+						"0,1,0": "U",
+						"1,0,0": "R",
+						"0,0,1": "F",
+						"0,-1,0": "D",
+						"-1,0,0": "L",
+						"0,0,-1": "B"
+					}[key];
+				},
+
+				matrixVectorMultiply: function(matrix, vector) {
+					return [
+						matrix[0][0] * vector[0] + matrix[0][1] * vector[1] + matrix[0][2] * vector[2],
+						matrix[1][0] * vector[0] + matrix[1][1] * vector[1] + matrix[1][2] * vector[2],
+						matrix[2][0] * vector[0] + matrix[2][1] * vector[1] + matrix[2][2] * vector[2]
+					];
+				},
+
+				matrixEquals: function(a, b) {
+					for (var row = 0; row < 3; row++) {
+						for (var col = 0; col < 3; col++) {
+							if (a[row][col] !== b[row][col]) {
+								return false;
+							}
+						}
+					}
+					return true;
+				},
+
+				renderMoves: function() {
+					this.elements.moveList.innerHTML = "";
+					var frag = document.createDocumentFragment();
+					this.moveHistory.slice(0, 7).forEach(function(item) {
+						var chip = document.createElement("span");
+						chip.className = "moveChip";
+						chip.textContent = item.text;
+						frag.appendChild(chip);
+					});
+					this.elements.moveList.appendChild(frag);
+				},
+
+				setDevice: function(name, battery) {
+					if (name) {
+						this.deviceName = name;
+					}
+					if (typeof battery === "number") {
+						this.batteryLevel = battery;
+					}
+					var label = this.deviceName || "-";
+					if (typeof this.batteryLevel === "number" && this.batteryLevel > 0) {
+						label += " · " + this.batteryLevel + "%";
+					}
+					this.elements.deviceName.textContent = label;
+					if (this.connected) {
+						this.setStatus("connected", "已连接" + (this.deviceName ? " · " + this.deviceName : ""));
+					}
+				},
+
+				setStatus: function(state, text) {
+					this.elements.statusPill.dataset.state = state;
+					this.elements.statusPill.textContent = text;
+				},
+
+				showConnectionError: function(error) {
+					var message = String(error && error.message || error || "连接失败");
+					this.setStatus("error", message);
+					this.log("error", String(error && error.stack || error || message));
+					if (!/cancel|chooser|user cancelled|用户取消/i.test(message)) {
+						this.showMacHelp("连接失败。如果设备需要解密，MAC 地址错误或浏览器未开启蓝牙广播权限都会导致失败。");
+					}
+				},
+
+				showMacHelp: function(reason) {
+					if (!this.elements.macHelp || !this.elements.macHelpReason) {
+						return;
+					}
+					this.macWarningVisible = true;
+					this.elements.macHelp.classList.add("isVisible");
+					this.elements.macHelpReason.textContent = reason || "";
+				},
+
+				hideMacHelp: function() {
+					if (!this.elements.macHelp || !this.elements.macHelpReason) {
+						return;
+					}
+					this.macWarningVisible = false;
+					this.elements.macHelp.classList.remove("isVisible");
+					this.elements.macHelpReason.textContent = "";
+				},
+
+				log: function() {
+					var parts = Array.prototype.slice.call(arguments).map(function(item) {
+						if (item instanceof DataView) {
+							return "[DataView " + item.byteLength + "]";
+						}
+						if (item && item.buffer instanceof ArrayBuffer && typeof item.byteLength === "number") {
+							return "[DataView " + item.byteLength + "]";
+						}
+						if (typeof item === "object") {
+							try {
+								return JSON.stringify(item);
+							} catch (error) {
+								return String(item);
+							}
+						}
+						return String(item);
+					});
+					var line = "[" + new Date().toLocaleTimeString() + "] " + parts.join(" ");
+					var joined = parts.join(" ");
+					if (!this.hasValidCubeState && /verify error|invalid magic|invalid data|invalid axis|crc checked error|wrong key|decrypt/i.test(joined)) {
+						this.setStatus("error", "可能是 MAC 地址错误");
+						this.showMacHelp("收到的数据无法正确解密或校验，MAC 地址可能不正确。");
+					}
+					var oldLines = this.elements.log.textContent ? this.elements.log.textContent.split("\n") : [];
+					oldLines.push(line);
+					if (oldLines.length > 90) {
+						oldLines = oldLines.slice(oldLines.length - 90);
+					}
+					this.elements.log.textContent = oldLines.join("\n");
+					this.elements.log.scrollTop = this.elements.log.scrollHeight;
+					console.log.apply(console, arguments);
+				},
+
+				formatTime: function(value) {
+					var date = new Date(value);
+					return date.toLocaleTimeString([], {
+						hour: "2-digit",
+						minute: "2-digit",
+						second: "2-digit"
+					});
+				}
+			};
+
+			window.smartCubeApp = app;
+			$(function() {
+				app.init();
+			});
+		})();
+	</script>
+</body>
+</html>
