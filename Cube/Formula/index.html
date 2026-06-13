@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>练习模式</title>
+	<title>学习模式</title>
 	<style>
 		:root {
 			color-scheme: light;
@@ -196,7 +196,8 @@
 			border-radius: 8px 8px 0 0;
 		}
 
-		.logo {
+		.logo,
+		.modeIcon {
 			width: 30px;
 			height: 30px;
 			position: relative;
@@ -209,14 +210,36 @@
 			overflow: hidden;
 		}
 
+		.trainIcon,
+		.formulaModeIcon,
+		.libraryIcon {
+			background: var(--controlBg);
+			box-shadow: inset 0 0 0 1px var(--controlBorder);
+		}
+
 		.logo::before,
-		.logo::after {
+		.logo::after,
+		.learnIcon::before,
+		.learnIcon::after,
+		.trainIcon::before,
+		.trainIcon::after,
+		.formulaModeIcon::before,
+		.formulaModeIcon::after,
+		.libraryIcon::before,
+		.libraryIcon::after {
 			content: "";
 			position: absolute;
+		}
+
+		.logo::before,
+		.logo::after,
+		.learnIcon::before,
+		.learnIcon::after {
 			background: rgba(255, 255, 255, 0.64);
 		}
 
-		.logo::before {
+		.logo::before,
+		.learnIcon::before {
 			left: 9px;
 			top: 3px;
 			width: 2px;
@@ -224,7 +247,8 @@
 			box-shadow: 9px 0 0 rgba(255, 255, 255, 0.64);
 		}
 
-		.logo::after {
+		.logo::after,
+		.learnIcon::after {
 			left: 3px;
 			top: 9px;
 			width: 24px;
@@ -232,8 +256,65 @@
 			box-shadow: 0 9px 0 rgba(255, 255, 255, 0.64);
 		}
 
-		.logo span {
+		.logo span,
+		.modeIcon span {
 			display: none;
+		}
+
+		.trainIcon::before {
+			left: 7px;
+			top: 7px;
+			width: 16px;
+			height: 16px;
+			border: 2px solid var(--cyan);
+			border-radius: 50%;
+		}
+
+		.trainIcon::after {
+			left: 13px;
+			top: 13px;
+			width: 4px;
+			height: 4px;
+			border-radius: 50%;
+			background: var(--accent);
+			box-shadow: 0 0 0 5px rgba(93, 78, 168, 0.16);
+		}
+
+		.formulaModeIcon::before {
+			left: 9px;
+			top: 6px;
+			width: 12px;
+			height: 18px;
+			border-radius: 2px;
+			background: linear-gradient(135deg, var(--accent) 0 64%, var(--cyan) 64% 100%);
+			transform: rotate(28deg);
+		}
+
+		.formulaModeIcon::after {
+			left: 8px;
+			top: 22px;
+			width: 15px;
+			height: 2px;
+			border-radius: 999px;
+			background: var(--cyan);
+		}
+
+		.libraryIcon::before {
+			left: 8px;
+			top: 6px;
+			width: 14px;
+			height: 18px;
+			border: 2px solid var(--accent);
+			border-radius: 2px;
+		}
+
+		.libraryIcon::after {
+			left: 11px;
+			top: 11px;
+			width: 9px;
+			height: 2px;
+			background: var(--cyan);
+			box-shadow: 0 5px 0 var(--cyan);
 		}
 
 		.modeOption {
@@ -536,6 +617,44 @@
 			gap: 10px;
 		}
 
+		.practicePanel {
+			gap: 0;
+		}
+
+		.practiceControls {
+			grid-template-columns: minmax(0, 1fr) 132px;
+			align-items: stretch;
+		}
+
+		.practiceModeSelect {
+			min-height: 42px;
+			width: 100%;
+			padding: 0 34px 0 12px;
+			border: 1px solid var(--controlBorder);
+			border-radius: 8px;
+			background:
+				linear-gradient(45deg, transparent 50%, var(--muted) 50%) calc(100% - 18px) 18px / 6px 6px no-repeat,
+				linear-gradient(135deg, var(--muted) 50%, transparent 50%) calc(100% - 12px) 18px / 6px 6px no-repeat,
+				var(--controlBg);
+			color: var(--controlText);
+			font: inherit;
+			font-weight: 700;
+			appearance: none;
+			cursor: pointer;
+			transition: border-color 0.14s ease, box-shadow 0.14s ease, background-color 0.22s ease;
+		}
+
+		.practiceModeSelect:hover,
+		.practiceModeSelect:focus-visible {
+			border-color: var(--cyan);
+			box-shadow: 0 0 0 3px rgba(36, 240, 234, 0.10);
+			outline: none;
+		}
+
+		.importButtons {
+			grid-template-columns: 1fr 1fr;
+		}
+
 		.button {
 			min-height: 42px;
 			border: 1px solid var(--primaryBorder);
@@ -689,6 +808,412 @@
 			width: 108px;
 			height: 108px;
 			margin: 0 auto;
+		}
+
+		.practicePanel .stateList {
+			grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+			gap: 10px;
+		}
+
+		.practicePanel .stateCard {
+			grid-template-columns: 1fr;
+			grid-template-rows: 124px auto;
+			gap: 8px;
+			justify-items: center;
+			min-height: 174px;
+			text-align: center;
+			cursor: pointer;
+			transition: transform 0.14s ease, border-color 0.14s ease, background 0.22s ease, box-shadow 0.14s ease;
+		}
+
+		.practicePanel .stateCard:hover,
+		.practicePanel .stateCard:focus-visible {
+			border-color: rgba(36, 240, 234, 0.68);
+			background: var(--controlHoverBg);
+			box-shadow: inset 0 0 0 1px rgba(36, 240, 234, 0.08);
+			outline: none;
+			transform: translateY(-1px);
+		}
+
+		.practicePanel .stateCard.isActive {
+			border-color: rgba(93, 78, 168, 0.68);
+			box-shadow: inset 0 0 0 1px rgba(93, 78, 168, 0.20), 0 0 0 3px var(--accentSoft);
+		}
+
+		.practicePanel .statePreview {
+			width: 100%;
+			height: 124px;
+			border-top: 0;
+			padding-top: 0;
+		}
+
+		.practicePanel .statePreview > div {
+			width: 116px;
+			height: 116px;
+		}
+
+		.stateName {
+			width: 100%;
+			color: var(--ink);
+			overflow-wrap: anywhere;
+		}
+
+		.practiceDiagnostics {
+			display: none;
+		}
+
+		.formulaPanel .moves {
+			margin-top: 0;
+		}
+
+		.formulaList {
+			display: grid;
+			gap: 10px;
+		}
+
+		.formulaListActions {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.formulaOrganizeButton {
+			position: relative;
+			width: 42px;
+			min-width: 42px;
+			padding: 0;
+		}
+
+		.formulaRow {
+			display: grid;
+			grid-template-columns: 76px minmax(0, 1fr);
+			gap: 10px;
+			align-items: stretch;
+			position: relative;
+		}
+
+		.formulaRow.isOrganizing {
+			grid-template-columns: 34px 76px minmax(0, 1fr) 34px;
+		}
+
+		.formulaRow.isDragging {
+			opacity: 0.48;
+		}
+
+		.formulaRow.dropBefore::before,
+		.formulaRow.dropAfter::after {
+			content: "";
+			position: absolute;
+			left: 0;
+			right: 0;
+			height: 2px;
+			border-radius: 999px;
+			background: var(--cyan);
+			box-shadow: 0 0 10px rgba(36, 240, 234, 0.36);
+		}
+
+		.formulaRow.dropBefore::before {
+			top: -6px;
+		}
+
+		.formulaRow.dropAfter::after {
+			bottom: -6px;
+		}
+
+		.formulaNameInput,
+		.formulaTrack,
+		.formulaAlgInput {
+			min-height: 42px;
+			border: 1px solid var(--controlBorder);
+			border-radius: 8px;
+			background: var(--controlBg);
+			color: var(--controlText);
+		}
+
+		.formulaNameInput,
+		.formulaAlgInput {
+			width: 100%;
+			padding: 0 10px;
+			font: inherit;
+			font-weight: 700;
+		}
+
+		.formulaNameInput:focus-visible,
+		.formulaAlgInput:focus-visible {
+			outline: 2px solid var(--cyan);
+			outline-offset: 2px;
+		}
+
+		.formulaTrack {
+			display: grid;
+			grid-template-columns: 42px minmax(0, 1fr);
+			align-items: center;
+			overflow: hidden;
+		}
+
+		.formulaTrackText {
+			padding: 0 12px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			color: var(--muted);
+			font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+			font-size: 13px;
+		}
+
+		.formulaTrackText.hasMoves {
+			color: var(--ink);
+			font-weight: 700;
+		}
+
+		.formulaIconButton,
+		.formulaAddButton,
+		.formulaDragHandle,
+		.formulaDeleteButton {
+			width: 42px;
+			min-height: 42px;
+			border: 1px solid var(--controlBorder);
+			border-radius: 8px;
+			background: var(--controlBg);
+			color: var(--controlText);
+			cursor: pointer;
+			position: relative;
+			transition: border-color 0.14s ease, background 0.16s ease, transform 0.12s ease, box-shadow 0.14s ease;
+		}
+
+		.formulaIconButton {
+			border-width: 0 1px 0 0;
+			border-radius: 8px 0 0 8px;
+			background: transparent;
+		}
+
+		.formulaIconButton:hover,
+		.formulaAddButton:hover,
+		.formulaDragHandle:hover,
+		.formulaDeleteButton:hover {
+			border-color: var(--cyan);
+			background: var(--controlHoverBg);
+			box-shadow: inset 0 0 0 1px rgba(36, 240, 234, 0.08);
+			transform: translateY(-1px);
+		}
+
+		.formulaIconButton:disabled {
+			cursor: default;
+			opacity: 0.45;
+			transform: none;
+		}
+
+		.formulaAddButton:disabled,
+		.formulaOrganizeButton:disabled {
+			cursor: default;
+			opacity: 0.45;
+			transform: none;
+			box-shadow: none;
+		}
+
+		.formulaOrganizeButton::before {
+			content: "";
+			position: absolute;
+			left: 12px;
+			top: 13px;
+			width: 16px;
+			height: 2px;
+			border-radius: 999px;
+			background: var(--accent);
+			box-shadow: 0 7px 0 var(--accent), 0 14px 0 var(--accent);
+		}
+
+		.formulaOrganizeButton.isActive {
+			border-color: var(--cyan);
+			box-shadow: inset 0 0 0 1px rgba(36, 240, 234, 0.12), 0 0 0 3px rgba(36, 240, 234, 0.08);
+		}
+
+		.formulaOrganizeButton.isActive::before {
+			background: var(--cyan);
+			box-shadow: 0 7px 0 var(--cyan), 0 14px 0 var(--cyan);
+		}
+
+		.formulaDragHandle,
+		.formulaDeleteButton {
+			width: 34px;
+			padding: 0;
+		}
+
+		.formulaDragHandle {
+			cursor: grab;
+		}
+
+		.formulaDragHandle:active {
+			cursor: grabbing;
+		}
+
+		.formulaDragHandle::before,
+		.formulaDragHandle::after {
+			content: "";
+			position: absolute;
+			top: 12px;
+			width: 4px;
+			height: 4px;
+			border-radius: 50%;
+			background: var(--muted);
+			box-shadow: 0 8px 0 var(--muted), 0 16px 0 var(--muted);
+		}
+
+		.formulaDragHandle::before {
+			left: 11px;
+		}
+
+		.formulaDragHandle::after {
+			left: 19px;
+		}
+
+		.formulaDeleteButton::before,
+		.formulaDeleteButton::after {
+			content: "";
+			position: absolute;
+			left: 9px;
+			top: 20px;
+			width: 16px;
+			height: 2px;
+			border-radius: 999px;
+			background: var(--red);
+		}
+
+		.formulaDeleteButton::before {
+			transform: rotate(45deg);
+		}
+
+		.formulaDeleteButton::after {
+			transform: rotate(-45deg);
+		}
+
+		.formulaAddButton::before,
+		.formulaAddButton::after {
+			content: "";
+			position: absolute;
+			left: 13px;
+			top: 20px;
+			width: 16px;
+			height: 2px;
+			background: var(--accent);
+			border-radius: 999px;
+		}
+
+		.formulaAddButton::after {
+			transform: rotate(90deg);
+		}
+
+		.formulaIconButton[data-formula-action="record"]::before {
+			content: "";
+			position: absolute;
+			left: 15px;
+			top: 12px;
+			border-left: 14px solid var(--accent);
+			border-top: 9px solid transparent;
+			border-bottom: 9px solid transparent;
+		}
+
+		.formulaIconButton[data-formula-action="stop"]::before {
+			content: "";
+			position: absolute;
+			left: 14px;
+			top: 14px;
+			width: 14px;
+			height: 14px;
+			border-radius: 2px;
+			background: var(--accent);
+		}
+
+		.formulaIconButton[data-formula-action="edit"]::before {
+			content: "";
+			position: absolute;
+			left: 15px;
+			top: 10px;
+			width: 10px;
+			height: 20px;
+			border-radius: 2px;
+			background: linear-gradient(135deg, var(--accent) 0 72%, var(--cyan) 72% 100%);
+			transform: rotate(34deg);
+		}
+
+		.formulaIconButton[data-formula-action="edit"]::after {
+			content: "";
+			position: absolute;
+			left: 12px;
+			top: 29px;
+			width: 16px;
+			height: 2px;
+			border-radius: 999px;
+			background: var(--cyan);
+		}
+
+		.formulaExportOverlay {
+			position: fixed;
+			inset: 0;
+			z-index: 20;
+			display: grid;
+			place-items: center;
+			padding: 18px;
+			background: rgba(10, 10, 18, 0.42);
+			backdrop-filter: blur(8px);
+		}
+
+		.formulaExportDialog {
+			width: min(720px, 100%);
+			max-height: min(680px, calc(100dvh - 36px));
+			display: grid;
+			grid-template-rows: auto minmax(220px, 1fr) auto;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: var(--surfaceSolid);
+			box-shadow: var(--shadow);
+			overflow: hidden;
+		}
+
+		.formulaExportHeader,
+		.formulaExportActions {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			padding: 14px;
+			border-bottom: 1px solid var(--line);
+		}
+
+		.formulaExportActions {
+			justify-content: flex-end;
+			border-top: 1px solid var(--line);
+			border-bottom: 0;
+		}
+
+		.formulaExportHeader strong {
+			font-size: 16px;
+		}
+
+		.formulaExportText {
+			width: 100%;
+			height: 100%;
+			min-height: 260px;
+			resize: vertical;
+			border: 0;
+			padding: 14px;
+			background: var(--controlBg);
+			color: var(--controlText);
+			font: 13px/1.55 "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+		}
+
+		@media (max-width: 520px) {
+			.formulaRow {
+				grid-template-columns: 76px minmax(0, 1fr);
+			}
+
+			.formulaRow.isOrganizing {
+				grid-template-columns: 34px 76px minmax(0, 1fr) 34px;
+			}
+
+			.formulaRow.isOrganizing .formulaTrack {
+				grid-column: auto;
+			}
 		}
 
 		.metrics {
@@ -859,23 +1384,27 @@
 			<div class="topbar">
 				<div id="modeSwitcher" class="brand" aria-expanded="false">
 					<button id="modeCurrent" class="modeOption modeCurrent" type="button" aria-haspopup="true" aria-expanded="false">
-						<span class="logo" aria-hidden="true">
+						<span id="modeIcon" class="modeIcon learnIcon" aria-hidden="true">
 						<span></span><span></span><span></span>
 						<span></span><span></span><span></span>
 						<span></span><span></span><span></span>
 						</span>
-						<span id="modeLabel" class="modeText">练习模式</span>
+						<span id="modeLabel" class="modeText">学习模式</span>
 						<span class="modeChevron" aria-hidden="true"></span>
 					</button>
 					<div id="modeMenu" class="modeMenu" role="menu">
-						<a class="modeOption" href="Practice.html" role="menuitem">
-							<span class="practiceIcon" aria-hidden="true"></span>
+						<button class="modeOption" type="button" data-mode="practice" role="menuitem">
+							<span class="modeIcon trainIcon" aria-hidden="true"></span>
 							<span class="modeText">训练模式</span>
-						</a>
-						<a class="modeOption" href="Formula.html" role="menuitem">
-							<span class="formulaIcon" aria-hidden="true"></span>
+						</button>
+						<button class="modeOption" type="button" data-mode="formula" role="menuitem">
+							<span class="modeIcon formulaModeIcon" aria-hidden="true"></span>
 							<span class="modeText">公式制作</span>
-						</a>
+						</button>
+						<button class="modeOption" type="button" data-mode="library" role="menuitem">
+							<span class="modeIcon libraryIcon" aria-hidden="true"></span>
+							<span class="modeText">公式库</span>
+						</button>
 					</div>
 				</div>
 				<div class="topActions">
@@ -1139,13 +1668,33 @@
 
 			var app = {
 				twistyScene: null,
+				virtualCubie: null,
 				moveHistory: [],
 				importedStates: [],
+				stateImportText: "",
+				formulaEntries: [],
+				activeFormulaId: null,
+				isRecordingFormula: false,
+				formulaOrganizeMode: false,
+				dragFormulaId: null,
 				showStateThumbs: false,
 				thumbnailScenes: [],
 				thumbnailYaw: 0,
 				thumbnailPitch: 0,
 				moveCount: 0,
+				movesSinceState: 0,
+				currentStateIndex: -1,
+				currentMode: "learn",
+				isPracticeMode: false,
+				practiceMode: "sequence",
+				randomBag: [],
+				recentStateIndices: [],
+				solveSwitchTimer: null,
+				solvedAdvancePending: false,
+				seenUnsolvedSinceState: false,
+				seenUnsolvedFaceletSinceState: false,
+				seenUnsolvedVirtualSinceState: false,
+				lastFaceletSolved: false,
 				deviceName: "",
 				batteryLevel: null,
 				connected: false,
@@ -1159,13 +1708,36 @@
 				elements: {},
 
 				init: function() {
+					this.refreshElements();
+
+					this.loadFormulaEntries();
+					this.initTwisty();
+					this.initTheme();
+					this.renderModePanel("learn");
+					this.bindUI();
+					this.setStatus("idle", "未连接");
+					this.log("ready", "页面已就绪");
+					if (!navigator.bluetooth) {
+						this.setStatus("error", "浏览器不支持 Web Bluetooth");
+						this.log("error", "请通过 Chrome/Edge 等支持 Web Bluetooth 的浏览器访问 localhost");
+					}
+				},
+
+				refreshElements: function() {
 					this.elements = {
 						cubeStage: document.getElementById("cubeStage"),
 						modeSwitcher: document.getElementById("modeSwitcher"),
 						modeCurrent: document.getElementById("modeCurrent"),
+						modeIcon: document.getElementById("modeIcon"),
+						modeLabel: document.getElementById("modeLabel"),
+						modeMenu: document.getElementById("modeMenu"),
 						themeToggle: document.getElementById("themeToggle"),
 						connectBtn: document.getElementById("connectBtn"),
 						resetBtn: document.getElementById("resetBtn"),
+						exportFormulaBtn: document.getElementById("exportFormulaBtn"),
+						practiceModeSelect: document.getElementById("practiceModeSelect"),
+						orientationMoves: document.getElementById("orientationMoves"),
+						formulaList: document.getElementById("formulaList"),
 						statusPill: document.getElementById("statusPill"),
 						deviceName: document.getElementById("deviceName"),
 						moveCount: document.getElementById("moveCount"),
@@ -1186,16 +1758,6 @@
 						macHelp: document.getElementById("macHelp"),
 						macHelpReason: document.getElementById("macHelpReason")
 					};
-
-					this.initTwisty();
-					this.initTheme();
-					this.bindUI();
-					this.setStatus("idle", "未连接");
-					this.log("ready", "页面已就绪");
-					if (!navigator.bluetooth) {
-						this.setStatus("error", "浏览器不支持 Web Bluetooth");
-						this.log("error", "请通过 Chrome/Edge 等支持 Web Bluetooth 的浏览器访问 localhost");
-					}
 				},
 
 				initTwisty: function() {
@@ -1226,14 +1788,19 @@
 				bindUI: function() {
 					var self = this;
 					this.elements.modeSwitcher.addEventListener("click", function(event) {
-						if (event.target.closest("a")) {
+						var option = event.target.closest("[data-mode]");
+						if (option) {
+							event.preventDefault();
+							event.stopPropagation();
+							self.closeModeMenu();
+							self.switchMode(option.getAttribute("data-mode"));
 							return;
 						}
 						self.toggleModeMenu();
 						event.stopPropagation();
 					});
 					this.elements.modeSwitcher.addEventListener("keydown", function(event) {
-						if (event.target.closest("a")) {
+						if (event.target.closest("[data-mode]")) {
 							return;
 						}
 						if (event.key === "Enter" || event.key === " ") {
@@ -1244,23 +1811,7 @@
 					this.elements.themeToggle.addEventListener("click", function() {
 						self.setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
 					});
-					this.elements.connectBtn.addEventListener("click", function() {
-						if (self.connected) {
-							self.disconnect();
-						} else {
-							self.connect();
-						}
-					});
-					this.elements.resetBtn.addEventListener("click", function() {
-						self.resetView();
-					});
-					this.elements.manualMoves.addEventListener("click", function(event) {
-						var button = event.target.closest("[data-move]");
-						if (button) {
-							self.playMove(button.getAttribute("data-move"), "manual", Date.now());
-						}
-					});
-					this.bindStateImport();
+					this.bindPanelControls();
 					window.addEventListener("resize", function() {
 						self.resizeTwisty();
 					});
@@ -1282,7 +1833,7 @@
 							z: "z"
 						};
 						var move = keyMap[event.key && event.key.toLowerCase()];
-						if (move && !event.altKey && !event.ctrlKey && !event.metaKey) {
+						if (move && !self.isPracticeMode && self.currentMode !== "library" && !event.altKey && !event.ctrlKey && !event.metaKey) {
 							self.playMove(event.shiftKey ? move + "'" : move, "keyboard", Date.now());
 						}
 					});
@@ -1303,6 +1854,708 @@
 					this.elements.modeCurrent.setAttribute("aria-expanded", "false");
 				},
 
+				getModeMeta: function(mode) {
+					return {
+						learn: { label: "学习模式", icon: "learnIcon", title: "学习模式" },
+						practice: { label: "训练模式", icon: "trainIcon", title: "训练模式" },
+						formula: { label: "公式制作", icon: "formulaModeIcon", title: "公式制作" },
+						library: { label: "公式库", icon: "libraryIcon", title: "公式库" }
+					}[mode] || null;
+				},
+
+				switchMode: function(mode) {
+					if (!this.getModeMeta(mode)) {
+						return;
+					}
+					if (mode === this.currentMode && document.querySelector("aside.panel")) {
+						return;
+					}
+					var savedViewYaw = this.viewYaw || 0;
+					var savedViewPitch = this.viewPitch || 0;
+					this.captureStateTextInput();
+					var formulaTransferText = null;
+					var formulaTextAppended = false;
+					if (this.currentMode === "formula" && mode !== "formula") {
+						if (this.isRecordingFormula) {
+							this.stopFormulaRecording();
+						}
+						this.formulaOrganizeMode = false;
+						this.dragFormulaId = null;
+						formulaTransferText = this.buildFormulaExportText();
+					}
+					if (formulaTransferText !== null) {
+						formulaTextAppended = this.appendStateImportText(formulaTransferText);
+					}
+					this.renderModePanel(mode);
+					if (formulaTextAppended) {
+						this.importStateText(this.stateImportText, "formula");
+					}
+					this.setViewDrag(savedViewYaw, savedViewPitch);
+				},
+
+				setModeChrome: function(mode) {
+					var meta = this.getModeMeta(mode);
+					var order = ["learn", "practice", "formula", "library"].filter(function(item) {
+						return item !== mode;
+					});
+					document.title = meta.title;
+					this.elements.modeLabel.textContent = meta.label;
+					this.elements.modeIcon.className = "modeIcon " + meta.icon;
+					this.elements.modeMenu.innerHTML = order.map(function(item) {
+						var itemMeta = {
+							learn: { label: "学习模式", icon: "learnIcon" },
+							practice: { label: "训练模式", icon: "trainIcon" },
+							formula: { label: "公式制作", icon: "formulaModeIcon" },
+							library: { label: "公式库", icon: "libraryIcon" }
+						}[item];
+						return '<button class="modeOption" type="button" data-mode="' + item + '" role="menuitem"><span class="modeIcon ' + itemMeta.icon + '" aria-hidden="true"></span><span class="modeText">' + itemMeta.label + '</span></button>';
+					}).join("");
+				},
+
+				renderModePanel: function(mode) {
+					var panel = document.querySelector("aside.panel");
+					if (!panel) {
+						return;
+					}
+					this.currentMode = mode;
+					this.isPracticeMode = mode === "practice";
+					if (!this.isPracticeMode) {
+						this.cancelSolvedAdvance();
+					}
+					this.setModeChrome(mode);
+					panel.outerHTML = this.getPanelHtml(mode);
+					this.refreshElements();
+					this.bindPanelControls();
+					this.syncConnectionUi();
+					this.fillStateTextInput(this.stateImportText, false, false);
+					this.renderStateList();
+					this.renderMoves();
+					this.renderFormulaList();
+				},
+
+				getPanelHtml: function(mode) {
+					if (mode === "practice") {
+						return this.getPracticePanelHtml();
+					}
+					if (mode === "library") {
+						return this.getLibraryPanelHtml();
+					}
+					if (mode === "formula") {
+						return this.getFormulaPanelHtml();
+					}
+					return this.getLearnPanelHtml();
+				},
+
+				getMacHelpHtml: function() {
+					return '<section id="macHelp" class="panelSection macHelp" aria-live="polite"><strong>MAC 地址提示</strong><p>请输入智能硬件的MAC地址（xx:xx:xx:xx:xx:xx），你可以通过 <code>chrome://bluetooth-internals/#devices</code> 找到MAC地址，或者修改以下配置让csTimer自动获取蓝牙地址：<br>Chrome：在浏览器设置里打开 <code>chrome://flags/#enable-experimental-web-platform-features</code><br>Bluefy：在浏览器设置里开启 <code>Enable BLE Advertisements</code></p><div id="macHelpReason" class="macHelpReason"></div></section>';
+				},
+
+				getConnectSectionHtml: function(extraClass) {
+					return '<section class="panelSection"><div class="controls ' + (extraClass || "") + '"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="resetBtn" class="button secondary" type="button">重置视图</button></div></section>';
+				},
+
+				getStateImportHtml: function(showThumbOption, practiceCards) {
+					return '<section class="panelSection stateImport" id="stateImport"><div id="stateDropZone" class="importDropZone">拖入 TXT 状态文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea><button id="parseStateTextBtn" class="button small" type="button">导入文本</button></div>' + (showThumbOption ? '<label class="stateOptions"><input id="showStateThumbs" type="checkbox"><span>显示状态缩略图</span></label>' : "") + '<div id="stateImportStatus" class="importStatus">未导入状态</div><div id="stateList" class="stateList"></div></section>';
+				},
+
+				getDiagnosticsHtml: function(hidden) {
+					var cls = hidden ? ' class="practiceDiagnostics" aria-hidden="true"' : ' class="history"';
+					if (hidden) {
+						return '<section' + cls + '><strong id="deviceName">-</strong><strong id="moveCount">0</strong><span id="lastTs">--:--</span><div id="moveList"></div><div id="log"></div></section>';
+					}
+					return '<section' + cls + '><div class="historyTitle"><span>最近转动</span><span id="lastTs">--:--</span></div><div id="moveList" class="moveList"></div><div id="log" class="log"></div></section>';
+				},
+
+				getManualMovesHtml: function() {
+					return '<section class="panelSection"><div class="moves" id="manualMoves" aria-label="手动测试转动"><button class="moveButton" type="button" data-move="U">U</button><button class="moveButton" type="button" data-move="R">R</button><button class="moveButton" type="button" data-move="F">F</button><button class="moveButton" type="button" data-move="D">D</button><button class="moveButton" type="button" data-move="L">L</button><button class="moveButton" type="button" data-move="B">B</button><button class="moveButton" type="button" data-move="U&#39;">U&#39;</button><button class="moveButton" type="button" data-move="R&#39;">R&#39;</button><button class="moveButton" type="button" data-move="F&#39;">F&#39;</button><button class="moveButton" type="button" data-move="D&#39;">D&#39;</button><button class="moveButton" type="button" data-move="L&#39;">L&#39;</button><button class="moveButton" type="button" data-move="B&#39;">B&#39;</button><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>';
+				},
+
+				getLearnPanelHtml: function() {
+					return '<aside class="panel"><header class="panelHeader"><h1>学习模式</h1></header>' + this.getConnectSectionHtml("") + this.getMacHelpHtml() + '<section class="panelSection"><div class="metrics"><div class="metric"><span>设备</span><strong id="deviceName">-</strong></div><div class="metric"><span>转动数</span><strong id="moveCount">0</strong></div></div></section>' + this.getManualMovesHtml() + this.getStateImportHtml(true, false) + this.getDiagnosticsHtml(false) + '</aside>';
+				},
+
+				getPracticePanelHtml: function() {
+					return '<aside class="panel practicePanel"><section class="panelSection"><div class="controls practiceControls"><button id="connectBtn" class="button" type="button">连接魔方</button><select id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><option value="sequence">顺序模式</option><option value="random">随机模式</option></select></div></section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + this.getStateImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
+				},
+
+				getLibraryPanelHtml: function() {
+					return '<aside class="panel libraryPanel"><header class="panelHeader"><h1>公式库</h1></header><section class="panelSection"><div class="controls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="resetBtn" class="button secondary" type="button">重置视图</button></div></section>' + this.getMacHelpHtml() + '<section class="panelSection"><div class="importStatus">暂无公式条目</div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+				},
+
+				getFormulaPanelHtml: function() {
+					return '<aside class="panel formulaPanel"><section class="panelSection"><div class="controls formulaControls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="exportFormulaBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + this.getManualMovesHtml() + '<section class="panelSection"><div id="formulaList" class="formulaList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+				},
+
+				bindOnce: function(element, key, handler) {
+					if (!element || element.dataset[key]) {
+						return;
+					}
+					element.dataset[key] = "1";
+					handler(element);
+				},
+
+				bindPanelControls: function() {
+					var self = this;
+					this.bindOnce(this.elements.connectBtn, "smartBound", function(element) {
+						element.addEventListener("click", function() {
+							if (self.connected) {
+								self.disconnect();
+							} else {
+								self.connect();
+							}
+						});
+					});
+					this.bindOnce(this.elements.resetBtn, "smartBound", function(element) {
+						element.addEventListener("click", function() {
+							self.resetView();
+						});
+					});
+					this.bindOnce(this.elements.exportFormulaBtn, "smartBound", function(element) {
+						element.addEventListener("click", function() {
+							self.openFormulaExportDialog();
+						});
+					});
+					this.bindOnce(this.elements.practiceModeSelect, "smartBound", function(element) {
+						element.value = self.practiceMode;
+						element.addEventListener("change", function(event) {
+							self.practiceMode = event.target.value === "random" ? "random" : "sequence";
+							self.randomBag = [];
+						});
+					});
+					this.bindOnce(this.elements.orientationMoves, "smartBound", function(element) {
+						element.addEventListener("click", function(event) {
+							var button = event.target.closest("[data-move]");
+							if (button) {
+								self.playMove(button.getAttribute("data-move"), "manual", Date.now());
+							}
+						});
+					});
+					this.bindOnce(this.elements.manualMoves, "smartBound", function(element) {
+						element.addEventListener("click", function(event) {
+							var button = event.target.closest("[data-move]");
+							if (button) {
+								self.playMove(button.getAttribute("data-move"), "manual", Date.now());
+							}
+						});
+					});
+					if (this.elements.stateDropZone && !this.elements.stateDropZone.dataset.smartBound) {
+						this.bindStateImport();
+					}
+					if (this.elements.formulaList && !this.elements.formulaList.dataset.smartBound) {
+						this.bindFormulaList();
+					}
+				},
+
+				syncConnectionUi: function() {
+					if (this.elements.connectBtn) {
+						this.elements.connectBtn.textContent = this.connected ? "断开连接" : "连接魔方";
+					}
+					if (this.elements.deviceName) {
+						this.setDevice(this.deviceName, this.batteryLevel);
+					}
+				},
+
+				loadFormulaEntries: function() {
+					try {
+						var saved = JSON.parse(localStorage.getItem("smartCubeFormulaEntries") || "[]");
+						this.formulaEntries = Array.isArray(saved) ? saved.map(function(item) {
+							return {
+								id: item.id || String(Date.now() + Math.random()),
+								name: item.name || "",
+								moves: Array.isArray(item.moves) ? item.moves : [],
+								editingMoves: false
+							};
+						}) : [];
+					} catch (error) {
+						this.formulaEntries = [];
+					}
+				},
+
+				saveFormulaEntries: function() {
+					var data = this.formulaEntries.map(function(item) {
+						return {
+							id: item.id,
+							name: item.name || "",
+							moves: item.moves || []
+						};
+					});
+					localStorage.setItem("smartCubeFormulaEntries", JSON.stringify(data));
+				},
+
+				bindFormulaList: function() {
+					var self = this;
+					this.elements.formulaList.dataset.smartBound = "1";
+					this.elements.formulaList.addEventListener("click", function(event) {
+						var add = event.target.closest("[data-formula-add]");
+						if (add) {
+							self.addFormulaEntry();
+							return;
+						}
+						var organize = event.target.closest("[data-formula-organize]");
+						if (organize) {
+							self.toggleFormulaOrganize();
+							return;
+						}
+						var remove = event.target.closest("[data-formula-delete]");
+						if (remove) {
+							self.deleteFormulaEntry(remove.getAttribute("data-formula-delete"));
+							return;
+						}
+						var action = event.target.closest("[data-formula-action]");
+						if (!action) {
+							return;
+						}
+						var id = action.getAttribute("data-formula-id");
+						var type = action.getAttribute("data-formula-action");
+						if (type === "record") {
+							self.startFormulaRecording(id);
+						} else if (type === "stop") {
+							self.stopFormulaRecording();
+						} else if (type === "edit") {
+							self.editFormulaMoves(id);
+						}
+					});
+					this.elements.formulaList.addEventListener("dragstart", function(event) {
+						var handle = event.target.closest("[data-formula-drag-id]");
+						if (!handle || !self.formulaOrganizeMode) {
+							return;
+						}
+						self.dragFormulaId = handle.getAttribute("data-formula-drag-id");
+						var row = handle.closest("[data-formula-row]");
+						if (row) {
+							row.classList.add("isDragging");
+						}
+						if (event.dataTransfer) {
+							event.dataTransfer.effectAllowed = "move";
+							event.dataTransfer.setData("text/plain", self.dragFormulaId);
+						}
+					});
+					this.elements.formulaList.addEventListener("dragover", function(event) {
+						var row = event.target.closest("[data-formula-row]");
+						if (!row || !self.formulaOrganizeMode || !self.dragFormulaId || row.getAttribute("data-formula-row") === self.dragFormulaId) {
+							return;
+						}
+						event.preventDefault();
+						self.markFormulaDropPosition(row, event.clientY);
+						if (event.dataTransfer) {
+							event.dataTransfer.dropEffect = "move";
+						}
+					});
+					this.elements.formulaList.addEventListener("dragleave", function(event) {
+						var row = event.target.closest("[data-formula-row]");
+						if (row && !row.contains(event.relatedTarget)) {
+							row.classList.remove("dropBefore", "dropAfter");
+						}
+					});
+					this.elements.formulaList.addEventListener("drop", function(event) {
+						var row = event.target.closest("[data-formula-row]");
+						if (!row || !self.formulaOrganizeMode || !self.dragFormulaId) {
+							return;
+						}
+						event.preventDefault();
+						var targetId = row.getAttribute("data-formula-row");
+						var rect = row.getBoundingClientRect();
+						self.moveFormulaEntry(self.dragFormulaId, targetId, event.clientY > rect.top + rect.height / 2);
+						self.clearFormulaDropClasses();
+					});
+					this.elements.formulaList.addEventListener("dragend", function() {
+						self.dragFormulaId = null;
+						self.clearFormulaDropClasses();
+					});
+					this.elements.formulaList.addEventListener("input", function(event) {
+						var nameInput = event.target.closest("[data-formula-name]");
+						if (nameInput) {
+							var entry = self.getFormulaEntry(nameInput.getAttribute("data-formula-name"));
+							if (entry) {
+								entry.name = nameInput.value;
+								self.saveFormulaEntries();
+							}
+							return;
+						}
+						var movesInput = event.target.closest("[data-formula-moves]");
+						if (movesInput) {
+							var moveEntry = self.getFormulaEntry(movesInput.getAttribute("data-formula-moves"));
+							if (moveEntry) {
+								moveEntry.moves = self.parseEditableFormulaMoves(movesInput.value);
+								self.saveFormulaEntries();
+							}
+						}
+					});
+					this.elements.formulaList.addEventListener("keydown", function(event) {
+						if (event.key !== "Enter") {
+							return;
+						}
+						var nameInput = event.target.closest("[data-formula-name]");
+						if (nameInput) {
+							event.preventDefault();
+							var row = nameInput.closest("[data-formula-row]");
+							var action = row && row.querySelector("[data-formula-action='record']");
+							if (action) {
+								self.startFormulaRecording(action.getAttribute("data-formula-id"));
+							}
+						}
+						var movesInput = event.target.closest("[data-formula-moves]");
+						if (movesInput) {
+							event.preventDefault();
+							var entry = self.getFormulaEntry(movesInput.getAttribute("data-formula-moves"));
+							if (entry) {
+								entry.editingMoves = false;
+								self.saveFormulaEntries();
+								self.renderFormulaList();
+							}
+						}
+					});
+					this.renderFormulaList();
+				},
+
+				addFormulaEntry: function() {
+					if (this.isRecordingFormula) {
+						return;
+					}
+					this.formulaOrganizeMode = false;
+					var draft = null;
+					for (var i = 0; i < this.formulaEntries.length; i++) {
+						if (!this.formulaEntries[i].name && (!this.formulaEntries[i].moves || this.formulaEntries[i].moves.length === 0)) {
+							draft = this.formulaEntries[i];
+							break;
+						}
+					}
+					if (draft) {
+						this.renderFormulaList();
+						this.focusFormulaName(draft.id);
+						return;
+					}
+					var entry = {
+						id: String(Date.now()) + "-" + Math.floor(Math.random() * 100000),
+						name: "",
+						moves: [],
+						editingMoves: false
+					};
+					this.formulaEntries.push(entry);
+					this.saveFormulaEntries();
+					this.renderFormulaList();
+					this.focusFormulaName(entry.id);
+				},
+
+				focusFormulaName: function(id) {
+					if (!this.elements.formulaList) {
+						return;
+					}
+					var input = this.elements.formulaList.querySelector('[data-formula-name="' + id + '"]');
+					if (input) {
+						input.focus();
+					}
+				},
+
+				getFormulaEntry: function(id) {
+					for (var i = 0; i < this.formulaEntries.length; i++) {
+						if (this.formulaEntries[i].id === id) {
+							return this.formulaEntries[i];
+						}
+					}
+					return null;
+				},
+
+				renderFormulaList: function() {
+					if (!this.elements.formulaList) {
+						return;
+					}
+					var self = this;
+					this.elements.formulaList.className = "formulaList" + (this.formulaOrganizeMode ? " isOrganizing" : "");
+					var html = this.formulaEntries.map(function(entry) {
+						return self.getFormulaRowHtml(entry);
+					}).join("");
+					var addDisabled = this.isRecordingFormula ? " disabled" : "";
+					var organizeDisabled = this.isRecordingFormula || this.formulaEntries.length === 0 ? " disabled" : "";
+					html += '<div class="formulaListActions">';
+					html += '<button class="formulaAddButton" type="button" data-formula-add aria-label="新增公式" title="新增公式"' + addDisabled + '></button>';
+					html += '<button class="button secondary formulaOrganizeButton' + (this.formulaOrganizeMode ? " isActive" : "") + '" type="button" data-formula-organize aria-label="' + (this.formulaOrganizeMode ? "完成整理" : "整理") + '" title="' + (this.formulaOrganizeMode ? "完成整理" : "整理") + '"' + organizeDisabled + '></button>';
+					html += '</div>';
+					this.elements.formulaList.innerHTML = html;
+				},
+
+				getFormulaRowHtml: function(entry) {
+					var isRecording = this.activeFormulaId === entry.id && this.isRecordingFormula;
+					var action = isRecording ? "stop" : entry.moves && entry.moves.length ? "edit" : "record";
+					var movesText = (entry.moves || []).join("");
+					var organize = this.formulaOrganizeMode;
+					var readonly = organize ? " readonly" : "";
+					var actionDisabled = organize ? " disabled" : "";
+					var dragHandle = organize ? '<button class="formulaDragHandle" type="button" draggable="true" data-formula-drag-id="' + this.escapeAttr(entry.id) + '" aria-label="拖动排序"></button>' : "";
+					var deleteButton = organize ? '<button class="formulaDeleteButton" type="button" data-formula-delete="' + this.escapeAttr(entry.id) + '" aria-label="删除公式"></button>' : "";
+					var content = entry.editingMoves ?
+						'<input class="formulaAlgInput" data-formula-moves="' + this.escapeAttr(entry.id) + '" value="' + this.escapeAttr(movesText) + '" spellcheck="false"' + readonly + '>' :
+						'<div class="formulaTrackText ' + (movesText ? "hasMoves" : "") + '">' + this.escapeHtml(isRecording ? "录制中：" + movesText : movesText || "等待录制") + '</div>';
+					return '<div class="formulaRow' + (organize ? " isOrganizing" : "") + '" data-formula-row="' + this.escapeAttr(entry.id) + '">' + dragHandle + '<input class="formulaNameInput" data-formula-name="' + this.escapeAttr(entry.id) + '" value="' + this.escapeAttr(entry.name || "") + '" placeholder="公式名"' + readonly + '><div class="formulaTrack"><button class="formulaIconButton" type="button" data-formula-id="' + this.escapeAttr(entry.id) + '" data-formula-action="' + action + '" aria-label="' + (action === "record" ? "开始录制" : action === "stop" ? "停止录制" : "编辑公式") + '"' + actionDisabled + '></button>' + content + '</div>' + deleteButton + '</div>';
+				},
+
+				toggleFormulaOrganize: function() {
+					if (this.isRecordingFormula) {
+						return;
+					}
+					this.formulaOrganizeMode = !this.formulaOrganizeMode;
+					this.dragFormulaId = null;
+					if (this.formulaOrganizeMode) {
+						this.formulaEntries.forEach(function(entry) {
+							entry.editingMoves = false;
+						});
+					}
+					this.renderFormulaList();
+				},
+
+				deleteFormulaEntry: function(id) {
+					if (this.isRecordingFormula) {
+						return;
+					}
+					var entry = this.getFormulaEntry(id);
+					if (!entry) {
+						return;
+					}
+					this.formulaEntries = this.formulaEntries.filter(function(item) {
+						return item.id !== id;
+					});
+					this.saveFormulaEntries();
+					if (this.formulaEntries.length === 0) {
+						this.formulaOrganizeMode = false;
+					}
+					this.renderFormulaList();
+				},
+
+				markFormulaDropPosition: function(row, clientY) {
+					if (this.elements.formulaList) {
+						this.elements.formulaList.querySelectorAll(".formulaRow").forEach(function(item) {
+							item.classList.remove("dropBefore", "dropAfter");
+						});
+					}
+					var rect = row.getBoundingClientRect();
+					row.classList.add(clientY > rect.top + rect.height / 2 ? "dropAfter" : "dropBefore");
+				},
+
+				clearFormulaDropClasses: function() {
+					if (!this.elements.formulaList) {
+						return;
+					}
+					this.elements.formulaList.querySelectorAll(".formulaRow").forEach(function(row) {
+						row.classList.remove("isDragging", "dropBefore", "dropAfter");
+					});
+				},
+
+				moveFormulaEntry: function(dragId, targetId, insertAfter) {
+					if (!dragId || !targetId || dragId === targetId) {
+						return;
+					}
+					var fromIndex = this.formulaEntries.findIndex(function(item) {
+						return item.id === dragId;
+					});
+					if (fromIndex < 0) {
+						return;
+					}
+					var moving = this.formulaEntries.splice(fromIndex, 1)[0];
+					var toIndex = this.formulaEntries.findIndex(function(item) {
+						return item.id === targetId;
+					});
+					if (toIndex < 0) {
+						this.formulaEntries.push(moving);
+					} else {
+						this.formulaEntries.splice(toIndex + (insertAfter ? 1 : 0), 0, moving);
+					}
+					this.dragFormulaId = null;
+					this.saveFormulaEntries();
+					this.renderFormulaList();
+				},
+
+				startFormulaRecording: function(id) {
+					var entry = this.getFormulaEntry(id);
+					if (!entry || this.isRecordingFormula) {
+						return;
+					}
+					this.formulaOrganizeMode = false;
+					entry.name = (entry.name || "").trim() || "未命名公式";
+					entry.moves = [];
+					entry.editingMoves = false;
+					this.activeFormulaId = id;
+					this.isRecordingFormula = true;
+					this.saveFormulaEntries();
+					this.renderFormulaList();
+				},
+
+				stopFormulaRecording: function() {
+					if (!this.isRecordingFormula) {
+						return;
+					}
+					var entry = this.getFormulaEntry(this.activeFormulaId);
+					if (entry) {
+						entry.editingMoves = false;
+					}
+					this.activeFormulaId = null;
+					this.isRecordingFormula = false;
+					this.saveFormulaEntries();
+					this.renderFormulaList();
+				},
+
+				editFormulaMoves: function(id) {
+					var entry = this.getFormulaEntry(id);
+					if (!entry || this.isRecordingFormula) {
+						return;
+					}
+					entry.editingMoves = true;
+					this.renderFormulaList();
+					var input = this.elements.formulaList.querySelector('[data-formula-moves="' + id + '"]');
+					if (input) {
+						input.focus();
+						input.select();
+					}
+				},
+
+				recordFormulaMove: function(move) {
+					if (!this.isRecordingFormula || !this.activeFormulaId) {
+						return;
+					}
+					var entry = this.getFormulaEntry(this.activeFormulaId);
+					var text = this.moveToStandardText(move);
+					if (!entry || !text) {
+						return;
+					}
+					entry.moves.push(text);
+					this.saveFormulaEntries();
+					if (this.elements.formulaList) {
+						var row = this.elements.formulaList.querySelector('[data-formula-row="' + entry.id + '"] .formulaTrackText');
+						if (row) {
+							row.textContent = "录制中：" + entry.moves.join("");
+							row.classList.toggle("hasMoves", entry.moves.length > 0);
+						}
+					}
+				},
+
+				moveToStandardText: function(move) {
+					if (!move || move.type !== "face") {
+						return "";
+					}
+					var face = move.fromCube ? move.face : this.standardFaceFromWorldFace(move.face);
+					return this.formatMoveText(this.unmapUiFace(face), move.pow);
+				},
+
+				unmapUiFace: function(face) {
+					return {
+						U: "U",
+						B: "R",
+						R: "F",
+						D: "D",
+						F: "L",
+						L: "B"
+					}[face] || face;
+				},
+
+				standardFaceFromWorldFace: function(face) {
+					if (!this.orientationMatrix || !this.faceNormal(face)) {
+						return face;
+					}
+					var normal = this.matrixVectorMultiply(this.matrixTranspose(this.orientationMatrix), this.faceNormal(face));
+					return this.faceFromNormal(normal) || face;
+				},
+
+				parseEditableFormulaMoves: function(text) {
+					try {
+						return this.parseMoveSequence(text || "");
+					} catch (error) {
+						return String(text || "").replace(/\s+/g, "").match(/[URFDLBXYZ][2']?/gi) || [];
+					}
+				},
+
+				buildFormulaExportText: function() {
+					var self = this;
+					return this.formulaEntries.filter(function(entry) {
+						return entry.name && entry.moves && entry.moves.length;
+					}).map(function(entry) {
+						var name = self.sanitizeFormulaName(entry.name);
+						var alg = self.invertFormulaMoves(entry.moves).join("");
+						return name + ":" + alg + ";";
+					}).join("\n");
+				},
+
+				invertFormulaMoves: function(moves) {
+					var result = [];
+					for (var i = moves.length - 1; i >= 0; i--) {
+						var move = this.normalizeMove(moves[i]);
+						if (!move) {
+							continue;
+						}
+						result.push(this.formatMoveText(move.type === "orientation" ? move.text.charAt(0) : move.face, Math.abs(move.pow) === 2 ? 2 : -move.pow));
+					}
+					return result;
+				},
+
+				sanitizeFormulaName: function(name) {
+					return String(name || "未命名公式").replace(/[\r\n]+/g, " ").replace(/:/g, "：").replace(/;/g, "；").trim() || "未命名公式";
+				},
+
+				openFormulaExportDialog: function() {
+					var text = this.buildFormulaExportText();
+					var old = document.getElementById("formulaExportOverlay");
+					if (old) {
+						old.remove();
+					}
+					var overlay = document.createElement("div");
+					overlay.id = "formulaExportOverlay";
+					overlay.className = "formulaExportOverlay";
+					overlay.innerHTML = '<div class="formulaExportDialog" role="dialog" aria-modal="true"><div class="formulaExportHeader"><strong>导出公式</strong><button id="closeFormulaExportBtn" class="button secondary small" type="button">关闭</button></div><textarea id="formulaExportText" class="formulaExportText" spellcheck="false"></textarea><div class="formulaExportActions"><button id="copyFormulaTextBtn" class="button secondary" type="button">复制文本</button><button id="downloadFormulaTxtBtn" class="button" type="button">下载 TXT</button></div></div>';
+					document.body.appendChild(overlay);
+					var textarea = document.getElementById("formulaExportText");
+					var copyButton = document.getElementById("copyFormulaTextBtn");
+					textarea.value = text;
+					textarea.focus();
+					document.getElementById("closeFormulaExportBtn").addEventListener("click", function() {
+						overlay.remove();
+					});
+					copyButton.addEventListener("click", function() {
+						var originalText = copyButton.textContent;
+						var markCopied = function() {
+							copyButton.textContent = "已复制";
+							setTimeout(function() {
+								copyButton.textContent = originalText;
+							}, 1200);
+						};
+						var fallbackCopy = function() {
+							textarea.focus();
+							textarea.select();
+							document.execCommand("copy");
+							markCopied();
+						};
+						if (navigator.clipboard && window.isSecureContext) {
+							navigator.clipboard.writeText(textarea.value).then(markCopied).catch(fallbackCopy);
+						} else {
+							fallbackCopy();
+						}
+					});
+					document.getElementById("downloadFormulaTxtBtn").addEventListener("click", function() {
+						var blob = new Blob([textarea.value], { type: "text/plain;charset=utf-8" });
+						var url = URL.createObjectURL(blob);
+						var link = document.createElement("a");
+						link.href = url;
+						link.download = "formulas.txt";
+						link.click();
+						setTimeout(function() {
+							URL.revokeObjectURL(url);
+						}, 1000);
+					});
+				},
+
+				escapeHtml: function(value) {
+					return String(value == null ? "" : value).replace(/[&<>"']/g, function(ch) {
+						return {
+							"&": "&amp;",
+							"<": "&lt;",
+							">": "&gt;",
+							"\"": "&quot;",
+							"'": "&#39;"
+						}[ch];
+					});
+				},
+
+				escapeAttr: function(value) {
+					return this.escapeHtml(value);
+				},
+
 				initTheme: function() {
 					var saved = localStorage.getItem("smartCubeTheme");
 					var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -1320,6 +2573,10 @@
 
 				bindStateImport: function() {
 					var self = this;
+					if (!this.elements.stateDropZone || this.elements.stateDropZone.dataset.smartBound) {
+						return;
+					}
+					this.elements.stateDropZone.dataset.smartBound = "1";
 					this.elements.chooseStateFileBtn.addEventListener("click", function() {
 						self.elements.stateFileInput.click();
 					});
@@ -1336,12 +2593,19 @@
 						}
 					});
 					this.elements.parseStateTextBtn.addEventListener("click", function() {
+						self.captureStateTextInput();
 						self.importStateText(self.elements.stateTextInput.value, "text");
 					});
-					this.elements.showStateThumbs.addEventListener("change", function(event) {
-						self.showStateThumbs = event.target.checked;
-						self.renderStateList();
+					this.elements.stateTextInput.addEventListener("input", function(event) {
+						self.stateImportText = event.target.value;
 					});
+					if (this.elements.showStateThumbs) {
+						this.elements.showStateThumbs.checked = this.showStateThumbs;
+						this.elements.showStateThumbs.addEventListener("change", function(event) {
+							self.showStateThumbs = event.target.checked;
+							self.renderStateList();
+						});
+					}
 					this.elements.stateList.addEventListener("click", function(event) {
 						var button = event.target.closest("[data-state-index]");
 						if (button) {
@@ -1433,6 +2697,39 @@
 					}
 				},
 
+				fillStateTextInput: function(text, reveal, focus) {
+					this.stateImportText = text || "";
+					if (!this.elements.stateTextInput) {
+						return;
+					}
+					this.elements.stateTextInput.value = text || "";
+					if (reveal && this.elements.textImportBox) {
+						this.elements.textImportBox.classList.add("isVisible");
+						if (this.elements.toggleTextImportBtn) {
+							this.elements.toggleTextImportBtn.textContent = "收起文本框";
+						}
+					}
+					if (focus) {
+						this.elements.stateTextInput.focus();
+					}
+				},
+
+				captureStateTextInput: function() {
+					if (this.elements.stateTextInput) {
+						this.stateImportText = this.elements.stateTextInput.value;
+					}
+				},
+
+				appendStateImportText: function(text) {
+					text = String(text || "").trim();
+					if (!text) {
+						return false;
+					}
+					var current = String(this.stateImportText || "").replace(/\s+$/g, "");
+					this.stateImportText = current ? current + "\n" + text : text;
+					return true;
+				},
+
 				importFiles: function(files) {
 					var self = this;
 					var file = files && files[0];
@@ -1441,7 +2738,9 @@
 					}
 					this.setImportStatus("正在读取 " + file.name);
 					file.arrayBuffer().then(function(buffer) {
-						self.importStateText(self.decodeTextBuffer(buffer), file.name);
+						var text = self.decodeTextBuffer(buffer);
+						self.fillStateTextInput(text, false, false);
+						self.importStateText(text, file.name);
 					}).catch(function(error) {
 						self.setImportStatus("读取失败: " + String(error && error.message || error));
 					});
@@ -1465,6 +2764,9 @@
 					this.renderStateList();
 					this.setImportStatus("已导入 " + result.states.length + " 个状态" + (result.skipped ? "，跳过 " + result.skipped + " 条" : ""));
 					this.log("state", "import " + result.states.length + " from " + (source || "text"));
+					if (this.isPracticeMode && result.states.length > 0) {
+						this.applyImportedState(0);
+					}
 				},
 
 				parseStateDefinitions: function(text) {
@@ -1474,6 +2776,9 @@
 					for (var i = 0; i < entries.length; i++) {
 						var entry = entries[i].trim();
 						if (!entry) {
+							continue;
+						}
+						if (entry.indexOf("##") === 0) {
 							continue;
 						}
 						var colon = this.findStateDelimiter(entry);
@@ -1545,15 +2850,41 @@
 				},
 
 				setImportStatus: function(text) {
+					if (!this.elements.stateImportStatus) {
+						return;
+					}
 					this.elements.stateImportStatus.textContent = text;
 				},
 
 				renderStateList: function() {
+					if (!this.elements.stateList) {
+						return;
+					}
 					var self = this;
 					this.thumbnailScenes = [];
 					this.elements.stateList.innerHTML = "";
 					var frag = document.createDocumentFragment();
 					this.importedStates.forEach(function(state, index) {
+						if (self.isPracticeMode) {
+							var practiceCard = document.createElement("div");
+							practiceCard.className = "stateCard";
+							practiceCard.setAttribute("role", "button");
+							practiceCard.setAttribute("tabindex", "0");
+							practiceCard.setAttribute("data-state-index", String(index));
+							if (index === self.currentStateIndex) {
+								practiceCard.classList.add("isActive");
+							}
+							var practicePreview = document.createElement("div");
+							practicePreview.className = "statePreview";
+							practiceCard.appendChild(practicePreview);
+							self.renderStatePreview(practicePreview, state);
+							var practiceName = document.createElement("strong");
+							practiceName.className = "stateName";
+							practiceName.textContent = state.name;
+							practiceCard.appendChild(practiceName);
+							frag.appendChild(practiceCard);
+							return;
+						}
 						var card = document.createElement("div");
 						card.className = "stateCard";
 
@@ -1611,20 +2942,218 @@
 					if (!state) {
 						return;
 					}
+					var savedViewYaw = this.viewYaw || 0;
+					var savedViewPitch = this.viewPitch || 0;
 					this.moveHistory = [];
 					this.moveCount = 0;
+					if (this.isPracticeMode) {
+						this.cancelSolvedAdvance();
+						this.currentStateIndex = index;
+						this.movesSinceState = 0;
+						this.seenUnsolvedSinceState = false;
+						this.seenUnsolvedFaceletSinceState = false;
+						this.seenUnsolvedVirtualSinceState = false;
+						this.lastFaceletSolved = false;
+						this.recordStateVisit(index);
+						this.setActiveStateCard(index);
+					}
 					this.initTwisty();
-					var moves = this.buildTwistyMoves(state.moves, true);
+					this.setViewDrag(savedViewYaw, savedViewPitch);
+					if (this.isPracticeMode) {
+						this.resetVirtualState();
+					}
+					var moves = this.buildTwistyMoves(state.moves, true, this.isPracticeMode);
 					if (moves.length) {
 						this.twistyScene.applyMoves(moves);
+					}
+					if (this.isPracticeMode) {
+						this.seenUnsolvedVirtualSinceState = !this.isVirtualStateSolved();
+						this.seenUnsolvedSinceState = this.seenUnsolvedVirtualSinceState;
 					}
 					this.renderMoves();
 					this.elements.moveCount.textContent = "0";
 					this.elements.lastTs.textContent = this.formatTime(Date.now());
+					this.setImportStatus((this.isPracticeMode ? "当前状态：" : "已应用：") + state.name);
 					this.log("state", "applied " + state.name);
 				},
 
-				buildTwistyMoves: function(tokens, updateOrientationState) {
+				setActiveStateCard: function(index) {
+					if (!this.elements.stateList) {
+						return;
+					}
+					var cards = this.elements.stateList.querySelectorAll("[data-state-index]");
+					for (var i = 0; i < cards.length; i++) {
+						cards[i].classList.toggle("isActive", Number(cards[i].getAttribute("data-state-index")) === index);
+					}
+				},
+
+				recordStateVisit: function(index) {
+					var recent = [];
+					for (var i = 0; i < this.recentStateIndices.length; i++) {
+						if (this.recentStateIndices[i] !== index) {
+							recent.push(this.recentStateIndices[i]);
+						}
+					}
+					recent.unshift(index);
+					recent.length = Math.min(recent.length, Math.max(1, Math.min(4, this.importedStates.length)));
+					this.recentStateIndices = recent;
+					this.randomBag = this.randomBag.filter(function(item) {
+						return item !== index;
+					});
+				},
+
+				cancelSolvedAdvance: function() {
+					if (this.solveSwitchTimer) {
+						clearTimeout(this.solveSwitchTimer);
+						this.solveSwitchTimer = null;
+					}
+					this.solvedAdvancePending = false;
+				},
+
+				scheduleSolvedAdvance: function() {
+					var self = this;
+					if (this.solvedAdvancePending || this.importedStates.length === 0 || !this.isPracticeMode) {
+						return;
+					}
+					this.solvedAdvancePending = true;
+					this.setImportStatus("已还原，0.7 秒后切换");
+					this.solveSwitchTimer = setTimeout(function() {
+						self.solveSwitchTimer = null;
+						self.solvedAdvancePending = false;
+						self.advancePracticeState();
+					}, 700);
+				},
+
+				advancePracticeState: function() {
+					if (!this.importedStates.length) {
+						return;
+					}
+					var nextIndex = this.practiceMode === "random" ? this.pickRandomStateIndex() : this.pickSequentialStateIndex();
+					this.applyImportedState(nextIndex);
+				},
+
+				pickSequentialStateIndex: function() {
+					if (!this.importedStates.length) {
+						return -1;
+					}
+					if (this.currentStateIndex < 0) {
+						return 0;
+					}
+					return (this.currentStateIndex + 1) % this.importedStates.length;
+				},
+
+				pickRandomStateIndex: function() {
+					var count = this.importedStates.length;
+					if (count <= 1) {
+						return 0;
+					}
+					if (!this.randomBag.length) {
+						this.refillRandomBag();
+					}
+					if (!this.randomBag.length) {
+						return this.pickSequentialStateIndex();
+					}
+					return this.randomBag.shift();
+				},
+
+				refillRandomBag: function() {
+					var count = this.importedStates.length;
+					var recentLimit = Math.min(3, Math.max(1, count - 1));
+					var recent = this.recentStateIndices.slice(0, recentLimit);
+					var preferred = [];
+					var delayed = [];
+					for (var i = 0; i < count; i++) {
+						if (recent.indexOf(i) === -1) {
+							preferred.push(i);
+						} else {
+							delayed.push(i);
+						}
+					}
+					this.shuffle(preferred);
+					this.shuffle(delayed);
+					this.randomBag = preferred.concat(delayed);
+				},
+
+				shuffle: function(items) {
+					for (var i = items.length - 1; i > 0; i--) {
+						var j = Math.floor(Math.random() * (i + 1));
+						var tmp = items[i];
+						items[i] = items[j];
+						items[j] = tmp;
+					}
+					return items;
+				},
+
+				updateSolveDetection: function(facelet, hadCubeMove) {
+					if (!this.isPracticeMode || !this.importedStates.length || this.currentStateIndex < 0) {
+						return;
+					}
+					var normalizedFacelet = String(facelet || "").toUpperCase().replace(/[^URFDLB]/g, "");
+					var hasFacelet = normalizedFacelet.length === 54;
+					var faceletSolved = hasFacelet && this.isFaceletSolved(normalizedFacelet);
+					var virtualSolved = !!this.virtualCubie && this.isVirtualStateSolved();
+					var canAdvanceByFacelet = faceletSolved && (this.seenUnsolvedFaceletSinceState || hadCubeMove && this.movesSinceState > 0);
+					var canAdvanceByVirtual = virtualSolved && this.seenUnsolvedVirtualSinceState && this.movesSinceState > 0;
+					if (canAdvanceByFacelet || canAdvanceByVirtual) {
+						this.lastFaceletSolved = true;
+						this.scheduleSolvedAdvance();
+						return;
+					}
+					if (hasFacelet && !faceletSolved) {
+						this.seenUnsolvedFaceletSinceState = true;
+						this.seenUnsolvedSinceState = true;
+					}
+					if (this.virtualCubie && !virtualSolved) {
+						this.seenUnsolvedVirtualSinceState = true;
+						this.seenUnsolvedSinceState = true;
+					}
+					if (hasFacelet && !faceletSolved || this.virtualCubie && !virtualSolved) {
+						this.cancelSolvedAdvance();
+					}
+				},
+
+				isFaceletSolved: function(facelet) {
+					facelet = String(facelet || "").toUpperCase().replace(/[^URFDLB]/g, "");
+					var solved = window.mathlib && mathlib.SOLVED_FACELET || kernel.getProp("giiSolved", "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB");
+					solved = String(solved || "").toUpperCase().replace(/[^URFDLB]/g, "");
+					if (facelet === solved) {
+						return true;
+					}
+					if (facelet.length !== 54) {
+						return false;
+					}
+					var centers = [];
+					for (var offset = 0; offset < 54; offset += 9) {
+						var color = facelet.charAt(offset);
+						if (!color) {
+							return false;
+						}
+						for (var i = 1; i < 9; i++) {
+							if (facelet.charAt(offset + i) !== color) {
+								return false;
+							}
+						}
+						centers.push(facelet.charAt(offset + 4));
+					}
+					return new Set(centers).size === 6;
+				},
+
+				resetVirtualState: function() {
+					this.virtualCubie = window.mathlib && mathlib.CubieCube ? new mathlib.CubieCube() : null;
+				},
+
+				applyMoveToVirtualState: function(move) {
+					if (!this.virtualCubie || !move || move.type !== "face" || !this.virtualCubie.selfMoveStr) {
+						return;
+					}
+					this.virtualCubie.selfMoveStr(this.formatMoveText(move.face, move.pow));
+				},
+
+				isVirtualStateSolved: function() {
+					return !!(this.virtualCubie && this.virtualCubie.isEqual && this.virtualCubie.isEqual());
+				},
+
+				buildTwistyMoves: function(tokens, updateOrientationState, trackVirtualState) {
 					var moves = [];
 					for (var i = 0; i < tokens.length; i++) {
 						var move = this.normalizeMove(tokens[i]);
@@ -1633,6 +3162,9 @@
 						}
 						move = this.mapManualMove(move);
 						moves.push(move.twisty);
+						if (trackVirtualState) {
+							this.applyMoveToVirtualState(move);
+						}
 						if (updateOrientationState && move.type === "orientation") {
 							this.updateOrientation(move.axis, move.pow);
 						}
@@ -1786,17 +3318,19 @@
 					if (hardware) {
 						this.setDevice(hardware, this.batteryLevel);
 					}
-					if (!prevMoves || prevMoves.length === 0) {
-						this.log("state", "收到初始状态");
-						return;
-					}
 					if (this.ignoreMoves) {
 						this.log("state", "已读取设备初始状态");
 						return;
 					}
-					this.playMove(prevMoves[0], hardware || "cube", lastTs && (lastTs[1] || lastTs[0]) || Date.now(), {
-						fromCube: true
-					});
+					var hasMoves = prevMoves && prevMoves.length > 0;
+					if (hasMoves) {
+						this.playMove(prevMoves[0], hardware || "cube", lastTs && (lastTs[1] || lastTs[0]) || Date.now(), {
+							fromCube: true
+						});
+					} else {
+						this.log("state", "收到状态");
+					}
+					this.updateSolveDetection(facelet, hasMoves);
 				},
 
 				playMove: function(rawMove, source, timestamp, options) {
@@ -1805,8 +3339,19 @@
 						this.log("skip", "无法识别转动: " + rawMove);
 						return;
 					}
+					var formulaMove = move;
+					if (options && options.fromCube) {
+						formulaMove = {
+							text: move.text,
+							type: move.type,
+							face: move.face,
+							pow: move.pow,
+							fromCube: true
+						};
+					}
 					if (!(options && options.fromCube)) {
 						move = this.mapManualMove(move);
+						formulaMove = move;
 					}
 					if (move.type === "orientation") {
 						this.applyOrientationMove(move);
@@ -1817,8 +3362,13 @@
 					if (options && options.fromCube) {
 						move = this.transformCubeMove(move);
 					}
+					this.recordFormulaMove(formulaMove);
+					this.applyMoveToVirtualState(move);
 					this.twistyScene.addMoves([move.twisty]);
 					this.moveCount += 1;
+					if (options && options.fromCube) {
+						this.movesSinceState += 1;
+					}
 					this.pushHistory(move.text, source, timestamp);
 					this.elements.moveCount.textContent = String(this.moveCount);
 					this.log("move", move.text + (source ? " · " + source : ""));
@@ -2064,6 +3614,9 @@
 				},
 
 				renderMoves: function() {
+					if (!this.elements.moveList) {
+						return;
+					}
 					this.elements.moveList.innerHTML = "";
 					var frag = document.createDocumentFragment();
 					this.moveHistory.slice(0, 7).forEach(function(item) {
