@@ -746,9 +746,49 @@ execMain(function() {
 		parseV3Data(value);
 	}
 
+	function parseV3MoveEventRecord(bytes, offset, locTime, rawBits) {
+		prevMoveLocTime = locTime;
+		moveCnt = bytes[offset + 7] | bytes[offset + 8] << 8;
+		giikerutil.log('[gancube]', 'v3 received move event', prevMoveCnt, moveCnt, rawBits);
+		if (moveCnt == prevMoveCnt || prevMoveCnt == -1) {
+			return;
+		}
+		var ts = (bytes[offset + 3] | bytes[offset + 4] << 8 | bytes[offset + 5] << 16 | bytes[offset + 6] << 24) >>> 0;
+		var moveByte = bytes[offset + 9];
+		var pow = moveByte >> 6;
+		if (pow > 1) {
+			giikerutil.log('[gancube]', 'v3 move event invalid power');
+			return;
+		}
+		var axis = [2, 32, 8, 1, 16, 4].indexOf(moveByte & 0x3f);
+		if (axis == -1) {
+			giikerutil.log('[gancube]', 'v3 move event invalid axis');
+			return;
+		}
+		var move = "URFDLB".charAt(axis) + " '".charAt(pow);
+		moveBuffer.push([moveCnt, move, ts, locTime]);
+		giikerutil.log('[gancube]', 'v3 move placed to fifo buffer', moveCnt, move, ts, locTime);
+		evictMoveBuffer(true);
+	}
+
+	function parseV3MoveEvents(bytes, locTime, rawBits) {
+		for (var offset = 0; offset + 9 < bytes.length;) {
+			var len = bytes[offset + 2];
+			if (bytes[offset] != 0x55 || bytes[offset + 1] != 0x01 || len < 7 || offset + 3 + len > bytes.length) {
+				if (offset == 0) {
+					giikerutil.log('[gancube]', 'v3 invalid move event frame', rawBits);
+				}
+				break;
+			}
+			parseV3MoveEventRecord(bytes, offset, locTime, rawBits);
+			offset += 3 + len;
+		}
+	}
+
 	function parseV3Data(value) {
 		var locTime = $.now();
 		value = decode(value);
+		var bytes = value.slice();
 		for (var i = 0; i < value.length; i++) {
 			value[i] = (value[i] + 256).toString(2).slice(1);
 		}
@@ -761,27 +801,11 @@ execMain(function() {
 			return;
 		}
 		if (mode == 1) { // cube move
-			prevMoveLocTime = locTime;
-			moveCnt = parseInt(value.slice(64, 72) + value.slice(56, 64), 2);
-			giikerutil.log('[gancube]', 'v3 received move event', prevMoveCnt, moveCnt, value);
-			if (moveCnt == prevMoveCnt || prevMoveCnt == -1) {
-				return;
-			}
-			var ts = parseInt(value.slice(48, 56) + value.slice(40, 48) + value.slice(32, 40) + value.slice(24, 32), 2);
-			var pow = parseInt(value.slice(72, 74), 2);
-			var axis = [2, 32, 8, 1, 16, 4].indexOf(parseInt(value.slice(74, 80), 2));
-			if (axis == -1) {
-				giikerutil.log('[gancube]', 'v3 move event invalid axis');
-				return;
-			}
-			var move = "URFDLB".charAt(axis) + " '".charAt(pow);
-			moveBuffer.push([moveCnt, move, ts, locTime]);
-			giikerutil.log('[gancube]', 'v3 move placed to fifo buffer', moveCnt, move, ts, locTime);
-			evictMoveBuffer(true);
+			parseV3MoveEvents(bytes, locTime, value);
 		} else if (mode == 2) {  // cube state
 			moveCnt = parseInt(value.slice(32, 40) + value.slice(24, 32), 2);
 			if (prevMoveCnt != -1) {
-				if (prevMoveLocTime != null && locTime - prevMoveLocTime > 500) { // Debounce the facelet event if there are active cube moves
+				if (moveBuffer.length == 0 || prevMoveLocTime != null && locTime - prevMoveLocTime > 500) { // Debounce the facelet event if there are active cube moves
 					var diff = (moveCnt - prevMoveCnt) & 0xFF;
 					if (diff > 0) {
 						giikerutil.log('[gancube]', 'v3 cube state is ahead of the last recorded move', prevMoveCnt, moveCnt, diff);
@@ -865,9 +889,47 @@ execMain(function() {
 		parseV4Data(value);
 	}
 
+	function parseV4MoveEventRecord(bytes, offset, locTime, rawBits) {
+		prevMoveLocTime = locTime;
+		moveCnt = bytes[offset + 6] | bytes[offset + 7] << 8;
+		giikerutil.log('[gancube]', 'v4 received move event', prevMoveCnt, moveCnt, rawBits);
+		if (moveCnt == prevMoveCnt || prevMoveCnt == -1) {
+			return;
+		}
+		var ts = (bytes[offset + 2] | bytes[offset + 3] << 8 | bytes[offset + 4] << 16 | bytes[offset + 5] << 24) >>> 0;
+		var moveByte = bytes[offset + 8];
+		var pow = moveByte >> 6;
+		if (pow > 1) {
+			giikerutil.log('[gancube]', 'v4 move event invalid power');
+			return;
+		}
+		var axis = [2, 32, 8, 1, 16, 4].indexOf(moveByte & 0x3f);
+		if (axis == -1) {
+			giikerutil.log('[gancube]', 'v4 move event invalid axis');
+			return;
+		}
+		var move = "URFDLB".charAt(axis) + " '".charAt(pow);
+		moveBuffer.push([moveCnt, move, ts, locTime]);
+		giikerutil.log('[gancube]', 'v4 move placed to fifo buffer', moveCnt, move, ts, locTime);
+		evictMoveBuffer(true);
+	}
+
+	function parseV4MoveEvents(bytes, locTime, rawBits) {
+		for (var offset = 0; offset + 8 < bytes.length; offset += 9) {
+			if (bytes[offset] != 0x01 || bytes[offset + 1] != 0x07) {
+				if (offset == 0) {
+					giikerutil.log('[gancube]', 'v4 invalid move event frame', rawBits);
+				}
+				break;
+			}
+			parseV4MoveEventRecord(bytes, offset, locTime, rawBits);
+		}
+	}
+
 	function parseV4Data(value) {
 		var locTime = $.now();
 		value = decode(value);
+		var bytes = value.slice();
 		for (var i = 0; i < value.length; i++) {
 			value[i] = (value[i] + 256).toString(2).slice(1);
 		}
@@ -875,27 +937,11 @@ execMain(function() {
 		var mode = parseInt(value.slice(0, 8), 2);
 		var len = parseInt(value.slice(8, 16), 2);
 		if (mode == 0x01) { // cube move
-			prevMoveLocTime = locTime;
-			moveCnt = parseInt(value.slice(56, 64) + value.slice(48, 56), 2);
-			giikerutil.log('[gancube]', 'v4 received move event', prevMoveCnt, moveCnt, value);
-			if (moveCnt == prevMoveCnt || prevMoveCnt == -1) {
-				return;
-			}
-			var ts = parseInt(value.slice(40, 48) + value.slice(32, 40) + value.slice(24, 32) + value.slice(16, 24), 2);
-			var pow = parseInt(value.slice(64, 66), 2);
-			var axis = [2, 32, 8, 1, 16, 4].indexOf(parseInt(value.slice(66, 72), 2));
-			if (axis == -1) {
-				giikerutil.log('[gancube]', 'v4 move event invalid axis');
-				return;
-			}
-			var move = "URFDLB".charAt(axis) + " '".charAt(pow);
-			moveBuffer.push([moveCnt, move, ts, locTime]);
-			giikerutil.log('[gancube]', 'v4 move placed to fifo buffer', moveCnt, move, ts, locTime);
-			evictMoveBuffer(true);
+			parseV4MoveEvents(bytes, locTime, value);
 		} else if (mode == 0xED) {  // cube state
 			moveCnt = parseInt(value.slice(24, 32) + value.slice(16, 24), 2);
 			if (prevMoveCnt != -1) {
-				if (prevMoveLocTime != null && locTime - prevMoveLocTime > 500) { // Debounce the facelet event if there are active cube moves
+				if (moveBuffer.length == 0 || prevMoveLocTime != null && locTime - prevMoveLocTime > 500) { // Debounce the facelet event if there are active cube moves
 					var diff = (moveCnt - prevMoveCnt) & 0xFF;
 					if (diff > 0) {
 						giikerutil.log('[gancube]', 'v4 cube state is ahead of the last recorded move', prevMoveCnt, moveCnt, diff);
