@@ -1683,6 +1683,8 @@
 				thumbnailPitch: 0,
 				moveCount: 0,
 				movesSinceState: 0,
+				lastCubePrevMoves: [],
+				lastCubeHistoryStamp: null,
 				currentStateIndex: -1,
 				currentMode: "learn",
 				isPracticeMode: false,
@@ -3258,6 +3260,8 @@
 					this.elements.connectBtn.disabled = true;
 					this.ignoreMoves = true;
 					this.hasValidCubeState = false;
+					this.lastCubePrevMoves = [];
+					this.lastCubeHistoryStamp = null;
 					this.hideMacHelp();
 					this.setStatus("idle", "等待选择设备");
 					GiikerCube.setCallback(function(facelet, prevMoves, lastTs, hardware) {
@@ -3266,6 +3270,8 @@
 					GiikerCube.setEventCallback(function(info) {
 						if (info === "disconnect") {
 							self.connected = false;
+							self.lastCubePrevMoves = [];
+							self.lastCubeHistoryStamp = null;
 							self.elements.connectBtn.textContent = "连接魔方";
 							self.setStatus("idle", "已断开");
 							self.log("bluetooth", "设备连接已断开");
@@ -3295,6 +3301,8 @@
 					}).then(function() {
 						self.connected = false;
 						self.hasValidCubeState = false;
+						self.lastCubePrevMoves = [];
+						self.lastCubeHistoryStamp = null;
 						self.elements.connectBtn.textContent = "连接魔方";
 						self.elements.connectBtn.disabled = false;
 						self.setStatus("idle", "未连接");
@@ -3319,18 +3327,106 @@
 						this.setDevice(hardware, this.batteryLevel);
 					}
 					if (this.ignoreMoves) {
+						this.rememberCubeMoveHistory(prevMoves, lastTs);
 						this.log("state", "已读取设备初始状态");
 						return;
 					}
-					var hasMoves = prevMoves && prevMoves.length > 0;
+					var movesToPlay = this.getNewCubeMoves(prevMoves, lastTs);
+					var hasMoves = movesToPlay.length > 0;
 					if (hasMoves) {
-						this.playMove(prevMoves[0], hardware || "cube", lastTs && (lastTs[1] || lastTs[0]) || Date.now(), {
-							fromCube: true
-						});
+						var timestamp = lastTs && (lastTs[1] || lastTs[0]) || Date.now();
+						for (var i = 0; i < movesToPlay.length; i++) {
+							this.playMove(movesToPlay[i], hardware || "cube", timestamp, {
+								fromCube: true
+							});
+						}
 					} else {
 						this.log("state", "收到状态");
 					}
 					this.updateSolveDetection(facelet, hasMoves);
+				},
+
+				getNewCubeMoves: function(prevMoves, lastTs) {
+					var current = this.normalizeCubeMoveHistory(prevMoves);
+					if (!current.length) {
+						this.lastCubeHistoryStamp = this.getCubeHistoryStamp(lastTs);
+						return [];
+					}
+					var previous = this.lastCubePrevMoves || [];
+					var stamp = this.getCubeHistoryStamp(lastTs);
+					if (previous.length && this.areMoveHistoriesEqual(current, previous) && stamp !== null && stamp === this.lastCubeHistoryStamp) {
+						return [];
+					}
+					var newCount = 1;
+					if (previous.length) {
+						var overlap = this.findCubeHistoryOverlap(current, previous);
+						if (overlap > 0) {
+							newCount = overlap;
+						}
+					}
+					this.lastCubePrevMoves = current.slice(0, 12);
+					this.lastCubeHistoryStamp = stamp;
+					return current.slice(0, Math.min(newCount, current.length)).reverse();
+				},
+
+				rememberCubeMoveHistory: function(prevMoves, lastTs) {
+					var current = this.normalizeCubeMoveHistory(prevMoves);
+					if (current.length) {
+						this.lastCubePrevMoves = current.slice(0, 12);
+					}
+					this.lastCubeHistoryStamp = this.getCubeHistoryStamp(lastTs);
+				},
+
+				normalizeCubeMoveHistory: function(prevMoves) {
+					var result = [];
+					for (var i = 0; prevMoves && i < prevMoves.length; i++) {
+						var move = this.normalizeMove(prevMoves[i]);
+						if (move && move.type === "face") {
+							result.push(move.text);
+						}
+					}
+					return result;
+				},
+
+				findCubeHistoryOverlap: function(current, previous) {
+					var bestOffset = 0;
+					var bestMatch = 0;
+					for (var offset = 1; offset < current.length; offset++) {
+						var match = 0;
+						while (match < previous.length && offset + match < current.length && current[offset + match] === previous[match]) {
+							match++;
+						}
+						if (match > bestMatch) {
+							bestMatch = match;
+							bestOffset = offset;
+						}
+					}
+					return bestMatch > 0 ? bestOffset : 0;
+				},
+
+				areMoveHistoriesEqual: function(a, b) {
+					if (a.length !== b.length) {
+						return false;
+					}
+					for (var i = 0; i < a.length; i++) {
+						if (a[i] !== b[i]) {
+							return false;
+						}
+					}
+					return true;
+				},
+
+				getCubeHistoryStamp: function(lastTs) {
+					if (!lastTs) {
+						return null;
+					}
+					if (lastTs[0] != null) {
+						return lastTs[0];
+					}
+					if (lastTs[1] != null) {
+						return lastTs[1];
+					}
+					return null;
 				},
 
 				playMove: function(rawMove, source, timestamp, options) {

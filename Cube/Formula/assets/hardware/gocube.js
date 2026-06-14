@@ -58,6 +58,75 @@ execMain(function() {
 	var prevCubie = new mathlib.CubieCube();
 	var prevMoves = [];
 
+	function getMoveInfo(axis, power) {
+		return {
+			axis: axis,
+			power: power,
+			move: axis * 3 + power,
+			text: "URFDLB".charAt(axis) + " 2'".charAt(power)
+		};
+	}
+
+	function applyMoveInfo(move, locTime, callbacks) {
+		mathlib.CubieCube.CubeMult(prevCubie, mathlib.CubieCube.moveCube[move.move], curCubie);
+		curFacelet = curCubie.toFaceCube();
+		prevMoves.unshift(move.text);
+		prevMoves = prevMoves.slice(0, 8);
+		callbacks.push([curFacelet, prevMoves.slice(), [locTime, locTime], _deviceName]);
+		var tmp = curCubie;
+		curCubie = prevCubie;
+		prevCubie = tmp;
+		return curFacelet;
+	}
+
+	function flushCallbacks(callbacks) {
+		for (var i = 0; i < callbacks.length; i++) {
+			GiikerCube.callback.apply(null, callbacks[i]);
+		}
+	}
+
+	function findMovesToFacelet(fromCubie, targetFacelet, maxDepth) {
+		var target = new mathlib.CubieCube();
+		if (target.fromFacelet(targetFacelet) == -1 || target.verify() != 0) {
+			return null;
+		}
+		var candidates = [];
+		for (var axis = 0; axis < 6; axis++) {
+			candidates.push(getMoveInfo(axis, 0));
+			candidates.push(getMoveInfo(axis, 2));
+		}
+		for (var i = 0; i < candidates.length; i++) {
+			var one = new mathlib.CubieCube();
+			mathlib.CubieCube.CubeMult(fromCubie, mathlib.CubieCube.moveCube[candidates[i].move], one);
+			if (one.isEqual(target)) {
+				return [candidates[i]];
+			}
+		}
+		if (maxDepth < 2) {
+			return null;
+		}
+		for (var i = 0; i < candidates.length; i++) {
+			var mid = new mathlib.CubieCube();
+			mathlib.CubieCube.CubeMult(fromCubie, mathlib.CubieCube.moveCube[candidates[i].move], mid);
+			for (var j = 0; j < candidates.length; j++) {
+				var two = new mathlib.CubieCube();
+				mathlib.CubieCube.CubeMult(mid, mathlib.CubieCube.moveCube[candidates[j].move], two);
+				if (two.isEqual(target)) {
+					return [candidates[i], candidates[j]];
+				}
+			}
+		}
+		return null;
+	}
+
+	function syncFaceletState(facelet) {
+		curCubie.fromFacelet(facelet);
+		curFacelet = facelet;
+		var tmp = curCubie;
+		curCubie = prevCubie;
+		prevCubie = tmp;
+	}
+
 	function parseData(value) {
 		var locTime = $.now();
 		if (value.byteLength < 4) {
@@ -75,17 +144,11 @@ execMain(function() {
 			for (var i = 0; i < msgLen; i += 2) {
 				var axis = axisPerm[value.getUint8(3 + i) >> 1];
 				var power = [0, 2][value.getUint8(3 + i) & 1];
-				var m = axis * 3 + power;
-				giikerutil.log('[gocube] move', "URFDLB".charAt(axis) + " 2'".charAt(power));
-				mathlib.CubieCube.CubeMult(prevCubie, mathlib.CubieCube.moveCube[m], curCubie);
-				curFacelet = curCubie.toFaceCube();
-				prevMoves.unshift("URFDLB".charAt(axis) + " 2'".charAt(power));
-				if (prevMoves.length > 8)
-					prevMoves = prevMoves.slice(0, 8);
-				GiikerCube.callback(curFacelet, prevMoves, [locTime, locTime], _deviceName);
-				var tmp = curCubie;
-				curCubie = prevCubie;
-				prevCubie = tmp;
+				var callbacks = [];
+				var move = getMoveInfo(axis, power);
+				giikerutil.log('[gocube] move', move.text);
+				applyMoveInfo(move, locTime, callbacks);
+				flushCallbacks(callbacks);
 				if (++moveCntFree > 20) {
 					moveCntFree = 0;
 					_write.writeValue(new Uint8Array([WRITE_STATE]).buffer);
@@ -103,8 +166,20 @@ execMain(function() {
 			}
 			var newFacelet = facelet.join('');
 			if (newFacelet != curFacelet) {
-				giikerutil.log('[gocube] facelet', newFacelet);
-				curCubie.fromFacelet(newFacelet);
+				var inferredMoves = findMovesToFacelet(prevCubie, newFacelet, 2);
+				if (inferredMoves) {
+					giikerutil.log('[gocube] inferred missing moves', inferredMoves.map(function(move) {
+						return move.text;
+					}).join(' '));
+					var callbacks = [];
+					for (var i = 0; i < inferredMoves.length; i++) {
+						applyMoveInfo(inferredMoves[i], locTime, callbacks);
+					}
+					flushCallbacks(callbacks);
+				} else {
+					giikerutil.log('[gocube] facelet', newFacelet);
+					syncFaceletState(newFacelet);
+				}
 			}
 		} else if (msgType == 3) { // quaternion
 		} else if (msgType == 5) { // battery level

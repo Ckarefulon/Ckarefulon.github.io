@@ -156,6 +156,126 @@ execMain(function() {
 	var lastTs = 0;
 	var batteryLevel = 0;
 
+	function getMoveInfo(moveCode) {
+		if (moveCode < 1 || moveCode > 12) {
+			return null;
+		}
+		var axis = [4, 1, 3, 0, 2, 5][(moveCode - 1) >> 1];
+		var power = [0, 2][moveCode & 1];
+		return {
+			code: moveCode,
+			axis: axis,
+			power: power,
+			move: axis * 3 + power,
+			text: "URFDLB".charAt(axis) + " 2'".charAt(power)
+		};
+	}
+
+	function getTimestamp(msg, offset) {
+		return (msg[offset] << 24 | msg[offset + 1] << 16 | msg[offset + 2] << 8 | msg[offset + 3]) >>> 0;
+	}
+
+	function addTimedMove(moves, seen, moveCode, moveTs, packetTs) {
+		if (moveTs <= lastTs || moveTs == 0xffffffff) {
+			return;
+		}
+		if (Math.abs(moveTs - packetTs) > 60000) {
+			return;
+		}
+		var move = getMoveInfo(moveCode);
+		if (!move) {
+			return;
+		}
+		var key = moveTs + ":" + moveCode;
+		if (seen[key]) {
+			return;
+		}
+		seen[key] = true;
+		moves.push({
+			ts: moveTs,
+			move: move
+		});
+	}
+
+	function collectTimedMoves(msg, ts) {
+		var moves = [];
+		var seen = {};
+		addTimedMove(moves, seen, msg[34], ts, ts);
+		for (var off = 36; off + 4 <= 90 && off + 4 < msg.length; off += 5) {
+			addTimedMove(moves, seen, msg[off + 4], getTimestamp(msg, off), ts);
+		}
+		moves.sort(function(a, b) {
+			return a.ts - b.ts;
+		});
+		return moves;
+	}
+
+	function applyTimedMove(item, locTime, callbacks) {
+		mathlib.CubieCube.CubeMult(prevCubie, mathlib.CubieCube.moveCube[item.move.move], curCubie);
+		prevMoves.unshift(item.move.text);
+		prevMoves = prevMoves.slice(0, 8);
+		var facelet = curCubie.toFaceCube();
+		callbacks.push([facelet, prevMoves.slice(), [Math.trunc(item.ts / 1.6), locTime], _deviceName]);
+		var tmp = curCubie;
+		curCubie = prevCubie;
+		prevCubie = tmp;
+		return facelet;
+	}
+
+	function applyInferredMove(move, ts, locTime, callbacks) {
+		return applyTimedMove({
+			ts: ts,
+			move: move
+		}, locTime, callbacks);
+	}
+
+	function findMovesToFacelet(fromCubie, targetFacelet, maxDepth) {
+		var target = new mathlib.CubieCube();
+		if (target.fromFacelet(targetFacelet) == -1 || target.verify() != 0) {
+			return null;
+		}
+		var candidates = [];
+		for (var axis = 0; axis < 6; axis++) {
+			for (var powerIndex = 0; powerIndex < 2; powerIndex++) {
+				var power = powerIndex ? 2 : 0;
+				candidates.push({
+					axis: axis,
+					power: power,
+					move: axis * 3 + power,
+					text: "URFDLB".charAt(axis) + " 2'".charAt(power)
+				});
+			}
+		}
+		for (var i = 0; i < candidates.length; i++) {
+			var one = new mathlib.CubieCube();
+			mathlib.CubieCube.CubeMult(fromCubie, mathlib.CubieCube.moveCube[candidates[i].move], one);
+			if (one.isEqual(target)) {
+				return [candidates[i]];
+			}
+		}
+		if (maxDepth < 2) {
+			return null;
+		}
+		for (var i = 0; i < candidates.length; i++) {
+			var mid = new mathlib.CubieCube();
+			mathlib.CubieCube.CubeMult(fromCubie, mathlib.CubieCube.moveCube[candidates[i].move], mid);
+			for (var j = 0; j < candidates.length; j++) {
+				var two = new mathlib.CubieCube();
+				mathlib.CubieCube.CubeMult(mid, mathlib.CubieCube.moveCube[candidates[j].move], two);
+				if (two.isEqual(target)) {
+					return [candidates[i], candidates[j]];
+				}
+			}
+		}
+		return null;
+	}
+
+	function flushCallbacks(callbacks) {
+		for (var i = 0; i < callbacks.length; i++) {
+			GiikerCube.callback.apply(null, callbacks[i]);
+		}
+	}
+
 	function parseCubeData(msg) {
 		var locTime = $.now();
 		if (msg[0] != 0xfe) {
@@ -163,7 +283,7 @@ execMain(function() {
 			return;
 		}
 		var opcode = msg[2];
-		var ts = (msg[3] << 24 | msg[4] << 16 | msg[5] << 8 | msg[6]);
+		var ts = getTimestamp(msg, 3);
 		if (opcode == 0x2) { // cube hello
 			batteryLevel = msg[35];
 			sendMessage(msg.slice(2, 7));
@@ -178,36 +298,39 @@ execMain(function() {
 			}
 		} else if (opcode == 0x3) { // state change
 			sendMessage(msg.slice(2, 7));
-			// check timestamps
-			var todoMoves = [[msg[34], ts]];
-			while (todoMoves.length < 10) {
-				var off = 91 - 5 * todoMoves.length;
-				var hisTs = (msg[off] << 24 | msg[off + 1] << 16 | msg[off + 2] << 8 | msg[off + 3]);
-				var hisMv = msg[off + 4];
-				if (hisTs <= lastTs) {
-					break;
-				}
-				todoMoves.push([hisMv, hisTs]);
-			}
-			if (todoMoves.length > 1) {
-				giikerutil.log('[qiyicube] miss history moves', JSON.stringify(todoMoves), lastTs);
+			var timedMoves = collectTimedMoves(msg, ts);
+			if (timedMoves.length > 1) {
+				giikerutil.log('[qiyicube] miss history moves', JSON.stringify(timedMoves.map(function(item) {
+					return [item.move.code || item.move.text, item.ts];
+				})), lastTs);
 			}
 			var toCallback = [];
-			var curFacelet;
-			for (var i = todoMoves.length - 1; i >= 0; i--) {
-				var axis = [4, 1, 3, 0, 2, 5][(todoMoves[i][0] - 1) >> 1];
-				var power = [0, 2][todoMoves[i][0] & 1];
-				var m = axis * 3 + power;
-				mathlib.CubieCube.CubeMult(prevCubie, mathlib.CubieCube.moveCube[m], curCubie);
-				prevMoves.unshift("URFDLB".charAt(axis) + " 2'".charAt(power));
-				prevMoves = prevMoves.slice(0, 8);
-				curFacelet = curCubie.toFaceCube();
-				toCallback.push([curFacelet, prevMoves.slice(), [Math.trunc(todoMoves[i][1] / 1.6), locTime], _deviceName]);
-				var tmp = curCubie;
-				curCubie = prevCubie;
-				prevCubie = tmp;
+			var futureMoves = [];
+			var curFacelet = null;
+			var maxTs = ts;
+			for (var i = 0; i < timedMoves.length; i++) {
+				if (timedMoves[i].ts > maxTs) {
+					maxTs = timedMoves[i].ts;
+				}
+				if (timedMoves[i].ts <= ts) {
+					curFacelet = applyTimedMove(timedMoves[i], locTime, toCallback);
+				} else {
+					futureMoves.push(timedMoves[i]);
+				}
 			}
+			curFacelet = curFacelet || prevCubie.toFaceCube();
 			var newFacelet = parseFacelet(msg.slice(7, 34));
+			if (newFacelet != curFacelet) {
+				var inferredMoves = findMovesToFacelet(prevCubie, newFacelet, 2);
+				if (inferredMoves) {
+					giikerutil.log('[qiyicube] inferred missing moves', inferredMoves.map(function(move) {
+						return move.text;
+					}).join(' '));
+					for (var i = 0; i < inferredMoves.length; i++) {
+						curFacelet = applyInferredMove(inferredMoves[i], ts, locTime, toCallback);
+					}
+				}
+			}
 			if (newFacelet != curFacelet) {
 				giikerutil.log('[qiyicube] facelet', newFacelet);
 				curCubie.fromFacelet(newFacelet);
@@ -216,9 +339,14 @@ execMain(function() {
 				curCubie = prevCubie;
 				prevCubie = tmp;
 			} else {
-				for (var i = 0; i < toCallback.length; i++) {
-					GiikerCube.callback.apply(null, toCallback[i]);
+				flushCallbacks(toCallback);
+			}
+			if (futureMoves.length) {
+				var futureCallbacks = [];
+				for (var i = 0; i < futureMoves.length; i++) {
+					applyTimedMove(futureMoves[i], locTime, futureCallbacks);
 				}
+				flushCallbacks(futureCallbacks);
 			}
 			var newBatteryLevel = msg[35];
 			if (newBatteryLevel != batteryLevel) {
@@ -226,7 +354,7 @@ execMain(function() {
 				giikerutil.updateBattery([batteryLevel, _deviceName]);
 			}
 		}
-		lastTs = ts;
+		lastTs = Math.max(lastTs, maxTs || ts);
 	}
 
 	$.parseQYData = parseCubeData; // for debug
