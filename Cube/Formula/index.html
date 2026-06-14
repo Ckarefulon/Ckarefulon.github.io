@@ -751,6 +751,74 @@
 			font-size: 13px;
 		}
 
+		.smartCheck {
+			position: relative;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 8px;
+			min-width: 18px;
+			min-height: 18px;
+			color: var(--muted);
+			cursor: pointer;
+			user-select: none;
+		}
+
+		.smartCheck input {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			opacity: 0;
+			pointer-events: none;
+		}
+
+		.checkVisual {
+			position: relative;
+			display: block;
+			width: 18px;
+			height: 18px;
+			flex: 0 0 auto;
+			border: 1px solid var(--controlBorder);
+			border-radius: 5px;
+			background: var(--controlBg);
+			transition: background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+		}
+
+		.smartCheck:hover .checkVisual,
+		.smartCheck input:focus-visible + .checkVisual {
+			border-color: var(--cyan);
+			box-shadow: 0 0 0 3px rgba(36, 240, 234, 0.10);
+		}
+
+		.smartCheck input:checked + .checkVisual,
+		.smartCheck input:indeterminate + .checkVisual {
+			border-color: var(--accent);
+			background: var(--accent);
+		}
+
+		.smartCheck input:checked + .checkVisual::after {
+			content: "";
+			position: absolute;
+			left: 5px;
+			top: 2px;
+			width: 5px;
+			height: 10px;
+			border: solid #fff;
+			border-width: 0 2px 2px 0;
+			transform: rotate(45deg);
+		}
+
+		.smartCheck input:indeterminate + .checkVisual::after {
+			content: "";
+			position: absolute;
+			left: 4px;
+			right: 4px;
+			top: 8px;
+			height: 2px;
+			border-radius: 999px;
+			background: #fff;
+		}
+
 		.importStatus {
 			margin-top: 10px;
 			color: var(--muted);
@@ -1101,6 +1169,132 @@
 
 		.formulaAddButton::after {
 			transform: rotate(90deg);
+		}
+
+		.libraryControls {
+			grid-template-columns: 1fr 1fr;
+		}
+
+		.libraryList {
+			display: grid;
+			gap: 8px;
+			margin-top: 10px;
+		}
+
+		.libraryItem {
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: var(--controlBg);
+			overflow: hidden;
+		}
+
+		.libraryHeader {
+			display: grid;
+			grid-template-columns: 28px minmax(0, 1fr) 28px;
+			align-items: center;
+			gap: 8px;
+			min-height: 46px;
+			padding: 8px 10px;
+			cursor: pointer;
+		}
+
+		.libraryHeader .smartCheck {
+			justify-self: end;
+		}
+
+		.libraryHeader:hover {
+			background: var(--controlHoverBg);
+		}
+
+		.libraryToggle {
+			position: relative;
+			width: 22px;
+			height: 22px;
+			border-radius: 6px;
+			color: var(--muted);
+		}
+
+		.libraryToggle::before {
+			content: "";
+			position: absolute;
+			left: 7px;
+			top: 5px;
+			width: 7px;
+			height: 7px;
+			border-right: 2px solid currentColor;
+			border-bottom: 2px solid currentColor;
+			transform: rotate(-45deg);
+			transition: transform 0.14s ease, top 0.14s ease;
+		}
+
+		.libraryItem.isExpanded .libraryToggle::before {
+			top: 4px;
+			transform: rotate(45deg);
+		}
+
+		.libraryTitle {
+			min-width: 0;
+		}
+
+		.libraryTitle strong,
+		.libraryFormulaName {
+			display: block;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			color: var(--ink);
+			font-weight: 800;
+		}
+
+		.libraryTitle small,
+		.libraryFormulaAlg {
+			display: block;
+			margin-top: 2px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			color: var(--muted);
+			font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+			font-size: 11px;
+		}
+
+		.libraryFormulas {
+			display: none;
+			border-top: 1px solid var(--line);
+			background: color-mix(in srgb, var(--controlBg) 88%, var(--accentSoft));
+		}
+
+		.libraryItem.isExpanded .libraryFormulas {
+			display: grid;
+		}
+
+		.libraryFormulaRow {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) 28px;
+			align-items: center;
+			gap: 8px;
+			min-height: 42px;
+			padding: 8px 10px 8px 46px;
+			border-top: 1px solid var(--line);
+			cursor: pointer;
+		}
+
+		.libraryFormulaRow .smartCheck {
+			justify-self: end;
+		}
+
+		.libraryFormulaRow:first-child {
+			border-top: 0;
+		}
+
+		.libraryFormulaRow:hover {
+			background: var(--controlHoverBg);
+		}
+
+		.libraryEmpty {
+			margin-top: 10px;
+			color: var(--muted);
+			font-size: 13px;
 		}
 
 		.formulaIconButton[data-formula-action="record"]::before {
@@ -1489,8 +1683,9 @@
 					<textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea>
 					<button id="parseStateTextBtn" class="button small" type="button">导入文本</button>
 				</div>
-				<label class="stateOptions">
+				<label class="stateOptions smartCheck">
 					<input id="showStateThumbs" type="checkbox">
+					<span class="checkVisual"></span>
 					<span>显示状态缩略图</span>
 				</label>
 				<div id="stateImportStatus" class="importStatus">未导入状态</div>
@@ -1677,6 +1872,11 @@
 				isRecordingFormula: false,
 				formulaOrganizeMode: false,
 				dragFormulaId: null,
+				formulaLibraries: [],
+				formulaLibrarySelections: {},
+				expandedFormulaLibraries: {},
+				formulaLibraryLoaded: false,
+				formulaLibraryLoading: false,
 				showStateThumbs: false,
 				thumbnailScenes: [],
 				thumbnailYaw: 0,
@@ -1737,6 +1937,9 @@
 						connectBtn: document.getElementById("connectBtn"),
 						resetBtn: document.getElementById("resetBtn"),
 						exportFormulaBtn: document.getElementById("exportFormulaBtn"),
+						confirmLibraryImportBtn: document.getElementById("confirmLibraryImportBtn"),
+						libraryList: document.getElementById("libraryList"),
+						libraryStatus: document.getElementById("libraryStatus"),
 						practiceModeSelect: document.getElementById("practiceModeSelect"),
 						orientationMoves: document.getElementById("orientationMoves"),
 						formulaList: document.getElementById("formulaList"),
@@ -1933,6 +2136,10 @@
 					this.renderStateList();
 					this.renderMoves();
 					this.renderFormulaList();
+					this.renderFormulaLibraryList();
+					if (mode === "library") {
+						this.loadFormulaLibraries();
+					}
 				},
 
 				getPanelHtml: function(mode) {
@@ -1957,7 +2164,7 @@
 				},
 
 				getStateImportHtml: function(showThumbOption, practiceCards) {
-					return '<section class="panelSection stateImport" id="stateImport"><div id="stateDropZone" class="importDropZone">拖入 TXT 状态文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea><button id="parseStateTextBtn" class="button small" type="button">导入文本</button></div>' + (showThumbOption ? '<label class="stateOptions"><input id="showStateThumbs" type="checkbox"><span>显示状态缩略图</span></label>' : "") + '<div id="stateImportStatus" class="importStatus">未导入状态</div><div id="stateList" class="stateList"></div></section>';
+					return '<section class="panelSection stateImport" id="stateImport"><div id="stateDropZone" class="importDropZone">拖入 TXT 状态文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea><button id="parseStateTextBtn" class="button small" type="button">导入文本</button></div>' + (showThumbOption ? '<label class="stateOptions smartCheck"><input id="showStateThumbs" type="checkbox"><span class="checkVisual"></span><span>显示状态缩略图</span></label>' : "") + '<div id="stateImportStatus" class="importStatus">未导入状态</div><div id="stateList" class="stateList"></div></section>';
 				},
 
 				getDiagnosticsHtml: function(hidden) {
@@ -1981,7 +2188,7 @@
 				},
 
 				getLibraryPanelHtml: function() {
-					return '<aside class="panel libraryPanel"><header class="panelHeader"><h1>公式库</h1></header><section class="panelSection"><div class="controls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="resetBtn" class="button secondary" type="button">重置视图</button></div></section>' + this.getMacHelpHtml() + '<section class="panelSection"><div class="importStatus">暂无公式条目</div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel libraryPanel"><header class="panelHeader"><h1>公式库</h1></header><section class="panelSection"><div class="controls libraryControls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="confirmLibraryImportBtn" class="button secondary" type="button">确认导入</button></div></section>' + this.getMacHelpHtml() + '<section class="panelSection"><div id="libraryStatus" class="importStatus">正在读取公式库</div><div id="libraryList" class="libraryList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				getFormulaPanelHtml: function() {
@@ -2017,6 +2224,11 @@
 							self.openFormulaExportDialog();
 						});
 					});
+					this.bindOnce(this.elements.confirmLibraryImportBtn, "smartBound", function(element) {
+						element.addEventListener("click", function() {
+							self.importSelectedFormulaLibraries();
+						});
+					});
 					this.bindOnce(this.elements.practiceModeSelect, "smartBound", function(element) {
 						element.value = self.practiceMode;
 						element.addEventListener("change", function(event) {
@@ -2046,6 +2258,9 @@
 					if (this.elements.formulaList && !this.elements.formulaList.dataset.smartBound) {
 						this.bindFormulaList();
 					}
+					if (this.elements.libraryList && !this.elements.libraryList.dataset.smartBound) {
+						this.bindFormulaLibraryList();
+					}
 				},
 
 				syncConnectionUi: function() {
@@ -2061,10 +2276,12 @@
 					try {
 						var saved = JSON.parse(localStorage.getItem("smartCubeFormulaEntries") || "[]");
 						this.formulaEntries = Array.isArray(saved) ? saved.map(function(item) {
+							var moves = Array.isArray(item.moves) ? item.moves : [];
 							return {
 								id: item.id || String(Date.now() + Math.random()),
 								name: item.name || "",
-								moves: Array.isArray(item.moves) ? item.moves : [],
+								alg: item.alg || moves.join(""),
+								moves: moves,
 								editingMoves: false
 							};
 						}) : [];
@@ -2078,10 +2295,287 @@
 						return {
 							id: item.id,
 							name: item.name || "",
+							alg: item.alg || (item.moves || []).join(""),
 							moves: item.moves || []
 						};
 					});
 					localStorage.setItem("smartCubeFormulaEntries", JSON.stringify(data));
+				},
+
+				loadFormulaLibraries: function() {
+					var self = this;
+					if (this.formulaLibraryLoaded) {
+						this.renderFormulaLibraryList();
+						return;
+					}
+					if (this.formulaLibraryLoading) {
+						return;
+					}
+					this.formulaLibraryLoading = true;
+					this.renderFormulaLibraryList();
+					fetch("assets/DB.txt", { cache: "no-store" }).then(function(response) {
+						if (!response.ok) {
+							throw new Error("HTTP " + response.status);
+						}
+						return response.arrayBuffer();
+					}).then(function(buffer) {
+						var text = self.decodeTextBuffer(buffer);
+						self.formulaLibraries = self.parseFormulaLibraryText(text);
+						self.formulaLibrarySelections = {};
+						self.formulaLibraryLoaded = true;
+						self.formulaLibraryLoading = false;
+						self.renderFormulaLibraryList();
+					}).catch(function(error) {
+						self.formulaLibraryLoading = false;
+						if (self.elements.libraryStatus) {
+							self.elements.libraryStatus.textContent = "读取公式库失败: " + String(error && error.message || error);
+						}
+						if (self.elements.libraryList) {
+							self.elements.libraryList.innerHTML = '<div class="libraryEmpty">请检查 assets/DB.txt</div>';
+						}
+					});
+				},
+
+				parseFormulaLibraryText: function(text) {
+					var source = String(text || "");
+					var headerPattern = /<([^\/<>]+)>/g;
+					var headers = [];
+					var match;
+					while ((match = headerPattern.exec(source))) {
+						headers.push({
+							name: match[1].trim(),
+							headerStart: match.index,
+							contentStart: headerPattern.lastIndex
+						});
+					}
+					if (headers.length === 0) {
+						return [this.buildFormulaLibrary("公式库", source, 0)];
+					}
+					var libraries = [];
+					for (var i = 0; i < headers.length; i++) {
+						var nextStart = i + 1 < headers.length ? headers[i + 1].headerStart : source.length;
+						libraries.push(this.buildFormulaLibrary(headers[i].name || "公式库 " + (i + 1), source.slice(headers[i].contentStart, nextStart), i));
+					}
+					return libraries;
+				},
+
+				buildFormulaLibrary: function(name, raw, index) {
+					var parsed = this.parseStateDefinitions(raw);
+					var libraryId = "library-" + index;
+					return {
+						id: libraryId,
+						name: name,
+						skipped: parsed.skipped,
+						formulas: parsed.states.map(function(state, stateIndex) {
+							return {
+								id: libraryId + "-formula-" + stateIndex,
+								name: state.name,
+								alg: state.alg,
+								moves: state.moves
+							};
+						})
+					};
+				},
+
+				bindFormulaLibraryList: function() {
+					var self = this;
+					if (!this.elements.libraryList || this.elements.libraryList.dataset.smartBound) {
+						return;
+					}
+					this.elements.libraryList.dataset.smartBound = "1";
+					this.elements.libraryList.addEventListener("click", function(event) {
+						if (event.target.closest(".smartCheck")) {
+							return;
+						}
+						var header = event.target.closest("[data-library-toggle]");
+						if (header) {
+							self.toggleFormulaLibrary(header.getAttribute("data-library-toggle"));
+							return;
+						}
+						var row = event.target.closest("[data-formula-row]");
+						if (row) {
+							self.toggleFormulaSelection(row.getAttribute("data-formula-row"));
+						}
+					});
+					this.elements.libraryList.addEventListener("change", function(event) {
+						var libraryInput = event.target.closest("[data-library-check]");
+						if (libraryInput) {
+							self.setLibrarySelection(libraryInput.getAttribute("data-library-check"), libraryInput.checked);
+							return;
+						}
+						var formulaInput = event.target.closest("[data-formula-check]");
+						if (formulaInput) {
+							self.setFormulaSelection(formulaInput.getAttribute("data-formula-check"), formulaInput.checked);
+						}
+					});
+				},
+
+				toggleFormulaLibrary: function(libraryId) {
+					this.expandedFormulaLibraries[libraryId] = !this.expandedFormulaLibraries[libraryId];
+					this.renderFormulaLibraryList();
+				},
+
+				findFormulaLibrary: function(libraryId) {
+					for (var i = 0; i < this.formulaLibraries.length; i++) {
+						if (this.formulaLibraries[i].id === libraryId) {
+							return this.formulaLibraries[i];
+						}
+					}
+					return null;
+				},
+
+				findLibraryFormula: function(formulaId) {
+					for (var i = 0; i < this.formulaLibraries.length; i++) {
+						var formulas = this.formulaLibraries[i].formulas || [];
+						for (var j = 0; j < formulas.length; j++) {
+							if (formulas[j].id === formulaId) {
+								return formulas[j];
+							}
+						}
+					}
+					return null;
+				},
+
+				setLibrarySelection: function(libraryId, checked) {
+					var library = this.findFormulaLibrary(libraryId);
+					if (!library) {
+						return;
+					}
+					(library.formulas || []).forEach(function(formula) {
+						if (checked) {
+							this.formulaLibrarySelections[formula.id] = true;
+						} else {
+							delete this.formulaLibrarySelections[formula.id];
+						}
+					}, this);
+					this.renderFormulaLibraryList();
+				},
+
+				setFormulaSelection: function(formulaId, checked) {
+					if (!this.findLibraryFormula(formulaId)) {
+						return;
+					}
+					if (checked) {
+						this.formulaLibrarySelections[formulaId] = true;
+					} else {
+						delete this.formulaLibrarySelections[formulaId];
+					}
+					this.renderFormulaLibraryList();
+				},
+
+				toggleFormulaSelection: function(formulaId) {
+					this.setFormulaSelection(formulaId, !this.formulaLibrarySelections[formulaId]);
+				},
+
+				getLibrarySelectionState: function(library) {
+					var formulas = library && library.formulas || [];
+					var selected = 0;
+					for (var i = 0; i < formulas.length; i++) {
+						if (this.formulaLibrarySelections[formulas[i].id]) {
+							selected++;
+						}
+					}
+					return {
+						total: formulas.length,
+						selected: selected,
+						checked: formulas.length > 0 && selected === formulas.length,
+						indeterminate: selected > 0 && selected < formulas.length
+					};
+				},
+
+				getSelectedLibraryFormulas: function() {
+					var selected = [];
+					for (var i = 0; i < this.formulaLibraries.length; i++) {
+						var formulas = this.formulaLibraries[i].formulas || [];
+						for (var j = 0; j < formulas.length; j++) {
+							if (this.formulaLibrarySelections[formulas[j].id]) {
+								selected.push(formulas[j]);
+							}
+						}
+					}
+					return selected;
+				},
+
+				renderFormulaLibraryList: function() {
+					if (!this.elements.libraryList) {
+						return;
+					}
+					this.updateFormulaLibraryStatus();
+					if (this.formulaLibraryLoading && this.formulaLibraries.length === 0) {
+						this.elements.libraryList.innerHTML = '<div class="libraryEmpty">正在读取 assets/DB.txt</div>';
+						return;
+					}
+					if (!this.formulaLibraries.length) {
+						this.elements.libraryList.innerHTML = '<div class="libraryEmpty">未读取到公式库</div>';
+						return;
+					}
+					var self = this;
+					this.elements.libraryList.innerHTML = this.formulaLibraries.map(function(library) {
+						var expanded = !!self.expandedFormulaLibraries[library.id];
+						var state = self.getLibrarySelectionState(library);
+						var countText = state.selected + "/" + state.total;
+						var skippedText = library.skipped ? "，跳过 " + library.skipped + " 条" : "";
+						var formulasHtml = (library.formulas || []).map(function(formula) {
+							return '<div class="libraryFormulaRow" data-formula-row="' + self.escapeAttr(formula.id) + '"><div><span class="libraryFormulaName">' + self.escapeHtml(formula.name) + '</span><span class="libraryFormulaAlg">' + self.escapeHtml(formula.alg) + '</span></div><label class="smartCheck" aria-label="选择公式"><input type="checkbox" data-formula-check="' + self.escapeAttr(formula.id) + '"><span class="checkVisual"></span></label></div>';
+						}).join("") || '<div class="libraryEmpty">此库没有可导入公式' + self.escapeHtml(skippedText) + '</div>';
+						return '<div class="libraryItem' + (expanded ? " isExpanded" : "") + '" data-library-id="' + self.escapeAttr(library.id) + '"><div class="libraryHeader" data-library-toggle="' + self.escapeAttr(library.id) + '" aria-expanded="' + (expanded ? "true" : "false") + '"><span class="libraryToggle" aria-hidden="true"></span><div class="libraryTitle"><strong>' + self.escapeHtml(library.name) + '</strong><small>' + self.escapeHtml(countText + " 个已选" + skippedText) + '</small></div><label class="smartCheck" aria-label="选择公式库"><input type="checkbox" data-library-check="' + self.escapeAttr(library.id) + '"><span class="checkVisual"></span></label></div><div class="libraryFormulas">' + formulasHtml + '</div></div>';
+					}).join("");
+					this.syncFormulaLibraryCheckboxes();
+				},
+
+				updateFormulaLibraryStatus: function() {
+					var selected = this.getSelectedLibraryFormulas().length;
+					var total = 0;
+					for (var i = 0; i < this.formulaLibraries.length; i++) {
+						total += (this.formulaLibraries[i].formulas || []).length;
+					}
+					if (this.elements.confirmLibraryImportBtn) {
+						this.elements.confirmLibraryImportBtn.disabled = selected === 0;
+					}
+					if (!this.elements.libraryStatus) {
+						return;
+					}
+					if (this.formulaLibraryLoading) {
+						this.elements.libraryStatus.textContent = "正在读取公式库";
+					} else if (!this.formulaLibraryLoaded) {
+						this.elements.libraryStatus.textContent = "等待读取公式库";
+					} else if (total === 0) {
+						this.elements.libraryStatus.textContent = "未读取到可导入公式";
+					} else {
+						this.elements.libraryStatus.textContent = "已读取 " + this.formulaLibraries.length + " 个库，已选 " + selected + " / " + total + " 个公式";
+					}
+				},
+
+				syncFormulaLibraryCheckboxes: function() {
+					var self = this;
+					this.elements.libraryList.querySelectorAll("[data-library-check]").forEach(function(input) {
+						var library = self.findFormulaLibrary(input.getAttribute("data-library-check"));
+						var state = self.getLibrarySelectionState(library);
+						input.checked = state.checked;
+						input.indeterminate = state.indeterminate;
+						input.disabled = state.total === 0;
+						input.setAttribute("aria-checked", state.indeterminate ? "mixed" : state.checked ? "true" : "false");
+					});
+					this.elements.libraryList.querySelectorAll("[data-formula-check]").forEach(function(input) {
+						input.checked = !!self.formulaLibrarySelections[input.getAttribute("data-formula-check")];
+					});
+				},
+
+				importSelectedFormulaLibraries: function() {
+					var selected = this.getSelectedLibraryFormulas();
+					if (selected.length === 0) {
+						if (this.elements.libraryStatus) {
+							this.elements.libraryStatus.textContent = "请先选择要导入的公式";
+						}
+						return;
+					}
+					var text = selected.map(function(formula) {
+						return formula.name + ":" + formula.alg + ";";
+					}).join("\n");
+					this.appendStateImportText(text);
+					this.switchMode("learn");
+					this.fillStateTextInput(this.stateImportText, false, false);
+					this.importStateText(this.stateImportText, "library");
 				},
 
 				bindFormulaList: function() {
@@ -2178,7 +2672,9 @@
 						if (movesInput) {
 							var moveEntry = self.getFormulaEntry(movesInput.getAttribute("data-formula-moves"));
 							if (moveEntry) {
-								moveEntry.moves = self.parseEditableFormulaMoves(movesInput.value);
+								var parsedMoves = self.parseEditableFormulaInput(movesInput.value);
+								moveEntry.alg = parsedMoves.alg;
+								moveEntry.moves = parsedMoves.moves;
 								self.saveFormulaEntries();
 							}
 						}
@@ -2201,6 +2697,9 @@
 							event.preventDefault();
 							var entry = self.getFormulaEntry(movesInput.getAttribute("data-formula-moves"));
 							if (entry) {
+								var parsedMoves = self.parseEditableFormulaInput(movesInput.value);
+								entry.alg = parsedMoves.alg;
+								entry.moves = parsedMoves.moves;
 								entry.editingMoves = false;
 								self.saveFormulaEntries();
 								self.renderFormulaList();
@@ -2217,7 +2716,7 @@
 					this.formulaOrganizeMode = false;
 					var draft = null;
 					for (var i = 0; i < this.formulaEntries.length; i++) {
-						if (!this.formulaEntries[i].name && (!this.formulaEntries[i].moves || this.formulaEntries[i].moves.length === 0)) {
+						if (!this.formulaEntries[i].name && !this.formulaEntries[i].alg && (!this.formulaEntries[i].moves || this.formulaEntries[i].moves.length === 0)) {
 							draft = this.formulaEntries[i];
 							break;
 						}
@@ -2230,6 +2729,7 @@
 					var entry = {
 						id: String(Date.now()) + "-" + Math.floor(Math.random() * 100000),
 						name: "",
+						alg: "",
 						moves: [],
 						editingMoves: false
 					};
@@ -2279,7 +2779,7 @@
 				getFormulaRowHtml: function(entry) {
 					var isRecording = this.activeFormulaId === entry.id && this.isRecordingFormula;
 					var action = isRecording ? "stop" : entry.moves && entry.moves.length ? "edit" : "record";
-					var movesText = (entry.moves || []).join("");
+					var movesText = this.getFormulaDisplayText(entry);
 					var organize = this.formulaOrganizeMode;
 					var readonly = organize ? " readonly" : "";
 					var actionDisabled = organize ? " disabled" : "";
@@ -2373,6 +2873,7 @@
 					}
 					this.formulaOrganizeMode = false;
 					entry.name = (entry.name || "").trim() || "未命名公式";
+					entry.alg = "";
 					entry.moves = [];
 					entry.editingMoves = false;
 					this.activeFormulaId = id;
@@ -2419,14 +2920,19 @@
 						return;
 					}
 					entry.moves.push(text);
+					entry.alg = (entry.alg || "") + text;
 					this.saveFormulaEntries();
 					if (this.elements.formulaList) {
 						var row = this.elements.formulaList.querySelector('[data-formula-row="' + entry.id + '"] .formulaTrackText');
 						if (row) {
-							row.textContent = "录制中：" + entry.moves.join("");
+							row.textContent = "录制中：" + this.getFormulaDisplayText(entry);
 							row.classList.toggle("hasMoves", entry.moves.length > 0);
 						}
 					}
+				},
+
+				getFormulaDisplayText: function(entry) {
+					return entry && entry.alg ? entry.alg : (entry && entry.moves || []).join("");
 				},
 
 				moveToStandardText: function(move) {
@@ -2457,10 +2963,36 @@
 				},
 
 				parseEditableFormulaMoves: function(text) {
+					return this.parseEditableFormulaInput(text).moves;
+				},
+
+				parseEditableFormulaInput: function(text) {
 					try {
-						return this.parseMoveSequence(text || "");
+						return {
+							alg: this.formatMoveSequenceDisplayText(text || ""),
+							moves: this.parseMoveSequence(text || "")
+						};
 					} catch (error) {
-						return String(text || "").replace(/\s+/g, "").match(/[URFDLBXYZ][2']?/gi) || [];
+						var fallback = [];
+						var display = [];
+						var tokens = String(text || "").replace(/\s+/g, "").match(/[URFDLBXYZ][2']?|[MES]'?/gi) || [];
+						for (var i = 0; i < tokens.length; i++) {
+							var token = this.formatMoveTokenDisplayText(tokens[i]);
+							if (!token) {
+								continue;
+							}
+							display.push(token);
+							var expanded = this.expandSliceMoveToken(token);
+							if (expanded) {
+								fallback = fallback.concat(expanded);
+							} else {
+								fallback.push(token);
+							}
+						}
+						return {
+							alg: display.join(""),
+							moves: fallback
+						};
 					}
 				},
 
@@ -2470,9 +3002,38 @@
 						return entry.name && entry.moves && entry.moves.length;
 					}).map(function(entry) {
 						var name = self.sanitizeFormulaName(entry.name);
-						var alg = self.invertFormulaMoves(entry.moves).join("");
+						var alg = self.invertFormulaDisplayText(self.getFormulaDisplayText(entry), entry.moves);
 						return name + ":" + alg + ";";
 					}).join("\n");
+				},
+
+				invertFormulaDisplayText: function(alg, fallbackMoves) {
+					try {
+						var tokens = this.tokenizeMoveSequenceDisplayText(alg);
+						if (tokens.length > 0) {
+							var result = [];
+							for (var i = tokens.length - 1; i >= 0; i--) {
+								result.push(this.invertFormulaToken(tokens[i]));
+							}
+							return result.join("");
+						}
+					} catch (error) {
+					}
+					return this.invertFormulaMoves(fallbackMoves || []).join("");
+				},
+
+				invertFormulaToken: function(token) {
+					var match = /^([URFDLBXYZMES])([2']?)$/i.exec(String(token || ""));
+					if (!match) {
+						return "";
+					}
+					var face = match[1].toUpperCase();
+					var suffix = match[2] || "";
+					if (suffix === "2") {
+						return /[XYZ]/.test(face) ? face.toLowerCase() + "2" : face + "2";
+					}
+					var inverseSuffix = suffix === "'" ? "" : "'";
+					return /[XYZ]/.test(face) ? face.toLowerCase() + inverseSuffix : face + inverseSuffix;
 				},
 
 				invertFormulaMoves: function(moves) {
@@ -2798,7 +3359,7 @@
 							}
 							states.push({
 								name: name,
-								alg: moves.join(""),
+								alg: this.formatMoveSequenceDisplayText(alg),
 								moves: moves
 							});
 						} catch (error) {
@@ -2829,7 +3390,7 @@
 					var index = 0;
 					while (index < source.length) {
 						var face = source.charAt(index);
-						if (!/[URFDLBXYZ]/i.test(face)) {
+						if (!/[URFDLBXYZMES]/i.test(face)) {
 							throw new Error("bad move");
 						}
 						var token = face;
@@ -2842,6 +3403,11 @@
 							token += "'";
 							index++;
 						}
+						var expanded = this.expandSliceMoveToken(token);
+						if (expanded) {
+							moves = moves.concat(expanded);
+							continue;
+						}
 						var move = this.normalizeMove(token);
 						if (!move) {
 							throw new Error("bad move");
@@ -2849,6 +3415,68 @@
 						moves.push(move.text);
 					}
 					return moves;
+				},
+
+				formatMoveSequenceDisplayText: function(alg) {
+					return this.tokenizeMoveSequenceDisplayText(alg).join("");
+				},
+
+				tokenizeMoveSequenceDisplayText: function(alg) {
+					var source = String(alg).replace(/[‘’`´鈥欌€榒]/g, "'").replace(/\s+/g, "");
+					var tokens = [];
+					var index = 0;
+					while (index < source.length) {
+						var face = source.charAt(index);
+						if (!/[URFDLBXYZMES]/i.test(face)) {
+							throw new Error("bad move");
+						}
+						var token = face;
+						index++;
+						if (source.charAt(index) === "2") {
+							token += "2";
+							index++;
+						}
+						if (source.charAt(index) === "'") {
+							token += "'";
+							index++;
+						}
+						var normalized = this.formatMoveTokenDisplayText(token);
+						if (!normalized) {
+							throw new Error("bad move");
+						}
+						tokens.push(normalized);
+					}
+					return tokens;
+				},
+
+				formatMoveTokenDisplayText: function(token) {
+					var match = /^([URFDLBXYZMES])([2']?)$/i.exec(String(token || "").replace(/[‘’`´鈥欌€榒]/g, "'"));
+					if (!match) {
+						return "";
+					}
+					var upper = match[1].toUpperCase();
+					var suffix = match[2] || "";
+					if (/[MES]/.test(upper) && suffix === "2") {
+						return "";
+					}
+					return (/[XYZ]/.test(upper) ? upper.toLowerCase() : upper) + suffix;
+				},
+
+				expandSliceMoveToken: function(token) {
+					var match = /^([MES])('?)$/i.exec(String(token || ""));
+					if (!match) {
+						return null;
+					}
+					var key = match[1].toUpperCase() + match[2];
+					var expansions = {
+						M: ["R", "L'", "x'"],
+						"M'": ["R'", "L", "x"],
+						E: ["U", "D'", "y'"],
+						"E'": ["U'", "D", "y"],
+						S: ["F'", "B", "z"],
+						"S'": ["F", "B'", "z'"]
+					};
+					return expansions[key] ? expansions[key].slice() : null;
 				},
 
 				setImportStatus: function(text) {
