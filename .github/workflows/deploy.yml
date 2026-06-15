@@ -21,8 +21,8 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./
           server-dir: /htdocs/
-          log-level: verbose
-          dangerous-clean-slate: true
+          #log-level: verbose
+          #dangerous-clean-slate: true
           exclude: |
             **/.git*
             **/.git*/**
