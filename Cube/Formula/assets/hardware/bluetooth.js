@@ -6,7 +6,7 @@ function BtDeviceGroupFactory() {
 	var cubeModels = {};
 
 	function regCubeModel(cubeModel) {
-		if ($.isArray(cubeModel.prefix)) {
+		if (Array.isArray(cubeModel.prefix)) {
 			cubeModel.prefix.map((prefix) => {
 				cubeModels[prefix] = cubeModel;
 			});
@@ -151,8 +151,8 @@ function BtDeviceGroupFactory() {
 		});
 	}
 
-	var callback = $.noop;
-	var evtCallback = $.noop;
+	var callback = function() {};
+	var evtCallback = function() {};
 
 	return {
 		init: init,

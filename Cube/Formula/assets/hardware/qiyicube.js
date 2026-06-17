@@ -277,7 +277,7 @@ execMain(function() {
 	}
 
 	function parseCubeData(msg) {
-		var locTime = $.now();
+		var locTime = Date.now();
 		if (msg[0] != 0xfe) {
 			giikerutil.log('[qiyicube] error cube data', msg);
 			return;
@@ -373,7 +373,7 @@ execMain(function() {
 		var result = Promise.resolve();
 		if (_chrct_cube) {
 			_chrct_cube.removeEventListener('characteristicvaluechanged', onCubeEvent);
-			result = _chrct_cube.stopNotifications().catch($.noop);
+			result = _chrct_cube.stopNotifications().catch(function(){});
 			_chrct_cube = null;
 		}
 		_service = null;

@@ -419,7 +419,7 @@ execMain(function() {
 	var batteryLevel = 0;
 
 	function initCubeState() {
-		var locTime = $.now();
+		var locTime = Date.now();
 		giikerutil.log('[gancube]', 'init cube state');
 		GiikerCube.callback(latestFacelet, [], [null, locTime], deviceName);
 		prevCubie.fromFacelet(latestFacelet);
@@ -494,7 +494,7 @@ execMain(function() {
 		}
 		return _chrct_f5.readValue().then(function(value) {
 			value = decode(value);
-			var locTime = $.now();
+			var locTime = Date.now();
 			moveCnt = value[12];
 			if (moveCnt == prevMoveCnt) {
 				return;
@@ -558,7 +558,7 @@ execMain(function() {
 	}
 
 	function parseV2Data(value) {
-		var locTime = $.now();
+		var locTime = Date.now();
 		value = decode(value);
 		for (var i = 0; i < value.length; i++) {
 			value[i] = (value[i] + 256).toString(2).slice(1);
@@ -705,7 +705,7 @@ execMain(function() {
 		var encodedReq = encode(req.slice());
 		// We can safely suppress and ignore possible GATT write errors
 		// requestMoveHistory command is automatically retried on each move event if needed
-		return chrct.writeValue(new Uint8Array(encodedReq).buffer).catch($.noop);
+		return chrct.writeValue(new Uint8Array(encodedReq).buffer).catch(function(){});
 	}
 
 	function evictMoveBuffer(reqLostMoves) {
@@ -786,7 +786,7 @@ execMain(function() {
 	}
 
 	function parseV3Data(value) {
-		var locTime = $.now();
+		var locTime = Date.now();
 		value = decode(value);
 		var bytes = value.slice();
 		for (var i = 0; i < value.length; i++) {
@@ -927,7 +927,7 @@ execMain(function() {
 	}
 
 	function parseV4Data(value) {
-		var locTime = $.now();
+		var locTime = Date.now();
 		value = decode(value);
 		var bytes = value.slice();
 		for (var i = 0; i < value.length; i++) {
@@ -1038,17 +1038,17 @@ execMain(function() {
 		var result = Promise.resolve();
 		if (_chrct_v2read) {
 			_chrct_v2read.removeEventListener('characteristicvaluechanged', onStateChangedV2);
-			result = _chrct_v2read.stopNotifications().catch($.noop);
+			result = _chrct_v2read.stopNotifications().catch(function(){});
 			_chrct_v2read = null;
 		}
 		if (_chrct_v3read) {
 			_chrct_v3read.removeEventListener('characteristicvaluechanged', onStateChangedV3);
-			result = _chrct_v3read.stopNotifications().catch($.noop);
+			result = _chrct_v3read.stopNotifications().catch(function(){});
 			_chrct_v3read = null;
 		}
 		if (_chrct_v4read) {
 			_chrct_v4read.removeEventListener('characteristicvaluechanged', onStateChangedV4);
-			result = _chrct_v4read.stopNotifications().catch($.noop);
+			result = _chrct_v4read.stopNotifications().catch(function(){});
 			_chrct_v4read = null;
 		}
 		_service_data = null;

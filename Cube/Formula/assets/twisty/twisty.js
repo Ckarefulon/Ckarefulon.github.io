@@ -555,7 +555,7 @@ window.twistyjs = (function() {
 			var startTime = null;
 			var prevEase = 0;
 			function viewLoop(timeStamp) {
-				timeStamp = $.now();
+				timeStamp = Date.now();
 				if (startTime == null) {
 					startTime = timeStamp;
 				}
@@ -608,7 +608,7 @@ window.twistyjs = (function() {
 		}
 
 		this.addMoves = function(moves, ts) {
-			var timestamp = ts || $.now();
+			var timestamp = ts || Date.now();
 			var movets = [];
 			for (var i = 0; i < moves.length; i++) {
 				movets.push([moves[i], timestamp]);
@@ -632,7 +632,7 @@ window.twistyjs = (function() {
 		}
 
 		this.applyMoves = function(moves, ts) {
-			var timestamp = ts || $.now();
+			var timestamp = ts || Date.now();
 			var movets = [];
 			for (var i = 0; i < moves.length; i++) {
 				movets.push([moves[i], timestamp]);
@@ -693,7 +693,7 @@ window.twistyjs = (function() {
 			if (pendingAnimationLoop === null) {
 				//log("Starting move queue: " + movesToString(moveQueue));
 				startMove();
-				lastTimeStamp = $.now();
+				lastTimeStamp = Date.now();
 				pendingAnimationLoop = requestAnimFrame(animateLoop, twistyCanvas);
 			} else if (!currentMove[0] || twisty.isParallelMove(twisty, currentMove[0][0], moveQueue[0][0])) {
 				//			console.log('parallel');
@@ -704,7 +704,7 @@ window.twistyjs = (function() {
 		var lastTimeStamp = 0;
 
 		function animateLoop(timeStamp) {
-			timeStamp = $.now();
+			timeStamp = Date.now();
 			var timeProgress = (timeStamp - lastTimeStamp) / (kernel.getProp('vrcSpeed', 100) || 1e-3) * (moveQueue.length + 2) / 2;
 			lastTimeStamp = timeStamp;
 			stepAnimation(Math.max(Math.min(timeProgress, 1), 0.0001) /*animationStep*/ );

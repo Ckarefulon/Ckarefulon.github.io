@@ -317,7 +317,7 @@ var mathlib = (function() {
 
 	function createMove(moveTable, size, doMove, N_MOVES) {
 		N_MOVES = N_MOVES || 6;
-		if ($.isArray(doMove)) {
+		if (Array.isArray(doMove)) {
 			var cord = new Coord(doMove[1], doMove[2], doMove[3]);
 			doMove = doMove[0];
 			for (var j = 0; j < N_MOVES; j++) {
@@ -922,7 +922,7 @@ var mathlib = (function() {
 	})();
 
 	function createPrun(prun, init, size, maxd, doMove, N_MOVES, N_POWER, N_INV) {
-		var isMoveTable = $.isArray(doMove);
+		var isMoveTable = Array.isArray(doMove);
 		N_MOVES = N_MOVES || 6;
 		N_POWER = N_POWER || 3;
 		N_INV = N_INV || 256;
@@ -930,7 +930,7 @@ var mathlib = (function() {
 		for (var i = 0, len = (size + 7) >>> 3; i < len; i++) {
 			prun[i] = -1;
 		}
-		if (!$.isArray(init)) {
+		if (!Array.isArray(init)) {
 			init = [init];
 		}
 		for (var i = 0; i < init.length; i++) {
@@ -991,7 +991,7 @@ var mathlib = (function() {
 		this.coords = [];
 		for (var i = 0; i < this.N_STATES; i++) {
 			var doMove = stateParams[i][1];
-			if ($.isArray(doMove)) {
+			if (Array.isArray(doMove)) {
 				this.coords[i] = new Coord(doMove[1], doMove[2], doMove[3]);
 			}
 		}
@@ -1111,7 +1111,7 @@ var mathlib = (function() {
 			if (this.ckmv[lm] >> axis & 1) {
 				continue;
 			}
-			var idx1 = $.isArray(idx) ? idx.slice() : idx;
+			var idx1 = Array.isArray(idx) ? idx.slice() : idx;
 			var pow = sol.length > depth ? sol[depth][1] : 0;
 			for (; pow < this.N_POWER; pow++) {
 				idx1 = this.doMove(idx1, axis, pow);

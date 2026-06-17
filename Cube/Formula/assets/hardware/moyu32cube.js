@@ -242,7 +242,7 @@ execMain(function() {
 	}
 
 	function initCubeState() {
-		var locTime = $.now();
+		var locTime = Date.now();
 		giikerutil.log('[Moyu32Cube] initialising cube state');
 		GiikerCube.callback(latestFacelet, [], [null, locTime], deviceName);
 		prevCubie.fromFacelet(latestFacelet);
@@ -256,7 +256,7 @@ execMain(function() {
 	}
 
 	function parseData(value) {
-		var locTime = $.now();
+		var locTime = Date.now();
 		value = decode(value);
 		for (var i = 0; i < value.length; i++) {
 			value[i] = (value[i] + 256).toString(2).slice(1);
@@ -361,7 +361,7 @@ execMain(function() {
 		_service = null;
 		if (_chrct_read) {
 			_chrct_read.removeEventListener('characteristicvaluechanged', onStateChanged);
-			result = _chrct_read.stopNotifications().catch($.noop);
+			result = _chrct_read.stopNotifications().catch(function(){});
 			_chrct_read = null;
 		}
 		_chrct_write = null;

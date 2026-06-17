@@ -1736,7 +1736,24 @@
 		</aside>
 	</main>
 
-	<script src="assets/lib/jquery-1.8.0.js"></script>
+	<script src="assets/lib/jquery-4.0.0.min.js"></script>
+	<script>
+		// Polyfills for APIs removed in jQuery 4.0
+		if (typeof jQuery !== 'undefined') {
+			jQuery.delayExec = (function() {
+				var timers = {};
+				return function(name, fn, delay) {
+					if (timers[name]) {
+						clearTimeout(timers[name]);
+					}
+					timers[name] = setTimeout(function() {
+						delete timers[name];
+						fn();
+					}, delay);
+				};
+			})();
+		}
+	</script>
 	<script>
 		(function() {
 			"use strict";

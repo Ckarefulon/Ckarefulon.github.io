@@ -128,7 +128,7 @@ execMain(function() {
 	}
 
 	function parseData(value) {
-		var locTime = $.now();
+		var locTime = Date.now();
 		if (value.byteLength < 4) {
 			return;
 		}
@@ -209,7 +209,7 @@ execMain(function() {
 		var result = Promise.resolve();
 		if (_read) {
 			_read.removeEventListener('characteristicvaluechanged', onStateChanged);
-			result = _read.stopNotifications().catch($.noop);
+			result = _read.stopNotifications().catch(function(){});
 			_read = null;
 		}
 		_write = null;

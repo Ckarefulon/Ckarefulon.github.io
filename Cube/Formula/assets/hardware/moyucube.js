@@ -61,7 +61,7 @@ execMain(function() {
 	}
 
 	function parseTurn(data) {
-		var locTime = $.now();
+		var locTime = Date.now();
 		if (data.byteLength < 1) {
 			return;
 		}
@@ -118,9 +118,9 @@ execMain(function() {
 			_chrct_turn && _chrct_turn.removeEventListener('characteristicvaluechanged', onTurnEvent);
 			_chrct_gyro && _chrct_gyro.removeEventListener('characteristicvaluechanged', onGyroEvent);
 			result = Promise.all([
-				_chrct_read && _chrct_read.stopNotifications().catch($.noop),
-				_chrct_turn && _chrct_turn.stopNotifications().catch($.noop),
-				_chrct_gyro && _chrct_gyro.stopNotifications().catch($.noop),
+				_chrct_read && _chrct_read.stopNotifications().catch(function(){}),
+				_chrct_turn && _chrct_turn.stopNotifications().catch(function(){}),
+				_chrct_gyro && _chrct_gyro.stopNotifications().catch(function(){}),
 			]);
 			_chrct_read = null;
 			_chrct_turn = null;

@@ -92,7 +92,7 @@ execMain(function() {
 	}
 
 	function parseState(value) {
-		var locTime = $.now();
+		var locTime = Date.now();
 
 		var valhex = toHexVal(value);
 		var eo = [];
@@ -164,7 +164,7 @@ execMain(function() {
 		var result = Promise.resolve();
 		if (_chrct) {
 			_chrct.removeEventListener('characteristicvaluechanged', onStateChanged);
-			result = _chrct.stopNotifications().catch($.noop);
+			result = _chrct.stopNotifications().catch(function(){});
 			_chrct = null;
 		}
 		_gatt = null;
