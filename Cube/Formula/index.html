@@ -100,6 +100,7 @@
 		.app {
 			display: grid;
 			grid-template-columns: minmax(0, 1fr) 340px;
+			grid-template-rows: 1fr;
 			gap: 18px;
 			height: 100dvh;
 			padding: 18px;
@@ -110,6 +111,7 @@
 			position: relative;
 			min-width: 0;
 			min-height: 420px;
+			height: 100%;
 			border: 1px solid var(--line);
 			border-radius: 8px;
 			background: var(--stageBg);
@@ -121,13 +123,16 @@
 		#cubeStage {
 			position: absolute;
 			inset: 0;
-			display: grid;
-			place-items: center;
-			padding: min(5vh, 44px);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 5%;
 			cursor: grab;
 			touch-action: none;
 			-webkit-user-select: none;
 			user-select: none;
+			width: 100%;
+			height: 100%;
 		}
 
 		#cubeStage.isDragging {
@@ -135,10 +140,8 @@
 		}
 
 		#cubeStage > div {
-			width: min(82vh, 82vw);
-			height: min(82vh, 82vw);
-			max-width: 760px;
-			max-height: 760px;
+			width: 100%;
+			height: 100%;
 		}
 
 		#cubeStage canvas {
@@ -2029,6 +2032,13 @@
 
 				resizeTwisty: function() {
 					if (this.twistyScene) {
+						var stage = this.elements.cubeStage;
+						var rect = stage.getBoundingClientRect();
+						var child = stage.firstElementChild;
+						if (child) {
+							child.style.width = rect.width + 'px';
+							child.style.height = rect.height + 'px';
+						}
 						this.twistyScene.resize();
 					}
 				},
@@ -2063,6 +2073,11 @@
 					window.addEventListener("resize", function() {
 						self.resizeTwisty();
 					});
+					if (window.ResizeObserver) {
+						new ResizeObserver(function() {
+							self.resizeTwisty();
+						}).observe(self.elements.cubeStage);
+					}
 					this.bindViewDrag();
 					document.addEventListener("keydown", function(event) {
 						if (event.key === "Escape") {
@@ -2243,7 +2258,7 @@
 				},
 
 				getPracticePanelHtml: function() {
-					return '<aside class="panel practicePanel"><section class="panelSection"><div class="controls practiceControls"><button id="connectBtn" class="button" type="button">连接魔方</button><select id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><option value="sequence">顺序模式</option><option value="random">随机模式</option></select></div></section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + this.getStateImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel practicePanel"><header class="panelHeader"><h1>训练模式</h1></header><section class="panelSection"><div class="controls practiceControls"><button id="connectBtn" class="button" type="button">连接魔方</button><select id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><option value="sequence">顺序模式</option><option value="random">随机模式</option></select></div></section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + this.getStateImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				getLibraryPanelHtml: function() {
@@ -2251,7 +2266,7 @@
 				},
 
 				getFormulaPanelHtml: function() {
-					return '<aside class="panel formulaPanel"><section class="panelSection"><div class="controls formulaControls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="exportFormulaBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + this.getManualMovesHtml() + '<section class="panelSection"><div id="formulaList" class="formulaList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel formulaPanel"><header class="panelHeader"><h1>公式制作</h1></header><section class="panelSection"><div class="controls formulaControls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="exportFormulaBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + this.getManualMovesHtml() + '<section class="panelSection"><div id="formulaList" class="formulaList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				bindOnce: function(element, key, handler) {
