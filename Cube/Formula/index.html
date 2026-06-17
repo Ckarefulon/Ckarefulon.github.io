@@ -125,6 +125,7 @@
 			padding: min(5vh, 44px);
 			cursor: grab;
 			touch-action: none;
+			-webkit-user-select: none;
 			user-select: none;
 		}
 
@@ -178,6 +179,7 @@
 			border-radius: 8px;
 			background: var(--panel);
 			color: var(--ink);
+			-webkit-backdrop-filter: blur(14px);
 			backdrop-filter: blur(14px);
 			pointer-events: auto;
 			cursor: pointer;
@@ -218,28 +220,17 @@
 		}
 
 		.logo::before,
-		.logo::after,
-		.learnIcon::before,
-		.learnIcon::after,
-		.trainIcon::before,
-		.trainIcon::after,
-		.formulaModeIcon::before,
-		.formulaModeIcon::after,
-		.libraryIcon::before,
-		.libraryIcon::after {
+		.logo::after {
 			content: "";
 			position: absolute;
 		}
 
 		.logo::before,
-		.logo::after,
-		.learnIcon::before,
-		.learnIcon::after {
+		.logo::after {
 			background: rgba(255, 255, 255, 0.64);
 		}
 
-		.logo::before,
-		.learnIcon::before {
+		.logo::before {
 			left: 9px;
 			top: 3px;
 			width: 2px;
@@ -247,8 +238,7 @@
 			box-shadow: 9px 0 0 rgba(255, 255, 255, 0.64);
 		}
 
-		.logo::after,
-		.learnIcon::after {
+		.logo::after {
 			left: 3px;
 			top: 9px;
 			width: 24px;
@@ -261,60 +251,32 @@
 			display: none;
 		}
 
-		.trainIcon::before {
-			left: 7px;
-			top: 7px;
-			width: 16px;
-			height: 16px;
-			border: 2px solid var(--cyan);
-			border-radius: 50%;
+		.learnIcon {
+			background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='16' y='16' width='32' height='32' rx='6' stroke='%235d4ea8' stroke-width='4'/%3E%3Cpath d='M32 16V48' stroke='%235d4ea8' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M16 32H48' stroke='%235d4ea8' stroke-width='4' stroke-linecap='round'/%3E%3Ccircle cx='48' cy='16' r='5' fill='%2324f0ea'/%3E%3C/svg%3E");
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-position: center;
 		}
 
-		.trainIcon::after {
-			left: 13px;
-			top: 13px;
-			width: 4px;
-			height: 4px;
-			border-radius: 50%;
-			background: var(--accent);
-			box-shadow: 0 0 0 5px rgba(93, 78, 168, 0.16);
+		.trainIcon {
+			background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='32' cy='32' r='20' stroke='%235d4ea8' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='10' stroke='%235d4ea8' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='3' fill='%235d4ea8'/%3E%3Cpath d='M14 50L32 32' stroke='%2324f0ea' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M32 32L29 42' stroke='%2324f0ea' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M32 32L22 35' stroke='%2324f0ea' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E");
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-position: center;
 		}
 
-		.formulaModeIcon::before {
-			left: 9px;
-			top: 6px;
-			width: 12px;
-			height: 18px;
-			border-radius: 2px;
-			background: linear-gradient(135deg, var(--accent) 0 64%, var(--cyan) 64% 100%);
-			transform: rotate(28deg);
+		.formulaModeIcon {
+			background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M17 37L36 18L43 11Q48 6 53 11Q58 16 53 21L46 28L27 47L17 37Z' fill='%235d4ea8'/%3E%3Cpath d='M13 51L17 37L27 47L13 51Z' fill='%2324f0ea'/%3E%3Cpath d='M15 39L25 49' stroke='%235d4ea8' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-position: center;
 		}
 
-		.formulaModeIcon::after {
-			left: 8px;
-			top: 22px;
-			width: 15px;
-			height: 2px;
-			border-radius: 999px;
-			background: var(--cyan);
-		}
-
-		.libraryIcon::before {
-			left: 8px;
-			top: 6px;
-			width: 14px;
-			height: 18px;
-			border: 2px solid var(--accent);
-			border-radius: 2px;
-		}
-
-		.libraryIcon::after {
-			left: 11px;
-			top: 11px;
-			width: 9px;
-			height: 2px;
-			background: var(--cyan);
-			box-shadow: 0 5px 0 var(--cyan);
+		.libraryIcon {
+			background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cmask id='cardMask'%3E%3Crect width='64' height='64' fill='white'/%3E%3Crect x='12' y='22' width='32' height='32' rx='6' fill='black'/%3E%3C/mask%3E%3C/defs%3E%3Crect x='20' y='14' width='32' height='32' rx='6' stroke='%2324f0ea' stroke-width='4' mask='url(%23cardMask)'/%3E%3Crect x='12' y='22' width='32' height='32' rx='6' stroke='%235d4ea8' stroke-width='4'/%3E%3C/svg%3E");
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-position: center;
 		}
 
 		.modeOption {
@@ -486,6 +448,7 @@
 			border-radius: 999px;
 			background: var(--panel);
 			color: var(--muted);
+			-webkit-backdrop-filter: blur(14px);
 			backdrop-filter: blur(14px);
 		}
 
@@ -508,6 +471,7 @@
 			background: var(--panel);
 			color: var(--ink);
 			cursor: pointer;
+			-webkit-backdrop-filter: blur(14px);
 			backdrop-filter: blur(14px);
 			font-weight: 700;
 			transition: border-color 0.16s ease, color 0.16s ease, background 0.22s ease, transform 0.16s ease;
@@ -792,6 +756,7 @@
 			min-height: 18px;
 			color: var(--muted);
 			cursor: pointer;
+			-webkit-user-select: none;
 			user-select: none;
 		}
 
@@ -918,6 +883,7 @@
 			padding-top: 8px;
 			cursor: grab;
 			touch-action: none;
+			-webkit-user-select: none;
 			user-select: none;
 		}
 
@@ -1371,27 +1337,11 @@
 			background: var(--accent);
 		}
 
-		.formulaIconButton[data-formula-action="edit"]::before {
-			content: "";
-			position: absolute;
-			left: 15px;
-			top: 10px;
-			width: 10px;
-			height: 20px;
-			border-radius: 2px;
-			background: linear-gradient(135deg, var(--accent) 0 72%, var(--cyan) 72% 100%);
-			transform: rotate(34deg);
-		}
-
-		.formulaIconButton[data-formula-action="edit"]::after {
-			content: "";
-			position: absolute;
-			left: 12px;
-			top: 29px;
-			width: 16px;
-			height: 2px;
-			border-radius: 999px;
-			background: var(--cyan);
+		.formulaIconButton[data-formula-action="edit"] {
+			background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M17 37L36 18L43 11Q48 6 53 11Q58 16 53 21L46 28L27 47L17 37Z' fill='%235d4ea8'/%3E%3Cpath d='M13 51L17 37L27 47L13 51Z' fill='%2324f0ea'/%3E%3Cpath d='M15 39L25 49' stroke='%235d4ea8' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-position: center;
 		}
 
 		.formulaExportOverlay {
@@ -1402,6 +1352,7 @@
 			place-items: center;
 			padding: 18px;
 			background: rgba(10, 10, 18, 0.42);
+			-webkit-backdrop-filter: blur(8px);
 			backdrop-filter: blur(8px);
 		}
 
@@ -1636,7 +1587,7 @@
 	<main class="app">
 		<section class="stage" aria-label="虚拟魔方">
 			<div class="topbar">
-				<div id="modeSwitcher" class="brand" aria-expanded="false">
+				<div id="modeSwitcher" class="brand">
 					<button id="modeCurrent" class="modeOption modeCurrent" type="button" aria-haspopup="true" aria-expanded="false">
 						<span id="modeIcon" class="modeIcon learnIcon" aria-hidden="true">
 						<span></span><span></span><span></span>
@@ -1723,6 +1674,12 @@
 					<button class="moveButton" type="button" data-move="D'">D'</button>
 					<button class="moveButton" type="button" data-move="L'">L'</button>
 					<button class="moveButton" type="button" data-move="B'">B'</button>
+					<button class="moveButton" type="button" data-move="M">M</button>
+					<button class="moveButton" type="button" data-move="E">E</button>
+					<button class="moveButton" type="button" data-move="S">S</button>
+					<button class="moveButton" type="button" data-move="M'">M'</button>
+					<button class="moveButton" type="button" data-move="E'">E'</button>
+					<button class="moveButton" type="button" data-move="S'">S'</button>
 					<button class="moveButton rotation" type="button" data-move="x">x</button>
 					<button class="moveButton rotation" type="button" data-move="y">y</button>
 					<button class="moveButton rotation" type="button" data-move="z">z</button>
@@ -1961,6 +1918,9 @@
 				movesSinceState: 0,
 				lastCubePrevMoves: [],
 				lastCubeHistoryStamp: null,
+				pendingCubeMove: null,
+				pendingCubeMoveTimer: null,
+				cubeSliceWindowMs: 90,
 				currentStateIndex: -1,
 				currentMode: "learn",
 				isPracticeMode: false,
@@ -2047,6 +2007,7 @@
 				},
 
 				initTwisty: function() {
+					this.clearPendingCubeMove(false);
 					this.elements.cubeStage.innerHTML = "";
 					this.elements.cubeStage.dataset.roll = "0";
 					this.orientationMatrix = this.identityMatrix();
@@ -2273,7 +2234,7 @@
 				},
 
 				getManualMovesHtml: function() {
-					return '<section class="panelSection"><div class="moves" id="manualMoves" aria-label="手动测试转动"><button class="moveButton" type="button" data-move="U">U</button><button class="moveButton" type="button" data-move="R">R</button><button class="moveButton" type="button" data-move="F">F</button><button class="moveButton" type="button" data-move="D">D</button><button class="moveButton" type="button" data-move="L">L</button><button class="moveButton" type="button" data-move="B">B</button><button class="moveButton" type="button" data-move="U&#39;">U&#39;</button><button class="moveButton" type="button" data-move="R&#39;">R&#39;</button><button class="moveButton" type="button" data-move="F&#39;">F&#39;</button><button class="moveButton" type="button" data-move="D&#39;">D&#39;</button><button class="moveButton" type="button" data-move="L&#39;">L&#39;</button><button class="moveButton" type="button" data-move="B&#39;">B&#39;</button><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>';
+					return '<section class="panelSection"><div class="moves" id="manualMoves" aria-label="手动测试转动"><button class="moveButton" type="button" data-move="U">U</button><button class="moveButton" type="button" data-move="R">R</button><button class="moveButton" type="button" data-move="F">F</button><button class="moveButton" type="button" data-move="D">D</button><button class="moveButton" type="button" data-move="L">L</button><button class="moveButton" type="button" data-move="B">B</button><button class="moveButton" type="button" data-move="U&#39;">U&#39;</button><button class="moveButton" type="button" data-move="R&#39;">R&#39;</button><button class="moveButton" type="button" data-move="F&#39;">F&#39;</button><button class="moveButton" type="button" data-move="D&#39;">D&#39;</button><button class="moveButton" type="button" data-move="L&#39;">L&#39;</button><button class="moveButton" type="button" data-move="B&#39;">B&#39;</button><button class="moveButton" type="button" data-move="M">M</button><button class="moveButton" type="button" data-move="E">E</button><button class="moveButton" type="button" data-move="S">S</button><button class="moveButton" type="button" data-move="M&#39;">M&#39;</button><button class="moveButton" type="button" data-move="E&#39;">E&#39;</button><button class="moveButton" type="button" data-move="S&#39;">S&#39;</button><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>';
 				},
 
 				getLearnPanelHtml: function() {
@@ -3090,7 +3051,13 @@
 				},
 
 				moveToStandardText: function(move) {
-					if (!move || move.type !== "face") {
+					if (!move) {
+						return "";
+					}
+					if (move.type === "slice") {
+						return move.text || "";
+					}
+					if (move.type !== "face") {
 						return "";
 					}
 					var face = move.fromCube ? move.face : this.standardFaceFromWorldFace(move.face);
@@ -3234,6 +3201,10 @@
 					for (var i = moves.length - 1; i >= 0; i--) {
 						var move = this.normalizeMove(moves[i]);
 						if (!move) {
+							continue;
+						}
+						if (move.type === "slice") {
+							result.push(this.invertFormulaToken(move.text));
 							continue;
 						}
 						result.push(this.formatMoveText(move.type === "orientation" ? move.text.charAt(0) : move.face, Math.abs(move.pow) === 2 ? 2 : -move.pow));
@@ -4184,6 +4155,7 @@
 					this.hasValidCubeState = false;
 					this.lastCubePrevMoves = [];
 					this.lastCubeHistoryStamp = null;
+					this.clearPendingCubeMove(false);
 					this.hideMacHelp();
 					this.setStatus("idle", "等待选择设备");
 					GiikerCube.setCallback(function(facelet, prevMoves, lastTs, hardware) {
@@ -4194,6 +4166,7 @@
 							self.connected = false;
 							self.lastCubePrevMoves = [];
 							self.lastCubeHistoryStamp = null;
+							self.clearPendingCubeMove(false);
 							self.elements.connectBtn.textContent = "连接魔方";
 							self.setStatus("idle", "已断开");
 							self.log("bluetooth", "设备连接已断开");
@@ -4225,6 +4198,7 @@
 						self.hasValidCubeState = false;
 						self.lastCubePrevMoves = [];
 						self.lastCubeHistoryStamp = null;
+						self.clearPendingCubeMove(false);
 						self.elements.connectBtn.textContent = "连接魔方";
 						self.elements.connectBtn.disabled = false;
 						self.setStatus("idle", "未连接");
@@ -4257,15 +4231,164 @@
 					var hasMoves = movesToPlay.length > 0;
 					if (hasMoves) {
 						var timestamp = lastTs && (lastTs[1] || lastTs[0]) || Date.now();
-						for (var i = 0; i < movesToPlay.length; i++) {
-							this.playMove(movesToPlay[i], hardware || "cube", timestamp, {
-								fromCube: true
-							});
-						}
+						this.processCubeMoveBatch(movesToPlay, hardware || "cube", timestamp, facelet);
 					} else {
+						this.flushPendingCubeMove();
 						this.log("state", "收到状态");
+						this.updateSolveDetection(facelet, false);
 					}
-					this.updateSolveDetection(facelet, hasMoves);
+				},
+
+				processCubeMoveBatch: function(movesToPlay, source, timestamp, facelet) {
+					for (var i = 0; i < movesToPlay.length; i++) {
+						this.processCubeMove(movesToPlay[i], source, timestamp, facelet);
+					}
+				},
+
+				processCubeMove: function(rawMove, source, timestamp, facelet) {
+					var prepared = this.prepareCubeFaceMove(rawMove);
+					if (!prepared) {
+						this.flushPendingCubeMove();
+						this.playMove(rawMove, source, timestamp, {
+							fromCube: true
+						});
+						this.updateSolveDetection(facelet, true);
+						return;
+					}
+					if (this.pendingCubeMove && this.isCloseCubeMove(timestamp, this.pendingCubeMove.timestamp)) {
+						var slice = this.getSliceFromCubePair(this.pendingCubeMove.prepared.text, prepared.text);
+						if (slice) {
+							var pending = this.pendingCubeMove;
+							this.clearPendingCubeMove(false);
+							this.playCubeSliceMove(slice, [pending.rawMove, rawMove], source, timestamp, facelet);
+							return;
+						}
+					}
+					this.flushPendingCubeMove();
+					if (this.canStartSlicePair(prepared.text)) {
+						this.holdCubeMove(rawMove, prepared, source, timestamp, facelet);
+						return;
+					}
+					this.playMove(rawMove, source, timestamp, {
+						fromCube: true
+					});
+					this.updateSolveDetection(facelet, true);
+				},
+
+				prepareCubeFaceMove: function(rawMove) {
+					var move = this.normalizeMove(rawMove);
+					if (!move || move.type !== "face") {
+						return null;
+					}
+					return this.transformCubeMove(move);
+				},
+
+				isCloseCubeMove: function(currentTimestamp, previousTimestamp) {
+					if (currentTimestamp == null || previousTimestamp == null) {
+						return true;
+					}
+					return Math.abs(currentTimestamp - previousTimestamp) <= this.cubeSliceWindowMs;
+				},
+
+				holdCubeMove: function(rawMove, prepared, source, timestamp, facelet) {
+					var self = this;
+					this.clearPendingCubeMove(false);
+					this.pendingCubeMove = {
+						rawMove: rawMove,
+						prepared: prepared,
+						source: source,
+						timestamp: timestamp,
+						facelet: facelet
+					};
+					this.pendingCubeMoveTimer = setTimeout(function() {
+						self.flushPendingCubeMove();
+					}, this.cubeSliceWindowMs);
+				},
+
+				flushPendingCubeMove: function() {
+					if (!this.pendingCubeMove) {
+						return;
+					}
+					var pending = this.pendingCubeMove;
+					this.clearPendingCubeMove(false);
+					this.playMove(pending.rawMove, pending.source, pending.timestamp, {
+						fromCube: true
+					});
+					this.updateSolveDetection(pending.facelet, true);
+				},
+
+				clearPendingCubeMove: function(flush) {
+					if (flush) {
+						this.flushPendingCubeMove();
+						return;
+					}
+					if (this.pendingCubeMoveTimer) {
+						clearTimeout(this.pendingCubeMoveTimer);
+						this.pendingCubeMoveTimer = null;
+					}
+					this.pendingCubeMove = null;
+				},
+
+				canStartSlicePair: function(moveText) {
+					var candidates = ["R", "R'", "L", "L'", "U", "U'", "D", "D'", "F", "F'", "B", "B'"];
+					return candidates.indexOf(moveText) >= 0;
+				},
+
+				getSliceFromCubePair: function(firstText, secondText) {
+					var candidates = ["M", "M'", "E", "E'", "S", "S'"];
+					for (var i = 0; i < candidates.length; i++) {
+						var parts = this.expandSliceMoveToken(candidates[i]);
+						if (!parts || parts.length !== 3) {
+							continue;
+						}
+						var firstManualFace = this.manualFacePartToCubeText(parts[0]);
+						var secondManualFace = this.manualFacePartToCubeText(parts[1]);
+						if (firstManualFace && secondManualFace && this.isSameTwoMoveSet(firstText, secondText, firstManualFace, secondManualFace)) {
+							return {
+								text: candidates[i],
+								parts: parts.slice(),
+								manualMove: parts[2]
+							};
+						}
+					}
+					return null;
+				},
+
+				manualFacePartToCubeText: function(token) {
+					var move = this.normalizeMove(token);
+					if (!move || move.type !== "face") {
+						return "";
+					}
+					move = this.mapManualMove(move);
+					return this.formatMoveText(move.face, move.pow);
+				},
+
+				isSameTwoMoveSet: function(a, b, x, y) {
+					return a === x && b === y || a === y && b === x;
+				},
+
+				playCubeSliceMove: function(slice, rawMoves, source, timestamp, facelet) {
+					for (var i = 0; i < rawMoves.length; i++) {
+						this.playMove(rawMoves[i], source, timestamp, {
+							fromCube: true,
+							silent: true,
+							noAnimation: true,
+							noHistory: true,
+							noFormula: true,
+							noCount: true
+						});
+					}
+					this.playMove(slice.manualMove, "manual", timestamp, {
+						silent: true,
+						noAnimation: true,
+						noHistory: true,
+						noFormula: true,
+						noCount: true
+					});
+					this.displaySliceMove(this.normalizeMove(slice.text), source, timestamp, {
+						fromCube: true
+					});
+					this.updateSolveDetection(facelet, true);
 				},
 
 				getNewCubeMoves: function(prevMoves, lastTs) {
@@ -4352,13 +4475,19 @@
 				},
 
 				playMove: function(rawMove, source, timestamp, options) {
+					options = options || {};
 					var move = this.normalizeMove(rawMove);
 					if (!move) {
-						this.log("skip", "无法识别转动: " + rawMove);
-						return;
+						if (!options.silent) {
+							this.log("skip", "无法识别转动: " + rawMove);
+						}
+						return null;
+					}
+					if (move.type === "slice") {
+						return this.playManualSliceMove(move, source, timestamp, options);
 					}
 					var formulaMove = move;
-					if (options && options.fromCube) {
+					if (options.fromCube) {
 						formulaMove = {
 							text: move.text,
 							type: move.type,
@@ -4367,29 +4496,83 @@
 							fromCube: true
 						};
 					}
-					if (!(options && options.fromCube)) {
+					if (!options.fromCube) {
 						move = this.mapManualMove(move);
 						formulaMove = move;
 					}
 					if (move.type === "orientation") {
-						this.applyOrientationMove(move);
-						this.pushHistory(move.text, source, timestamp);
-						this.log("view", move.text + (source ? " · " + source : ""));
-						return;
+						this.applyOrientationMove(move, options);
+						if (!options.noHistory && !options.silent) {
+							this.pushHistory(move.text, source, timestamp);
+							this.log("view", move.text + (source ? " · " + source : ""));
+						}
+						return move;
 					}
-					if (options && options.fromCube) {
+					if (options.fromCube) {
 						move = this.transformCubeMove(move);
 					}
-					this.recordFormulaMove(formulaMove);
-					this.applyMoveToVirtualState(move);
-					this.twistyScene.addMoves([move.twisty]);
-					this.moveCount += 1;
-					if (options && options.fromCube) {
-						this.movesSinceState += 1;
+					if (!options.noFormula) {
+						this.recordFormulaMove(formulaMove);
 					}
-					this.pushHistory(move.text, source, timestamp);
-					this.elements.moveCount.textContent = String(this.moveCount);
-					this.log("move", move.text + (source ? " · " + source : ""));
+					this.applyMoveToVirtualState(move);
+					if (!options.noAnimation) {
+						this.twistyScene.addMoves([move.twisty]);
+					}
+					if (!options.noCount) {
+						this.moveCount += 1;
+						if (options.fromCube) {
+							this.movesSinceState += 1;
+						}
+						this.elements.moveCount.textContent = String(this.moveCount);
+					}
+					if (!options.noHistory && !options.silent) {
+						this.pushHistory(move.text, source, timestamp);
+						this.log("move", move.text + (source ? " · " + source : ""));
+					}
+					return move;
+				},
+
+				playManualSliceMove: function(move, source, timestamp, options) {
+					var parts = this.expandSliceMoveToken(move.text);
+					if (!parts || parts.length !== 3) {
+						return null;
+					}
+					for (var i = 0; i < parts.length; i++) {
+						this.playMove(parts[i], "manual", timestamp, {
+							silent: true,
+							noAnimation: true,
+							noHistory: true,
+							noFormula: true,
+							noCount: true
+						});
+					}
+					return this.displaySliceMove(move, source, timestamp, options);
+				},
+
+				displaySliceMove: function(move, source, timestamp, options) {
+					options = options || {};
+					if (!move || move.type !== "slice") {
+						return null;
+					}
+					var visualMove = this.buildSliceVisualMove(move);
+					if (!options.noFormula) {
+						this.recordFormulaMove(move);
+					}
+					if (!options.noAnimation && visualMove) {
+						this.twistyScene.addMoves([visualMove.twisty]);
+					}
+					if (!options.noCount) {
+						this.moveCount += 1;
+						if (options.fromCube) {
+							this.movesSinceState += 1;
+						}
+						this.elements.moveCount.textContent = String(this.moveCount);
+					}
+					if (!options.noHistory && !options.silent) {
+						this.pushHistory(move.text, source, timestamp);
+						this.log("move", move.text + (source ? " · " + source : ""));
+					}
+					return move;
 				},
 
 				pushHistory: function(text, source, timestamp) {
@@ -4420,6 +4603,18 @@
 							face: face,
 							pow: facePow,
 							twisty: [1, 1, face, facePow]
+						};
+					}
+					match = /^([MES])('?)$/i.exec(text);
+					if (match) {
+						var slice = match[1].toUpperCase();
+						var suffix = match[2] || "";
+						return {
+							text: slice + suffix,
+							type: "slice",
+							slice: slice,
+							pow: suffix === "'" ? -1 : 1,
+							parts: this.expandSliceMoveToken(slice + suffix) || []
 						};
 					}
 					match = /^([XYZ])([2']?)$/i.exec(text);
@@ -4470,6 +4665,25 @@
 					return move;
 				},
 
+				buildSliceVisualMove: function(move) {
+					var parts = this.expandSliceMoveToken(move && move.text);
+					if (!parts || parts.length !== 3) {
+						return null;
+					}
+					var orientation = this.normalizeMove(parts[2]);
+					if (!orientation || orientation.type !== "orientation") {
+						return null;
+					}
+					orientation = this.mapManualMove(orientation);
+					return {
+						text: move.text,
+						type: "slice",
+						axis: orientation.axis,
+						pow: orientation.pow,
+						twisty: [2, 2, orientation.axis, orientation.pow]
+					};
+				},
+
 				mapUiFace: function(face) {
 					return {
 						U: "U",
@@ -4481,8 +4695,11 @@
 					}[face] || face;
 				},
 
-				applyOrientationMove: function(move) {
-					this.twistyScene.addMoves([move.twisty]);
+				applyOrientationMove: function(move, options) {
+					options = options || {};
+					if (!options.noAnimation) {
+						this.twistyScene.addMoves([move.twisty]);
+					}
 					this.updateOrientation(move.axis, move.pow);
 				},
 
