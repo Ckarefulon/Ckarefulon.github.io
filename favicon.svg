@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+  <defs>
+    <path id="iconShape" d="M 24.2462872 34.0741 L 95.7537128 34.0741 A 7.77777778 7.77777778 0 0 1 102.296212 46.0577702 L 66.542495 101.674663 A 7.77777778 7.77777778 0 0 1 53.457505 101.674663 L 17.703788 46.0577702 A 7.77777778 7.77777778 0 0 1 24.2462872 34.0741 Z"/>
+
+    <clipPath id="iconClip">
+      <use href="#iconShape"/>
+    </clipPath>
+
+    <radialGradient
+      id="cyanFade"
+      gradientUnits="userSpaceOnUse"
+      cx="22"
+      cy="38"
+      r="68"
+      fx="22"
+      fy="38">
+
+      <stop offset="0%" stop-color="#24F0EA" stop-opacity="1"/>
+      <stop offset="18%" stop-color="#24F0EA" stop-opacity="1"/>
+
+      <stop offset="22%" stop-color="#24F0EA" stop-opacity="0.994"/>
+      <stop offset="28%" stop-color="#24F0EA" stop-opacity="0.964"/>
+      <stop offset="35%" stop-color="#24F0EA" stop-opacity="0.898"/>
+      <stop offset="43%" stop-color="#24F0EA" stop-opacity="0.787"/>
+      <stop offset="52%" stop-color="#24F0EA" stop-opacity="0.632"/>
+      <stop offset="61%" stop-color="#24F0EA" stop-opacity="0.462"/>
+      <stop offset="70%" stop-color="#24F0EA" stop-opacity="0.296"/>
+      <stop offset="79%" stop-color="#24F0EA" stop-opacity="0.153"/>
+      <stop offset="88%" stop-color="#24F0EA" stop-opacity="0.052"/>
+      <stop offset="96%" stop-color="#24F0EA" stop-opacity="0.006"/>
+      <stop offset="100%" stop-color="#24F0EA" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <use href="#iconShape" fill="#5d4ea8"/>
+
+  <g clip-path="url(#iconClip)">
+    <circle cx="22" cy="38" r="74" fill="url(#cyanFade)"/>
+  </g>
+</svg>
