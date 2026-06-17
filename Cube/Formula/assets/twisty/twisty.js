@@ -106,6 +106,10 @@ window.twistyjs = (function() {
 		twistyContainer.css('width', '100%');
 		twistyContainer.css('height', '100%');
 		twistyContainer.css('position', 'relative');
+		twistyContainer.css('display', 'flex');
+		twistyContainer.css('align-items', 'center');
+		twistyContainer.css('justify-content', 'center');
+		twistyContainer.css('overflow', 'hidden');
 		twistyContainer = twistyContainer[0];
 
 		this.getDomElement = function() {
@@ -159,6 +163,8 @@ window.twistyjs = (function() {
 
 			renderer = new THREE.CanvasRenderer();
 			twistyCanvas = renderer.domElement;
+			twistyCanvas.style.display = 'block';
+			twistyCanvas.style.flexShrink = '0';
 
 			twistyContainer.appendChild(twistyCanvas);
 			touchCube = $('<table class="touchcube">').appendTo(twistyContainer);
@@ -203,6 +209,11 @@ window.twistyjs = (function() {
 			moveCamera(~~ori[0] - 6, ~~ori[1] - 6);
 			renderer.setSize(min, min);
 			touchCube.css({
+				'position': 'absolute',
+				'top': '50%',
+				'left': '50%',
+				'margin-top': -min / 2,
+				'margin-left': -min / 2,
 				'width': min,
 				'height': min,
 				'font-size': min * 0.15
