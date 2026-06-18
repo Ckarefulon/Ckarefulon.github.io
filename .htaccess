@@ -1,8 +1,23 @@
 AddType application/x-font-ttf .ttf
 
+<IfModule mod_headers.c>
+  <FilesMatch "\.html?$">
+    Header set Cache-Control "no-cache, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+</IfModule>
+
+FileETag MTime Size
+
 RewriteEngine On
 RewriteBase /
 Options +FollowSymLinks
+
+# Redirect /index.html and /xxx/index.html to / and /xxx/
+RewriteCond %{THE_REQUEST} \s/+(.*/)?index\.html[\s?] [NC]
+RewriteRule ^(.*/)?index\.html$ /$1 [R=301,L]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ /$1 [L,QSA]
