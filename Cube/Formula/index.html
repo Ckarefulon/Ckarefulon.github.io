@@ -590,32 +590,125 @@
 		}
 
 		.practiceControls {
-			grid-template-columns: minmax(0, 1fr) 132px;
+			grid-template-columns: minmax(0, 1fr) 144px;
 			align-items: stretch;
 		}
 
 		.practiceModeSelect {
+			position: relative;
+			width: 144px;
 			min-height: 42px;
-			width: 100%;
-			padding: 0 34px 0 12px;
 			border: 1px solid var(--controlBorder);
 			border-radius: 8px;
-			background:
-				linear-gradient(45deg, transparent 50%, var(--muted) 50%) calc(100% - 18px) 18px / 6px 6px no-repeat,
-				linear-gradient(135deg, var(--muted) 50%, transparent 50%) calc(100% - 12px) 18px / 6px 6px no-repeat,
-				var(--controlBg);
-			color: var(--controlText);
-			font: inherit;
-			font-weight: 700;
-			appearance: none;
-			cursor: pointer;
+			background: var(--controlBg);
 			transition: border-color 0.14s ease, box-shadow 0.14s ease, background-color 0.22s ease;
 		}
 
-		.practiceModeSelect:hover,
-		.practiceModeSelect:focus-visible {
-			border-color: var(--cyan);
-			box-shadow: 0 0 0 3px rgba(36, 240, 234, 0.10);
+		.practiceModeSelect.isOpen {
+			border-color: rgba(93, 78, 168, 0.45);
+			background: var(--surfaceSolid);
+			border-bottom-color: transparent;
+			border-radius: 8px 8px 0 0;
+		}
+
+		.practiceModeCurrent {
+			width: 100%;
+			min-height: 40px;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 0 12px;
+			border: 0;
+			border-radius: 7px;
+			background: transparent;
+			color: var(--controlText);
+			font: inherit;
+			font-weight: 700;
+			text-align: left;
+			cursor: pointer;
+		}
+
+		.practiceModeSelect.isOpen .practiceModeCurrent {
+			border-radius: 7px 7px 0 0;
+		}
+
+		.practiceModeCurrentText {
+			white-space: nowrap;
+		}
+
+		.practiceModeChevron {
+			width: 8px;
+			height: 8px;
+			margin-left: auto;
+			border-right: 2px solid currentColor;
+			border-bottom: 2px solid currentColor;
+			transform: rotate(45deg) translateY(-2px);
+			transition: transform 0.14s ease;
+		}
+
+		.practiceModeSelect.isOpen .practiceModeChevron {
+			transform: rotate(-135deg) translateY(-1px);
+		}
+
+		.practiceModeMenu {
+			position: absolute;
+			top: calc(100% - 1px);
+			left: -1px;
+			right: -1px;
+			display: grid;
+			gap: 0;
+			padding: 0;
+			border: 1px solid var(--line);
+			border-top: 0;
+			border-radius: 0 0 8px 8px;
+			background: var(--surfaceSolid);
+			box-shadow: 0 18px 34px rgba(36, 36, 54, 0.16);
+			opacity: 0;
+			visibility: hidden;
+			transform: translateY(-5px);
+			pointer-events: none;
+			transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
+			z-index: 5;
+		}
+
+		.practiceModeSelect.isOpen .practiceModeMenu {
+			opacity: 1;
+			visibility: visible;
+			transform: translateY(0);
+			pointer-events: auto;
+		}
+
+		.practiceModeOption {
+			width: 100%;
+			min-height: 42px;
+			display: flex;
+			align-items: center;
+			padding: 0 12px;
+			border: 0;
+			border-top: 1px solid var(--line);
+			border-radius: 0;
+			background: transparent;
+			color: var(--ink);
+			font: inherit;
+			font-weight: 700;
+			text-align: left;
+			cursor: pointer;
+			transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
+		}
+
+		.practiceModeOption:first-child {
+			border-top: 0;
+		}
+
+		.practiceModeOption:last-child {
+			border-radius: 0 0 7px 7px;
+		}
+
+		.practiceModeOption:hover,
+		.practiceModeOption:focus-visible {
+			background: var(--controlHoverBg);
+			color: var(--controlText);
+			box-shadow: inset 2px 0 0 var(--cyan);
 			outline: none;
 		}
 
@@ -1358,6 +1451,103 @@
 			background: rgba(10, 10, 18, 0.42);
 			-webkit-backdrop-filter: blur(8px);
 			backdrop-filter: blur(8px);
+			opacity: 0;
+			transition: opacity 0.22s ease;
+		}
+
+		.formulaExportOverlay.isOpen {
+			opacity: 1;
+		}
+
+		.customStateSection .button {
+			width: 100%;
+		}
+
+		.customStateOverlay {
+			position: fixed;
+			inset: 0;
+			z-index: 30;
+			display: grid;
+			place-items: center;
+			padding: 18px;
+			background: rgba(10, 10, 18, 0.48);
+			-webkit-backdrop-filter: blur(8px);
+			backdrop-filter: blur(8px);
+			opacity: 0;
+			transition: opacity 0.2s ease;
+		}
+
+		.customStateOverlay.isOpen {
+			opacity: 1;
+		}
+
+		.customStateDialog {
+			width: min(620px, 100%);
+			max-height: calc(100dvh - 36px);
+			display: grid;
+			grid-template-rows: auto minmax(320px, 58vh) auto auto;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: var(--surfaceSolid);
+			box-shadow: var(--shadow);
+			overflow: hidden;
+			transform: scale(0.96) translateY(10px);
+			transition: transform 0.2s ease;
+		}
+
+		.customStateOverlay.isOpen .customStateDialog {
+			transform: scale(1) translateY(0);
+		}
+
+		.customStateHeader,
+		.customStateActions {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			padding: 14px;
+		}
+
+		.customStateHeader {
+			border-bottom: 1px solid var(--line);
+		}
+
+		.customStateActions {
+			border-top: 1px solid var(--line);
+		}
+
+		.customStateActionRight {
+			display: flex;
+			gap: 8px;
+		}
+
+		.customCubeStage {
+			position: relative;
+			min-height: 320px;
+			background: var(--stageBg);
+			cursor: grab;
+			touch-action: none;
+			-webkit-user-select: none;
+			user-select: none;
+			overflow: hidden;
+		}
+
+		.customCubeStage.isDragging {
+			cursor: grabbing;
+		}
+
+		.customCubeStage > div {
+			width: 100%;
+			height: 100%;
+		}
+
+		.customStateHint {
+			margin: 0;
+			padding: 10px 14px;
+			border-top: 1px solid var(--line);
+			color: var(--muted);
+			font-size: 12px;
+			text-align: center;
 		}
 
 		.formulaExportDialog {
@@ -1370,6 +1560,14 @@
 			background: var(--surfaceSolid);
 			box-shadow: var(--shadow);
 			overflow: hidden;
+			opacity: 0;
+			transform: scale(0.94) translateY(12px);
+			transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+		}
+
+		.formulaExportOverlay.isOpen .formulaExportDialog {
+			opacity: 1;
+			transform: scale(1) translateY(0);
 		}
 
 		.formulaExportHeader,
@@ -1898,7 +2096,7 @@
 	<script src="assets/lib/mathlib.js?v=0286"></script>
 	<script src="assets/lib/pnltri.js?v=0286"></script>
 	<script src="assets/lib/threemin.js?v=0286"></script>
-	<script src="assets/twisty/twisty.js?v=0286"></script>
+	<script src="assets/twisty/twisty.js?v=0341"></script>
 	<script src="assets/twisty/twistynnn.js?v=0286"></script>
 	<script src="assets/hardware/bluetooth.js?v=0286"></script>
 	<script src="assets/hardware/giikercube.js?v=0286"></script>
@@ -1964,6 +2162,10 @@
 				orientationMatrix: null,
 				viewYaw: 0,
 				viewPitch: 0,
+				hiddenStickerMask: {},
+				customCubeScene: null,
+				customCubeDraftMask: null,
+				customStickerGroups: null,
 				elements: {},
 
 				init: function() {
@@ -2007,6 +2209,7 @@
 						log: document.getElementById("log"),
 						lastTs: document.getElementById("lastTs"),
 						manualMoves: document.getElementById("manualMoves"),
+						customFinalStateBtn: document.getElementById("customFinalStateBtn"),
 						stateDropZone: document.getElementById("stateDropZone"),
 						chooseStateFileBtn: document.getElementById("chooseStateFileBtn"),
 						stateFileInput: document.getElementById("stateFileInput"),
@@ -2044,6 +2247,8 @@
 						allowDragging: false,
 						faceColors: [0xffffff, 0xf05a3b, 0x2dbb70, 0xffd447, 0xff941f, 0x2f69df]
 					});
+					this.prepareStickerScene(this.twistyScene);
+					this.applyHiddenStickerMask(this.twistyScene, this.hiddenStickerMask);
 					this.resizeTwisty();
 				},
 
@@ -2097,6 +2302,9 @@
 					}
 					this.bindViewDrag();
 					document.addEventListener("keydown", function(event) {
+						if (document.getElementById("customStateOverlay")) {
+							return;
+						}
 						if (event.key === "Escape") {
 							self.closeModeMenu();
 							return;
@@ -2119,6 +2327,7 @@
 					});
 					document.addEventListener("click", function() {
 						self.closeModeMenu();
+						self.closePracticeModeMenu();
 					});
 				},
 
@@ -2132,6 +2341,39 @@
 					this.elements.modeSwitcher.classList.remove("isOpen");
 					this.elements.modeSwitcher.setAttribute("aria-expanded", "false");
 					this.elements.modeCurrent.setAttribute("aria-expanded", "false");
+				},
+
+				togglePracticeModeMenu: function() {
+					var element = this.elements.practiceModeSelect;
+					var isOpen = element.classList.toggle("isOpen");
+					element.querySelector(".practiceModeCurrent").setAttribute("aria-expanded", isOpen ? "true" : "false");
+				},
+
+				closePracticeModeMenu: function() {
+					var element = this.elements.practiceModeSelect;
+					if (element) {
+						element.classList.remove("isOpen");
+						element.querySelector(".practiceModeCurrent").setAttribute("aria-expanded", "false");
+					}
+				},
+
+				updatePracticeModeSelect: function() {
+					var element = this.elements.practiceModeSelect;
+					if (element) {
+						var meta = {
+							sequence: "顺序模式",
+							random: "随机模式",
+							loop: "循环模式"
+						};
+						var currentValue = this.practiceMode || "sequence";
+						element.querySelector(".practiceModeCurrentText").textContent = meta[currentValue] || meta.sequence;
+						var order = ["sequence", "random", "loop"].filter(function(item) {
+							return item !== currentValue;
+						});
+						element.querySelector(".practiceModeMenu").innerHTML = order.map(function(item) {
+							return '<button class="practiceModeOption" type="button" data-value="' + item + '" role="menuitem">' + meta[item] + '</button>';
+						}).join("");
+					}
 				},
 
 				getModeMeta: function(mode) {
@@ -2271,11 +2513,11 @@
 				},
 
 				getLearnPanelHtml: function() {
-					return '<aside class="panel"><header class="panelHeader"><h1>学习模式</h1></header>' + this.getConnectSectionHtml("") + this.getMacHelpHtml() + '<section class="panelSection"><div class="metrics"><div class="metric"><span>设备</span><strong id="deviceName">-</strong></div><div class="metric"><span>转动数</span><strong id="moveCount">0</strong></div></div></section>' + this.getManualMovesHtml() + this.getStateImportHtml(true, false) + this.getDiagnosticsHtml(false) + '</aside>';
+					return '<aside class="panel"><header class="panelHeader"><h1>学习模式</h1></header>' + this.getConnectSectionHtml("") + this.getMacHelpHtml() + '<section class="panelSection"><div class="metrics"><div class="metric"><span>设备</span><strong id="deviceName">-</strong></div><div class="metric"><span>转动数</span><strong id="moveCount">0</strong></div></div></section><section class="panelSection customStateSection"><button id="customFinalStateBtn" class="button secondary" type="button">自定义魔方最终状态</button></section>' + this.getManualMovesHtml() + this.getStateImportHtml(true, false) + this.getDiagnosticsHtml(false) + '</aside>';
 				},
 
 				getPracticePanelHtml: function() {
-					return '<aside class="panel practicePanel"><header class="panelHeader"><h1>训练模式</h1></header><section class="panelSection"><div class="controls practiceControls"><button id="connectBtn" class="button" type="button">连接魔方</button><select id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><option value="sequence">顺序模式</option><option value="random">随机模式</option></select></div></section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + this.getStateImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel practicePanel"><header class="panelHeader"><h1>训练模式</h1></header><section class="panelSection"><div class="controls practiceControls"><button id="connectBtn" class="button" type="button">连接魔方</button><div id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><button class="practiceModeCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span class="practiceModeCurrentText">顺序模式</span><span class="practiceModeChevron" aria-hidden="true"></span></button><div class="practiceModeMenu" role="menu"><button class="practiceModeOption" type="button" data-value="sequence" role="menuitem">顺序模式</button><button class="practiceModeOption" type="button" data-value="random" role="menuitem">随机模式</button><button class="practiceModeOption" type="button" data-value="loop" role="menuitem">循环模式</button></div></div></div></section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + this.getStateImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				getLibraryPanelHtml: function() {
@@ -2310,6 +2552,11 @@
 							self.resetView();
 						});
 					});
+					this.bindOnce(this.elements.customFinalStateBtn, "smartBound", function(element) {
+						element.addEventListener("click", function() {
+							self.openCustomStateDialog();
+						});
+					});
 					this.bindOnce(this.elements.exportFormulaBtn, "smartBound", function(element) {
 						element.addEventListener("click", function() {
 							self.openFormulaExportDialog();
@@ -2321,10 +2568,20 @@
 						});
 					});
 					this.bindOnce(this.elements.practiceModeSelect, "smartBound", function(element) {
-						element.value = self.practiceMode;
-						element.addEventListener("change", function(event) {
-							self.practiceMode = event.target.value === "random" ? "random" : "sequence";
-							self.randomBag = [];
+						self.updatePracticeModeSelect();
+						element.querySelector(".practiceModeCurrent").addEventListener("click", function(event) {
+							event.stopPropagation();
+							self.togglePracticeModeMenu();
+						});
+						element.querySelector(".practiceModeMenu").addEventListener("click", function(event) {
+							var option = event.target.closest("[data-value]");
+							if (option) {
+								var value = option.getAttribute("data-value");
+								self.practiceMode = value === "random" ? "random" : (value === "loop" ? "loop" : "sequence");
+								self.randomBag = [];
+								self.updatePracticeModeSelect();
+								self.closePracticeModeMenu();
+							}
 						});
 					});
 					this.bindOnce(this.elements.orientationMoves, "smartBound", function(element) {
@@ -2352,6 +2609,325 @@
 					if (this.elements.libraryList && !this.elements.libraryList.dataset.smartBound) {
 						this.bindFormulaLibraryList();
 					}
+				},
+
+				cloneStickerMask: function(mask) {
+					var clone = {};
+					for (var key in mask || {}) {
+						if (mask[key]) {
+							clone[key] = true;
+						}
+					}
+					return clone;
+				},
+
+				prepareStickerScene: function(scene) {
+					if (!scene || !scene.getTwisty) {
+						return;
+					}
+					var twisty = scene.getTwisty();
+					if (!twisty || !twisty.cubePieces) {
+						return;
+					}
+					var dimension = twisty.options.dimension;
+					for (var faceIndex = 0; faceIndex < twisty.cubePieces.length; faceIndex++) {
+						var face = twisty.cubePieces[faceIndex];
+						for (var stickerIndex = 0; stickerIndex < face.length; stickerIndex++) {
+							var sticker = face[stickerIndex];
+							var mesh = sticker[1].children[0];
+							sticker[1]._customFaceletIndex = this.matrixToFaceletIndex(sticker[0], dimension);
+							mesh._customColoredMaterial = mesh.materials[0];
+						}
+					}
+				},
+
+				matrixToFaceletIndex: function(matrix, dimension) {
+					var xyXchg = [1, 0, 0, 1, 0, 0];
+					var xInv = [1, -1, -1, -1, -1, -1];
+					var yInv = [1, -1, 1, 1, 1, -1];
+					var coord = [Math.round(matrix.n24), Math.round(matrix.n14), Math.round(matrix.n34)];
+					var coordIndex = coord.indexOf(dimension) + coord.indexOf(-dimension) + 1;
+					var axis = coordIndex + (coord[coordIndex] > 0 ? 0 : 3);
+					coord.splice(coordIndex, 1);
+					var xy = xyXchg[axis];
+					var x = (coord[xy] * xInv[axis] + dimension - 1) / 2;
+					var y = (coord[1 - xy] * yInv[axis] + dimension - 1) / 2;
+					return axis * dimension * dimension + x * dimension + y;
+				},
+
+				applyHiddenStickerMask: function(scene, mask) {
+					if (!scene || !scene.getTwisty) {
+						return;
+					}
+					var twisty = scene.getTwisty();
+					if (!twisty || !twisty.cubePieces) {
+						return;
+					}
+					if (!scene._customHiddenMaterial) {
+						scene._customHiddenMaterial = new THREE.MeshBasicMaterial({
+							color: 0x9aa0aa,
+							opacity: 0.28,
+							transparent: true
+						});
+					}
+					for (var faceIndex = 0; faceIndex < twisty.cubePieces.length; faceIndex++) {
+						var face = twisty.cubePieces[faceIndex];
+						for (var stickerIndex = 0; stickerIndex < face.length; stickerIndex++) {
+							var sticker = face[stickerIndex][1];
+							var mesh = sticker.children[0];
+							if (mask && mask[sticker._customFaceletIndex]) {
+								mesh.materials[0] = scene._customHiddenMaterial;
+							} else if (mesh._customColoredMaterial) {
+								mesh.materials[0] = mesh._customColoredMaterial;
+							}
+						}
+					}
+					if (scene.render) {
+						scene.render();
+					}
+				},
+
+				getStickerPositionGroupKey: function(faceletIndex) {
+					var face = Math.floor(faceletIndex / 9);
+					var index = faceletIndex % 9;
+					var row = Math.floor(index / 3);
+					var col = index % 3;
+					var type = index === 4 ? "center" : (row !== 1 && col !== 1 ? "corner" : "edge");
+					var area = "second";
+					if (face === 3) {
+						area = "bottom-face";
+					} else if (face === 0) {
+						area = "top-face";
+					} else if (row === 2) {
+						area = "first-layer";
+					} else if (row === 0) {
+						area = "third-layer";
+					}
+					return area + ":" + type;
+				},
+
+				getStickerGroupKey: function(faceletIndex) {
+					return this.customStickerGroups && this.customStickerGroups[faceletIndex] || this.getStickerPositionGroupKey(faceletIndex);
+				},
+
+				buildStickerGroupsForScene: function(scene) {
+					var groups = {};
+					var twisty = scene && scene.getTwisty && scene.getTwisty();
+					if (!twisty || !twisty.cubePieces) {
+						return groups;
+					}
+					var dimension = twisty.options.dimension;
+					for (var faceIndex = 0; faceIndex < twisty.cubePieces.length; faceIndex++) {
+						var face = twisty.cubePieces[faceIndex];
+						for (var stickerIndex = 0; stickerIndex < face.length; stickerIndex++) {
+							var sticker = face[stickerIndex];
+							var identity = sticker[1]._customFaceletIndex;
+							var currentPosition = this.matrixToFaceletIndex(sticker[0], dimension);
+							groups[identity] = this.getStickerPositionGroupKey(currentPosition);
+						}
+					}
+					return groups;
+				},
+
+				getStickerGroupMembers: function(faceletIndex) {
+					var group = this.getStickerGroupKey(faceletIndex);
+					var members = [];
+					for (var i = 0; i < 54; i++) {
+						if (this.getStickerGroupKey(i) === group) {
+							members.push(i);
+						}
+					}
+					return members;
+				},
+
+				toggleStickerGroup: function(faceletIndex) {
+					var members = this.getStickerGroupMembers(faceletIndex);
+					var shouldHide = false;
+					for (var i = 0; i < members.length; i++) {
+						if (!this.customCubeDraftMask[members[i]]) {
+							shouldHide = true;
+							break;
+						}
+					}
+					for (var j = 0; j < members.length; j++) {
+						var member = members[j];
+						if (!shouldHide) {
+							delete this.customCubeDraftMask[member];
+							continue;
+						}
+						this.customCubeDraftMask[member] = true;
+					}
+					this.applyHiddenStickerMask(this.customCubeScene, this.customCubeDraftMask);
+					this.updateCustomStateHint();
+				},
+
+				updateCustomStateHint: function() {
+					var hint = document.getElementById("customStateHint");
+					if (!hint) {
+						return;
+					}
+					var count = Object.keys(this.customCubeDraftMask || {}).length;
+					hint.textContent = "拖动旋转视角，点击贴纸切换同区域同类贴纸 · 已隐藏 " + count + " 张";
+				},
+
+				applyHiddenStickerMaskToThumbnails: function() {
+					for (var i = 0; i < this.thumbnailScenes.length; i++) {
+						this.applyHiddenStickerMask(this.thumbnailScenes[i], this.hiddenStickerMask);
+					}
+				},
+
+				copyTwistyState: function(sourceScene, targetScene) {
+					var source = sourceScene && sourceScene.getTwisty && sourceScene.getTwisty();
+					var target = targetScene && targetScene.getTwisty && targetScene.getTwisty();
+					if (!source || !target || !source.cubePieces || !target.cubePieces) {
+						return;
+					}
+					for (var faceIndex = 0; faceIndex < source.cubePieces.length; faceIndex++) {
+						for (var stickerIndex = 0; stickerIndex < source.cubePieces[faceIndex].length; stickerIndex++) {
+							var sourceSticker = source.cubePieces[faceIndex][stickerIndex];
+							var targetSticker = target.cubePieces[faceIndex][stickerIndex];
+							targetSticker[0].copy(sourceSticker[0]);
+							targetSticker[1].matrix.copy(sourceSticker[1].matrix);
+							targetSticker[1].update();
+						}
+					}
+				},
+
+				openCustomStateDialog: function() {
+					var self = this;
+					if (document.getElementById("customStateOverlay")) {
+						return;
+					}
+					this.customCubeDraftMask = this.cloneStickerMask(this.hiddenStickerMask);
+					var overlay = document.createElement("div");
+					overlay.id = "customStateOverlay";
+					overlay.className = "customStateOverlay";
+					overlay.innerHTML = '<div class="customStateDialog" role="dialog" aria-modal="true" aria-labelledby="customStateTitle"><div class="customStateHeader"><strong id="customStateTitle">自定义魔方最终状态</strong><button id="closeCustomStateBtn" class="button secondary small" type="button">关闭</button></div><div id="customCubeStage" class="customCubeStage"></div><p id="customStateHint" class="customStateHint"></p><div class="customStateActions"><button id="showAllStickersBtn" class="button secondary" type="button">显示全部</button><div class="customStateActionRight"><button id="cancelCustomStateBtn" class="button secondary" type="button">取消</button><button id="confirmCustomStateBtn" class="button" type="button">确认</button></div></div></div>';
+					document.body.appendChild(overlay);
+					var stage = document.getElementById("customCubeStage");
+					var closeDialog = function() {
+						document.removeEventListener("keydown", onKeyDown, true);
+						overlay.classList.remove("isOpen");
+						self.customCubeScene = null;
+						self.customCubeDraftMask = null;
+						self.customStickerGroups = null;
+						setTimeout(function() {
+							if (overlay.parentNode) {
+								overlay.remove();
+							}
+						}, 220);
+					};
+					var onKeyDown = function(event) {
+						if (event.key === "Escape") {
+							event.preventDefault();
+							event.stopPropagation();
+							closeDialog();
+						}
+					};
+					document.addEventListener("keydown", onKeyDown, true);
+					document.getElementById("closeCustomStateBtn").addEventListener("click", closeDialog);
+					document.getElementById("cancelCustomStateBtn").addEventListener("click", closeDialog);
+					document.getElementById("showAllStickersBtn").addEventListener("click", function() {
+						self.customCubeDraftMask = {};
+						self.applyHiddenStickerMask(self.customCubeScene, self.customCubeDraftMask);
+						self.updateCustomStateHint();
+					});
+					document.getElementById("confirmCustomStateBtn").addEventListener("click", function() {
+						self.hiddenStickerMask = self.cloneStickerMask(self.customCubeDraftMask);
+						self.applyHiddenStickerMask(self.twistyScene, self.hiddenStickerMask);
+						self.applyHiddenStickerMaskToThumbnails();
+						closeDialog();
+					});
+					overlay.addEventListener("click", function(event) {
+						if (event.target === overlay) {
+							closeDialog();
+						}
+					});
+					requestAnimationFrame(function() {
+						overlay.classList.add("isOpen");
+						self.customCubeScene = new twistyjs.TwistyScene();
+						stage.appendChild(self.customCubeScene.getDomElement());
+						self.customCubeScene.initializeTwisty({
+							type: "cube",
+							dimension: self.cubeDimension,
+							stickerWidth: 1.72,
+							scale: 0.96,
+							allowDragging: false,
+							faceColors: [0xffffff, 0xf05a3b, 0x2dbb70, 0xffd447, 0xff941f, 0x2f69df]
+						});
+						self.prepareStickerScene(self.customCubeScene);
+						self.copyTwistyState(self.twistyScene, self.customCubeScene);
+						self.customStickerGroups = self.buildStickerGroupsForScene(self.customCubeScene);
+						if (self.twistyScene.getViewState && self.customCubeScene.setViewState) {
+							self.customCubeScene.setViewState(self.twistyScene.getViewState());
+						}
+						self.applyHiddenStickerMask(self.customCubeScene, self.customCubeDraftMask);
+						self.bindCustomCubeDrag(stage);
+						self.updateCustomStateHint();
+					});
+				},
+
+				bindCustomCubeDrag: function(stage) {
+					var self = this;
+					var drag = { active: false, moved: false, x: 0, y: 0, yaw: this.viewYaw, pitch: this.viewPitch, currentYaw: this.viewYaw, currentPitch: this.viewPitch };
+					stage.addEventListener("pointerdown", function(event) {
+						if (event.button !== 0 || !self.customCubeScene) {
+							return;
+						}
+						drag.active = true;
+						drag.moved = false;
+						drag.x = event.clientX;
+						drag.y = event.clientY;
+						drag.yaw = drag.currentYaw;
+						drag.pitch = drag.currentPitch;
+						stage.setPointerCapture(event.pointerId);
+						event.preventDefault();
+					});
+					stage.addEventListener("pointermove", function(event) {
+						if (!drag.active) {
+							return;
+						}
+						var dx = event.clientX - drag.x;
+						var dy = event.clientY - drag.y;
+						if (!drag.moved && Math.sqrt(dx * dx + dy * dy) < 5) {
+							return;
+						}
+						drag.moved = true;
+						stage.classList.add("isDragging");
+						var rect = stage.getBoundingClientRect();
+						var scale = (Math.PI / 4) / Math.max(140, Math.min(rect.width, rect.height) * 0.45);
+						drag.currentYaw = drag.yaw - dx * scale;
+						drag.currentPitch = drag.pitch + dy * scale;
+						var length = Math.sqrt(drag.currentYaw * drag.currentYaw + drag.currentPitch * drag.currentPitch);
+						var limit = Math.PI / 4;
+						if (length > limit) {
+							drag.currentYaw = drag.currentYaw / length * limit;
+							drag.currentPitch = drag.currentPitch / length * limit;
+						}
+						self.customCubeScene.setViewDrag(drag.currentYaw, drag.currentPitch);
+						event.preventDefault();
+					});
+					var finish = function(event) {
+						if (!drag.active) {
+							return;
+						}
+						drag.active = false;
+						stage.classList.remove("isDragging");
+						try {
+							stage.releasePointerCapture(event.pointerId);
+						} catch (error) {
+						}
+						if (!drag.moved && self.customCubeScene && self.customCubeScene.getStickerAt) {
+							var hit = self.customCubeScene.getStickerAt(event.clientX, event.clientY);
+							var twisty = self.customCubeScene.getTwisty();
+							if (hit && twisty && twisty.cubePieces[hit.faceIndex]) {
+								var sticker = twisty.cubePieces[hit.faceIndex][hit.stickerIndex][1];
+								self.toggleStickerGroup(sticker._customFaceletIndex);
+							}
+						}
+					};
+					stage.addEventListener("pointerup", finish);
+					stage.addEventListener("pointercancel", finish);
 				},
 
 				syncConnectionUi: function() {
@@ -3288,9 +3864,27 @@
 					var copyButton = document.getElementById("copyFormulaTextBtn");
 					var saveButton = document.getElementById("saveFormulaTextBtn");
 					textarea.value = text;
+					requestAnimationFrame(function() {
+						overlay.classList.add("isOpen");
+					});
 					textarea.focus();
+					var closeOverlay = function() {
+						overlay.classList.remove("isOpen");
+						var onTransitionEnd = function(event) {
+							if (event.target === overlay) {
+								overlay.removeEventListener("transitionend", onTransitionEnd);
+								overlay.remove();
+							}
+						};
+						overlay.addEventListener("transitionend", onTransitionEnd);
+						setTimeout(function() {
+							if (overlay.parentNode) {
+								overlay.remove();
+							}
+						}, 280);
+					};
 					document.getElementById("closeFormulaExportBtn").addEventListener("click", function() {
-						overlay.remove();
+						closeOverlay();
 					});
 					saveButton.addEventListener("click", function() {
 						var editedText = textarea.value;
@@ -3299,7 +3893,7 @@
 						} else {
 							self.applyFormulaExportText(editedText);
 						}
-						overlay.remove();
+						closeOverlay();
 					});
 					copyButton.addEventListener("click", function() {
 						var originalText = copyButton.textContent;
@@ -3332,6 +3926,18 @@
 							URL.revokeObjectURL(url);
 						}, 1000);
 					});
+					overlay.addEventListener("click", function(event) {
+						if (event.target === overlay) {
+							closeOverlay();
+						}
+					});
+					var onKeyDown = function(event) {
+						if (event.key === "Escape") {
+							closeOverlay();
+							document.removeEventListener("keydown", onKeyDown);
+						}
+					};
+					document.addEventListener("keydown", onKeyDown);
 				},
 
 				escapeHtml: function(value) {
@@ -3767,6 +4373,7 @@
 					this.thumbnailScenes = [];
 					this.elements.stateList.innerHTML = "";
 					var frag = document.createDocumentFragment();
+					var pendingPreviews = [];
 					this.importedStates.forEach(function(state, index) {
 						if (self.isPracticeMode) {
 							var practiceCard = document.createElement("div");
@@ -3780,7 +4387,7 @@
 							var practicePreview = document.createElement("div");
 							practicePreview.className = "statePreview";
 							practiceCard.appendChild(practicePreview);
-							self.renderStatePreview(practicePreview, state);
+							pendingPreviews.push({ container: practicePreview, state: state });
 							var practiceName = document.createElement("strong");
 							practiceName.className = "stateName";
 							practiceName.textContent = state.name;
@@ -3811,11 +4418,17 @@
 							var preview = document.createElement("div");
 							preview.className = "statePreview";
 							card.appendChild(preview);
-							self.renderStatePreview(preview, state);
+							pendingPreviews.push({ container: preview, state: state });
 						}
 						frag.appendChild(card);
 					});
 					this.elements.stateList.appendChild(frag);
+					// Defer preview rendering until the containers are attached to the
+					// live DOM so that TwistyScene.resize() can compute a non-zero size
+					// from the styled container.
+					pendingPreviews.forEach(function(entry) {
+						self.renderStatePreview(entry.container, entry.state);
+					});
 				},
 
 				getStateDisplayAlg: function(state) {
@@ -3853,10 +4466,12 @@
 						allowDragging: false,
 						faceColors: [0xffffff, 0xf05a3b, 0x2dbb70, 0xffd447, 0xff941f, 0x2f69df]
 					});
+					this.prepareStickerScene(previewScene);
 					var moves = this.buildTwistyMoves(state.moves, false);
 					if (moves.length) {
 						previewScene.applyMoves(moves);
 					}
+					this.applyHiddenStickerMask(previewScene, this.hiddenStickerMask);
 					previewScene.resize();
 					this.thumbnailScenes.push(previewScene);
 					if (previewScene.setViewDrag) {
@@ -3944,11 +4559,15 @@
 						return;
 					}
 					this.solvedAdvancePending = true;
-					this.setImportStatus("已还原，0.7 秒后切换");
+					this.setImportStatus(this.practiceMode === "loop" ? "已还原，0.7 秒后循环" : "已还原，0.7 秒后切换");
 					this.solveSwitchTimer = setTimeout(function() {
 						self.solveSwitchTimer = null;
 						self.solvedAdvancePending = false;
-						self.advancePracticeState();
+						if (self.practiceMode === "loop") {
+							self.applyImportedState(self.currentStateIndex);
+						} else {
+							self.advancePracticeState();
+						}
 					}, 700);
 				},
 
@@ -4050,6 +4669,28 @@
 					if (facelet.length !== 54) {
 						return false;
 					}
+					var ignored = this.getHiddenStickerPositions();
+					if (Object.keys(ignored).length) {
+						var visibleFaceColors = [];
+						for (var maskedOffset = 0; maskedOffset < 54; maskedOffset += 9) {
+							var visibleColor = "";
+							for (var maskedIndex = 0; maskedIndex < 9; maskedIndex++) {
+								var position = maskedOffset + maskedIndex;
+								if (ignored[position]) {
+									continue;
+								}
+								if (!visibleColor) {
+									visibleColor = facelet.charAt(position);
+								} else if (facelet.charAt(position) !== visibleColor) {
+									return false;
+								}
+							}
+							if (visibleColor) {
+								visibleFaceColors.push(visibleColor);
+							}
+						}
+						return new Set(visibleFaceColors).size === visibleFaceColors.length;
+					}
 					var centers = [];
 					for (var offset = 0; offset < 54; offset += 9) {
 						var color = facelet.charAt(offset);
@@ -4070,6 +4711,28 @@
 					this.virtualCubie = window.mathlib && mathlib.CubieCube ? new mathlib.CubieCube() : null;
 				},
 
+				getHiddenStickerPositions: function() {
+					var ignored = {};
+					var hasHidden = false;
+					for (var key in this.hiddenStickerMask) {
+						if (this.hiddenStickerMask[key]) {
+							hasHidden = true;
+							break;
+						}
+					}
+					if (!hasHidden) {
+						return ignored;
+					}
+					var permutation = this.virtualCubie && this.virtualCubie.toPerm ? this.virtualCubie.toPerm() : null;
+					for (var position = 0; position < 54; position++) {
+						var stickerIdentity = permutation ? permutation[position] : position;
+						if (this.hiddenStickerMask[stickerIdentity]) {
+							ignored[position] = true;
+						}
+					}
+					return ignored;
+				},
+
 				applyMoveToVirtualState: function(move) {
 					if (!this.virtualCubie || !move || move.type !== "face" || !this.virtualCubie.selfMoveStr) {
 						return;
@@ -4078,7 +4741,20 @@
 				},
 
 				isVirtualStateSolved: function() {
-					return !!(this.virtualCubie && this.virtualCubie.isEqual && this.virtualCubie.isEqual());
+					if (!this.virtualCubie || !this.virtualCubie.isEqual) {
+						return false;
+					}
+					if (!Object.keys(this.hiddenStickerMask).length || !this.virtualCubie.toPerm) {
+						return this.virtualCubie.isEqual();
+					}
+					var permutation = this.virtualCubie.toPerm();
+					for (var position = 0; position < permutation.length; position++) {
+						var stickerIdentity = permutation[position];
+						if (!this.hiddenStickerMask[stickerIdentity] && stickerIdentity !== position) {
+							return false;
+						}
+					}
+					return true;
 				},
 
 				buildTwistyMoves: function(tokens, updateOrientationState, trackVirtualState) {

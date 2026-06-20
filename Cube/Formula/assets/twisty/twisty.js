@@ -121,6 +121,34 @@ window.twistyjs = (function() {
 		this.getTwisty = function() {
 			return twisty;
 		};
+		this.getStickerAt = function(clientX, clientY) {
+			if (!camera || !scene || !twistyCanvas || !twisty || !twisty.cubePieces) {
+				return null;
+			}
+			var rect = twistyCanvas.getBoundingClientRect();
+			if (!rect.width || !rect.height) {
+				return null;
+			}
+			var x = ((clientX - rect.left) / rect.width) * 2 - 1;
+			var y = -((clientY - rect.top) / rect.height) * 2 + 1;
+			var origin = camera.position;
+			var direction = new THREE.Vector3(x, y, 0);
+			THREE.Matrix4.makeInvert(camera.projectionMatrix).multiplyVector3(direction);
+			camera.matrixWorld.multiplyVector3(direction);
+			direction.subSelf(origin).normalize();
+			var hits = new THREE.Ray(origin, direction).intersectScene(scene);
+			for (var h = 0; h < hits.length; h++) {
+				for (var faceIndex = 0; faceIndex < twisty.cubePieces.length; faceIndex++) {
+					var face = twisty.cubePieces[faceIndex];
+					for (var stickerIndex = 0; stickerIndex < face.length; stickerIndex++) {
+						if (face[stickerIndex][1].children[0] === hits[h].object) {
+							return { faceIndex: faceIndex, stickerIndex: stickerIndex };
+						}
+					}
+				}
+			}
+			return null;
+		};
 
 		this.initializeTwisty = function(twistyType) {
 			moveQueue = [];
@@ -449,6 +477,31 @@ window.twistyjs = (function() {
 
 		this.setViewDrag = function(deltaTheta, deltaPhi) {
 			setViewDrag(deltaTheta || 0, deltaPhi || 0);
+		}
+
+		this.getViewState = function() {
+			ensureCameraVectors();
+			return {
+				baseCameraOffset: baseCameraOffset.clone(),
+				baseCameraUp: baseCameraUp.clone(),
+				dragTheta: cameraDragTheta,
+				dragPhi: cameraDragPhi
+			};
+		}
+
+		this.setViewState = function(state) {
+			if (!state || !state.baseCameraOffset || !state.baseCameraUp) {
+				return;
+			}
+			baseCameraOffset = state.baseCameraOffset.clone();
+			baseCameraUp = state.baseCameraUp.clone();
+			cameraDragTheta = state.dragTheta || 0;
+			cameraDragPhi = state.dragPhi || 0;
+			applyDraggedCamera(true);
+		}
+
+		this.render = function() {
+			render();
 		}
 
 		function render() {
