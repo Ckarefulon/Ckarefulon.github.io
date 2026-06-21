@@ -1,0 +1,423 @@
+.memoryIcon {
+	background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 18a12 12 0 0 1 22-6 11 11 0 0 1 6 19 12 12 0 0 1-10 19H24a12 12 0 0 1-8-21 12 12 0 0 1 4-11Z' stroke='%235d4ea8' stroke-width='4'/%3E%3Cpath d='M25 20v25M39 17v28M25 27h14M25 37h14' stroke='%2324f0ea' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
+	background-color: var(--controlBg);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: contain;
+	box-shadow: inset 0 0 0 1px var(--controlBorder);
+}
+
+.memoryPanel {
+	overflow: hidden;
+}
+
+.memoryPanel .panelSection {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.memoryPanel .panelSection > .button {
+	width: 100%;
+}
+
+.memoryPlanMeta {
+	display: none;
+}
+
+.memoryDailyInput {
+	width: 68px;
+	min-height: 32px;
+	padding: 4px 8px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	text-align: center;
+}
+
+.memoryArea {
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) minmax(108px, 28%);
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+.memoryCurrent {
+	position: relative;
+	display: flex;
+	min-height: 0;
+	flex-direction: column;
+	align-items: stretch;
+	justify-content: center;
+	gap: 12px;
+	padding: 34px 16px 16px;
+	overflow: hidden;
+}
+
+.memoryBack {
+	position: absolute;
+	top: 8px;
+	left: 10px;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--controlBorder);
+	border-radius: 50%;
+	background: var(--controlBg);
+	color: var(--controlText);
+	cursor: pointer;
+}
+
+.memoryBack:hover {
+	border-color: #24f0ea;
+}
+
+.memoryBackChevron {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-left: 2px solid currentColor;
+	border-bottom: 2px solid currentColor;
+	transform: rotate(45deg) translateX(2px);
+}
+
+.memoryPrompt {
+	display: flex;
+	min-height: 116px;
+	align-items: center;
+	justify-content: center;
+	padding: 18px;
+	border: 1px dashed var(--controlBorder);
+	border-radius: 8px;
+	background: transparent;
+	color: var(--ink);
+	cursor: pointer;
+	text-align: center;
+	font: inherit;
+	font-size: 17px;
+	font-weight: 700;
+	line-height: 1.7;
+}
+
+.memoryPrompt:hover,
+.memoryPrompt:focus-visible {
+	border-color: #24f0ea;
+}
+
+.memoryAnswer {
+	display: grid;
+	gap: 8px;
+	text-align: center;
+}
+
+.memoryAnswerName {
+	font-size: 18px;
+}
+
+.memoryAnswerFormula {
+	min-height: 28px;
+	color: var(--ink);
+	font-size: 20px;
+	font-weight: 800;
+	letter-spacing: 0.04em;
+	word-break: break-word;
+}
+
+.memoryTimes {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 6px;
+}
+
+.memoryTime {
+	padding: 6px 3px;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	text-align: center;
+}
+
+.memoryTime span,
+.memoryTime strong {
+	display: block;
+}
+
+.memoryTime span {
+	color: var(--muted);
+	font-size: 10px;
+}
+
+.memoryTime strong {
+	font-size: 13px;
+}
+
+.memoryControlHint {
+	margin: 0;
+	color: var(--muted);
+	text-align: center;
+	font-size: 12px;
+}
+
+.memoryOptions {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 6px;
+}
+
+.memoryOption {
+	min-width: 0;
+	min-height: 42px;
+	padding: 5px 2px;
+	border: 1px solid var(--memoryColor);
+	border-radius: 6px;
+	background: transparent;
+	color: var(--ink);
+	cursor: pointer;
+	font-size: 12px;
+}
+
+.memoryOption.isSelected {
+	border-width: 3px;
+	font-weight: 900;
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--memoryColor) 28%, transparent);
+}
+
+.memoryHistory {
+	min-height: 0;
+	padding: 10px 12px;
+	border-top: 1px solid var(--line);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.memoryHistoryTitle {
+	position: sticky;
+	top: -10px;
+	z-index: 1;
+	margin: -2px 0 8px;
+	padding: 2px 0 5px;
+	background: var(--surfaceSolid);
+	color: var(--muted);
+	font-size: 11px;
+	font-weight: 700;
+}
+
+.memoryDayList {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.memoryDay {
+	display: inline-flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 6px 9px;
+	border: 1px solid var(--dayColor, var(--line));
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--dayColor, var(--line)) 8%, transparent);
+	font-size: 12px;
+	white-space: nowrap;
+}
+
+.memoryDay.isStatus {
+	--dayColor: var(--line);
+	color: var(--muted);
+}
+
+.memoryDay.isOverdue {
+	--dayColor: #e85d6a;
+	color: #e85d6a;
+	font-weight: 800;
+}
+
+.memoryEmptyHistory {
+	color: var(--muted);
+	font-size: 12px;
+	text-align: center;
+}
+
+.memoryOverlay {
+	position: fixed;
+	inset: 0;
+	z-index: 80;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	background: rgba(12, 12, 20, 0.58);
+	opacity: 0;
+	transition: opacity 0.16s ease;
+}
+
+.memoryOverlay.isOpen {
+	opacity: 1;
+}
+
+.memoryDialog {
+	width: min(560px, 100%);
+	max-height: min(760px, calc(100dvh - 40px));
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	padding: 18px;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: var(--surfaceSolid);
+	box-shadow: var(--shadow);
+}
+
+.memoryDialogHeader,
+.memoryDialogActions {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.memoryDialogBottom {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 10px 0;
+	border-top: 1px solid var(--line);
+	border-bottom: 1px solid var(--line);
+}
+
+.memoryDailyLabel {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--muted);
+	font-size: 13px;
+}
+
+.memoryPlanCount {
+	color: var(--muted);
+	font-size: 12px;
+}
+
+.memoryDialog p {
+	margin: 0;
+	color: var(--muted);
+}
+
+.memoryPlanTextarea {
+	width: 100%;
+	min-height: 280px;
+	resize: vertical;
+	padding: 10px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	font: 13px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.memoryToast {
+	position: fixed;
+	right: 20px;
+	bottom: 20px;
+	z-index: 100;
+	max-width: 320px;
+	padding: 10px 14px;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: var(--surfaceSolid);
+	box-shadow: var(--shadow);
+	color: var(--ink);
+}
+
+.memoryDropActive {
+	border-color: #24f0ea !important;
+	box-shadow: inset 0 0 0 2px rgba(36, 240, 234, 0.25);
+}
+
+.memoryCompletion {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 20px 16px;
+}
+
+.memoryCompletion h2 {
+	margin: 0;
+	font-size: 18px;
+	color: #24f0ea;
+}
+
+.memoryCompletionSub {
+	margin: 0;
+	font-size: 13px;
+	color: var(--muted);
+}
+
+.memoryCalendar {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	margin-top: 8px;
+}
+
+.memoryCalendarMonth {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.memoryCalendarTitle {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--ink);
+}
+
+.memoryCalendarGrid {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 2px;
+}
+
+.memoryCalendarDow {
+	font-size: 11px;
+	color: var(--muted);
+	text-align: center;
+	padding: 2px 0;
+}
+
+.memoryCalendarDay {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	aspect-ratio: 1;
+	font-size: 12px;
+	border-radius: 6px;
+	color: var(--muted);
+}
+
+.memoryCalendarDay.isPlaceholder {
+	visibility: hidden;
+}
+
+.memoryCalendarDay.isDone {
+	background: #24f0ea;
+	color: #0a0a14;
+	font-weight: 700;
+}
+
+@media (max-width: 520px) {
+	.memoryArea {
+		grid-template-rows: minmax(360px, 1fr) 130px;
+	}
+
+	.memoryTimes,
+	.memoryOptions {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
