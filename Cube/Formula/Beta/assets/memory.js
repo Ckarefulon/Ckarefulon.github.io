@@ -1006,8 +1006,13 @@
 				return;
 			}
 			if (event.target.closest("#memoryFullscreenBtn")) {
-				memory.fullscreen = !memory.fullscreen;
-				document.body.classList.toggle("memoryFullscreenMode", memory.fullscreen);
+				event.preventDefault();
+				var target = document.documentElement;
+				if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+					(target.requestFullscreen || target.webkitRequestFullscreen || function() {}).call(target);
+				} else {
+					(document.exitFullscreen || document.webkitExitFullscreen || function() {}).call(document);
+				}
 				return;
 			}
 			if (event.target.closest("#memoryPrompt")) {
@@ -1135,10 +1140,7 @@
 		if (app.currentMode !== "memory" || /INPUT|TEXTAREA/.test(event.target && event.target.tagName || "")) {
 			return;
 		}
-		if (event.key === "Escape" && memory.fullscreen) {
-			event.preventDefault();
-			memory.fullscreen = false;
-			document.body.classList.remove("memoryFullscreenMode");
+		if (event.key === "Escape" && (document.fullscreenElement || document.webkitFullscreenElement)) {
 			return;
 		}
 		if (memory.state === "answer" && event.key === "ArrowLeft") {
@@ -1167,4 +1169,11 @@
 			retryCurrentFormula();
 		}
 	}, true);
+
+	function syncFullscreenMode() {
+		var isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+		document.body.classList.toggle("memoryFullscreenMode", isFullscreen);
+	}
+	document.addEventListener("fullscreenchange", syncFullscreenMode);
+	document.addEventListener("webkitfullscreenchange", syncFullscreenMode);
 })();

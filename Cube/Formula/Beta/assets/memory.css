@@ -88,7 +88,7 @@
 .memoryFullscreen {
 	position: absolute;
 	top: 8px;
-	left: 46px;
+	right: 10px;
 	width: 30px;
 	height: 30px;
 	padding: 0;
@@ -107,12 +107,32 @@
 }
 
 .memoryFullscreenIcon {
-	display: inline-block;
-	width: 10px;
-	height: 10px;
-	border: 2px solid currentColor;
-	border-radius: 2px;
 	position: relative;
+	width: 14px;
+	height: 14px;
+}
+
+.memoryFullscreenIcon::before,
+.memoryFullscreenIcon::after {
+	content: "";
+	position: absolute;
+	width: 6px;
+	height: 6px;
+	border: 2px solid currentColor;
+}
+
+.memoryFullscreenIcon::before {
+	top: 0;
+	right: 0;
+	border-left: none;
+	border-bottom: none;
+}
+
+.memoryFullscreenIcon::after {
+	bottom: 0;
+	left: 0;
+	border-right: none;
+	border-top: none;
 }
 
 .memoryPrompt {
