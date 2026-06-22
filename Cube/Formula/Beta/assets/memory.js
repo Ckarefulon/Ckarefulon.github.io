@@ -253,7 +253,7 @@
 	function getMemoryPanelHtml() {
 		return '<aside class="panel memoryPanel"><header class="panelHeader"><h1>记忆模式</h1></header>' +
 			'<section class="panelSection"><div class="controls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="customFinalStateBtn" class="button secondary" type="button">最终状态</button></div><button id="memoryPlanBtn" class="button" type="button">规划学习</button><div class="controls"><button id="memoryImportBtn" class="button secondary" type="button">导入数据</button><button id="memoryExportBtn" class="button secondary" type="button">导出数据</button></div><input id="memoryImportFile" class="hiddenFileInput" type="file" accept=".json,application/json"></section>' +
-			'<section class="memoryArea"><div id="memoryCurrent" class="memoryCurrent"><button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">请开始还原…<br>点击此处显示答案。</button></div><div id="memoryHistory" class="memoryHistory"></div></section>' +
+			'<section class="memoryArea"><div id="memoryCurrent" class="memoryCurrent"><button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">请开始还原…<br>点击此处显示答案。</button></div><div id="memoryHistory" class="memoryHistory"></div></section>' +
 			app.getDiagnosticsHtml(true) + '</aside>';
 	}
 
@@ -340,7 +340,7 @@
 			renderCompletionCalendar(current);
 			return;
 		}
-		current.innerHTML = '<button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">请开始还原…<br>点击此处显示答案。</button>';
+		current.innerHTML = '<button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">请开始还原…<br>点击此处显示答案。</button>';
 		var history = document.getElementById("memoryHistory");
 		if (history) {
 			history.innerHTML = '<div class="memoryEmptyHistory">' + (memory.data.formulas.length ? "今日没有待学习公式" : "请先规划学习公式") + '</div>';
@@ -407,7 +407,7 @@
 			return;
 		}
 		var text = solving ? "正在还原…<br>重新尝试：任意面转一周、按下 Backspace或点击此处" : "请开始还原…<br>点击此处显示答案。";
-		current.innerHTML = '<button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">' + text + '</button>';
+		current.innerHTML = '<button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">' + text + '</button>';
 	}
 
 	function optionLabels() {
@@ -455,7 +455,7 @@
 		var options = labels.map(function(label, index) {
 			return '<button class="memoryOption' + (index === memory.selectedRating ? ' isSelected' : '') + '" style="--memoryColor:' + RATING_COLORS[index] + '" type="button" data-memory-rating="' + index + '">' + app.escapeHtml(label) + '</button>';
 		}).join("");
-		current.innerHTML = '<button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><div class="memoryAnswer"><strong class="memoryAnswerName">' + app.escapeHtml(memory.currentFormula.name) + '</strong><div class="memoryAnswerFormula">' + app.escapeHtml(memory.currentFormula.answer || memory.currentFormula.alg || "") + '</div></div>' +
+		current.innerHTML = '<button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><div class="memoryAnswer"><strong class="memoryAnswerName">' + app.escapeHtml(memory.currentFormula.name) + '</strong><div class="memoryAnswerFormula">' + app.escapeHtml(memory.currentFormula.answer || memory.currentFormula.alg || "") + '</div></div>' +
 			'<div class="memoryTimes"><div class="memoryTime"><span>本次</span><strong>' + formatDuration(memory.solveTime) + '</strong></div><div class="memoryTime"><span>AO5</span><strong>' + stats[0] + '</strong></div><div class="memoryTime"><span>AO10</span><strong>' + stats[1] + '</strong></div><div class="memoryTime"><span>AO50</span><strong>' + stats[2] + '</strong></div></div>' +
 			'<p class="memoryControlHint">(R R\') 确认；D 右移；D\' 左移。</p><div class="memoryOptions">' + options + '</div>';
 	}
@@ -478,7 +478,7 @@
 		var overdue = scheduled && scheduled < today ? daysBetween(scheduled, today) : 0;
 		var statusLabel = overdue ? '逾期' + overdue + '天' : (isNewFormula(memory.currentFormula.id) ? '新学' : '复习');
 		blocks.push('<div class="memoryDay isStatus' + (overdue ? ' isOverdue' : '') + '" style="--dayColor:#5d4ea8"><strong>Day' + currentDay + '</strong><span>' + app.escapeHtml(statusLabel) + '</span></div>');
-		container.innerHTML = '<div class="memoryHistoryTitle">' + app.escapeHtml(memory.currentFormula.name) + ' · 历史</div><div class="memoryDayList">' + blocks.join("") + '</div>';
+		container.innerHTML = '<div class="memoryHistoryTitle">历史</div><div class="memoryDayList">' + blocks.join("") + '</div>';
 		requestAnimationFrame(function() {
 			container.scrollTop = container.scrollHeight;
 		});
@@ -1005,6 +1005,11 @@
 				goBackPrevious();
 				return;
 			}
+			if (event.target.closest("#memoryFullscreenBtn")) {
+				memory.fullscreen = !memory.fullscreen;
+				document.body.classList.toggle("memoryFullscreenMode", memory.fullscreen);
+				return;
+			}
 			if (event.target.closest("#memoryPrompt")) {
 				if (!memory.currentFormula) {
 					showToast("请先规划学习公式");
@@ -1128,6 +1133,12 @@
 			return;
 		}
 		if (app.currentMode !== "memory" || /INPUT|TEXTAREA/.test(event.target && event.target.tagName || "")) {
+			return;
+		}
+		if (event.key === "Escape" && memory.fullscreen) {
+			event.preventDefault();
+			memory.fullscreen = false;
+			document.body.classList.remove("memoryFullscreenMode");
 			return;
 		}
 		if (memory.state === "answer" && event.key === "ArrowLeft") {

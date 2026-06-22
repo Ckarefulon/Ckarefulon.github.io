@@ -85,6 +85,36 @@
 	transform: rotate(45deg) translateX(2px);
 }
 
+.memoryFullscreen {
+	position: absolute;
+	top: 8px;
+	left: 46px;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--controlBorder);
+	border-radius: 50%;
+	background: var(--controlBg);
+	color: var(--controlText);
+	cursor: pointer;
+}
+
+.memoryFullscreen:hover {
+	border-color: #24f0ea;
+}
+
+.memoryFullscreenIcon {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border: 2px solid currentColor;
+	border-radius: 2px;
+	position: relative;
+}
+
 .memoryPrompt {
 	display: flex;
 	min-height: 116px;
@@ -174,7 +204,7 @@
 	border: 1px solid var(--memoryColor);
 	border-radius: 6px;
 	background: transparent;
-	color: var(--ink);
+	color: var(--memoryColor);
 	cursor: pointer;
 	font-size: 12px;
 }
@@ -220,6 +250,7 @@
 	border: 1px solid var(--dayColor, var(--line));
 	border-radius: 8px;
 	background: color-mix(in srgb, var(--dayColor, var(--line)) 8%, transparent);
+	color: var(--dayColor, var(--ink));
 	font-size: 12px;
 	white-space: nowrap;
 }
@@ -231,7 +262,9 @@
 
 .memoryDay.isOverdue {
 	--dayColor: #e85d6a;
-	color: #e85d6a;
+	background: #e85d6a;
+	color: #fff;
+	border-color: #e85d6a;
 	font-weight: 800;
 }
 
@@ -420,4 +453,21 @@
 	.memoryOptions {
 		grid-template-columns: repeat(2, 1fr);
 	}
+}
+
+.memoryFullscreenMode .topbar,
+.memoryFullscreenMode .panelSection,
+.memoryFullscreenMode .panelHeader,
+.memoryFullscreenMode .panelFooter,
+.memoryFullscreenMode .diagnostics {
+	display: none !important;
+}
+
+.memoryFullscreenMode .memoryPanel {
+	flex: 1;
+	max-width: 100%;
+}
+
+.memoryFullscreenMode .memoryArea {
+	grid-template-rows: 1fr auto;
 }
