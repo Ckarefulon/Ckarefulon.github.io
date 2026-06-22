@@ -1173,6 +1173,10 @@
 	function syncFullscreenMode() {
 		var isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
 		document.body.classList.toggle("memoryFullscreenMode", isFullscreen);
+		var btn = document.getElementById("memoryFullscreenBtn");
+		if (btn) {
+			btn.classList.toggle("isFullscreen", isFullscreen);
+		}
 	}
 	document.addEventListener("fullscreenchange", syncFullscreenMode);
 	document.addEventListener("webkitfullscreenchange", syncFullscreenMode);
