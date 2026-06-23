@@ -549,6 +549,18 @@
 			border-bottom: 1px solid var(--line);
 		}
 
+		.panelHeader {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+		}
+
+		.panelHeaderContent {
+			min-width: 0;
+			flex: 1;
+		}
+
 		.panelHeader h1 {
 			margin: 0;
 			font-size: 20px;
@@ -560,6 +572,53 @@
 			margin: 8px 0 0;
 			color: var(--muted);
 			font-size: 13px;
+		}
+
+		.panelHeader .seamlessToggle {
+			min-height: 32px;
+			padding: 0 12px;
+			gap: 0;
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			background: var(--panel);
+			color: var(--ink);
+			font-weight: 700;
+			font-size: 13px;
+			cursor: pointer;
+			-webkit-backdrop-filter: blur(14px);
+			backdrop-filter: blur(14px);
+			transition: border-color 0.16s ease, color 0.16s ease, background 0.22s ease, transform 0.16s ease;
+		}
+
+		.panelHeader .seamlessToggle:hover {
+			border-color: rgba(36, 240, 234, 0.58);
+			color: var(--accent);
+			transform: translateY(-1px);
+			background: var(--panel);
+			box-shadow: none;
+		}
+
+		.panelHeader .seamlessToggle.isActive {
+			border-color: rgba(36, 240, 234, 0.58);
+			background: var(--panel);
+			color: var(--cyan);
+		}
+
+		.panelHeader .seamlessToggle.isActive:hover {
+			color: var(--controlText);
+		}
+
+		.panelHeader .seamlessToggle .toggleSwitch,
+		.panelHeader .seamlessToggle .toggleLabel {
+			display: none;
+		}
+
+		.panelHeader .seamlessToggle::after {
+			content: "无缝";
+		}
+
+		:root[data-theme="dark"] .panelHeader .seamlessToggle:hover {
+			color: var(--controlText);
 		}
 
 		.macHelp {
@@ -1913,20 +1972,17 @@
 
 		<aside class="panel">
 			<header class="panelHeader">
-				<h1>蓝牙魔方同步</h1>
-				<p>当前版本默认从复原态开始显示，后续可以接入自定义初始状态。</p>
+				<div class="panelHeaderContent">
+					<h1>蓝牙魔方同步</h1>
+					<p>当前版本默认从复原态开始显示，后续可以接入自定义初始状态。</p>
+				</div>
+				<button id="seamlessToggleBtn" class="seamlessToggle" type="button" title="切换无缝模式：色块变大无空隙，隐藏色块显示为不透明灰色"></button>
 			</header>
 
 			<section class="panelSection">
 				<div class="controls">
 					<button id="connectBtn" class="button" type="button">连接魔方</button>
 					<button id="resetBtn" class="button secondary" type="button">重置视图</button>
-				</div>
-				<div class="controls" style="margin-top: 10px;">
-					<button id="seamlessToggleBtn" class="seamlessToggle" type="button" title="切换无缝模式：色块变大无空隙，隐藏色块显示为不透明灰色">
-						<span class="toggleLabel">无缝模式</span>
-						<span class="toggleSwitch"></span>
-					</button>
 				</div>
 			</section>
 
@@ -2679,11 +2735,17 @@
 				},
 
 				getConnectSectionHtml: function(extraClass) {
-					return '<section class="panelSection"><div class="controls ' + (extraClass || "") + '"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="resetBtn" class="button secondary" type="button">重置视图</button></div>' + this.getSeamlessToggleHtml() + '</section>';
+					return '<section class="panelSection"><div class="controls ' + (extraClass || "") + '"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="resetBtn" class="button secondary" type="button">重置视图</button></div></section>';
 				},
 
-				getSeamlessToggleHtml: function() {
-					return '<div class="controls" style="margin-top: 10px;"><button id="seamlessToggleBtn" class="seamlessToggle" type="button" title="切换无缝模式：色块变大无空隙，隐藏色块显示为不透明灰色"><span class="toggleLabel">无缝模式</span><span class="toggleSwitch"></span></button></div>';
+				getPanelHeaderHtml: function(title) {
+					return '<header class="panelHeader"><div class="panelHeaderContent"><h1>' + title + '</h1></div>' + this.getSeamlessToggleHtml(true) + '</header>';
+				},
+
+				getSeamlessToggleHtml: function(inHeader) {
+					var label = inHeader ? '' : '<span class="toggleLabel">无缝模式</span>';
+					var switchHtml = inHeader ? '' : '<span class="toggleSwitch"></span>';
+					return (inHeader ? '' : '<div class="controls" style="margin-top: 10px;">') + '<button id="seamlessToggleBtn" class="seamlessToggle" type="button" title="切换无缝模式：色块变大无空隙，隐藏色块显示为不透明灰色">' + label + switchHtml + '</button>' + (inHeader ? '' : '</div>');
 				},
 
 				getStateImportHtml: function(showThumbOption, practiceCards) {
@@ -2703,19 +2765,19 @@
 				},
 
 				getLearnPanelHtml: function() {
-					return '<aside class="panel"><header class="panelHeader"><h1>学习模式</h1></header>' + this.getConnectSectionHtml("") + this.getMacHelpHtml() + '<section class="panelSection"><div class="metrics"><div class="metric"><span>设备</span><strong id="deviceName">-</strong></div><div class="metric"><span>转动数</span><strong id="moveCount">0</strong></div></div></section><section class="panelSection customStateSection"><button id="customFinalStateBtn" class="button" type="button">自定义魔方最终状态</button></section>' + this.getManualMovesHtml() + this.getStateImportHtml(true, false) + this.getDiagnosticsHtml(false) + '</aside>';
+					return '<aside class="panel">' + this.getPanelHeaderHtml("学习模式") + this.getConnectSectionHtml("") + this.getMacHelpHtml() + '<section class="panelSection"><div class="metrics"><div class="metric"><span>设备</span><strong id="deviceName">-</strong></div><div class="metric"><span>转动数</span><strong id="moveCount">0</strong></div></div></section><section class="panelSection customStateSection"><button id="customFinalStateBtn" class="button" type="button">自定义魔方最终状态</button></section>' + this.getManualMovesHtml() + this.getStateImportHtml(true, false) + this.getDiagnosticsHtml(false) + '</aside>';
 				},
 
 				getPracticePanelHtml: function() {
-					return '<aside class="panel practicePanel"><header class="panelHeader"><h1>训练模式</h1></header><section class="panelSection"><div class="controls practiceControls"><button id="connectBtn" class="button" type="button">连接魔方</button><div id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><button class="practiceModeCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span class="practiceModeCurrentText">顺序模式</span><span class="practiceModeChevron" aria-hidden="true"></span></button><div class="practiceModeMenu" role="menu"><button class="practiceModeOption" type="button" data-value="sequence" role="menuitem">顺序模式</button><button class="practiceModeOption" type="button" data-value="random" role="menuitem">随机模式</button><button class="practiceModeOption" type="button" data-value="loop" role="menuitem">循环模式</button></div></div></div>' + this.getSeamlessToggleHtml() + '</section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + this.getStateImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel practicePanel">' + this.getPanelHeaderHtml("训练模式") + '<section class="panelSection"><div class="controls practiceControls"><button id="connectBtn" class="button" type="button">连接魔方</button><div id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><button class="practiceModeCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span class="practiceModeCurrentText">顺序模式</span><span class="practiceModeChevron" aria-hidden="true"></span></button><div class="practiceModeMenu" role="menu"><button class="practiceModeOption" type="button" data-value="sequence" role="menuitem">顺序模式</button><button class="practiceModeOption" type="button" data-value="random" role="menuitem">随机模式</button><button class="practiceModeOption" type="button" data-value="loop" role="menuitem">循环模式</button></div></div></div></section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + this.getStateImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				getLibraryPanelHtml: function() {
-					return '<aside class="panel libraryPanel"><header class="panelHeader"><h1>公式库</h1></header><section class="panelSection"><div class="controls libraryControls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="confirmLibraryImportBtn" class="button secondary" type="button">导出公式</button></div>' + this.getSeamlessToggleHtml() + '</section>' + this.getMacHelpHtml() + '<section class="panelSection"><div id="libraryStatus" class="importStatus">正在读取公式库</div><div id="libraryList" class="libraryList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel libraryPanel">' + this.getPanelHeaderHtml("公式库") + '<section class="panelSection"><div class="controls libraryControls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="confirmLibraryImportBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + '<section class="panelSection"><div id="libraryStatus" class="importStatus">正在读取公式库</div><div id="libraryList" class="libraryList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				getFormulaPanelHtml: function() {
-					return '<aside class="panel formulaPanel"><header class="panelHeader"><h1>公式制作</h1></header><section class="panelSection"><div class="controls formulaControls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="exportFormulaBtn" class="button secondary" type="button">导出公式</button></div>' + this.getSeamlessToggleHtml() + '</section>' + this.getMacHelpHtml() + this.getManualMovesHtml() + '<section class="panelSection"><div id="formulaList" class="formulaList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel formulaPanel">' + this.getPanelHeaderHtml("公式制作") + '<section class="panelSection"><div class="controls formulaControls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="exportFormulaBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + this.getManualMovesHtml() + '<section class="panelSection"><div id="formulaList" class="formulaList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				bindOnce: function(element, key, handler) {
