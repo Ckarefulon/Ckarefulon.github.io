@@ -11,7 +11,7 @@
 	<script src="assets/lib/pnltri.js?v=0286" defer></script>
 	<script src="assets/lib/threemin.js?v=0286" defer></script>
 	<script src="assets/twisty/twisty.js?v=0341" defer></script>
-	<script src="assets/twisty/twistynnn.js?v=0286" defer></script>
+	<script src="assets/twisty/twistynnn.js?v=0484" defer></script>
 	<script src="assets/hardware/bluetooth.js?v=0286" defer></script>
 	<script src="assets/hardware/giikercube.js?v=0286" defer></script>
 	<script src="assets/hardware/gocube.js?v=0286" defer></script>
@@ -773,6 +773,78 @@
 			min-height: 34px;
 			padding: 0 10px;
 			font-size: 13px;
+		}
+
+		.seamlessToggle {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			min-height: 42px;
+			padding: 0 4px;
+			border: 1px solid var(--controlBorder);
+			border-radius: 8px;
+			background: var(--controlBg);
+			color: var(--controlText);
+			cursor: pointer;
+			font-weight: 700;
+			transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+			-webkit-user-select: none;
+			user-select: none;
+		}
+
+		.seamlessToggle:hover {
+			border-color: var(--cyan);
+			background: var(--controlHoverBg);
+			transform: translateY(-1px);
+			box-shadow: 0 0 0 3px rgba(36, 240, 234, 0.10);
+		}
+
+		.seamlessToggle.isActive {
+			border-color: var(--primaryBorder);
+			background: var(--primaryBg);
+			color: var(--primaryText);
+		}
+
+		.seamlessToggle.isActive:hover {
+			background: var(--primaryHoverBg);
+			border-color: var(--cyan);
+		}
+
+		.seamlessToggle .toggleLabel {
+			flex: 1;
+			text-align: left;
+			white-space: nowrap;
+		}
+
+		.seamlessToggle .toggleSwitch {
+			width: 42px;
+			height: 24px;
+			border-radius: 12px;
+			background: var(--controlBorder);
+			position: relative;
+			transition: background 0.18s ease;
+			flex-shrink: 0;
+		}
+
+		.seamlessToggle .toggleSwitch::after {
+			content: "";
+			position: absolute;
+			top: 3px;
+			left: 3px;
+			width: 18px;
+			height: 18px;
+			border-radius: 50%;
+			background: #ffffff;
+			box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+			transition: transform 0.18s ease;
+		}
+
+		.seamlessToggle.isActive .toggleSwitch {
+			background: var(--cyan);
+		}
+
+		.seamlessToggle.isActive .toggleSwitch::after {
+			transform: translateX(18px);
 		}
 
 		.hiddenFileInput {
@@ -1850,6 +1922,12 @@
 					<button id="connectBtn" class="button" type="button">连接魔方</button>
 					<button id="resetBtn" class="button secondary" type="button">重置视图</button>
 				</div>
+				<div class="controls" style="margin-top: 10px;">
+					<button id="seamlessToggleBtn" class="seamlessToggle" type="button" title="切换无缝模式：色块变大无空隙，隐藏色块显示为不透明灰色">
+						<span class="toggleLabel">无缝模式</span>
+						<span class="toggleSwitch"></span>
+					</button>
+				</div>
 			</section>
 
 			<section id="macHelp" class="panelSection macHelp" aria-live="polite">
@@ -2180,6 +2258,7 @@
 				viewYaw: 0,
 				viewPitch: 0,
 				hiddenStickerMask: {},
+				seamlessMode: false,
 				customCubeScene: null,
 				customCubeDraftMask: null,
 				customStickerGroups: null,
@@ -2212,6 +2291,7 @@
 						themeToggle: document.getElementById("themeToggle"),
 						connectBtn: document.getElementById("connectBtn"),
 						resetBtn: document.getElementById("resetBtn"),
+						seamlessToggleBtn: document.getElementById("seamlessToggleBtn"),
 						exportFormulaBtn: document.getElementById("exportFormulaBtn"),
 						confirmLibraryImportBtn: document.getElementById("confirmLibraryImportBtn"),
 						libraryList: document.getElementById("libraryList"),
@@ -2267,6 +2347,10 @@
 					});
 					this.prepareStickerScene(this.twistyScene);
 					this.applyHiddenStickerMask(this.twistyScene, this.hiddenStickerMask);
+					if (this.seamlessMode) {
+						this.applySeamlessMode(this.twistyScene, true);
+						this.updateHiddenStickerAppearance();
+					}
 					this.resizeTwisty();
 				},
 
@@ -2280,6 +2364,80 @@
 							child.style.height = rect.height + 'px';
 						}
 						this.twistyScene.resize();
+					}
+				},
+
+				toggleSeamlessMode: function() {
+					this.seamlessMode = !this.seamlessMode;
+					var btn = this.elements.seamlessToggleBtn;
+					if (btn) {
+						if (this.seamlessMode) {
+							btn.classList.add("isActive");
+						} else {
+							btn.classList.remove("isActive");
+						}
+					}
+					// Apply to main twisty scene
+					this.applySeamlessMode(this.twistyScene, this.seamlessMode);
+					// Apply to thumbnail scenes
+					if (this.thumbnailScenes) {
+						for (var i = 0; i < this.thumbnailScenes.length; i++) {
+							this.applySeamlessMode(this.thumbnailScenes[i], this.seamlessMode);
+						}
+					}
+					// Apply to custom cube scene
+					if (this.customCubeScene) {
+						this.applySeamlessMode(this.customCubeScene, this.seamlessMode);
+					}
+					this.updateHiddenStickerAppearance();
+				},
+
+				applySeamlessMode: function(scene, enable) {
+					if (!scene || !scene.getTwisty) {
+						return;
+					}
+					var twisty = scene.getTwisty();
+					if (twisty && twisty.toggleSeamlessMode) {
+						twisty.toggleSeamlessMode(twisty, enable);
+					}
+					if (scene.render) {
+						scene.render();
+					}
+				},
+
+				updateHiddenStickerAppearance: function() {
+					var scenes = [this.twistyScene];
+					if (this.thumbnailScenes) {
+						scenes = scenes.concat(this.thumbnailScenes);
+					}
+					if (this.customCubeScene) {
+						scenes.push(this.customCubeScene);
+					}
+					for (var s = 0; s < scenes.length; s++) {
+						var scene = scenes[s];
+						if (!scene) {
+							continue;
+						}
+						if (this.seamlessMode) {
+							if (!scene._seamlessHiddenMaterial) {
+								scene._seamlessHiddenMaterial = new THREE.MeshBasicMaterial({
+									color: 0x9aa0aa,
+									opacity: 1,
+									transparent: false
+								});
+							}
+							scene._customHiddenMaterial = scene._seamlessHiddenMaterial;
+						} else {
+							if (!scene._defaultHiddenMaterial) {
+								scene._defaultHiddenMaterial = new THREE.MeshBasicMaterial({
+									color: 0x9aa0aa,
+									opacity: 0.28,
+									transparent: true
+								});
+							}
+							scene._customHiddenMaterial = scene._defaultHiddenMaterial;
+						}
+						this.applyHiddenStickerMask(scene, this.hiddenStickerMask);
 					}
 				},
 
@@ -2521,7 +2679,11 @@
 				},
 
 				getConnectSectionHtml: function(extraClass) {
-					return '<section class="panelSection"><div class="controls ' + (extraClass || "") + '"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="resetBtn" class="button secondary" type="button">重置视图</button></div></section>';
+					return '<section class="panelSection"><div class="controls ' + (extraClass || "") + '"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="resetBtn" class="button secondary" type="button">重置视图</button></div>' + this.getSeamlessToggleHtml() + '</section>';
+				},
+
+				getSeamlessToggleHtml: function() {
+					return '<div class="controls" style="margin-top: 10px;"><button id="seamlessToggleBtn" class="seamlessToggle" type="button" title="切换无缝模式：色块变大无空隙，隐藏色块显示为不透明灰色"><span class="toggleLabel">无缝模式</span><span class="toggleSwitch"></span></button></div>';
 				},
 
 				getStateImportHtml: function(showThumbOption, practiceCards) {
@@ -2545,15 +2707,15 @@
 				},
 
 				getPracticePanelHtml: function() {
-					return '<aside class="panel practicePanel"><header class="panelHeader"><h1>训练模式</h1></header><section class="panelSection"><div class="controls practiceControls"><button id="connectBtn" class="button" type="button">连接魔方</button><div id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><button class="practiceModeCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span class="practiceModeCurrentText">顺序模式</span><span class="practiceModeChevron" aria-hidden="true"></span></button><div class="practiceModeMenu" role="menu"><button class="practiceModeOption" type="button" data-value="sequence" role="menuitem">顺序模式</button><button class="practiceModeOption" type="button" data-value="random" role="menuitem">随机模式</button><button class="practiceModeOption" type="button" data-value="loop" role="menuitem">循环模式</button></div></div></div></section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + this.getStateImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel practicePanel"><header class="panelHeader"><h1>训练模式</h1></header><section class="panelSection"><div class="controls practiceControls"><button id="connectBtn" class="button" type="button">连接魔方</button><div id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><button class="practiceModeCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span class="practiceModeCurrentText">顺序模式</span><span class="practiceModeChevron" aria-hidden="true"></span></button><div class="practiceModeMenu" role="menu"><button class="practiceModeOption" type="button" data-value="sequence" role="menuitem">顺序模式</button><button class="practiceModeOption" type="button" data-value="random" role="menuitem">随机模式</button><button class="practiceModeOption" type="button" data-value="loop" role="menuitem">循环模式</button></div></div></div>' + this.getSeamlessToggleHtml() + '</section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + this.getStateImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				getLibraryPanelHtml: function() {
-					return '<aside class="panel libraryPanel"><header class="panelHeader"><h1>公式库</h1></header><section class="panelSection"><div class="controls libraryControls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="confirmLibraryImportBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + '<section class="panelSection"><div id="libraryStatus" class="importStatus">正在读取公式库</div><div id="libraryList" class="libraryList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel libraryPanel"><header class="panelHeader"><h1>公式库</h1></header><section class="panelSection"><div class="controls libraryControls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="confirmLibraryImportBtn" class="button secondary" type="button">导出公式</button></div>' + this.getSeamlessToggleHtml() + '</section>' + this.getMacHelpHtml() + '<section class="panelSection"><div id="libraryStatus" class="importStatus">正在读取公式库</div><div id="libraryList" class="libraryList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				getFormulaPanelHtml: function() {
-					return '<aside class="panel formulaPanel"><header class="panelHeader"><h1>公式制作</h1></header><section class="panelSection"><div class="controls formulaControls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="exportFormulaBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + this.getManualMovesHtml() + '<section class="panelSection"><div id="formulaList" class="formulaList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel formulaPanel"><header class="panelHeader"><h1>公式制作</h1></header><section class="panelSection"><div class="controls formulaControls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="exportFormulaBtn" class="button secondary" type="button">导出公式</button></div>' + this.getSeamlessToggleHtml() + '</section>' + this.getMacHelpHtml() + this.getManualMovesHtml() + '<section class="panelSection"><div id="formulaList" class="formulaList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				bindOnce: function(element, key, handler) {
@@ -2579,6 +2741,14 @@
 						element.addEventListener("click", function() {
 							self.resetView();
 						});
+					});
+					this.bindOnce(this.elements.seamlessToggleBtn, "smartBound", function(element) {
+						element.addEventListener("click", function() {
+							self.toggleSeamlessMode();
+						});
+						if (self.seamlessMode) {
+							element.classList.add("isActive");
+						}
 					});
 					this.bindOnce(this.elements.customFinalStateBtn, "smartBound", function(element) {
 						element.addEventListener("click", function() {
@@ -2906,6 +3076,9 @@
 							self.customCubeScene.setViewState(self.twistyScene.getViewState());
 						}
 						self.applyHiddenStickerMask(self.customCubeScene, self.customCubeDraftMask);
+						if (self.seamlessMode) {
+							self.applySeamlessMode(self.customCubeScene, true);
+						}
 						self.bindCustomCubeDrag(stage);
 						self.updateCustomStateHint();
 					});
@@ -4520,6 +4693,9 @@
 						previewScene.applyMoves(moves);
 					}
 					this.applyHiddenStickerMask(previewScene, this.hiddenStickerMask);
+					if (this.seamlessMode) {
+						this.applySeamlessMode(previewScene, true);
+					}
 					previewScene.resize();
 					this.thumbnailScenes.push(previewScene);
 					if (previewScene.setViewDrag) {
