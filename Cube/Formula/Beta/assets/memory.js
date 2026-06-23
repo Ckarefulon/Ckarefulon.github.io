@@ -529,6 +529,14 @@
 		return !!(match && last.every(function(move) { return move === last[0]; }));
 	}
 
+	function memoryControlTextFromMove(move) {
+		if (!move || move.type !== "face") {
+			return "";
+		}
+		var face = typeof app.unmapUiFace === "function" ? app.unmapUiFace(move.face) : move.face;
+		return app.formatMoveText(face, move.pow);
+	}
+
 	function handleMemorySmartMove(playedMove) {
 		if (app.currentMode !== "memory" || !memory.currentFormula) {
 			return;
@@ -537,7 +545,10 @@
 		if (!normalized || normalized.type !== "face") {
 			return;
 		}
-		var text = normalized.text;
+		var text = memoryControlTextFromMove(normalized);
+		if (!text) {
+			return;
+		}
 		if (memory.state === "answer") {
 			handleAnswerMove(text);
 			return;
