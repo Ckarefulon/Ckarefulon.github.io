@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN">
 <head>
 	<link rel="icon" href="/favicon.svg?v=0349" type="image/svg+xml">
@@ -19,7 +19,7 @@
 	<script src="assets/hardware/moyucube.js?v=0286" defer></script>
 	<script src="assets/hardware/moyu32cube.js?v=0286" defer></script>
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
-	<script src="assets/memory.js?v=0497" defer></script>
+	<script src="assets/memory.js?v=0499" defer></script>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>学习模式</title>
@@ -4924,7 +4924,6 @@
 				},
 
 				scheduleSolvedAdvance: function() {
-					var self = this;
 					if (this.solvedAdvancePending || this.importedStates.length === 0 || !this.isPracticeMode) {
 						return;
 					}
@@ -4942,16 +4941,14 @@
 						}
 						this.updatePracticeAoTimes();
 					}
-					this.setImportStatus(this.practiceMode === "loop" ? "已还原，0.7 秒后循环" : "已还原，0.7 秒后切换");
-					this.solveSwitchTimer = setTimeout(function() {
-						self.solveSwitchTimer = null;
-						self.solvedAdvancePending = false;
-						if (self.practiceMode === "loop") {
-							self.applyImportedState(self.currentStateIndex);
-						} else {
-							self.advancePracticeState();
-						}
-					}, 700);
+					this.setImportStatus(this.practiceMode === "loop" ? "已还原，正在循环" : "已还原，正在切换");
+					this.solveSwitchTimer = null;
+					this.solvedAdvancePending = false;
+					if (this.practiceMode === "loop") {
+						this.applyImportedState(this.currentStateIndex);
+					} else {
+						this.advancePracticeState();
+					}
 				},
 
 				advancePracticeState: function() {
@@ -5021,9 +5018,10 @@
 					var normalizedFacelet = String(facelet || "").toUpperCase().replace(/[^URFDLB]/g, "");
 					var hasFacelet = normalizedFacelet.length === 54;
 					var faceletSolved = hasFacelet && this.isFaceletSolved(normalizedFacelet);
-					var virtualSolved = !!this.virtualCubie && this.isVirtualStateSolved();
-					var canAdvanceByFacelet = faceletSolved && (this.seenUnsolvedFaceletSinceState || hadCubeMove && this.movesSinceState > 0);
-					var canAdvanceByVirtual = virtualSolved && this.seenUnsolvedVirtualSinceState && this.movesSinceState > 0;
+					var hasVirtual = !!this.virtualCubie;
+					var virtualSolved = hasVirtual && this.isVirtualStateSolved();
+					var canAdvanceByFacelet = !hasVirtual && faceletSolved && this.seenUnsolvedFaceletSinceState && hadCubeMove && this.movesSinceState > 0;
+					var canAdvanceByVirtual = hasVirtual && virtualSolved && this.seenUnsolvedVirtualSinceState && this.movesSinceState > 0;
 					if (canAdvanceByFacelet || canAdvanceByVirtual) {
 						this.lastFaceletSolved = true;
 						this.scheduleSolvedAdvance();
@@ -5033,11 +5031,11 @@
 						this.seenUnsolvedFaceletSinceState = true;
 						this.seenUnsolvedSinceState = true;
 					}
-					if (this.virtualCubie && !virtualSolved) {
+					if (hasVirtual && !virtualSolved) {
 						this.seenUnsolvedVirtualSinceState = true;
 						this.seenUnsolvedSinceState = true;
 					}
-					if (hasFacelet && !faceletSolved || this.virtualCubie && !virtualSolved) {
+					if (!hasVirtual && hasFacelet && !faceletSolved || hasVirtual && !virtualSolved) {
 						this.cancelSolvedAdvance();
 					}
 				},

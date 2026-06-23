@@ -529,20 +529,20 @@
 		return !!(match && last.every(function(move) { return move === last[0]; }));
 	}
 
-	function handleMemorySmartMove(rawMove) {
+	function handleMemorySmartMove(playedMove) {
 		if (app.currentMode !== "memory" || !memory.currentFormula) {
 			return;
 		}
-		var normalized = app.normalizeMove(rawMove);
+		var normalized = playedMove && playedMove.type ? playedMove : app.normalizeMove(playedMove);
 		if (!normalized || normalized.type !== "face") {
 			return;
 		}
 		var text = normalized.text;
-		var now = performance.now();
 		if (memory.state === "answer") {
-			handleAnswerMove(text, now);
+			handleAnswerMove(text);
 			return;
 		}
+		var now = performance.now();
 		if (memory.state === "hidden") {
 			beginSolve(now);
 		}
@@ -560,7 +560,7 @@
 		}
 	}
 
-	function handleAnswerMove(text, now) {
+	function handleAnswerMove(text) {
 		if (text === "D") {
 			selectRating((memory.selectedRating + 1) % 4, true);
 			memory.lastAnswerMove = null;
@@ -572,7 +572,7 @@
 			return;
 		}
 		if (text === "R'") {
-			if (memory.lastAnswerMove && memory.lastAnswerMove.text === "R" && now - memory.lastAnswerMove.time <= 700) {
+			if (memory.lastAnswerMove === "R") {
 				memory.lastAnswerMove = null;
 				confirmRating();
 				return;
@@ -580,7 +580,7 @@
 			memory.lastAnswerMove = null;
 			return;
 		}
-		memory.lastAnswerMove = text === "R" ? { text: text, time: now } : null;
+		memory.lastAnswerMove = text === "R" ? "R" : null;
 	}
 
 	function retryCurrentFormula() {
@@ -663,9 +663,10 @@
 		var normalized = String(facelet || "").toUpperCase().replace(/[^URFDLB]/g, "");
 		var hasFacelet = normalized.length === 54;
 		var faceletSolved = hasFacelet && app.isFaceletSolved(normalized);
-		var virtualSolved = !!app.virtualCubie && app.isVirtualStateSolved();
-		var canSolveFacelet = faceletSolved && (memory.sawUnsolvedFacelet || hadCubeMove && memory.attemptMoves.length > 0);
-		var canSolveVirtual = virtualSolved && memory.sawUnsolvedVirtual && memory.attemptMoves.length > 0;
+		var hasVirtual = !!app.virtualCubie;
+		var virtualSolved = hasVirtual && app.isVirtualStateSolved();
+		var canSolveFacelet = !hasVirtual && faceletSolved && memory.sawUnsolvedFacelet && hadCubeMove && memory.attemptMoves.length > 0;
+		var canSolveVirtual = hasVirtual && virtualSolved && memory.sawUnsolvedVirtual && memory.attemptMoves.length > 0;
 		if (memory.state === "solving" && (canSolveFacelet || canSolveVirtual)) {
 			solvedCurrentFormula();
 			return;
@@ -673,7 +674,7 @@
 		if (hasFacelet && !faceletSolved) {
 			memory.sawUnsolvedFacelet = true;
 		}
-		if (app.virtualCubie && !virtualSolved) {
+		if (hasVirtual && !virtualSolved) {
 			memory.sawUnsolvedVirtual = true;
 		}
 	}
@@ -1141,8 +1142,8 @@
 	var originalPlayMove = app.playMove;
 	app.playMove = function(rawMove, source, timestamp, options) {
 		var result = originalPlayMove.call(this, rawMove, source, timestamp, options);
-		if (result && options && options.fromCube) {
-			handleMemorySmartMove(rawMove);
+		if (result && options && options.fromCube && !options.noCount) {
+			handleMemorySmartMove(result);
 		}
 		return result;
 	};
