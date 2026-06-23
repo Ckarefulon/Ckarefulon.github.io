@@ -901,22 +901,175 @@
 	}
 
 	function openPlanDialog() {
-		var initial = joinPlanText(memory.data.planText, memory.pendingAutofill);
-		var overlay = createOverlay('<div class="memoryDialog" role="dialog" aria-modal="true"><div class="memoryDialogHeader"><strong>规划学习</strong><button class="button secondary small" type="button" data-memory-close>关闭</button></div><p>每行或连续文本均可，沿用 TXT 的\u201c名称：公式;\u201d格式；重复公式会原样保留。</p><textarea id="memoryPlanTextarea" class="memoryPlanTextarea" spellcheck="false"></textarea><div class="memoryDialogBottom"><label class="memoryDailyLabel">每日公式数 <input id="memoryDailyCount" class="memoryDailyInput" type="number" min="1" max="999" value="' + (memory.data.settings.dailyCount || 10) + '"></label><span id="memoryPlanCount" class="memoryPlanCount">[0]/[' + (memory.data.settings.dailyCount || 10) + ']</span></div><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-close>取消</button><button id="memorySavePlanBtn" class="button" type="button">保存计划</button></div></div>');
-		var textarea = overlay.querySelector("#memoryPlanTextarea");
-		textarea.value = initial;
-		overlay.querySelector("#memorySavePlanBtn").addEventListener("click", function() {
-			if (commitPlanText(textarea.value)) {
-				memory.pendingAutofill = "";
-				closeOverlay(overlay);
+		if (memory.pendingAutofill) {
+			commitPlanText(joinPlanText(memory.data.planText, memory.pendingAutofill));
+			memory.pendingAutofill = "";
+		}
+		var formulas = memory.data.formulas || [];
+		var selectedIds = {};
+		formulas.forEach(function(f) { selectedIds[f.id] = true; });
+
+		function renderFormulaList(container) {
+			var html = '';
+			formulas.forEach(function(f) {
+				var learned = !isNewFormula(f.id);
+				var checked = selectedIds[f.id];
+				var checkClass = 'memoryFormulaCheck';
+				if (checked) {
+					checkClass += learned ? ' isLearned' : ' isSelected';
+				}
+				var displayName = f.name || '';
+				var displayAlg = (f.alg || f.formula || '').replace(/\s+/g, ' ');
+				var labelText = displayName + '：' + displayAlg;
+				html += '<div class="memoryFormulaRow" data-formula-id="' + app.escapeHtml(f.id) + '">' +
+					'<span class="' + checkClass + '" role="checkbox" aria-checked="' + (checked ? 'true' : 'false') + '"></span>' +
+					'<span class="memoryFormulaLabel"><strong>' + app.escapeHtml(displayName) + ': </strong>' + app.escapeHtml(displayAlg) + '</span>' +
+					'</div>';
+			});
+			container.innerHTML = html;
+		}
+
+		function updateCheckVisual(row, checked) {
+			var check = row.querySelector('.memoryFormulaCheck');
+			var fid = row.getAttribute('data-formula-id');
+			var learned = !isNewFormula(fid);
+			check.className = 'memoryFormulaCheck';
+			if (checked) {
+				check.classList.add(learned ? 'isLearned' : 'isSelected');
 			}
+			check.setAttribute('aria-checked', checked ? 'true' : 'false');
+		}
+
+		var overlay = createOverlay('<div class="memoryDialog memoryPlanDialog" role="dialog" aria-modal="true"><div class="memoryDialogHeader"><strong>规划学习</strong><button class="button secondary small" type="button" data-memory-close>关闭</button></div><div class="memoryFormulaListWrap"><div class="memoryFormulaList"></div><button id="memoryEditPlanBtn" class="memoryEditPlanBtn" type="button" title="编辑公式文本" aria-label="编辑公式文本"></button></div><div class="memoryDialogBottom"><label class="memoryDailyLabel">每日公式数 <input id="memoryDailyCount" class="memoryDailyInput" type="number" min="1" max="999" value="' + (memory.data.settings.dailyCount || 10) + '"></label><span id="memoryPlanCount" class="memoryPlanCount">[0]/[' + (memory.data.settings.dailyCount || 10) + ']</span></div><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-close>取消</button><button id="memorySavePlanBtn" class="button" type="button">保存计划</button></div></div>');
+
+		var listContainer = overlay.querySelector('.memoryFormulaList');
+		renderFormulaList(listContainer);
+
+		overlay.querySelector("#memorySavePlanBtn").addEventListener("click", function() {
+			var kept = formulas.filter(function(f) { return selectedIds[f.id]; });
+			if (kept.length === 0) {
+				showToast("请至少选择一个公式");
+				return;
+			}
+			memory.data.formulas = kept;
+			memory.data.planText = formulasToPlanText(kept);
+			memory.data.queue = [];
+			memory.data.todayQueue = [];
+			memory.data.undoStack = [];
+			memory.pendingAutofill = "";
+			saveData();
+			if (app.currentMode === "memory") {
+				startMemoryMode();
+			}
+			closeOverlay(overlay);
 		});
+
 		overlay.querySelector("#memoryDailyCount").addEventListener("change", function(event) {
 			memory.data.settings.dailyCount = Math.max(1, Math.min(999, Math.round(Number(event.target.value) || 10)));
 			saveData();
 			updatePlanCounter();
 		});
+
+		overlay.querySelector("#memoryEditPlanBtn").addEventListener("click", function() {
+			openPlanEditDialog(formulas, selectedIds, function() {
+				formulas = memory.data.formulas.slice();
+				formulas.forEach(function(f) {
+					if (!(f.id in selectedIds)) {
+						selectedIds[f.id] = true;
+					}
+				});
+				renderFormulaList(listContainer);
+				updatePlanCounter();
+			});
+		});
+
+		listContainer.addEventListener("click", function(event) {
+			var check = event.target.closest('.memoryFormulaCheck');
+			if (!check) return;
+			var row = check.closest('.memoryFormulaRow');
+			if (!row) return;
+			var fid = row.getAttribute('data-formula-id');
+			var currentlyChecked = selectedIds[fid];
+			if (currentlyChecked && !isNewFormula(fid)) {
+				openConfirmDialog("取消学习", "该公式已开始学习，确定取消选择？", "确认取消", function() {
+					selectedIds[fid] = false;
+					updateCheckVisual(row, false);
+				});
+			} else {
+				selectedIds[fid] = !currentlyChecked;
+				updateCheckVisual(row, selectedIds[fid]);
+			}
+		});
+
+		listContainer.addEventListener("dblclick", function(event) {
+			var check = event.target.closest('.memoryFormulaCheck');
+			if (!check) return;
+			var row = check.closest('.memoryFormulaRow');
+			if (!row) return;
+			var fid = row.getAttribute('data-formula-id');
+			var targetChecked = !selectedIds[fid];
+			var rows = listContainer.querySelectorAll('.memoryFormulaRow');
+			var found = false;
+			var hasLearnedToUncheck = false;
+			if (!targetChecked) {
+				for (var i = 0; i < rows.length; i++) {
+					var r = rows[i];
+					var rfid = r.getAttribute('data-formula-id');
+					if (rfid === fid) { found = true; }
+					if (found && selectedIds[rfid] && !isNewFormula(rfid)) {
+						hasLearnedToUncheck = true;
+						break;
+					}
+				}
+			}
+			if (hasLearnedToUncheck) {
+				openConfirmDialog("批量取消学习", "包含已开始学习的公式，确定批量取消选择？", "确认取消", function() {
+					doBatchToggle(listContainer, fid, targetChecked);
+				});
+			} else {
+				doBatchToggle(listContainer, fid, targetChecked);
+			}
+		});
+
+		function doBatchToggle(container, startId, targetChecked) {
+			var rows = container.querySelectorAll('.memoryFormulaRow');
+			var found = false;
+			for (var i = 0; i < rows.length; i++) {
+				var r = rows[i];
+				var rfid = r.getAttribute('data-formula-id');
+				if (rfid === startId) { found = true; }
+				if (found) {
+					if (targetChecked && !selectedIds[rfid]) {
+						selectedIds[rfid] = true;
+						updateCheckVisual(r, true);
+					} else if (!targetChecked && selectedIds[rfid]) {
+						selectedIds[rfid] = false;
+						updateCheckVisual(r, false);
+					}
+				}
+			}
+		}
+
 		updatePlanCounter();
+	}
+
+	function formulasToPlanText(formulas) {
+		return formulas.map(function(f) {
+			return f.name + ': ' + (f.alg || f.formula || '') + ';';
+		}).join('\n');
+	}
+
+	function openPlanEditDialog(formulas, selectedIds, onSaved) {
+		var currentText = formulasToPlanText(formulas);
+		var editOverlay = createOverlay('<div class="memoryDialog" role="dialog" aria-modal="true"><div class="memoryDialogHeader"><strong>编辑公式</strong><button class="button secondary small" type="button" data-memory-close>关闭</button></div><p>每行或连续文本均可，沿用 TXT 的\u201c名称: 公式;\u201d格式；重复公式会原样保留。</p><textarea id="memoryPlanEditTextarea" class="memoryPlanTextarea" spellcheck="false"></textarea><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-close>取消</button><button id="memoryEditSaveBtn" class="button" type="button">保存</button></div></div>');
+		var textarea = editOverlay.querySelector("#memoryPlanEditTextarea");
+		textarea.value = currentText;
+		editOverlay.querySelector("#memoryEditSaveBtn").addEventListener("click", function() {
+			if (commitPlanText(textarea.value)) {
+				closeOverlay(editOverlay);
+				if (onSaved) onSaved();
+			}
+		});
 		requestAnimationFrame(function() { textarea.focus(); });
 	}
 

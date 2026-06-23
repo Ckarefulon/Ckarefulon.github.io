@@ -368,6 +368,132 @@
 	font: 13px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
+/* Formula list in plan dialog */
+.memoryFormulaListWrap {
+	flex: 1 1 auto;
+	min-height: 200px;
+	max-height: 420px;
+	overflow-y: auto;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--controlBg);
+	position: relative;
+}
+
+.memoryFormulaList {
+	display: flex;
+	flex-direction: column;
+	padding-bottom: 44px;
+}
+
+.memoryFormulaRow {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 12px;
+	cursor: default;
+	border-bottom: 1px solid var(--line);
+	transition: background 0.12s ease;
+}
+
+.memoryFormulaRow:last-child {
+	border-bottom: none;
+}
+
+.memoryFormulaRow:hover {
+	background: rgba(36, 240, 234, 0.06);
+}
+
+.memoryFormulaCheck {
+	flex: 0 0 auto;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	border: 2px solid var(--muted);
+	background: transparent;
+	cursor: pointer;
+	position: relative;
+	transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.memoryFormulaCheck:hover {
+	border-color: #24f0ea;
+}
+
+/* Checked + learned: cyan filled */
+.memoryFormulaCheck.isLearned {
+	border-color: #24f0ea;
+	background: #24f0ea;
+}
+
+.memoryFormulaCheck.isLearned::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 10px;
+	height: 6px;
+	border-left: 2px solid #0a0a14;
+	border-bottom: 2px solid #0a0a14;
+	transform: translate(-50%, -65%) rotate(-45deg);
+}
+
+/* Checked + not learned: checkmark */
+.memoryFormulaCheck.isSelected {
+	border-color: #24f0ea;
+	background: transparent;
+}
+
+.memoryFormulaCheck.isSelected::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 10px;
+	height: 6px;
+	border-left: 2px solid #24f0ea;
+	border-bottom: 2px solid #24f0ea;
+	transform: translate(-50%, -65%) rotate(-45deg);
+}
+
+.memoryFormulaLabel {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	color: var(--controlText);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.memoryFormulaLabel strong {
+	color: var(--ink);
+}
+
+.memoryFormulaListWrap .memoryEditPlanBtn {
+	position: absolute;
+	bottom: 8px;
+	right: 8px;
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--surfaceSolid);
+	background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M17 37L36 18L43 11Q48 6 53 11Q58 16 53 21L46 28L27 47L17 37Z' fill='%235d4ea8'/%3E%3Cpath d='M13 51L17 37L27 47L13 51Z' fill='%2324f0ea'/%3E%3Cpath d='M15 39L25 49' stroke='%235d4ea8' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+	background-size: 20px 20px;
+	background-repeat: no-repeat;
+	background-position: center;
+	cursor: pointer;
+	transition: border-color 0.15s ease;
+	z-index: 2;
+}
+
+.memoryFormulaListWrap .memoryEditPlanBtn:hover {
+	border-color: #24f0ea;
+}
+
 .memoryToast {
 	position: fixed;
 	right: 20px;
