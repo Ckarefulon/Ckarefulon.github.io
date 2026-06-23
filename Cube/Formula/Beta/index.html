@@ -19,7 +19,7 @@
 	<script src="assets/hardware/moyucube.js?v=0286" defer></script>
 	<script src="assets/hardware/moyu32cube.js?v=0286" defer></script>
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
-	<script src="assets/memory.js?v=0477" defer></script>
+	<script src="assets/memory.js?v=0491" defer></script>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>学习模式</title>
@@ -989,6 +989,38 @@
 			font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 			font-weight: 700;
 			overflow-wrap: anywhere;
+		}
+
+		.practiceAoTimes {
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			gap: 6px;
+			margin-top: 8px;
+		}
+
+		.practiceAoTimes:empty {
+			display: none;
+		}
+
+		.practiceAoTime {
+			padding: 6px 3px;
+			border: 1px solid var(--line);
+			border-radius: 6px;
+			text-align: center;
+		}
+
+		.practiceAoTime span,
+		.practiceAoTime strong {
+			display: block;
+		}
+
+		.practiceAoTime span {
+			color: var(--muted);
+			font-size: 10px;
+		}
+
+		.practiceAoTime strong {
+			font-size: 13px;
 		}
 
 		.smartCheck {
@@ -2285,6 +2317,8 @@
 				thumbnailPitch: 0,
 				moveCount: 0,
 				movesSinceState: 0,
+				practiceSolveStartTime: null,
+				stateSolveTimes: {},
 				lastCubePrevMoves: [],
 				lastCubeHistoryStamp: null,
 				pendingCubeMove: null,
@@ -2376,6 +2410,7 @@
 						showPracticeFormula: document.getElementById("showPracticeFormula"),
 						practiceFormulaText: document.getElementById("practiceFormulaText"),
 						practiceFormulaToggle: document.getElementById("practiceFormulaToggle"),
+						practiceAoTimes: document.getElementById("practiceAoTimes"),
 						stateImportStatus: document.getElementById("stateImportStatus"),
 						stateList: document.getElementById("stateList"),
 						macHelp: document.getElementById("macHelp"),
@@ -2749,7 +2784,7 @@
 				},
 
 				getStateImportHtml: function(showThumbOption, practiceCards) {
-					return '<section class="panelSection stateImport" id="stateImport"><div id="stateDropZone" class="importDropZone">拖入 TXT 状态文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea><button id="parseStateTextBtn" class="button small" type="button">导入文本</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showStateThumbs" type="checkbox"><span class="checkVisual"></span><span>显示状态缩略图</span></label><label class="stateOptions smartCheck"><input id="stateDisplayFormula" name="stateDisplayMode" type="radio" value="formula"><span class="checkVisual"></span><span>公式</span></label><label class="stateOptions smartCheck"><input id="stateDisplayState" name="stateDisplayMode" type="radio" value="state"><span class="checkVisual"></span><span>状态</span></label></div>' : "") + '<div id="stateImportStatus" class="importStatus">未导入状态</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label>' : "") + '<div id="stateList" class="stateList"></div></section>';
+					return '<section class="panelSection stateImport" id="stateImport"><div id="stateDropZone" class="importDropZone">拖入 TXT 状态文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea><button id="parseStateTextBtn" class="button small" type="button">导入文本</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showStateThumbs" type="checkbox"><span class="checkVisual"></span><span>显示状态缩略图</span></label><label class="stateOptions smartCheck"><input id="stateDisplayFormula" name="stateDisplayMode" type="radio" value="formula"><span class="checkVisual"></span><span>公式</span></label><label class="stateOptions smartCheck"><input id="stateDisplayState" name="stateDisplayMode" type="radio" value="state"><span class="checkVisual"></span><span>状态</span></label></div>' : "") + '<div id="stateImportStatus" class="importStatus">未导入状态</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"></div>' : "") + '<div id="stateList" class="stateList"></div></section>';
 				},
 
 				getDiagnosticsHtml: function(hidden) {
@@ -4482,6 +4517,7 @@
 				importStateText: function(text, source) {
 					var result = this.parseStateDefinitions(text || "");
 					this.importedStates = result.states;
+					this.stateSolveTimes = {};
 					this.renderStateList();
 					this.setImportStatus("已导入 " + result.states.length + " 个状态" + (result.skipped ? "，跳过 " + result.skipped + " 条" : ""));
 					this.updatePracticeFormulaToggle();
@@ -4738,6 +4774,52 @@
 					}
 				},
 
+				updatePracticeAoTimes: function() {
+					if (!this.elements.practiceAoTimes) {
+						return;
+					}
+					var state = this.importedStates[this.currentStateIndex];
+					var key = state ? state.name : String(this.currentStateIndex);
+					var times = this.stateSolveTimes[key] || [];
+					if (!times.length) {
+						this.elements.practiceAoTimes.innerHTML = "";
+						return;
+					}
+					var self = this;
+					var latest = times[times.length - 1];
+					var stats = [5, 10, 50].map(function(count) {
+						return self.formatPracticeDuration(self.averageOfPractice(times, count));
+					});
+					this.elements.practiceAoTimes.innerHTML =
+						'<div class="practiceAoTime"><span>本次</span><strong>' + this.formatPracticeDuration(latest) + '</strong></div>' +
+						'<div class="practiceAoTime"><span>AO5</span><strong>' + stats[0] + '</strong></div>' +
+						'<div class="practiceAoTime"><span>AO10</span><strong>' + stats[1] + '</strong></div>' +
+						'<div class="practiceAoTime"><span>AO50</span><strong>' + stats[2] + '</strong></div>';
+				},
+
+				formatPracticeDuration: function(value) {
+					if (typeof value !== "number" || !isFinite(value)) {
+						return "--";
+					}
+					return (value / 1000).toFixed(2) + "s";
+				},
+
+				averageOfPractice: function(times, count) {
+					if (!Array.isArray(times) || times.length < count) {
+						return null;
+					}
+					var sample = times.slice(times.length - count).filter(function(value) {
+						return typeof value === "number" && isFinite(value);
+					});
+					if (sample.length < count) {
+						return null;
+					}
+					sample.sort(function(a, b) { return a - b; });
+					var trim = Math.max(1, Math.ceil(count * 0.05));
+					var middle = sample.slice(trim, sample.length - trim);
+					return middle.reduce(function(sum, value) { return sum + value; }, 0) / middle.length;
+				},
+
 				renderStatePreview: function(container, state) {
 					var previewScene = new twistyjs.TwistyScene();
 					container.appendChild(previewScene.getDomElement());
@@ -4779,6 +4861,7 @@
 						this.currentStateIndex = index;
 						this.movesSinceState = 0;
 						this.seenUnsolvedSinceState = false;
+						this.practiceSolveStartTime = null;
 						this.seenUnsolvedFaceletSinceState = false;
 						this.seenUnsolvedVirtualSinceState = false;
 						this.lastFaceletSolved = false;
@@ -4803,6 +4886,7 @@
 					this.elements.lastTs.textContent = this.formatTime(Date.now());
 					this.setImportStatus((this.isPracticeMode ? "当前状态：" : "已应用：") + state.name);
 					this.updatePracticeFormulaToggle();
+					this.updatePracticeAoTimes();
 					this.log("state", "applied " + state.name);
 				},
 
@@ -4845,6 +4929,19 @@
 						return;
 					}
 					this.solvedAdvancePending = true;
+					if (this.practiceSolveStartTime !== null) {
+						var solveTime = performance.now() - this.practiceSolveStartTime;
+						var state = this.importedStates[this.currentStateIndex];
+						var key = state ? state.name : String(this.currentStateIndex);
+						if (!this.stateSolveTimes[key]) {
+							this.stateSolveTimes[key] = [];
+						}
+						this.stateSolveTimes[key].push(solveTime);
+						if (this.stateSolveTimes[key].length > 200) {
+							this.stateSolveTimes[key] = this.stateSolveTimes[key].slice(-200);
+						}
+						this.updatePracticeAoTimes();
+					}
 					this.setImportStatus(this.practiceMode === "loop" ? "已还原，0.7 秒后循环" : "已还原，0.7 秒后切换");
 					this.solveSwitchTimer = setTimeout(function() {
 						self.solveSwitchTimer = null;
@@ -5518,6 +5615,9 @@
 						this.moveCount += 1;
 						if (options.fromCube) {
 							this.movesSinceState += 1;
+							if (this.isPracticeMode && this.practiceSolveStartTime === null) {
+								this.practiceSolveStartTime = performance.now();
+							}
 						}
 						this.elements.moveCount.textContent = String(this.moveCount);
 					}
@@ -5561,6 +5661,9 @@
 						this.moveCount += 1;
 						if (options.fromCube) {
 							this.movesSinceState += 1;
+							if (this.isPracticeMode && this.practiceSolveStartTime === null) {
+								this.practiceSolveStartTime = performance.now();
+							}
 						}
 						this.elements.moveCount.textContent = String(this.moveCount);
 					}

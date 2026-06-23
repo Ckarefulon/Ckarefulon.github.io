@@ -23,6 +23,7 @@
 		firstMoveTime: null,
 		attemptStartTime: null,
 		accumulatedSolveTime: 0,
+		accumulatedReactionTime: 0,
 		solveTime: null,
 		reactionTime: null,
 		retried: false,
@@ -286,6 +287,7 @@
 		memory.firstMoveTime = null;
 		memory.attemptStartTime = null;
 		memory.accumulatedSolveTime = 0;
+		memory.accumulatedReactionTime = 0;
 		memory.solveTime = null;
 		memory.reactionTime = null;
 		memory.retried = false;
@@ -456,7 +458,7 @@
 			return '<button class="memoryOption' + (index === memory.selectedRating ? ' isSelected' : '') + '" style="--memoryColor:' + RATING_COLORS[index] + '" type="button" data-memory-rating="' + index + '">' + app.escapeHtml(label) + '</button>';
 		}).join("");
 		current.innerHTML = '<button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><div class="memoryAnswer"><strong class="memoryAnswerName">' + app.escapeHtml(memory.currentFormula.name) + '</strong><div class="memoryAnswerFormula">' + app.escapeHtml(memory.currentFormula.answer || memory.currentFormula.alg || "") + '</div></div>' +
-			'<div class="memoryTimes"><div class="memoryTime"><span>本次</span><strong>' + formatDuration(memory.solveTime) + '</strong></div><div class="memoryTime"><span>AO5</span><strong>' + stats[0] + '</strong></div><div class="memoryTime"><span>AO10</span><strong>' + stats[1] + '</strong></div><div class="memoryTime"><span>AO50</span><strong>' + stats[2] + '</strong></div></div>' +
+			'<div class="memoryTimes"><div class="memoryTime"><span>反应</span><strong>' + formatDuration(memory.reactionTime) + '</strong></div><div class="memoryTime"><span>AO5</span><strong>' + stats[0] + '</strong></div><div class="memoryTime"><span>AO10</span><strong>' + stats[1] + '</strong></div><div class="memoryTime"><span>AO50</span><strong>' + stats[2] + '</strong></div></div>' +
 			'<p class="memoryControlHint">(R R\') 确认；D 右移；D\' 左移。</p><div class="memoryOptions">' + options + '</div>';
 	}
 
@@ -588,6 +590,9 @@
 		if (memory.attemptStartTime !== null) {
 			memory.accumulatedSolveTime += Math.max(0, now - memory.attemptStartTime);
 		}
+		if (typeof memory.reactionTime === "number") {
+			memory.accumulatedReactionTime += memory.reactionTime;
+		}
 		memory.retried = true;
 		memory.state = "hidden";
 		memory.firstMoveTime = null;
@@ -611,6 +616,9 @@
 		} else {
 			memory.solveTime = null;
 		}
+		if (typeof memory.reactionTime === "number") {
+			memory.reactionTime = memory.accumulatedReactionTime + memory.reactionTime;
+		}
 		memory.state = "answer";
 		memory.answerReason = reason || "reveal";
 		memory.selectedRating = 3;
@@ -627,6 +635,9 @@
 		var now = performance.now();
 		memory.accumulatedSolveTime += Math.max(0, now - memory.attemptStartTime);
 		memory.solveTime = memory.accumulatedSolveTime;
+		if (typeof memory.reactionTime === "number") {
+			memory.reactionTime = memory.accumulatedReactionTime + memory.reactionTime;
+		}
 		memory.state = "answer";
 		memory.answerReason = "solved";
 		if (memory.retried || memory.repeatedMove) {
@@ -737,8 +748,8 @@
 				reinforcement: !!item.reinforcement,
 				time: new Date()
 			});
-			if (memory.answerReason === "solved" && typeof memory.solveTime === "number") {
-				progress.aoTimes.push(memory.solveTime);
+			if (memory.answerReason === "solved" && typeof memory.reactionTime === "number") {
+				progress.aoTimes.push(memory.reactionTime);
 				if (progress.aoTimes.length > 200) {
 					progress.aoTimes = progress.aoTimes.slice(-200);
 				}
