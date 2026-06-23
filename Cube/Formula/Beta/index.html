@@ -167,6 +167,26 @@
 			margin: auto;
 		}
 
+		.practiceSolvedCheck {
+			position: absolute;
+			left: 5%;
+			bottom: 5%;
+			font-size: clamp(48px, 12vw, 120px);
+			line-height: 1;
+			color: #24f0ea;
+			text-shadow: 0 0 18px rgba(36, 240, 234, 0.55), 0 4px 14px rgba(0, 0, 0, 0.18);
+			pointer-events: none;
+			opacity: 0;
+			transform: scale(0.85);
+			transition: opacity 0.22s ease, transform 0.22s ease;
+			z-index: 5;
+		}
+
+		.practiceSolvedCheck.isVisible {
+			opacity: 1;
+			transform: scale(1);
+		}
+
 		.touchcube {
 			position: absolute;
 			inset: 0;
@@ -2000,6 +2020,7 @@
 				</div>
 			</div>
 			<div id="cubeStage"></div>
+			<div id="practiceSolvedCheck" class="practiceSolvedCheck" aria-hidden="true">✔</div>
 		</section>
 
 		<aside class="panel">
@@ -2373,6 +2394,7 @@
 				refreshElements: function() {
 					this.elements = {
 						cubeStage: document.getElementById("cubeStage"),
+						practiceSolvedCheck: document.getElementById("practiceSolvedCheck"),
 						modeSwitcher: document.getElementById("modeSwitcher"),
 						modeCurrent: document.getElementById("modeCurrent"),
 						modeIcon: document.getElementById("modeIcon"),
@@ -4852,6 +4874,7 @@
 					if (!state) {
 						return;
 					}
+					this.hidePracticeSolvedCheck();
 					var savedViewYaw = this.viewYaw || 0;
 					var savedViewPitch = this.viewPitch || 0;
 					this.moveHistory = [];
@@ -4915,12 +4938,25 @@
 					});
 				},
 
+				showPracticeSolvedCheck: function() {
+					if (this.elements.practiceSolvedCheck) {
+						this.elements.practiceSolvedCheck.classList.add("isVisible");
+					}
+				},
+
+				hidePracticeSolvedCheck: function() {
+					if (this.elements.practiceSolvedCheck) {
+						this.elements.practiceSolvedCheck.classList.remove("isVisible");
+					}
+				},
+
 				cancelSolvedAdvance: function() {
 					if (this.solveSwitchTimer) {
 						clearTimeout(this.solveSwitchTimer);
 						this.solveSwitchTimer = null;
 					}
 					this.solvedAdvancePending = false;
+					this.hidePracticeSolvedCheck();
 				},
 
 				scheduleSolvedAdvance: function() {
@@ -4942,13 +4978,18 @@
 						this.updatePracticeAoTimes();
 					}
 					this.setImportStatus(this.practiceMode === "loop" ? "已还原，正在循环" : "已还原，正在切换");
-					this.solveSwitchTimer = null;
-					this.solvedAdvancePending = false;
-					if (this.practiceMode === "loop") {
-						this.applyImportedState(this.currentStateIndex);
-					} else {
-						this.advancePracticeState();
-					}
+					this.showPracticeSolvedCheck();
+					var self = this;
+					this.solveSwitchTimer = setTimeout(function() {
+						self.solveSwitchTimer = null;
+						self.solvedAdvancePending = false;
+						self.hidePracticeSolvedCheck();
+						if (self.practiceMode === "loop") {
+							self.applyImportedState(self.currentStateIndex);
+						} else {
+							self.advancePracticeState();
+						}
+					}, 700);
 				},
 
 				advancePracticeState: function() {
