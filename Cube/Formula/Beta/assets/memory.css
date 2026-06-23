@@ -533,6 +533,138 @@
 	color: var(--muted);
 }
 
+.memoryCompletionCheck {
+	width: 64px;
+	height: 64px;
+	border-radius: 50%;
+	background: #24f0ea;
+	position: relative;
+	margin-bottom: 8px;
+	flex-shrink: 0;
+}
+
+.memoryCompletionCheck::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 28px;
+	height: 14px;
+	border-left: 5px solid #0a0a14;
+	border-bottom: 5px solid #0a0a14;
+	transform: translate(-50%, -65%) rotate(-45deg);
+}
+
+.memoryCompletionText {
+	margin: 0;
+	font-size: 15px;
+	color: var(--controlText);
+	text-align: center;
+	line-height: 1.6;
+}
+
+#memoryCompletionBtn {
+	margin-top: 8px;
+}
+
+.memoryDuePanel {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 14px;
+	padding: 20px 16px;
+}
+
+.memoryDueTitle {
+	margin: 0;
+	font-size: 14px;
+	color: var(--muted);
+}
+
+.memoryDueGrid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 10px;
+	width: 100%;
+	max-width: 300px;
+}
+
+.memoryDueBtn {
+	padding: 14px 8px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 8px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	font-size: 15px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: border-color 0.15s ease, background 0.15s ease;
+	text-align: center;
+}
+
+.memoryDueBtn:hover {
+	border-color: #24f0ea;
+	background: rgba(36, 240, 234, 0.08);
+}
+
+.memoryDueBtnAll {
+	grid-column: span 1;
+}
+
+.memoryDueCustomRow {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+	max-width: 300px;
+}
+
+.memoryDueCustom {
+	flex: 1 1 auto;
+	width: 100%;
+	padding: 14px 12px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 8px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	font-size: 15px;
+	font-weight: 600;
+	text-align: center;
+	outline: none;
+	transition: border-color 0.15s ease;
+}
+
+.memoryDueCustom:focus {
+	border-color: #24f0ea;
+}
+
+.memoryDueSubmit {
+	flex: 0 0 auto;
+	width: 44px;
+	height: 44px;
+	border: none;
+	border-radius: 8px;
+	background: #24f0ea;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: opacity 0.15s ease;
+}
+
+.memoryDueSubmit:hover {
+	opacity: 0.85;
+}
+
+.memoryDueCheckIcon {
+	display: block;
+	width: 20px;
+	height: 12px;
+	border-left: 3px solid #0a0a14;
+	border-bottom: 3px solid #0a0a14;
+	transform: rotate(-45deg) translate(1px, -1px);
+}
+
 .memoryCalendar {
 	width: 100%;
 	display: flex;

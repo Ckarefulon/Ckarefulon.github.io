@@ -45,6 +45,7 @@
 			schemaVersion: SCHEMA_VERSION,
 			planText: "",
 			formulas: [],
+			allFormulas: [],
 			progress: {},
 			settings: { dailyCount: 10 },
 			day: { studyDate: "", learnedIds: [] },
@@ -73,6 +74,7 @@
 		base.queue = Array.isArray(base.queue) ? base.queue : [];
 		base.todayQueue = Array.isArray(base.todayQueue) ? base.todayQueue : [];
 		base.undoStack = Array.isArray(base.undoStack) ? base.undoStack : [];
+		base.allFormulas = Array.isArray(base.allFormulas) ? base.allFormulas : [];
 		base.thresholdData = Object.assign({ threshold: 500, precision: 2 }, base.thresholdData || {});
 		base.progress = base.progress || {};
 		return reviveDates(base);
@@ -298,7 +300,6 @@
 		memory.lastAnswerMove = null;
 		if (!memory.currentFormula) {
 			renderIdleMemory();
-			maybeOfferDueContinuation();
 			return;
 		}
 		applyMemoryFormula();
@@ -339,8 +340,26 @@
 		}
 		var learnedCount = memory.data.day.learnedIds.length;
 		var dailyCount = memory.data.settings.dailyCount;
-		if (learnedCount >= dailyCount && dailyCount > 0) {
-			renderCompletionCalendar(current);
+		var due = remainingDueItems();
+		var hasDue = due.length > 0;
+		var planDone = learnedCount >= dailyCount && dailyCount > 0;
+
+		if (planDone && !hasDue) {
+			renderCompletionCheck(current, "已完成所有学习任务！", "签到", function() {
+				renderCompletionCalendar(current);
+			});
+			return;
+		}
+		if (planDone && hasDue) {
+			renderCompletionCheck(current, "已完成规划学习任务！<br/>但仍有公式今日到期。", "继续学习", function() {
+				renderDueContinuationPanel(current, due);
+			});
+			return;
+		}
+		if (!planDone && !memory.data.queue.length && !hasDue && memory.data.formulas.length > 0) {
+			renderCompletionCheck(current, "已完成复习学习任务！<br/>但未达今日规划目标。", "加入公式", function() {
+				openPlanDialog();
+			});
 			return;
 		}
 		current.innerHTML = '<button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">请开始还原…<br>点击此处显示答案。</button>';
@@ -348,6 +367,68 @@
 		if (history) {
 			history.innerHTML = '<div class="memoryEmptyHistory">' + (memory.data.formulas.length ? "今日没有待学习公式" : "请先规划学习公式") + '</div>';
 		}
+	}
+
+	function renderCompletionCheck(current, message, buttonText, buttonAction) {
+		var html = '<div class="memoryCompletion"><div class="memoryCompletionCheck" aria-hidden="true"></div><p class="memoryCompletionText">' + message + '</p>';
+		if (buttonText && buttonAction) {
+			html += '<button id="memoryCompletionBtn" class="button" type="button">' + app.escapeHtml(buttonText) + '</button>';
+		}
+		html += '</div>';
+		current.innerHTML = html;
+		var history = document.getElementById("memoryHistory");
+		if (history) { history.innerHTML = ""; }
+		if (buttonText && buttonAction) {
+			document.getElementById("memoryCompletionBtn").addEventListener("click", buttonAction);
+		}
+	}
+
+	function renderDueContinuationPanel(current, due) {
+		var dueCount = due.length;
+		var presets = [5, 10, 20, 50, 70];
+		var html = '<div class="memoryDuePanel"><p class="memoryDueTitle">选择要加入的公式数量</p><div class="memoryDueGrid">';
+		for (var i = 0; i < presets.length; i++) {
+			html += '<button class="memoryDueBtn" type="button" data-count="' + presets[i] + '">' + presets[i] + '</button>';
+		}
+		html += '<button class="memoryDueBtn memoryDueBtnAll" type="button" data-count="' + dueCount + '">全部(' + dueCount + ')</button>';
+		html += '</div><div class="memoryDueCustomRow"><input id="memoryDueCustomInput" class="memoryDueCustom" type="number" min="1" max="' + dueCount + '" placeholder="自定义" value=""><button id="memoryDueSubmit" class="memoryDueSubmit" type="button" title="提交" aria-label="提交"><span class="memoryDueCheckIcon" aria-hidden="true"></span></button></div></div>';
+		current.innerHTML = html;
+
+		function addDue(count) {
+			var n = Math.min(count, dueCount);
+			buildDailyQueue(true);
+			memory.data.queue = memory.data.queue.slice(0, n);
+			saveData();
+			startNextFormula();
+		}
+
+		var grid = current.querySelector(".memoryDueGrid");
+		grid.addEventListener("click", function(e) {
+			var btn = e.target.closest(".memoryDueBtn");
+			if (!btn) return;
+			var count = parseInt(btn.getAttribute("data-count"), 10);
+			if (count > 0) addDue(count);
+		});
+
+		var submitBtn = current.querySelector("#memoryDueSubmit");
+		submitBtn.addEventListener("click", function() {
+			var input = document.getElementById("memoryDueCustomInput");
+			var val = parseInt(input.value, 10);
+			if (!val || val < 1) {
+				showToast("请输入有效的数量");
+				return;
+			}
+			addDue(val);
+		});
+
+		var customInput = current.querySelector("#memoryDueCustomInput");
+		customInput.addEventListener("keydown", function(e) {
+			if (e.key === "Enter") {
+				e.preventDefault();
+				submitBtn.click();
+			}
+		});
+		customInput.focus();
 	}
 
 	function renderCompletionCalendar(current) {
@@ -864,7 +945,7 @@
 			showToast("未读取到有效公式，请使用“名称：公式;”格式");
 			return false;
 		}
-		var previous = memory.data.formulas.slice();
+		var previous = (memory.data.allFormulas || memory.data.formulas || []).slice();
 		var formulas = parsed.states.map(function(state, index) {
 			var same = previous[index] && previous[index].name === state.name && previous[index].alg === state.alg ? previous[index] : null;
 			var id = same ? same.id : "memory_formula_" + Date.now() + "_" + memory.data.idSeed++;
@@ -880,6 +961,7 @@
 		});
 		memory.data.planText = String(text || "");
 		memory.data.formulas = formulas;
+		memory.data.allFormulas = formulas.slice();
 		memory.data.queue = [];
 		memory.data.todayQueue = [];
 		memory.data.undoStack = [];
@@ -905,13 +987,14 @@
 			commitPlanText(joinPlanText(memory.data.planText, memory.pendingAutofill));
 			memory.pendingAutofill = "";
 		}
+		var allFormulas = memory.data.allFormulas && memory.data.allFormulas.length ? memory.data.allFormulas : (memory.data.formulas || []);
 		var formulas = memory.data.formulas || [];
 		var selectedIds = {};
 		formulas.forEach(function(f) { selectedIds[f.id] = true; });
 
 		function renderFormulaList(container) {
 			var html = '';
-			formulas.forEach(function(f) {
+			allFormulas.forEach(function(f) {
 				var learned = !isNewFormula(f.id);
 				var checked = selectedIds[f.id];
 				var checkClass = 'memoryFormulaCheck';
@@ -946,13 +1029,14 @@
 		renderFormulaList(listContainer);
 
 		overlay.querySelector("#memorySavePlanBtn").addEventListener("click", function() {
-			var kept = formulas.filter(function(f) { return selectedIds[f.id]; });
+			var kept = allFormulas.filter(function(f) { return selectedIds[f.id]; });
 			if (kept.length === 0) {
 				showToast("请至少选择一个公式");
 				return;
 			}
 			memory.data.formulas = kept;
-			memory.data.planText = formulasToPlanText(kept);
+			memory.data.allFormulas = allFormulas.slice();
+			memory.data.planText = formulasToPlanText(allFormulas);
 			memory.data.queue = [];
 			memory.data.todayQueue = [];
 			memory.data.undoStack = [];
@@ -971,9 +1055,9 @@
 		});
 
 		overlay.querySelector("#memoryEditPlanBtn").addEventListener("click", function() {
-			openPlanEditDialog(formulas, selectedIds, function() {
-				formulas = memory.data.formulas.slice();
-				formulas.forEach(function(f) {
+			openPlanEditDialog(allFormulas, selectedIds, function() {
+				allFormulas = memory.data.allFormulas.slice();
+				allFormulas.forEach(function(f) {
 					if (!(f.id in selectedIds)) {
 						selectedIds[f.id] = true;
 					}
