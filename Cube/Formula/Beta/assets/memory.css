@@ -239,6 +239,14 @@
 	overscroll-behavior: contain;
 }
 
+.memoryHistory.isHidden {
+	display: none;
+}
+
+.memoryArea:has(.memoryHistory.isHidden) {
+	grid-template-rows: minmax(0, 1fr);
+}
+
 .memoryHistoryTitle {
 	position: sticky;
 	top: -10px;
@@ -521,6 +529,10 @@
 	padding: 20px 16px;
 }
 
+.memoryCompletion .button {
+	width: 50%;
+}
+
 .memoryCompletion h2 {
 	margin: 0;
 	font-size: 18px;
@@ -567,12 +579,51 @@
 	margin-top: 8px;
 }
 
+#memoryCompletionSecondaryBtn {
+	margin-top: 4px;
+}
+
 .memoryDuePanel {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 14px;
-	padding: 20px 16px;
+	gap: 18px;
+	padding: 24px 20px;
+}
+
+.memoryDueGrid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+	width: 100%;
+	max-width: none;
+}
+
+.memoryDueBtn {
+	width: 100%;
+	padding: 16px 12px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 10px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	font-size: 16px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: border-color 0.15s ease, background 0.15s ease;
+	text-align: center;
+}
+
+.memoryDueBtnAll {
+	width: 100%;
+	grid-column: span 2;
+}
+
+.memoryDueCustomRow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	width: 100%;
+	max-width: none;
 }
 
 .memoryDueTitle {
@@ -581,53 +632,20 @@
 	color: var(--muted);
 }
 
-.memoryDueGrid {
-	display: grid;
-	grid-template-columns: repeat(3, 1fr);
-	gap: 10px;
-	width: 100%;
-	max-width: 300px;
-}
-
-.memoryDueBtn {
-	padding: 14px 8px;
-	border: 1px solid var(--controlBorder);
-	border-radius: 8px;
-	background: var(--controlBg);
-	color: var(--controlText);
-	font-size: 15px;
-	font-weight: 600;
-	cursor: pointer;
-	transition: border-color 0.15s ease, background 0.15s ease;
-	text-align: center;
-}
-
 .memoryDueBtn:hover {
 	border-color: #24f0ea;
 	background: rgba(36, 240, 234, 0.08);
 }
 
-.memoryDueBtnAll {
-	grid-column: span 1;
-}
-
-.memoryDueCustomRow {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	width: 100%;
-	max-width: 300px;
-}
-
 .memoryDueCustom {
 	flex: 1 1 auto;
 	width: 100%;
-	padding: 14px 12px;
+	padding: 16px 12px;
 	border: 1px solid var(--controlBorder);
-	border-radius: 8px;
+	border-radius: 10px;
 	background: var(--controlBg);
 	color: var(--controlText);
-	font-size: 15px;
+	font-size: 16px;
 	font-weight: 600;
 	text-align: center;
 	outline: none;
@@ -640,10 +658,10 @@
 
 .memoryDueSubmit {
 	flex: 0 0 auto;
-	width: 44px;
-	height: 44px;
+	width: 48px;
+	height: 48px;
 	border: none;
-	border-radius: 8px;
+	border-radius: 10px;
 	background: #24f0ea;
 	cursor: pointer;
 	display: flex;
@@ -658,8 +676,8 @@
 
 .memoryDueCheckIcon {
 	display: block;
-	width: 20px;
-	height: 12px;
+	width: 22px;
+	height: 13px;
 	border-left: 3px solid #0a0a14;
 	border-bottom: 3px solid #0a0a14;
 	transform: rotate(-45deg) translate(1px, -1px);
@@ -669,20 +687,42 @@
 	width: 100%;
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: 12px;
 	margin-top: 8px;
 }
 
-.memoryCalendarMonth {
+.memoryCalendarNav {
 	display: flex;
-	flex-direction: column;
-	gap: 6px;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+}
+
+.memoryCalendarNavBtn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border: none;
+	background: none;
+	cursor: pointer;
+	padding: 0;
+	border-radius: 4px;
+	transition: background 0.15s ease;
+}
+
+.memoryCalendarNavBtn:hover {
+	background: rgba(36, 240, 234, 0.12);
 }
 
 .memoryCalendarTitle {
 	font-size: 13px;
 	font-weight: 600;
 	color: var(--ink);
+	margin: 0 12px;
+	min-width: 80px;
+	text-align: center;
 }
 
 .memoryCalendarGrid {

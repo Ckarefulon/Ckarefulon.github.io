@@ -276,14 +276,26 @@
 		ensureStudyDay();
 		memory.promptedContinue = false;
 		updatePlanCounter();
+		showHistoryPanel();
 		if (!memory.data.queue.length) {
 			buildDailyQueue(false);
 		}
 		startNextFormula();
 	}
 
+	function hideHistoryPanel() {
+		var history = document.getElementById("memoryHistory");
+		if (history) { history.classList.add("isHidden"); }
+	}
+
+	function showHistoryPanel() {
+		var history = document.getElementById("memoryHistory");
+		if (history) { history.classList.remove("isHidden"); }
+	}
+
 	function startNextFormula() {
 		stopTimer();
+		showHistoryPanel();
 		memory.currentItem = memory.data.queue[0] || null;
 		memory.currentFormula = memory.currentItem ? findFormula(memory.currentItem.id) : null;
 		memory.state = "hidden";
@@ -343,9 +355,12 @@
 		var due = remainingDueItems();
 		var hasDue = due.length > 0;
 		var planDone = learnedCount >= dailyCount && dailyCount > 0;
+		hideHistoryPanel();
 
 		if (planDone && !hasDue) {
-			renderCompletionCheck(current, "已完成所有学习任务！", "签到", function() {
+			renderCompletionCheck(current, "已完成所有学习任务！", "完成签到", function() {
+				renderCompletionCalendar(current);
+			}, "直接签到", function() {
 				renderCompletionCalendar(current);
 			});
 			return;
@@ -353,12 +368,16 @@
 		if (planDone && hasDue) {
 			renderCompletionCheck(current, "已完成规划学习任务！<br/>但仍有公式今日到期。", "继续学习", function() {
 				renderDueContinuationPanel(current, due);
+			}, "直接签到", function() {
+				renderCompletionCalendar(current);
 			});
 			return;
 		}
 		if (!planDone && !memory.data.queue.length && !hasDue && memory.data.formulas.length > 0) {
 			renderCompletionCheck(current, "已完成复习学习任务！<br/>但未达今日规划目标。", "加入公式", function() {
 				openPlanDialog();
+			}, "直接签到", function() {
+				renderCompletionCalendar(current);
 			});
 			return;
 		}
@@ -369,10 +388,13 @@
 		}
 	}
 
-	function renderCompletionCheck(current, message, buttonText, buttonAction) {
+	function renderCompletionCheck(current, message, buttonText, buttonAction, secondaryText, secondaryAction) {
 		var html = '<div class="memoryCompletion"><div class="memoryCompletionCheck" aria-hidden="true"></div><p class="memoryCompletionText">' + message + '</p>';
 		if (buttonText && buttonAction) {
 			html += '<button id="memoryCompletionBtn" class="button" type="button">' + app.escapeHtml(buttonText) + '</button>';
+		}
+		if (secondaryText && secondaryAction) {
+			html += '<button id="memoryCompletionSecondaryBtn" class="button secondary" type="button">' + app.escapeHtml(secondaryText) + '</button>';
 		}
 		html += '</div>';
 		current.innerHTML = html;
@@ -380,6 +402,9 @@
 		if (history) { history.innerHTML = ""; }
 		if (buttonText && buttonAction) {
 			document.getElementById("memoryCompletionBtn").addEventListener("click", buttonAction);
+		}
+		if (secondaryText && secondaryAction) {
+			document.getElementById("memoryCompletionSecondaryBtn").addEventListener("click", secondaryAction);
 		}
 	}
 
@@ -390,8 +415,8 @@
 		for (var i = 0; i < presets.length; i++) {
 			html += '<button class="memoryDueBtn" type="button" data-count="' + presets[i] + '">' + presets[i] + '</button>';
 		}
-		html += '<button class="memoryDueBtn memoryDueBtnAll" type="button" data-count="' + dueCount + '">全部(' + dueCount + ')</button>';
-		html += '</div><div class="memoryDueCustomRow"><input id="memoryDueCustomInput" class="memoryDueCustom" type="number" min="1" max="' + dueCount + '" placeholder="自定义" value=""><button id="memoryDueSubmit" class="memoryDueSubmit" type="button" title="提交" aria-label="提交"><span class="memoryDueCheckIcon" aria-hidden="true"></span></button></div></div>';
+		html += '<button class="memoryDueBtn memoryDueBtnAll" type="button" data-count="' + dueCount + '">全部(' + dueCount + ')</button></div>';
+		html += '<div class="memoryDueCustomRow"><input id="memoryDueCustomInput" class="memoryDueCustom" type="number" min="1" max="' + dueCount + '" placeholder="自定义" value=""><button id="memoryDueSubmit" class="memoryDueSubmit" type="button" title="提交" aria-label="提交"><span class="memoryDueCheckIcon" aria-hidden="true"></span></button></div></div>';
 		current.innerHTML = html;
 
 		function addDue(count) {
@@ -431,7 +456,7 @@
 		customInput.focus();
 	}
 
-	function renderCompletionCalendar(current) {
+	function renderCompletionCalendar(current, focusYear, focusMonth) {
 		var studyDates = {};
 		var formulas = memory.data.formulas || [];
 		for (var i = 0; i < formulas.length; i++) {
@@ -451,38 +476,50 @@
 			if (history) { history.innerHTML = ""; }
 			return;
 		}
-		var months = {};
-		for (var k = 0; k < dates.length; k++) {
-			var month = dates[k].slice(0, 7);
-			if (!months[month]) { months[month] = {}; }
-			months[month][dates[k]] = studyDates[dates[k]];
-		}
-		var monthKeys = Object.keys(months).sort();
-		var calendarHtml = [];
-		for (var m = 0; m < monthKeys.length; m++) {
-			var monthKey = monthKeys[m];
-			var parts = monthKey.split("-");
-			var year = parseInt(parts[0], 10);
-			var mon = parseInt(parts[1], 10);
-			var daysInMonth = new Date(year, mon, 0).getDate();
-			var firstDow = new Date(year, mon - 1, 1).getDay();
-			var monthDays = months[monthKey];
-			calendarHtml.push('<div class="memoryCalendarMonth"><div class="memoryCalendarTitle">' + year + '年' + mon + '月</div><div class="memoryCalendarGrid">');
-			calendarHtml.push('<span class="memoryCalendarDow">日</span><span class="memoryCalendarDow">一</span><span class="memoryCalendarDow">二</span><span class="memoryCalendarDow">三</span><span class="memoryCalendarDow">四</span><span class="memoryCalendarDow">五</span><span class="memoryCalendarDow">六</span>');
-			for (var d = 0; d < firstDow; d++) {
-				calendarHtml.push('<span class="memoryCalendarDay isPlaceholder"></span>');
-			}
-			for (var day = 1; day <= daysInMonth; day++) {
-				var dateKey = monthKey + "-" + String(day).padStart(2, "0");
-				var isDone = !!monthDays[dateKey];
-				calendarHtml.push('<span class="memoryCalendarDay' + (isDone ? ' isDone' : '') + '">' + day + '</span>');
-			}
-			calendarHtml.push('</div></div>');
-		}
 		var totalDays = dates.length;
+		if (focusYear == null) {
+			var lastDate = dates[dates.length - 1];
+			focusYear = parseInt(lastDate.slice(0, 4), 10);
+			focusMonth = parseInt(lastDate.slice(5, 7), 10);
+		}
+		var monthKey = focusYear + "-" + String(focusMonth).padStart(2, "0");
+		var daysInMonth = new Date(focusYear, focusMonth, 0).getDate();
+		var firstDow = new Date(focusYear, focusMonth - 1, 1).getDay();
+		var monthDays = {};
+		dates.forEach(function(d) {
+			if (d.slice(0, 7) === monthKey) {
+				monthDays[d] = studyDates[d];
+			}
+		});
+		var calendarHtml = [];
+		calendarHtml.push('<div class="memoryCalendarNav">');
+		calendarHtml.push('<button class="memoryCalendarNavBtn" type="button" data-year="' + (focusYear - 1) + '" data-month="' + focusMonth + '" aria-label="上一年" title="上一年"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M10 3L5 8l5 5" stroke="#24f0ea" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3L9 8l5 5" stroke="#24f0ea" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>');
+		calendarHtml.push('<button class="memoryCalendarNavBtn" type="button" data-year="' + (focusMonth === 1 ? focusYear - 1 : focusYear) + '" data-month="' + (focusMonth === 1 ? 12 : focusMonth - 1) + '" aria-label="上月" title="上月"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M10 3L5 8l5 5" stroke="#24f0ea" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>');
+		calendarHtml.push('<span class="memoryCalendarTitle">' + focusYear + '年' + focusMonth + '月</span>');
+		calendarHtml.push('<button class="memoryCalendarNavBtn" type="button" data-year="' + (focusMonth === 12 ? focusYear + 1 : focusYear) + '" data-month="' + (focusMonth === 12 ? 1 : focusMonth + 1) + '" aria-label="下月" title="下月"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M6 3l5 5-5 5" stroke="#24f0ea" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>');
+		calendarHtml.push('<button class="memoryCalendarNavBtn" type="button" data-year="' + (focusYear + 1) + '" data-month="' + focusMonth + '" aria-label="下一年" title="下一年"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M6 3l5 5-5 5" stroke="#24f0ea" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 3l5 5-5 5" stroke="#24f0ea" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>');
+		calendarHtml.push('</div>');
+		calendarHtml.push('<div class="memoryCalendarGrid">');
+		calendarHtml.push('<span class="memoryCalendarDow">日</span><span class="memoryCalendarDow">一</span><span class="memoryCalendarDow">二</span><span class="memoryCalendarDow">三</span><span class="memoryCalendarDow">四</span><span class="memoryCalendarDow">五</span><span class="memoryCalendarDow">六</span>');
+		for (var d = 0; d < firstDow; d++) {
+			calendarHtml.push('<span class="memoryCalendarDay isPlaceholder"></span>');
+		}
+		for (var day = 1; day <= daysInMonth; day++) {
+			var dateKey = monthKey + "-" + String(day).padStart(2, "0");
+			var isDone = !!monthDays[dateKey];
+			calendarHtml.push('<span class="memoryCalendarDay' + (isDone ? ' isDone' : '') + '">' + day + '</span>');
+		}
+		calendarHtml.push('</div>');
 		current.innerHTML = '<div class="memoryCompletion"><h2>今日计划已完成</h2><p class="memoryCompletionSub">累计学习 ' + totalDays + ' 天</p><div class="memoryCalendar">' + calendarHtml.join("") + '</div></div>';
 		var history = document.getElementById("memoryHistory");
 		if (history) { history.innerHTML = ""; }
+		var navBtns = current.querySelectorAll(".memoryCalendarNavBtn");
+		for (var nb = 0; nb < navBtns.length; nb++) {
+			navBtns[nb].addEventListener("click", function(e) {
+				var btn = e.currentTarget;
+				renderCompletionCalendar(current, parseInt(btn.getAttribute("data-year"), 10), parseInt(btn.getAttribute("data-month"), 10));
+			});
+		}
 	}
 
 	function renderHiddenMemory(solving) {
