@@ -6100,5 +6100,49 @@
 			});
 		})();
 	</script>
+	<script>
+		(function() {
+			function isText(el) {
+				if (!el) return false;
+				var t = el.tagName;
+				return t === "TEXTAREA" || (t === "INPUT" && ["text","search","url","tel","email","password"].indexOf((el.type||"text").toLowerCase()) >= 0);
+			}
+
+			function norm(el) {
+				var v = el.value;
+				if (v.indexOf("\uFF1A") < 0 && v.indexOf("\uFF1B") < 0) return;
+				var p = el.selectionStart || 0, n = 0;
+				for (var i = 0; i < p; i++) { if (v[i] === "\uFF1A") n++; }
+				el.value = v.replace(/\uFF1A/g, ": ").replace(/\uFF1B/g, ";");
+				try { el.setSelectionRange(p + n, p + n); } catch(e) {}
+			}
+
+			var comp = false, enterWait = false;
+
+			document.addEventListener("compositionstart", function() { comp = true; }, true);
+			document.addEventListener("compositionend", function(e) {
+				comp = false;
+				var el = e.target;
+				if (!isText(el)) return;
+				norm(el);
+				if (enterWait) {
+					enterWait = false;
+					var s = el.selectionStart || 0, v = el.value || "";
+					el.value = v.slice(0, s) + ";" + v.slice(s);
+					try { el.setSelectionRange(s + 1, s + 1); } catch(ex) {}
+				}
+			}, true);
+			document.addEventListener("input", function(e) { if (!comp && isText(e.target)) norm(e.target); }, true);
+			document.addEventListener("keydown", function(e) {
+				if (e.key !== "Enter") return;
+				var el = e.target;
+				if (!isText(el)) return;
+				if (comp) { enterWait = true; return; }
+				var s = el.selectionStart || 0, v = el.value || "";
+				el.value = v.slice(0, s) + ";" + v.slice(s);
+				try { el.setSelectionRange(s + 1, s + 1); } catch(ex) {}
+			}, true);
+		})();
+	</script>
 </body>
 </html>
