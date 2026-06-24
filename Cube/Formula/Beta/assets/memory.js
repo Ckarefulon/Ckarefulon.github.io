@@ -82,7 +82,7 @@
 
 	function loadData() {
 		try {
-			memory.data = mergeLoadedData(JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"));
+			memory.data = mergeLoadedData(storageManager.getJson(STORAGE_KEY, null));
 		} catch (error) {
 			memory.data = freshData();
 		}
@@ -101,7 +101,7 @@
 			return;
 		}
 		memory.data.schemaVersion = SCHEMA_VERSION;
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(memory.data));
+		storageManager.setJson(STORAGE_KEY, memory.data);
 		updatePlanCounter();
 	}
 

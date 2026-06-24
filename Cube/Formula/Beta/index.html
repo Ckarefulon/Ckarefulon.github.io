@@ -19,7 +19,9 @@
 	<script src="assets/hardware/moyucube.js?v=0286" defer></script>
 	<script src="assets/hardware/moyu32cube.js?v=0286" defer></script>
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
-	<script src="assets/memory.js?v=0541" defer></script>
+	<script src="assets/site-scope.js?v=0567" defer></script>
+	<script src="assets/storage-manager.js?v=0567" defer></script>
+	<script src="assets/memory.js?v=0567" defer></script>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>学习模式</title>
@@ -1983,9 +1985,156 @@
 				grid-template-columns: 1fr;
 			}
 		}
+
+		/* ========== 站点顶栏 ========== */
+		.siteHeader {
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			z-index: 1000;
+			height: 44px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 0 16px;
+			background: var(--surfaceSolid);
+			border-bottom: 1px solid var(--line);
+			backdrop-filter: blur(12px);
+			-webkit-backdrop-filter: blur(12px);
+			box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+		}
+
+		.siteHeaderLeft {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			min-width: 0;
+		}
+
+		.siteHeaderLogo {
+			width: 22px;
+			height: 22px;
+			flex-shrink: 0;
+		}
+
+		.siteHeaderName {
+			font-size: 14px;
+			font-weight: 600;
+			color: var(--ink);
+			white-space: nowrap;
+			letter-spacing: 0.01em;
+		}
+
+		.siteHeaderRight {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.siteHeaderBtn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			height: 30px;
+			padding: 0 10px;
+			border: 1px solid var(--controlBorder);
+			border-radius: 6px;
+			background: var(--controlBg);
+			color: var(--controlText);
+			font-size: 12px;
+			font-weight: 500;
+			cursor: pointer;
+			white-space: nowrap;
+			transition: background 0.15s, border-color 0.15s;
+		}
+
+		.siteHeaderBtn:hover {
+			background: var(--controlHoverBg);
+		}
+
+		.siteHeaderBtnTheme {
+			width: 30px;
+			padding: 0;
+			font-size: 15px;
+			line-height: 1;
+		}
+
+		/* 游客入口 */
+		.guestEntry {
+			position: relative;
+		}
+
+		.guestTooltip {
+			position: absolute;
+			top: calc(100% + 8px);
+			right: 0;
+			width: 240px;
+			padding: 14px;
+			background: var(--surfaceSolid);
+			border: 1px solid var(--line);
+			border-radius: 10px;
+			box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+			z-index: 1010;
+			font-size: 12px;
+			line-height: 1.6;
+			color: var(--muted);
+			display: none;
+		}
+
+		.guestTooltip.isVisible {
+			display: block;
+		}
+
+		.guestTooltipTitle {
+			font-size: 13px;
+			font-weight: 600;
+			color: var(--ink);
+			margin-bottom: 6px;
+		}
+
+		.guestTooltipList {
+			margin: 0;
+			padding: 0 0 0 16px;
+			list-style: disc;
+		}
+
+		.guestTooltipList li {
+			margin-bottom: 2px;
+		}
+
+		.guestTooltip .siteHeaderBtn {
+			margin-top: 10px;
+			width: 100%;
+		}
+
+		/* 主体偏移，避免被固定顶栏遮挡 */
+		body {
+			padding-top: 44px;
+		}
 	</style>
 </head>
 <body>
+	<header class="siteHeader">
+		<div class="siteHeaderLeft">
+			<img class="siteHeaderLogo" src="/favicon.svg?v=0349" alt="Logo" aria-hidden="true">
+			<span class="siteHeaderName">Ckarefulon</span>
+		</div>
+		<div class="siteHeaderRight">
+			<button id="siteThemeToggle" class="siteHeaderBtn siteHeaderBtnTheme" type="button" title="切换主题">☀</button>
+			<div class="guestEntry">
+				<button id="siteLoginBtn" class="siteHeaderBtn" type="button">登录</button>
+				<div id="guestTooltip" class="guestTooltip">
+					<div class="guestTooltipTitle">当前为游客模式</div>
+					<ul class="guestTooltipList">
+						<li>可以正常使用网站</li>
+						<li>个人数据需自行保存</li>
+					</ul>
+					<button id="siteDownloadBtn" class="siteHeaderBtn" type="button">下载数据</button>
+				</div>
+			</div>
+		</div>
+	</header>
 	<main class="app">
 		<section class="stage" aria-label="虚拟魔方">
 			<div class="topbar">
@@ -2381,6 +2530,7 @@
 					this.loadFormulaEntries();
 					this.initTwisty();
 					this.initTheme();
+					this.initSiteHeader();
 					this.renderModePanel("learn");
 					this.bindUI();
 					this.setStatus("idle", "未连接");
@@ -3277,7 +3427,7 @@
 
 				loadFormulaEntries: function() {
 					try {
-						var saved = JSON.parse(localStorage.getItem("smartCubeFormulaEntries") || "[]");
+						var saved = storageManager.getJson("smartCubeFormulaEntries", []);
 						this.formulaEntries = Array.isArray(saved) ? saved.map(function(item) {
 							var moves = Array.isArray(item.moves) ? item.moves : [];
 							return {
@@ -3302,7 +3452,7 @@
 							moves: item.moves || []
 						};
 					});
-					localStorage.setItem("smartCubeFormulaEntries", JSON.stringify(data));
+					storageManager.setJson("smartCubeFormulaEntries", data);
 				},
 
 				clearFormulaModeContent: function() {
@@ -4306,8 +4456,107 @@
 					theme = theme === "dark" ? "dark" : "light";
 					document.documentElement.dataset.theme = theme;
 					this.elements.themeToggle.textContent = theme === "dark" ? "亮色" : "暗色";
+					// 同步顶栏主题按钮
+					var siteThemeBtn = document.getElementById("siteThemeToggle");
+					if (siteThemeBtn) {
+						siteThemeBtn.textContent = theme === "dark" ? "☀" : "☾";
+					}
 					if (save !== false) {
 						localStorage.setItem("smartCubeTheme", theme);
+					}
+				},
+
+				initSiteHeader: function() {
+					var self = this;
+
+					// --- 主题切换 ---
+					var siteThemeBtn = document.getElementById("siteThemeToggle");
+					if (siteThemeBtn) {
+						var currentTheme = document.documentElement.dataset.theme || "light";
+						siteThemeBtn.textContent = currentTheme === "dark" ? "☀" : "☾";
+						siteThemeBtn.addEventListener("click", function() {
+							var now = document.documentElement.dataset.theme || "light";
+							self.setTheme(now === "dark" ? "light" : "dark");
+						});
+					}
+
+					// --- 游客提示框 ---
+					var loginBtn = document.getElementById("siteLoginBtn");
+					var tooltip = document.getElementById("guestTooltip");
+					var hideTimer = null;
+
+					function showTooltip() {
+						if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+						if (tooltip) { tooltip.classList.add("isVisible"); }
+					}
+
+					function hideTooltip() {
+						hideTimer = setTimeout(function() {
+							if (tooltip) { tooltip.classList.remove("isVisible"); }
+						}, 200);
+					}
+
+					function cancelHide() {
+						if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+					}
+
+					if (loginBtn) {
+						loginBtn.addEventListener("click", function() {
+							alert("登录和云同步将在下一阶段接入。当前可继续以游客模式使用。");
+						});
+						loginBtn.addEventListener("mouseenter", showTooltip);
+						loginBtn.addEventListener("mouseleave", hideTooltip);
+						loginBtn.addEventListener("touchstart", function(e) {
+							e.stopPropagation();
+							if (tooltip && !tooltip.classList.contains("isVisible")) {
+								showTooltip();
+							} else {
+								hideTooltip();
+							}
+						}, { passive: false });
+					}
+
+					if (tooltip) {
+						tooltip.addEventListener("mouseenter", cancelHide);
+						tooltip.addEventListener("mouseleave", hideTooltip);
+					}
+
+					// --- 下载数据 ---
+					var downloadBtn = document.getElementById("siteDownloadBtn");
+					if (downloadBtn) {
+						downloadBtn.addEventListener("click", function() {
+							var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Cube-Formula";
+							var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "/Cube/Formula";
+							var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress_v1", null) : null;
+							var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
+
+							var now = new Date();
+							var pad = function(n) { return String(n).padStart(2, "0"); };
+							var dateStr = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
+
+							var payload = {
+								exportedAt: now.toISOString(),
+								source: "Ckarefulon",
+								siteScope: scope,
+								siteBasePath: basePath,
+								version: 1,
+								data: {
+									cube_memory_progress_v1: mem,
+									smartCubeFormulaEntries: entries
+								}
+							};
+
+							var json = JSON.stringify(payload, null, "\t");
+							var blob = new Blob([json], { type: "application/json" });
+							var url = URL.createObjectURL(blob);
+							var a = document.createElement("a");
+							a.href = url;
+							a.download = scope + "_LocalData_" + dateStr + ".json";
+							document.body.appendChild(a);
+							a.click();
+							document.body.removeChild(a);
+							URL.revokeObjectURL(url);
+						});
 					}
 				},
 
