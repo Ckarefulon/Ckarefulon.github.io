@@ -18,6 +18,11 @@
 ### Security
 -
 
+## [5.10.0549-beta.24] - 2026-06-24
+
+### Changed
+- Release Changelog 指向 main。
+
 ## [5.10.0548-beta.24] - 2026-06-24
 
 ### Added
