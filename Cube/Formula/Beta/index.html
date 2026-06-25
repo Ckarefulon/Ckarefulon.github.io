@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿<!doctype html>
+﻿﻿<!doctype html>
 <html lang="zh-CN">
 <head>
 	<link rel="icon" href="/favicon.svg?v=0349" type="image/svg+xml">
@@ -6875,8 +6875,10 @@
 				if (enterWait) {
 					enterWait = false;
 					var s = el.selectionStart || 0, v = el.value || "";
-					el.value = v.slice(0, s) + ";" + v.slice(s);
-					try { el.setSelectionRange(s + 1, s + 1); } catch(ex) {}
+					if (v.charAt(s - 1) !== ';') {
+						el.value = v.slice(0, s) + ";" + v.slice(s);
+						try { el.setSelectionRange(s + 1, s + 1); } catch(ex) {}
+					}
 				}
 			}, true);
 			document.addEventListener("input", function(e) { if (!comp && isText(e.target)) norm(e.target); }, true);
@@ -6886,8 +6888,10 @@
 				if (!isText(el)) return;
 				if (comp) { enterWait = true; return; }
 				var s = el.selectionStart || 0, v = el.value || "";
-				el.value = v.slice(0, s) + ";" + v.slice(s);
-				try { el.setSelectionRange(s + 1, s + 1); } catch(ex) {}
+				if (v.charAt(s - 1) !== ';') {
+					el.value = v.slice(0, s) + ";" + v.slice(s);
+					try { el.setSelectionRange(s + 1, s + 1); } catch(ex) {}
+				}
 			}, true);
 		})();
 	</script>

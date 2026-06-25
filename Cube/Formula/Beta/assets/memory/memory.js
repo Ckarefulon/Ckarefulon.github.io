@@ -1176,7 +1176,11 @@
 
 	function formulasToPlanText(formulas) {
 		return formulas.map(function(f) {
-			return f.name + ': ' + (f.alg || f.formula || '') + ';';
+			var alg = f.alg || f.formula || '';
+			if (!alg.endsWith(';')) {
+				alg += ';';
+			}
+			return f.name + ': ' + alg;
 		}).join('\n');
 	}
 
