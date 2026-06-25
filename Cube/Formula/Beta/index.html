@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 	<link rel="icon" href="/favicon.svg?v=0349" type="image/svg+xml">
-	<link rel="stylesheet" href="assets/memory/memory.css?v=0541">
+	<link rel="stylesheet" href="assets/memory/memory.css?v=0643">
 
 	<script src="assets/lib/jquery-4.0.0.min.js"></script>
 
@@ -33,7 +33,7 @@
 	<script src="assets/hardware/moyu32cube.js?v=0286" defer></script>
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
 
-	<script src="assets/memory/memory.js?v=0567" defer></script>
+	<script src="assets/memory/memory.js?v=0643" defer></script>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>学习模式</title>
@@ -135,7 +135,7 @@
 			grid-template-rows: 1fr;
 			gap: 18px;
 			height: 100dvh;
-			padding: 18px;
+			padding: 0 18px 18px;
 			min-height: 0;
 		}
 
@@ -519,26 +519,6 @@
 			border-color: rgba(201, 61, 61, 0.28);
 		}
 
-		.themeButton {
-			min-height: 38px;
-			padding: 0 12px;
-			border: 1px solid var(--line);
-			border-radius: 999px;
-			background: var(--panel);
-			color: var(--ink);
-			cursor: pointer;
-			-webkit-backdrop-filter: blur(14px);
-			backdrop-filter: blur(14px);
-			font-weight: 700;
-			transition: border-color 0.16s ease, color 0.16s ease, background 0.22s ease, transform 0.16s ease;
-		}
-
-		.themeButton:hover {
-			border-color: rgba(36, 240, 234, 0.58);
-			color: var(--accent);
-			transform: translateY(-1px);
-		}
-
 		:root[data-theme="dark"] .modeMenu a:hover {
 			background: var(--controlHoverBg);
 			color: var(--controlText);
@@ -548,10 +528,6 @@
 		:root[data-theme="dark"] .historyTitle span:first-child,
 		:root[data-theme="dark"] .metric span {
 			color: var(--cyan);
-		}
-
-		:root[data-theme="dark"] .themeButton:hover {
-			color: var(--controlText);
 		}
 
 		button:focus-visible,
@@ -1975,7 +1951,7 @@
 
 		@media (max-width: 520px) {
 			.app {
-				padding: 10px;
+				padding: 0 10px 10px;
 				gap: 10px;
 			}
 
@@ -2441,7 +2417,6 @@
 				</div>
 				<div class="topActions">
 					<div id="statusPill" class="statusPill" data-state="idle">未连接</div>
-					<button id="themeToggle" class="themeButton" type="button">暗色</button>
 				</div>
 			</div>
 			<div id="cubeStage"></div>
@@ -2826,7 +2801,6 @@
 						modeIcon: document.getElementById("modeIcon"),
 						modeLabel: document.getElementById("modeLabel"),
 						modeMenu: document.getElementById("modeMenu"),
-						themeToggle: document.getElementById("themeToggle"),
 						connectBtn: document.getElementById("connectBtn"),
 						resetBtn: document.getElementById("resetBtn"),
 						seamlessToggleBtn: document.getElementById("seamlessToggleBtn"),
@@ -3002,9 +2976,6 @@
 							self.toggleModeMenu();
 							event.preventDefault();
 						}
-					});
-					this.elements.themeToggle.addEventListener("click", function() {
-						self.setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
 					});
 					this.bindPanelControls();
 					window.addEventListener("resize", function() {
@@ -4731,7 +4702,6 @@
 				setTheme: function(theme, save) {
 					theme = theme === "dark" ? "dark" : "light";
 					document.documentElement.dataset.theme = theme;
-					this.elements.themeToggle.textContent = theme === "dark" ? "亮色" : "暗色";
 					// 同步顶栏主题按钮
 					var siteThemeBtn = document.getElementById("siteThemeToggle");
 					if (siteThemeBtn) {

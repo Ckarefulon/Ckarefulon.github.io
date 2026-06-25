@@ -360,24 +360,18 @@
 		if (planDone && !hasDue) {
 			renderCompletionCheck(current, "已完成所有学习任务！", "完成签到", function() {
 				renderCompletionCalendar(current);
-			}, "直接签到", function() {
-				renderCompletionCalendar(current);
 			});
 			return;
 		}
 		if (planDone && hasDue) {
 			renderCompletionCheck(current, "已完成规划学习任务！<br/>但仍有公式今日到期。", "继续学习", function() {
 				renderDueContinuationPanel(current, due);
-			}, "直接签到", function() {
-				renderCompletionCalendar(current);
 			});
 			return;
 		}
 		if (!planDone && !memory.data.queue.length && !hasDue && memory.data.formulas.length > 0) {
 			renderCompletionCheck(current, "已完成复习学习任务！<br/>但未达今日规划目标。", "加入公式", function() {
 				openPlanDialog();
-			}, "直接签到", function() {
-				renderCompletionCalendar(current);
 			});
 			return;
 		}
