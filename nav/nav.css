@@ -1,0 +1,350 @@
+/* ========== 站点顶栏 ========== */
+.siteHeader {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 1000;
+	height: 44px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 16px;
+	background: var(--surfaceSolid);
+	border-bottom: 1px solid var(--line);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.siteHeaderLeft {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.siteHeaderLogo {
+	width: 22px;
+	height: 22px;
+	flex-shrink: 0;
+}
+
+.siteHeaderName {
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--ink);
+	white-space: nowrap;
+	letter-spacing: 0.01em;
+}
+
+.siteHeaderRight {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.siteHeaderBtn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 30px;
+	padding: 0 10px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	font-size: 12px;
+	font-weight: 500;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: background 0.15s, border-color 0.15s;
+}
+
+.siteHeaderBtn:hover {
+	background: var(--controlHoverBg);
+}
+
+.siteHeaderBtnTheme {
+	width: 30px;
+	padding: 0;
+	font-size: 15px;
+	line-height: 1;
+}
+
+/* 游客入口 */
+.guestEntry {
+	position: relative;
+}
+
+.guestTooltip {
+	position: absolute;
+	top: calc(100% + 8px);
+	right: 0;
+	width: 240px;
+	padding: 14px;
+	background: var(--surfaceSolid);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+	z-index: 1010;
+	font-size: 12px;
+	line-height: 1.6;
+	color: var(--muted);
+	display: none;
+}
+
+.guestTooltip.isVisible {
+	display: block;
+}
+
+.guestTooltipTitle {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--ink);
+	margin-bottom: 6px;
+}
+
+.guestTooltipList {
+	margin: 0;
+	padding: 0 0 0 16px;
+	list-style: disc;
+}
+
+.guestTooltipList li {
+	margin-bottom: 2px;
+}
+
+.guestTooltip .siteHeaderBtn {
+	margin-top: 10px;
+	width: 100%;
+}
+
+/* 主体偏移，避免被固定顶栏遮挡 */
+body {
+	padding-top: 44px;
+}
+
+/* ========== 登录面板 ========== */
+.loginOverlay {
+	position: fixed;
+	inset: 0;
+	z-index: 2000;
+	background: rgba(0, 0, 0, 0.4);
+	display: none;
+	align-items: center;
+	justify-content: center;
+}
+
+.loginOverlay.isVisible {
+	display: flex;
+}
+
+.loginPanel {
+	width: 340px;
+	max-width: calc(100vw - 32px);
+	padding: 24px;
+	background: var(--surfaceSolid);
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+	font-size: 13px;
+	color: var(--ink);
+}
+
+.loginPanelTitle {
+	font-size: 16px;
+	font-weight: 600;
+	margin-bottom: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.loginPanelClose {
+	width: 28px;
+	height: 28px;
+	border: none;
+	background: none;
+	color: var(--muted);
+	font-size: 20px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 6px;
+	line-height: 1;
+}
+
+.loginPanelClose:hover {
+	background: var(--controlHoverBg);
+}
+
+.loginField {
+	margin-bottom: 12px;
+}
+
+.loginField label {
+	display: block;
+	font-size: 12px;
+	color: var(--muted);
+	margin-bottom: 4px;
+	font-weight: 500;
+}
+
+.loginField input {
+	width: 100%;
+	height: 36px;
+	padding: 0 10px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	font-size: 13px;
+	box-sizing: border-box;
+	outline: none;
+	transition: border-color 0.15s;
+}
+
+.loginField input:focus {
+	border-color: var(--accent);
+}
+
+.loginActions {
+	display: flex;
+	gap: 8px;
+	margin-top: 16px;
+}
+
+.loginActions .siteHeaderBtn {
+	flex: 1;
+	height: 36px;
+	font-size: 13px;
+}
+
+.loginBtnPrimary {
+	background: var(--primaryBg) !important;
+	color: var(--primaryText) !important;
+	border-color: var(--primaryBorder) !important;
+}
+
+.loginBtnPrimary:hover {
+	background: var(--primaryHoverBg) !important;
+}
+
+.loginStatus {
+	margin-top: 10px;
+	font-size: 12px;
+	color: var(--muted);
+	min-height: 18px;
+	text-align: center;
+}
+
+.loginStatus.isError {
+	color: var(--red);
+}
+
+.loginStatus.isSuccess {
+	color: var(--good);
+}
+
+/* 头像 */
+.siteAvatar {
+	width: 30px;
+	height: 30px;
+	border-radius: 50%;
+	background: var(--accent);
+	color: #fff;
+	font-size: 13px;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	border: none;
+	position: relative;
+	text-transform: uppercase;
+}
+
+/* 账号菜单 */
+.accountMenu {
+	position: absolute;
+	top: calc(100% + 8px);
+	right: 0;
+	width: 220px;
+	padding: 12px;
+	background: var(--surfaceSolid);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+	z-index: 1010;
+	font-size: 12px;
+	line-height: 1.6;
+	color: var(--muted);
+	display: none;
+}
+
+.accountMenu.isVisible {
+	display: block;
+}
+
+.accountMenuEmail {
+	font-weight: 600;
+	color: var(--ink);
+	margin-bottom: 4px;
+	word-break: break-all;
+}
+
+.accountMenuScope {
+	margin-bottom: 10px;
+	font-size: 11px;
+}
+
+.accountMenu .siteHeaderBtn {
+	width: 100%;
+}
+
+.accountMenuCloud {
+	margin-bottom: 0;
+}
+
+.accountMenuDivider {
+	height: 1px;
+	background: var(--line);
+	margin: 8px 0;
+}
+
+.accountMenuCloudTitle {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--muted);
+	margin-bottom: 4px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.accountMenuCloudStatus {
+	font-size: 12px;
+	color: var(--muted);
+	margin-bottom: 8px;
+	min-height: 16px;
+}
+
+.accountMenuCloudStatus.isSuccess {
+	color: var(--good);
+}
+
+.accountMenuCloudStatus.isError {
+	color: var(--red);
+}
+
+.accountMenuCloudActions {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.accountMenuCloudActions .siteHeaderBtn {
+	font-size: 11px;
+	height: 28px;
+}

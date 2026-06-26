@@ -1,0 +1,305 @@
+/* ========== Relay 主布局 ========== */
+.relayApp {
+	display: flex;
+	flex-direction: column;
+	height: calc(100dvh - 44px);
+	padding: 16px;
+	gap: 12px;
+	max-width: 1200px;
+	margin: 0 auto;
+	width: 100%;
+}
+
+/* ========== 工具栏 ========== */
+.relayToolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	flex-shrink: 0;
+	padding: 10px 14px;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: var(--surface);
+	-webkit-backdrop-filter: blur(14px);
+	backdrop-filter: blur(14px);
+	box-shadow: var(--shadow);
+}
+
+.relayToolbarLeft {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+.relayToolbarRight {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+/* ========== 按钮统一样式 ========== */
+@keyframes relayBreath {
+	0%, 100% {
+		box-shadow:
+			0 0 8px rgba(36, 240, 234, 0.32),
+			0 0 18px rgba(36, 240, 234, 0.18),
+			0 0 30px rgba(36, 240, 234, 0.08);
+	}
+	50% {
+		box-shadow:
+			0 0 10px rgba(36, 240, 234, 0.45),
+			0 0 24px rgba(36, 240, 234, 0.25),
+			0 0 40px rgba(36, 240, 234, 0.12);
+	}
+}
+
+.relayBtn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 36px;
+	padding: 0 14px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 8px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	cursor: pointer;
+	font-weight: 700;
+	font-size: 13px;
+	max-width: 150px;
+	transition:
+		transform 0.12s ease,
+		background 0.12s ease,
+		border-color 0.12s ease,
+		box-shadow 0.12s ease,
+		opacity 0.25s ease,
+		max-width 0.3s ease,
+		min-width 0.3s ease,
+		padding 0.3s ease,
+		margin 0.3s ease,
+		border-width 0.3s ease;
+	-webkit-user-select: none;
+	user-select: none;
+	white-space: nowrap;
+	overflow: hidden;
+	flex-shrink: 0;
+}
+
+.relayBtn:hover {
+	border-color: var(--cyan);
+	background: var(--controlHoverBg);
+	transform: translateY(-1px);
+}
+
+.relayBtn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+	transform: none;
+}
+
+/* 实时同步激活：紫底青字 + 呼吸青光 */
+#realtimeToggle.isActive {
+	border-color: var(--primaryBorder);
+	background: var(--primaryBg);
+	color: var(--cyan);
+	animation: relayBreath 4.5s ease-in-out infinite;
+}
+
+#realtimeToggle.isActive:hover {
+	background: var(--primaryHoverBg);
+	border-color: var(--primaryBorder);
+	transform: translateY(-1px);
+}
+
+/* 定时同步激活：紫底白字，无发光 */
+#intervalToggle.isActive {
+	border-color: var(--primaryBorder);
+	background: var(--primaryBg);
+	color: var(--primaryText);
+}
+
+#intervalToggle.isActive:hover {
+	background: var(--primaryHoverBg);
+	border-color: var(--primaryBorder);
+	transform: translateY(-1px);
+}
+
+.relayBtnLabel {
+	white-space: nowrap;
+}
+
+/* 互斥隐藏：平滑淡出+收缩，带动画 */
+.relayHide {
+	opacity: 0 !important;
+	max-width: 0 !important;
+	min-width: 0 !important;
+	padding-left: 0 !important;
+	padding-right: 0 !important;
+	margin-left: 0 !important;
+	margin-right: 0 !important;
+	border-left-width: 0 !important;
+	border-right-width: 0 !important;
+	pointer-events: none !important;
+	animation: none !important;
+	box-shadow: none !important;
+}
+
+/* ========== 定时间隔输入（展开式） ========== */
+.relayIntervalWrap {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 0 10px;
+	height: 36px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 8px;
+	background: var(--controlBg);
+	opacity: 0;
+	max-width: 0;
+	overflow: hidden;
+	padding-left: 0;
+	padding-right: 0;
+	border-width: 0;
+	transition: max-width 0.25s ease, opacity 0.2s ease, padding 0.25s ease, border-width 0.25s ease;
+	white-space: nowrap;
+}
+
+.relayIntervalWrap.isOpen {
+	opacity: 1;
+	max-width: 140px;
+	padding-left: 10px;
+	padding-right: 10px;
+	border-width: 1px;
+}
+
+.relayIntervalWrap input {
+	width: 56px;
+	height: 28px;
+	padding: 0 6px;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--controlText);
+	font-size: 13px;
+	font-weight: 700;
+	text-align: center;
+	outline: none;
+	-moz-appearance: textfield;
+}
+
+.relayIntervalWrap input::-webkit-outer-spin-button,
+.relayIntervalWrap input::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
+.relayIntervalWrap input:focus {
+	background: var(--controlHoverBg);
+}
+
+.relayIntervalUnit {
+	white-space: nowrap;
+	font-size: 12px;
+	color: var(--muted);
+	font-weight: 500;
+}
+
+/* ========== 状态提示 ========== */
+.relayStatus {
+	font-size: 12px;
+	color: var(--muted);
+	padding: 6px 12px;
+	border-radius: 999px;
+	background: var(--controlBg);
+	border: 1px solid var(--line);
+	white-space: nowrap;
+	transition: color 0.15s, border-color 0.15s;
+}
+
+.relayStatus.isSuccess {
+	color: var(--good);
+	border-color: rgba(36, 240, 234, 0.46);
+}
+
+.relayStatus.isError {
+	color: var(--red);
+	border-color: rgba(216, 72, 95, 0.35);
+}
+
+.relayStatus.isSyncing {
+	color: var(--accent);
+	border-color: rgba(93, 78, 168, 0.35);
+}
+
+/* ========== 文本框 ========== */
+.relayTextarea {
+	flex: 1;
+	width: 100%;
+	min-height: 200px;
+	padding: 16px;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: var(--surfaceSolid);
+	color: var(--ink);
+	font: 14px/1.6 "Cascadia Mono", "SFMono-Regular", Consolas, "Microsoft YaHei Mono", monospace;
+	resize: none;
+	outline: none;
+	box-shadow: var(--shadow);
+	transition: border-color 0.15s, background 0.22s ease;
+	overflow-y: auto;
+}
+
+.relayTextarea:focus {
+	border-color: var(--accent);
+}
+
+.relayTextarea::placeholder {
+	color: var(--muted);
+	opacity: 0.7;
+}
+
+/* ========== 未登录提示 ========== */
+.relayLoginHint {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	flex: 1;
+	gap: 12px;
+	color: var(--muted);
+	font-size: 14px;
+	text-align: center;
+	padding: 40px 20px;
+	border: 1px dashed var(--line);
+	border-radius: 10px;
+	background: var(--surface);
+}
+
+.relayLoginHint strong {
+	color: var(--ink);
+	font-size: 16px;
+}
+
+/* ========== 响应式 ========== */
+@media (max-width: 600px) {
+	.relayApp {
+		padding: 10px;
+		gap: 10px;
+	}
+
+	.relayToolbar {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.relayToolbarLeft {
+		justify-content: center;
+	}
+
+	.relayToolbarRight {
+		justify-content: center;
+	}
+}

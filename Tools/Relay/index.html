@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="icon" href="/favicon.svg?v=0349" type="image/svg+xml">
+
+	<link rel="stylesheet" href="/nav/nav.css?v=0650">
+	<link rel="stylesheet" href="relay.css?v=0650">
+
+	<script src="/nav/nav.js?v=0650" defer></script>
+
+	<!-- Relay 自己的站点作用域（必须最先定义） -->
+	<script src="assets/services/core/site-scope.js?v=0650" defer></script>
+
+	<!-- 复用通用服务 -->
+	<script src="/Cube/Formula/Beta/assets/services/core/storage-manager.js?v=0567" defer></script>
+
+	<!-- Supabase Auth -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+	<script src="/Cube/Formula/Beta/assets/services/auth/supabase-config.js?v=0618" defer></script>
+	<script src="/Cube/Formula/Beta/assets/services/auth/supabase-client.js?v=0618" defer></script>
+	<script src="/Cube/Formula/Beta/assets/services/auth/auth-manager.js?v=0618" defer></script>
+	<script src="/Cube/Formula/Beta/assets/services/global/global-data-manager.js?v=0625" defer></script>
+
+	<!-- Relay 核心逻辑（包含 cloudSyncManager 实现） -->
+	<script src="relay-app.js?v=0650" defer></script>
+
+	<title>Relay — 文字传输</title>
+	<style>
+		:root {
+			color-scheme: light;
+			--bg: #f6f7fb;
+			--surface: rgba(255, 255, 255, 0.9);
+			--surfaceSolid: #ffffff;
+			--ink: #242436;
+			--muted: #575a6d;
+			--line: #d5d8e5;
+			--accent: #5d4ea8;
+			--accentSoft: rgba(93, 78, 168, 0.12);
+			--cyan: #24f0ea;
+			--good: #178b82;
+			--red: #d8485f;
+			--primaryBg: #5d4ea8;
+			--primaryHoverBg: #514598;
+			--primaryText: #ffffff;
+			--primaryBorder: #5d4ea8;
+			--controlBg: #ffffff;
+			--controlText: #242436;
+			--controlBorder: #cfd3e3;
+			--controlHoverBg: rgba(93, 78, 168, 0.10);
+			--pageBg: radial-gradient(circle at 16% 8%, rgba(93, 78, 168, 0.16), transparent 34%), radial-gradient(circle at 86% 12%, rgba(36, 240, 234, 0.10), transparent 30%), linear-gradient(135deg, #fafaff, #f4f6fb 58%, #ffffff);
+			--shadow: 0 18px 50px rgba(36, 36, 54, 0.10);
+		}
+
+		:root[data-theme="dark"] {
+			color-scheme: dark;
+			--bg: #0f0f16;
+			--surface: rgba(27, 27, 38, 0.94);
+			--surfaceSolid: #1c1c28;
+			--ink: #f4f4fb;
+			--muted: #c0c2d0;
+			--line: #414157;
+			--accentSoft: rgba(93, 78, 168, 0.26);
+			--good: #24f0ea;
+			--red: #ff6b83;
+			--primaryBg: #6b5dc2;
+			--primaryHoverBg: #786bd0;
+			--primaryText: #ffffff;
+			--primaryBorder: #8174d6;
+			--controlBg: #252536;
+			--controlText: #f6f7ff;
+			--controlBorder: #595c72;
+			--controlHoverBg: #303046;
+			--pageBg: radial-gradient(circle at 18% 10%, rgba(93, 78, 168, 0.34), transparent 34%), radial-gradient(circle at 88% 0%, rgba(93, 78, 168, 0.16), transparent 32%), linear-gradient(180deg, #161620, #0d0d14);
+			--shadow: 0 18px 58px rgba(0, 0, 0, 0.32);
+		}
+
+		* { box-sizing: border-box; }
+
+		html, body {
+			height: 100%;
+			margin: 0;
+		}
+
+		body {
+			background: var(--pageBg);
+			color: var(--ink);
+			font: 15px/1.45 Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+			transition: background 0.22s ease, color 0.22s ease;
+		}
+
+		button, input, textarea {
+			font: inherit;
+		}
+	</style>
+</head>
+<body>
+	<div class="relayApp">
+		<div class="relayToolbar">
+			<div class="relayToolbarLeft">
+				<button id="realtimeToggle" class="relayBtn" type="button" title="实时同步：输入后自动上传到云端">
+					<span class="relayBtnLabel">实时同步</span>
+				</button>
+				<button id="intervalToggle" class="relayBtn" type="button" title="定时同步：每隔指定秒数从云端拉取">
+					<span class="relayBtnLabel">定时同步</span>
+				</button>
+				<div class="relayIntervalWrap" id="intervalWrap">
+					<input type="number" id="intervalInput" min="1" step="1" placeholder="秒" value="">
+					<span class="relayIntervalUnit">秒</span>
+				</div>
+				<button id="manualSyncBtn" class="relayBtn" type="button">手动同步</button>
+			</div>
+			<div class="relayToolbarRight">
+				<span id="syncStatus" class="relayStatus">就绪</span>
+			</div>
+		</div>
+		<textarea id="relayTextarea" class="relayTextarea" placeholder="在这里输入文字，跨设备实时同步..." spellcheck="false"></textarea>
+	</div>
+</body>
+</html>
