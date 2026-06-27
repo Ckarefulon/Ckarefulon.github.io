@@ -8,8 +8,6 @@ const corsHeaders = {
 };
 
 serve(async (req: Request) => {
-	console.log("[username-login] start");
-
 	if (req.method === "OPTIONS") {
 		return new Response("ok", { headers: corsHeaders });
 	}
@@ -23,12 +21,6 @@ serve(async (req: Request) => {
 
 	const supabaseUrl = Deno.env.get("SUPABASE_URL");
 	const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-	console.log("[username-login] env", {
-		hasUrl: Boolean(Deno.env.get("SUPABASE_URL")),
-		hasServiceRole: Boolean(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")),
-		hasSecretKeys: Boolean(Deno.env.get("SUPABASE_SECRET_KEYS"))
-	});
 
 	if (!supabaseUrl || !serviceRoleKey) {
 		return new Response(
@@ -95,13 +87,6 @@ serve(async (req: Request) => {
 		.eq("username", username)
 		.maybeSingle();
 
-	console.log("[username-login] profile query result", {
-		hasProfile: Boolean(profileResult.data),
-		hasProfileError: Boolean(profileResult.error),
-		profileErrorCode: profileResult.error?.code || null,
-		profileErrorMessage: profileResult.error?.message || null
-	});
-
 	if (profileResult.error || !profileResult.data || !profileResult.data.user_id) {
 		return new Response(
 			JSON.stringify({ success: false, message: "账号或密码错误" }),
@@ -112,13 +97,6 @@ serve(async (req: Request) => {
 	const userId = profileResult.data.user_id;
 
 	const { data: userData, error: getUserError } = await adminClient.auth.admin.getUserById(userId);
-
-	console.log("[username-login] admin get user result", {
-		hasUser: Boolean(userData?.user),
-		hasEmail: Boolean(userData?.user?.email),
-		hasError: Boolean(getUserError),
-		errorMessage: getUserError?.message || null
-	});
 
 	if (getUserError || !userData.user || !userData.user.email) {
 		return new Response(
@@ -132,12 +110,6 @@ serve(async (req: Request) => {
 	const signInResult = await adminClient.auth.signInWithPassword({
 		email: email,
 		password: password,
-	});
-
-	console.log("[username-login] password sign in result", {
-		hasSession: Boolean(signInResult.data?.session),
-		hasError: Boolean(signInResult.error),
-		errorMessage: signInResult.error?.message || null
 	});
 
 	if (signInResult.error || !signInResult.data.session) {
