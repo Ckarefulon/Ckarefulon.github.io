@@ -1,11 +1,15 @@
 /* ========== 站点顶栏 ========== */
+:root {
+	--site-nav-height: 44px;
+}
+
 .siteHeader {
 	position: fixed;
 	top: 0;
 	left: 0;
 	right: 0;
 	z-index: 1000;
-	height: 44px;
+	height: var(--site-nav-height);
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -122,7 +126,7 @@
 
 /* 主体偏移，避免被固定顶栏遮挡 */
 body {
-	padding-top: 44px;
+	padding-top: var(--site-nav-height);
 }
 
 /* ========== 登录面板 ========== */
@@ -300,11 +304,17 @@ body {
 	font-size: 11px;
 }
 
+.accountMenuProfileBtn {
+	width: 100%;
+	margin-bottom: 0;
+}
+
 .accountMenu .siteHeaderBtn {
 	width: 100%;
 }
 
 .accountMenuCloud {
+	margin-top: 6px;
 	margin-bottom: 0;
 }
 

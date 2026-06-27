@@ -163,7 +163,11 @@
 		isSyncing: false,
 		lastUploadTime: 0,
 		debounceTimer: null,
-		ignoreNextInput: false
+		ignoreNextInput: false,
+		undoStack: [],
+		undoDebounceTimer: null,
+		undoLastSnapshot: null,
+		MAX_UNDO: 50
 	};
 
 	var elements = {};
@@ -203,6 +207,65 @@
 		if (window.storageManager) {
 			window.storageManager.setItem(LOCAL_STORAGE_PREFIX + RELAY_DATA_KEY, text);
 		}
+	}
+
+	function pushUndoState(text) {
+		if (text == null) return;
+		var stack = state.undoStack;
+		if (stack.length > 0 && stack[stack.length - 1] === text) return;
+		stack.push(text);
+		if (stack.length > state.MAX_UNDO) {
+			stack.shift();
+		}
+		updateUndoButton();
+	}
+
+	function updateUndoButton() {
+		if (!elements.undoBtn) return;
+		var canUndo = state.undoStack.length > 0;
+		elements.undoBtn.disabled = !canUndo || !state.isLoggedIn;
+	}
+
+	function performUndo() {
+		if (state.undoStack.length === 0) return;
+		var prev = state.undoStack.pop();
+		var currentText = elements.textarea ? elements.textarea.value : getLocalText();
+
+		state.undoLastSnapshot = prev;
+		setLocalText(prev);
+		applyTextToTextarea(prev, true);
+		updateUndoButton();
+
+		if (state.realtimeEnabled && state.isLoggedIn) {
+			scheduleRealtimeUpload();
+		}
+		setStatus("已恢复上一版本 " + new Date().toLocaleTimeString(), "success");
+	}
+
+	function scheduleUndoSnapshot() {
+		if (state.undoDebounceTimer) {
+			clearTimeout(state.undoDebounceTimer);
+		}
+		state.undoDebounceTimer = setTimeout(function() {
+			state.undoDebounceTimer = null;
+			var current = elements.textarea ? elements.textarea.value : "";
+			if (state.undoLastSnapshot !== current) {
+				pushUndoState(state.undoLastSnapshot != null ? state.undoLastSnapshot : "");
+				state.undoLastSnapshot = current;
+			}
+		}, 1000);
+	}
+
+	function flushUndoSnapshot() {
+		if (state.undoDebounceTimer) {
+			clearTimeout(state.undoDebounceTimer);
+			state.undoDebounceTimer = null;
+		}
+		var current = elements.textarea ? elements.textarea.value : "";
+		if (state.undoLastSnapshot !== null && state.undoLastSnapshot !== current) {
+			pushUndoState(state.undoLastSnapshot);
+		}
+		state.undoLastSnapshot = current;
 	}
 
 	function getLocalPrefs() {
@@ -294,18 +357,20 @@
 				var cloudText = result.text || "";
 				var currentText = elements.textarea ? elements.textarea.value : getLocalText();
 
+				if (currentText !== cloudText) {
+					flushUndoSnapshot();
+					pushUndoState(currentText);
+				}
+
 				setLocalText(cloudText);
 				applyTextToTextarea(cloudText, true);
+				state.undoLastSnapshot = cloudText;
 
 				if (result.prefs) {
 					applyPrefs(result.prefs);
 				}
 
-				if (!silent) {
-					setStatus("已同步 " + new Date().toLocaleTimeString(), "success");
-				} else {
-					setStatus("已同步 " + new Date().toLocaleTimeString(), "success");
-				}
+				setStatus("已同步 " + new Date().toLocaleTimeString(), "success");
 			} else {
 				if (!silent) {
 					setStatus(result.message, "error");
@@ -350,10 +415,25 @@
 		}
 		var text = elements.textarea ? elements.textarea.value : "";
 		setLocalText(text);
+		scheduleUndoSnapshot();
 
 		if (state.realtimeEnabled && state.isLoggedIn) {
 			scheduleRealtimeUpload();
 		}
+	}
+
+	function onTextareaKeydown(e) {
+		if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
+			if (state.undoStack.length > 0) {
+				e.preventDefault();
+				flushUndoSnapshot();
+				performUndo();
+			}
+		}
+	}
+
+	function onTextareaBlur() {
+		flushUndoSnapshot();
 	}
 
 	function onRealtimeToggle() {
@@ -469,13 +549,46 @@
 			setStatus("请先登录后再同步", "error");
 			return;
 		}
+		if (elements.manualSyncBtn) {
+			elements.manualSyncBtn.classList.add("isSyncing");
+		}
 		uploadNow().then(function(uploadResult) {
 			if (uploadResult.success) {
 				setTimeout(function() {
-					downloadNow();
+					downloadNow().then(function() {
+						if (elements.manualSyncBtn) {
+							elements.manualSyncBtn.classList.remove("isSyncing");
+						}
+					});
 				}, 500);
+			} else {
+				if (elements.manualSyncBtn) {
+					elements.manualSyncBtn.classList.remove("isSyncing");
+				}
 			}
 		});
+	}
+
+	function onUndo() {
+		if (state.undoStack.length === 0) return;
+		flushUndoSnapshot();
+		performUndo();
+	}
+
+	function onClear() {
+		if (!elements.textarea) return;
+		var currentText = elements.textarea.value;
+		if (!currentText) return;
+		flushUndoSnapshot();
+		pushUndoState(currentText);
+		setLocalText("");
+		applyTextToTextarea("", true);
+		state.undoLastSnapshot = "";
+		setStatus("已清空 " + new Date().toLocaleTimeString(), "success");
+		if (state.realtimeEnabled && state.isLoggedIn) {
+			scheduleRealtimeUpload();
+		}
+		elements.textarea.focus();
 	}
 
 	function onAuthStateChange(user) {
@@ -496,11 +609,20 @@
 		if (elements.manualSyncBtn) {
 			elements.manualSyncBtn.disabled = !state.isLoggedIn;
 		}
+		if (elements.clearBtn) {
+			elements.clearBtn.disabled = !state.isLoggedIn;
+		}
+		updateUndoButton();
 
 		if (state.isLoggedIn) {
+			state.undoStack = [];
+			state.undoLastSnapshot = null;
+			updateUndoButton();
+
 			setStatus("登录成功，正在加载云端数据...", "syncing");
 			var localText = getLocalText();
 			applyTextToTextarea(localText, true);
+			state.undoLastSnapshot = localText;
 
 			var localPrefs = getLocalPrefs();
 			applyPrefs(localPrefs);
@@ -521,6 +643,10 @@
 			if (state.debounceTimer) {
 				clearTimeout(state.debounceTimer);
 				state.debounceTimer = null;
+			}
+			if (state.undoDebounceTimer) {
+				clearTimeout(state.undoDebounceTimer);
+				state.undoDebounceTimer = null;
 			}
 			setStatus("请登录以使用云端同步", "error");
 		}
@@ -578,11 +704,15 @@
 		elements.intervalWrap = $("intervalWrap");
 		elements.intervalInput = $("intervalInput");
 		elements.manualSyncBtn = $("manualSyncBtn");
+		elements.undoBtn = $("undoBtn");
+		elements.clearBtn = $("clearBtn");
 		elements.syncStatus = $("syncStatus");
 		elements.textarea = $("relayTextarea");
 
 		if (elements.textarea) {
 			elements.textarea.addEventListener("input", onTextareaInput);
+			elements.textarea.addEventListener("keydown", onTextareaKeydown);
+			elements.textarea.addEventListener("blur", onTextareaBlur);
 		}
 		if (elements.realtimeToggle) {
 			elements.realtimeToggle.addEventListener("click", onRealtimeToggle);
@@ -598,6 +728,14 @@
 		if (elements.manualSyncBtn) {
 			elements.manualSyncBtn.addEventListener("click", onManualSync);
 		}
+		if (elements.undoBtn) {
+			elements.undoBtn.addEventListener("click", onUndo);
+		}
+		if (elements.clearBtn) {
+			elements.clearBtn.addEventListener("click", onClear);
+		}
+
+		updateUndoButton();
 
 		waitForServices(function() {
 			if (window.siteNav && typeof window.siteNav.init === "function") {

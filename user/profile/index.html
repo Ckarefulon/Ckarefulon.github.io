@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="icon" href="/favicon.svg?v=0349" type="image/svg+xml">
+
+	<link rel="stylesheet" href="/nav/nav.css?v=0650">
+
+	<script src="/nav/nav.js?v=0650" defer></script>
+
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+	<script src="/Cube/Formula/Beta/assets/services/auth/supabase-config.js?v=0618" defer></script>
+	<script src="/Cube/Formula/Beta/assets/services/auth/supabase-client.js?v=0618" defer></script>
+	<script src="/Cube/Formula/Beta/assets/services/auth/auth-manager.js?v=0618" defer></script>
+	<script src="/Cube/Formula/Beta/assets/services/global/global-data-manager.js?v=0625" defer></script>
+	<script src="/assets/backend/profile-manager.js?v=0650" defer></script>
+
+	<title>个人资料 — Ckarefulon</title>
+	<style>
+		:root {
+			color-scheme: light;
+			--bg: #f6f7fb;
+			--surface: rgba(255, 255, 255, 0.9);
+			--surfaceSolid: #ffffff;
+			--ink: #242436;
+			--muted: #575a6d;
+			--line: #d5d8e5;
+			--accent: #5d4ea8;
+			--accentSoft: rgba(93, 78, 168, 0.12);
+			--good: #178b82;
+			--red: #d8485f;
+			--primaryBg: #5d4ea8;
+			--primaryHoverBg: #514598;
+			--primaryText: #ffffff;
+			--primaryBorder: #5d4ea8;
+			--controlBg: #ffffff;
+			--controlText: #242436;
+			--controlBorder: #cfd3e3;
+			--controlHoverBg: rgba(93, 78, 168, 0.10);
+			--pageBg: radial-gradient(circle at 16% 8%, rgba(93, 78, 168, 0.16), transparent 34%), radial-gradient(circle at 86% 12%, rgba(120, 110, 200, 0.08), transparent 30%), linear-gradient(135deg, #fafaff, #f4f6fb 58%, #ffffff);
+			--shadow: 0 18px 50px rgba(36, 36, 54, 0.10);
+		}
+
+		:root[data-theme="dark"] {
+			color-scheme: dark;
+			--bg: #0f0f16;
+			--surface: rgba(27, 27, 38, 0.94);
+			--surfaceSolid: #1c1c28;
+			--ink: #f4f4fb;
+			--muted: #c0c2d0;
+			--line: #414157;
+			--accentSoft: rgba(93, 78, 168, 0.26);
+			--good: #3ecfc9;
+			--red: #ff6b83;
+			--primaryBg: #6b5dc2;
+			--primaryHoverBg: #786bd0;
+			--primaryText: #ffffff;
+			--primaryBorder: #8174d6;
+			--controlBg: #252536;
+			--controlText: #f6f7ff;
+			--controlBorder: #595c72;
+			--controlHoverBg: #303046;
+			--pageBg: radial-gradient(circle at 18% 10%, rgba(93, 78, 168, 0.34), transparent 34%), radial-gradient(circle at 88% 0%, rgba(93, 78, 168, 0.16), transparent 32%), linear-gradient(180deg, #161620, #0d0d14);
+			--shadow: 0 18px 58px rgba(0, 0, 0, 0.32);
+		}
+
+		* { box-sizing: border-box; }
+
+		html, body {
+			margin: 0;
+			padding: 0;
+		}
+
+		body {
+			padding-top: var(--site-nav-height);
+			background: var(--pageBg);
+			color: var(--ink);
+			font: 15px/1.5 Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+			transition: background 0.22s ease, color 0.22s ease;
+			min-height: 100vh;
+		}
+
+		button, input {
+			font: inherit;
+		}
+
+		.profilePage {
+			max-width: 480px;
+			margin: 0 auto;
+			padding: 24px 20px 40px;
+		}
+
+		.profileBack {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			background: none;
+			border: none;
+			color: var(--muted);
+			font-size: 13px;
+			cursor: pointer;
+			padding: 4px 8px;
+			border-radius: 6px;
+			transition: background 0.2s, color 0.2s;
+			margin-bottom: 8px;
+		}
+
+		.profileBack:hover {
+			background: var(--controlHoverBg);
+			color: var(--ink);
+		}
+
+		.profileTitle {
+			font-size: 22px;
+			font-weight: 700;
+			color: var(--ink);
+			margin: 0 0 28px;
+			letter-spacing: -0.01em;
+		}
+
+		.profileCard {
+			background: var(--surface);
+			border: 1px solid var(--line);
+			border-radius: 14px;
+			padding: 28px 24px;
+			box-shadow: var(--shadow);
+			backdrop-filter: blur(12px);
+			-webkit-backdrop-filter: blur(12px);
+			transition: background 0.22s ease, border-color 0.22s ease;
+		}
+
+		.profileLoginPrompt {
+			text-align: center;
+			padding: 20px 0;
+		}
+
+		.profileLoginPrompt p {
+			color: var(--muted);
+			margin: 0 0 20px;
+			font-size: 14px;
+		}
+
+		.profileLoginPrompt .profileActions {
+			display: flex;
+			gap: 10px;
+			justify-content: center;
+		}
+
+		.profileAvatarSection {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			margin-bottom: 28px;
+			padding-bottom: 24px;
+			border-bottom: 1px solid var(--line);
+		}
+
+		.profileAvatar {
+			width: 80px;
+			height: 80px;
+			border-radius: 50%;
+			background: var(--accent);
+			color: #fff;
+			font-size: 32px;
+			font-weight: 600;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			margin-bottom: 10px;
+			text-transform: uppercase;
+			box-shadow: 0 4px 16px rgba(93, 78, 168, 0.25);
+		}
+
+		.profileAvatarName {
+			font-size: 16px;
+			font-weight: 600;
+			color: var(--ink);
+			margin-bottom: 4px;
+			word-break: break-all;
+			text-align: center;
+		}
+
+		.profileAvatarName.isUnset {
+			color: var(--muted);
+			font-weight: 400;
+			font-style: italic;
+		}
+
+		.profileAvatarHint {
+			font-size: 12px;
+			color: var(--muted);
+		}
+
+		.profileSection {
+			margin-bottom: 0;
+		}
+
+		.profileField {
+			margin-bottom: 12px;
+		}
+
+		.profileField label {
+			display: block;
+			font-size: 12px;
+			color: var(--muted);
+			margin-bottom: 4px;
+			font-weight: 500;
+		}
+
+		.profileField input {
+			width: 100%;
+			height: 40px;
+			padding: 0 12px;
+			border: 1px solid var(--controlBorder);
+			border-radius: 8px;
+			background: var(--controlBg);
+			color: var(--controlText);
+			font-size: 14px;
+			box-sizing: border-box;
+			outline: none;
+			transition: border-color 0.2s, box-shadow 0.2s;
+		}
+
+		.profileField input:focus {
+			border-color: var(--accent);
+			box-shadow: 0 0 0 3px var(--accentSoft);
+		}
+
+		.profileField input:disabled {
+			opacity: 0.6;
+			cursor: not-allowed;
+		}
+
+		.profileActions {
+			display: flex;
+			gap: 10px;
+			margin-top: 16px;
+		}
+
+		.profileBtn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			height: 38px;
+			padding: 0 18px;
+			border: 1px solid var(--controlBorder);
+			border-radius: 8px;
+			background: var(--controlBg);
+			color: var(--controlText);
+			font-size: 13px;
+			font-weight: 500;
+			cursor: pointer;
+			white-space: nowrap;
+			transition: background 0.2s, border-color 0.2s, transform 0.1s;
+		}
+
+		.profileBtn:hover {
+			background: var(--controlHoverBg);
+		}
+
+		.profileBtn:active {
+			transform: scale(0.98);
+		}
+
+		.profileBtnPrimary {
+			background: var(--primaryBg);
+			color: var(--primaryText);
+			border-color: var(--primaryBorder);
+		}
+
+		.profileBtnPrimary:hover {
+			background: var(--primaryHoverBg);
+		}
+
+		.profileBtnPrimary:disabled {
+			opacity: 0.4;
+			cursor: not-allowed;
+			background: var(--controlBorder);
+			border-color: var(--controlBorder);
+		}
+
+		.profileStatus {
+			margin-top: 12px;
+			font-size: 13px;
+			min-height: 20px;
+			transition: color 0.2s;
+		}
+
+		.profileStatus.isError {
+			color: var(--red);
+		}
+
+		.profileStatus.isSuccess {
+			color: var(--good);
+		}
+
+		.profileHint {
+			margin-top: 8px;
+			font-size: 11px;
+			color: var(--muted);
+			line-height: 1.5;
+		}
+
+		@media (max-width: 480px) {
+			.profilePage {
+				padding: 16px 14px 32px;
+			}
+			.profileCard {
+				padding: 20px 16px;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div class="profilePage">
+		<button class="profileBack" id="backBtn" type="button">&larr; 返回</button>
+		<h1 class="profileTitle">个人资料</h1>
+
+		<div class="profileCard">
+			<div id="loggedOutView" class="profileLoginPrompt" style="display:none">
+				<p>请先登录后再设置个人资料</p>
+				<div class="profileActions">
+					<button class="profileBtn" id="goHomeBtn" type="button">返回首页</button>
+					<button class="profileBtn profileBtnPrimary" id="loginPromptBtn" type="button">去登录</button>
+				</div>
+			</div>
+
+			<div id="loggedInView" style="display:none">
+				<div class="profileAvatarSection">
+					<div class="profileAvatar" id="profileAvatar">?</div>
+					<div class="profileAvatarName isUnset" id="profileDisplayName">未设置用户名</div>
+					<div class="profileAvatarHint">头像功能暂未开放</div>
+				</div>
+
+				<div class="profileSection">
+					<div class="profileField">
+						<label for="usernameInput">用户名</label>
+						<input type="text" id="usernameInput" placeholder="输入用户名" maxlength="32" autocomplete="off" spellcheck="false">
+					</div>
+
+					<div class="profileActions">
+						<button class="profileBtn profileBtnPrimary" id="saveBtn" type="button" disabled>保存</button>
+					</div>
+
+					<div class="profileStatus" id="saveStatus"></div>
+					<div class="profileHint">
+						用户名长度 2-32 字符，允许英文字母、数字、空格、-、_、.。不区分大小写，唯一不可重复。
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+	(function() {
+		"use strict";
+
+		var _savedUsername = null;
+
+		function applyTheme(theme, save) {
+			theme = theme === "dark" ? "dark" : "light";
+			document.documentElement.dataset.theme = theme;
+			var themeBtn = document.getElementById("siteThemeToggle");
+			if (themeBtn) {
+				themeBtn.textContent = theme === "dark" ? "☀" : "☾";
+			}
+			if (save !== false) {
+				try { localStorage.setItem("smartCubeTheme", theme); } catch(e) {}
+				if (window.globalDataManager && window.globalDataManager.isReady()) {
+					window.globalDataManager.saveThemePreference(theme).catch(function(error) {
+						console.warn("[Theme] 云端主题同步失败:", error);
+					});
+				}
+			}
+		}
+
+		function initTheme() {
+			var saved = null;
+			try { saved = localStorage.getItem("smartCubeTheme"); } catch(e) {}
+			var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+			var theme = saved || (prefersDark ? "dark" : "light");
+			applyTheme(theme, false);
+		}
+
+		function setStatus(text, type) {
+			var el = document.getElementById("saveStatus");
+			if (!el) return;
+			el.textContent = text || "";
+			el.className = "profileStatus" + (type ? " is" + type.charAt(0).toUpperCase() + type.slice(1) : "");
+		}
+
+		function updateSaveButton() {
+			var inputEl = document.getElementById("usernameInput");
+			var saveBtn = document.getElementById("saveBtn");
+			if (!inputEl || !saveBtn) return;
+			var currentVal = inputEl.value;
+			saveBtn.disabled = currentVal === _savedUsername;
+		}
+
+		function updateProfileUI(profile) {
+			var nameEl = document.getElementById("profileDisplayName");
+			var avatarEl = document.getElementById("profileAvatar");
+			var inputEl = document.getElementById("usernameInput");
+			if (!nameEl) return;
+			var username = profile && profile.username ? profile.username : null;
+			_savedUsername = username;
+			if (username) {
+				nameEl.textContent = username;
+				nameEl.classList.remove("isUnset");
+				if (avatarEl) {
+					avatarEl.textContent = username.charAt(0).toUpperCase() || "?";
+				}
+			} else {
+				nameEl.textContent = "未设置用户名";
+				nameEl.classList.add("isUnset");
+				var user = window.authManager ? window.authManager.getUser() : null;
+				if (avatarEl) {
+					avatarEl.textContent = user && user.email ? user.email.charAt(0).toUpperCase() : "?";
+				}
+			}
+			if (inputEl) {
+				inputEl.value = username || "";
+			}
+			updateSaveButton();
+			setStatus("", null);
+		}
+
+		function showLoggedIn(user) {
+			var outView = document.getElementById("loggedOutView");
+			var inView = document.getElementById("loggedInView");
+			if (outView) outView.style.display = "none";
+			if (inView) inView.style.display = "";
+			var avatarEl = document.getElementById("profileAvatar");
+			if (avatarEl && user && user.email) {
+				avatarEl.textContent = user.email.charAt(0).toUpperCase() || "?";
+			}
+		}
+
+		function showLoggedOut() {
+			var outView = document.getElementById("loggedOutView");
+			var inView = document.getElementById("loggedInView");
+			if (outView) outView.style.display = "";
+			if (inView) inView.style.display = "none";
+		}
+
+		function refreshProfile() {
+			if (!window.profileManager) return;
+			window.profileManager.getOwnProfile().then(function(result) {
+				if (result.success) {
+					updateProfileUI(result.profile);
+				} else {
+					updateProfileUI(null);
+				}
+			});
+		}
+
+		function saveUsername() {
+			var inputEl = document.getElementById("usernameInput");
+			var saveBtn = document.getElementById("saveBtn");
+			if (!inputEl || !saveBtn) return;
+			var username = inputEl.value;
+			if (!window.profileManager) {
+				setStatus("系统未就绪", "error");
+				return;
+			}
+			saveBtn.disabled = true;
+			setStatus("保存中...", "");
+			window.profileManager.saveUsername(username).then(function(result) {
+				if (result.success) {
+					setStatus(result.message, "success");
+					_savedUsername = username;
+					updateSaveButton();
+					var nameEl = document.getElementById("profileDisplayName");
+					var avatarEl = document.getElementById("profileAvatar");
+					if (nameEl) {
+						nameEl.textContent = username;
+						nameEl.classList.remove("isUnset");
+					}
+					if (avatarEl) {
+						avatarEl.textContent = username.charAt(0).toUpperCase() || "?";
+					}
+				} else {
+					setStatus(result.message, "error");
+					updateSaveButton();
+				}
+			});
+		}
+
+		function onAuthChanged(user) {
+			if (user) {
+				showLoggedIn(user);
+				refreshProfile();
+				if (window.globalDataManager) {
+					window.globalDataManager.applyCloudThemeIfLoggedIn().catch(function(error) {
+						console.warn("[Theme] 读取云端主题失败:", error);
+					});
+				}
+			} else {
+				showLoggedOut();
+			}
+		}
+
+		function waitForServices(callback) {
+			var checks = 0;
+			var maxChecks = 100;
+			function check() {
+				if (window.siteNav && window.authManager && window.profileManager) {
+					callback();
+					return;
+				}
+				checks++;
+				if (checks >= maxChecks) return;
+				setTimeout(check, 50);
+			}
+			check();
+		}
+
+		function init() {
+			initTheme();
+
+			var backBtn = document.getElementById("backBtn");
+			if (backBtn) {
+				backBtn.addEventListener("click", function() {
+					if (history.length > 1) {
+						history.back();
+					} else {
+						location.href = "/";
+					}
+				});
+			}
+
+			var goHomeBtn = document.getElementById("goHomeBtn");
+			if (goHomeBtn) {
+				goHomeBtn.addEventListener("click", function() {
+					location.href = "/";
+				});
+			}
+
+			var loginPromptBtn = document.getElementById("loginPromptBtn");
+			if (loginPromptBtn) {
+				loginPromptBtn.addEventListener("click", function() {
+					var loginBtn = document.getElementById("siteLoginBtn");
+					if (loginBtn) loginBtn.click();
+				});
+			}
+
+			var saveBtn = document.getElementById("saveBtn");
+			if (saveBtn) {
+				saveBtn.addEventListener("click", saveUsername);
+			}
+
+			var usernameInput = document.getElementById("usernameInput");
+			if (usernameInput) {
+				usernameInput.addEventListener("input", updateSaveButton);
+				usernameInput.addEventListener("keydown", function(e) {
+					if (e.key === "Enter" && !saveBtn.disabled) {
+						saveUsername();
+					}
+				});
+			}
+
+			waitForServices(function() {
+				if (window.siteNav && typeof window.siteNav.init === "function") {
+					window.siteNav.init({
+						setTheme: function(theme) {
+							applyTheme(theme, true);
+						}
+					});
+				}
+
+				if (window.authManager) {
+					window.authManager.onAuthStateChange(onAuthChanged);
+				} else {
+					showLoggedOut();
+				}
+
+				if (window.profileManager) {
+					window.profileManager.onProfileChange(function(profile) {
+						updateProfileUI(profile);
+					});
+				}
+			});
+		}
+
+		if (document.readyState === "loading") {
+			document.addEventListener("DOMContentLoaded", init);
+		} else {
+			init();
+		}
+	})();
+	</script>
+</body>
+</html>

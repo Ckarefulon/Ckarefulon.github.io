@@ -2,7 +2,7 @@
 .relayApp {
 	display: flex;
 	flex-direction: column;
-	height: calc(100dvh - 44px);
+	height: calc(100dvh - var(--site-nav-height));
 	padding: 16px;
 	gap: 12px;
 	max-width: 1200px;
@@ -12,9 +12,9 @@
 
 /* ========== 工具栏 ========== */
 .relayToolbar {
-	display: flex;
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
 	align-items: center;
-	justify-content: space-between;
 	gap: 12px;
 	flex-shrink: 0;
 	padding: 10px 14px;
@@ -31,6 +31,14 @@
 	align-items: center;
 	gap: 10px;
 	flex-wrap: wrap;
+	justify-self: start;
+}
+
+.relayToolbarCenter {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	justify-self: center;
 }
 
 .relayToolbarRight {
@@ -38,6 +46,7 @@
 	align-items: center;
 	gap: 8px;
 	flex-shrink: 0;
+	justify-self: end;
 }
 
 /* ========== 按钮统一样式 ========== */
@@ -129,6 +138,60 @@
 
 .relayBtnLabel {
 	white-space: nowrap;
+}
+
+/* ========== 图标按钮（居中操作区） ========== */
+.relayIconBtn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	padding: 0;
+	border: 1px solid var(--controlBorder);
+	border-radius: 8px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	cursor: pointer;
+	transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease, color 0.12s ease, opacity 0.2s ease;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+.relayIconBtn svg {
+	display: block;
+	transition: transform 0.3s ease;
+}
+
+.relayIconBtn:hover {
+	border-color: var(--cyan);
+	background: var(--controlHoverBg);
+	color: var(--cyan);
+	transform: translateY(-1px);
+}
+
+.relayIconBtn:hover svg {
+	transform: scale(1.08);
+}
+
+.relayIconBtn:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+	transform: none;
+}
+
+.relayIconBtn:disabled svg {
+	transform: none;
+}
+
+/* 手动同步旋转动画 */
+@keyframes relaySyncSpin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
+.relayIconBtn.isSyncing svg {
+	animation: relaySyncSpin 0.8s linear infinite;
 }
 
 /* 互斥隐藏：平滑淡出+收缩，带动画 */
@@ -291,15 +354,21 @@
 	}
 
 	.relayToolbar {
-		flex-direction: column;
-		align-items: stretch;
+		grid-template-columns: 1fr;
+		gap: 8px;
 	}
 
 	.relayToolbarLeft {
+		justify-self: center;
 		justify-content: center;
 	}
 
+	.relayToolbarCenter {
+		justify-self: center;
+	}
+
 	.relayToolbarRight {
+		justify-self: center;
 		justify-content: center;
 	}
 }

@@ -100,6 +100,55 @@
 		},
 
 		/**
+		 * 用户名登录（通过 Edge Function）
+		 * @param {string} username
+		 * @param {string} password
+		 * @returns {Promise<{success: boolean, message: string, user: object|null}>}
+		 */
+		signInWithUsername: function(username, password) {
+			var client = window.supabaseClient;
+			var config = window.CK_SUPABASE_CONFIG;
+			if (!client || !config) {
+				return Promise.resolve({ success: false, message: "Supabase 配置未完成", user: null });
+			}
+
+			var functionUrl = config.url + "/functions/v1/username-login";
+			var apikey = config.publishableKey;
+
+			return fetch(functionUrl, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"apikey": apikey,
+					"Authorization": "Bearer " + apikey
+				},
+				body: JSON.stringify({ username: username, password: password })
+			}).then(function(response) {
+				return response.json().catch(function() {
+					return { success: false };
+				}).then(function(data) {
+					if (!response.ok || !data.success || !data.session) {
+						return { success: false, message: "账号或密码错误", user: null };
+					}
+					var session = data.session;
+					return client.auth.setSession({
+						access_token: session.access_token,
+						refresh_token: session.refresh_token
+					}).then(function(setResult) {
+						if (setResult.error) {
+							return { success: false, message: "账号或密码错误", user: null };
+						}
+						authManager._user = setResult.data.user;
+						authManager._notify(authManager._user);
+						return { success: true, message: "登录成功", user: setResult.data.user };
+					});
+				});
+			}).catch(function() {
+				return { success: false, message: "账号或密码错误", user: null };
+			});
+		},
+
+		/**
 		 * 退出登录
 		 * @returns {Promise<{success: boolean, message: string}>}
 		 */
@@ -160,7 +209,7 @@
 		_translateError: function(message) {
 			if (!message) return "操作失败";
 			var lower = message.toLowerCase();
-			if (lower.indexOf("invalid login credentials") >= 0) return "邮箱或密码错误";
+			if (lower.indexOf("invalid login credentials") >= 0) return "账号或密码错误";
 			if (lower.indexOf("email not confirmed") >= 0) return "请先确认邮箱";
 			if (lower.indexOf("user already registered") >= 0) return "该邮箱已被注册";
 			if (lower.indexOf("password") >= 0 && lower.indexOf("length") >= 0) return "密码长度不足（至少 6 位）";
