@@ -18,6 +18,11 @@
 ### Security
 -
 
+## [6.4.0681-beta.35]
+
+### Changed
+- 优化 supabase 连接。
+
 ## [6.3.0677-beta.34] - 2026-06-25
 
 ### Added

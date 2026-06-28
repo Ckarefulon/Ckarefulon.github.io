@@ -7,6 +7,39 @@ const corsHeaders = {
 	"Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+function getAdminKey(): string {
+	const rawSecretKeys = Deno.env.get("SUPABASE_SECRET_KEYS");
+
+	if (rawSecretKeys && rawSecretKeys.trim()) {
+		const trimmedSecretKeys = rawSecretKeys.trim();
+
+		try {
+			const parsed: unknown = JSON.parse(trimmedSecretKeys);
+
+			if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+				const secretKeys = parsed as Record<string, unknown>;
+				const defaultKey = secretKeys.default;
+
+				if (typeof defaultKey === "string" && defaultKey.trim()) {
+					return defaultKey.trim();
+				}
+
+				const firstKey = Object.values(secretKeys).find(
+					(value): value is string => typeof value === "string" && Boolean(value.trim())
+				);
+
+				if (firstKey) {
+					return firstKey.trim();
+				}
+			}
+		} catch {
+			return trimmedSecretKeys;
+		}
+	}
+
+	return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+}
+
 serve(async (req: Request) => {
 	if (req.method === "OPTIONS") {
 		return new Response("ok", { headers: corsHeaders });
@@ -20,12 +53,12 @@ serve(async (req: Request) => {
 	}
 
 	const supabaseUrl = Deno.env.get("SUPABASE_URL");
-	const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+	const adminKey = getAdminKey();
 
-	if (!supabaseUrl || !serviceRoleKey) {
+	if (!supabaseUrl || !adminKey) {
 		return new Response(
-			JSON.stringify({ success: false, message: "Server configuration error" }),
-			{ status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+			JSON.stringify({ success: false, message: "账号或密码错误" }),
+			{ status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
 		);
 	}
 
@@ -77,7 +110,7 @@ serve(async (req: Request) => {
 		);
 	}
 
-	const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+	const adminClient = createClient(supabaseUrl, adminKey, {
 		auth: { persistSession: false, autoRefreshToken: false },
 	});
 
