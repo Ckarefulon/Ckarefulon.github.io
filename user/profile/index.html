@@ -5,16 +5,16 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="icon" href="/favicon.svg?v=0349" type="image/svg+xml">
 
-	<link rel="stylesheet" href="/nav/nav.css?v=0650">
+	<link rel="stylesheet" href="/nav/nav.css?v=0680">
 
-	<script src="/nav/nav.js?v=0650" defer></script>
+	<script src="/nav/nav.js?v=0680" defer></script>
 
 	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
 	<script src="/Cube/Formula/Beta/assets/services/auth/supabase-config.js?v=0618" defer></script>
 	<script src="/Cube/Formula/Beta/assets/services/auth/supabase-client.js?v=0618" defer></script>
 	<script src="/Cube/Formula/Beta/assets/services/auth/auth-manager.js?v=0618" defer></script>
 	<script src="/Cube/Formula/Beta/assets/services/global/global-data-manager.js?v=0625" defer></script>
-	<script src="/assets/backend/profile-manager.js?v=0650" defer></script>
+	<script src="/assets/backend/profile-manager.js?v=0680" defer></script>
 
 	<title>个人资料 — Ckarefulon</title>
 	<style>
@@ -160,6 +160,7 @@
 			width: 80px;
 			height: 80px;
 			border-radius: 50%;
+			overflow: hidden;
 			background: var(--accent);
 			color: #fff;
 			font-size: 32px;
@@ -170,6 +171,18 @@
 			margin-bottom: 10px;
 			text-transform: uppercase;
 			box-shadow: 0 4px 16px rgba(93, 78, 168, 0.25);
+		}
+
+		.profileAvatarImage {
+			width: 100%;
+			height: 100%;
+			display: block;
+			object-fit: cover;
+		}
+
+		.profileAvatarImage[hidden],
+		.profileAvatarFallback[hidden] {
+			display: none;
 		}
 
 		.profileAvatarName {
@@ -190,6 +203,24 @@
 		.profileAvatarHint {
 			font-size: 12px;
 			color: var(--muted);
+		}
+
+		.profileAvatarActions {
+			margin-top: 12px;
+		}
+
+		.profileAvatarStatus {
+			margin-top: 8px;
+			min-height: 20px;
+			font-size: 13px;
+		}
+
+		.profileAvatarStatus.isError {
+			color: var(--red);
+		}
+
+		.profileAvatarStatus.isSuccess {
+			color: var(--good);
 		}
 
 		.profileSection {
@@ -328,9 +359,17 @@
 
 			<div id="loggedInView" style="display:none">
 				<div class="profileAvatarSection">
-					<div class="profileAvatar" id="profileAvatar">?</div>
+					<div class="profileAvatar" id="profileAvatar">
+						<img class="profileAvatarImage" id="profileAvatarImage" alt="当前头像" hidden>
+						<span class="profileAvatarFallback" id="profileAvatarFallback">?</span>
+					</div>
 					<div class="profileAvatarName isUnset" id="profileDisplayName">未设置用户名</div>
-					<div class="profileAvatarHint">头像功能暂未开放</div>
+					<div class="profileAvatarActions">
+						<input id="avatarFileInput" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" hidden>
+						<button class="profileBtn" id="uploadAvatarBtn" type="button">上传头像</button>
+					</div>
+					<div class="profileAvatarStatus" id="avatarStatus" aria-live="polite"></div>
+					<div class="profileAvatarHint">JPG、PNG，最大 200KB</div>
 				</div>
 
 				<div class="profileSection">
@@ -390,6 +429,13 @@
 			el.className = "profileStatus" + (type ? " is" + type.charAt(0).toUpperCase() + type.slice(1) : "");
 		}
 
+		function setAvatarStatus(text, type) {
+			var el = document.getElementById("avatarStatus");
+			if (!el) return;
+			el.textContent = text || "";
+			el.className = "profileAvatarStatus" + (type ? " is" + type.charAt(0).toUpperCase() + type.slice(1) : "");
+		}
+
 		function updateSaveButton() {
 			var inputEl = document.getElementById("usernameInput");
 			var saveBtn = document.getElementById("saveBtn");
@@ -398,9 +444,47 @@
 			saveBtn.disabled = currentVal === _savedUsername;
 		}
 
+		function updateAvatarDisplay(profile) {
+			var avatarEl = document.getElementById("profileAvatar");
+			var imageEl = document.getElementById("profileAvatarImage");
+			var fallbackEl = document.getElementById("profileAvatarFallback");
+			var user = window.authManager ? window.authManager.getUser() : null;
+			var displayName = profile && profile.username ? profile.username : (user && user.email ? user.email : "");
+			var initial = displayName ? displayName.charAt(0).toUpperCase() : "?";
+			if (fallbackEl) {
+				fallbackEl.textContent = initial;
+				fallbackEl.hidden = false;
+			}
+			if (avatarEl) {
+				avatarEl.title = displayName;
+			}
+			var avatarUrl = profile && profile.avatar_path && window.profileManager
+				? window.profileManager.getAvatarUrl(profile.avatar_path, profile.updated_at)
+				: null;
+			if (!imageEl) return;
+			if (!avatarUrl) {
+				imageEl.dataset.avatarUrl = "";
+				imageEl.hidden = true;
+				imageEl.removeAttribute("src");
+				return;
+			}
+			imageEl.dataset.avatarUrl = avatarUrl;
+			imageEl.hidden = true;
+			imageEl.onload = function() {
+				if (imageEl.dataset.avatarUrl !== avatarUrl) return;
+				imageEl.hidden = false;
+				if (fallbackEl) fallbackEl.hidden = true;
+			};
+			imageEl.onerror = function() {
+				if (imageEl.dataset.avatarUrl !== avatarUrl) return;
+				imageEl.hidden = true;
+				if (fallbackEl) fallbackEl.hidden = false;
+			};
+			imageEl.src = avatarUrl;
+		}
+
 		function updateProfileUI(profile) {
 			var nameEl = document.getElementById("profileDisplayName");
-			var avatarEl = document.getElementById("profileAvatar");
 			var inputEl = document.getElementById("usernameInput");
 			if (!nameEl) return;
 			var username = profile && profile.username ? profile.username : null;
@@ -408,17 +492,11 @@
 			if (username) {
 				nameEl.textContent = username;
 				nameEl.classList.remove("isUnset");
-				if (avatarEl) {
-					avatarEl.textContent = username.charAt(0).toUpperCase() || "?";
-				}
 			} else {
 				nameEl.textContent = "未设置用户名";
 				nameEl.classList.add("isUnset");
-				var user = window.authManager ? window.authManager.getUser() : null;
-				if (avatarEl) {
-					avatarEl.textContent = user && user.email ? user.email.charAt(0).toUpperCase() : "?";
-				}
 			}
+			updateAvatarDisplay(profile);
 			if (inputEl) {
 				inputEl.value = username || "";
 			}
@@ -431,10 +509,7 @@
 			var inView = document.getElementById("loggedInView");
 			if (outView) outView.style.display = "none";
 			if (inView) inView.style.display = "";
-			var avatarEl = document.getElementById("profileAvatar");
-			if (avatarEl && user && user.email) {
-				avatarEl.textContent = user.email.charAt(0).toUpperCase() || "?";
-			}
+			updateAvatarDisplay(null);
 		}
 
 		function showLoggedOut() {
@@ -471,19 +546,49 @@
 					setStatus(result.message, "success");
 					_savedUsername = username;
 					updateSaveButton();
-					var nameEl = document.getElementById("profileDisplayName");
-					var avatarEl = document.getElementById("profileAvatar");
-					if (nameEl) {
-						nameEl.textContent = username;
-						nameEl.classList.remove("isUnset");
-					}
-					if (avatarEl) {
-						avatarEl.textContent = username.charAt(0).toUpperCase() || "?";
-					}
 				} else {
 					setStatus(result.message, "error");
 					updateSaveButton();
 				}
+			});
+		}
+
+		function uploadAvatar(file) {
+			var user = window.authManager ? window.authManager.getUser() : null;
+			var uploadBtn = document.getElementById("uploadAvatarBtn");
+			var fileInput = document.getElementById("avatarFileInput");
+			if (!user) {
+				setAvatarStatus("请先登录", "error");
+				return;
+			}
+			if (!file) {
+				setAvatarStatus("头像上传失败", "error");
+				return;
+			}
+			if (file.type !== "image/jpeg" && file.type !== "image/png") {
+				setAvatarStatus("仅支持 JPG、PNG", "error");
+				if (fileInput) fileInput.value = "";
+				return;
+			}
+			if (file.size > 200 * 1024) {
+				setAvatarStatus("头像文件不能超过 200KB", "error");
+				if (fileInput) fileInput.value = "";
+				return;
+			}
+			if (!window.profileManager) {
+				setAvatarStatus("头像上传失败", "error");
+				return;
+			}
+			if (uploadBtn) uploadBtn.disabled = true;
+			setAvatarStatus("头像上传中...", "");
+			window.profileManager.uploadAvatar(file).then(function(result) {
+				setAvatarStatus(result.success ? "头像已更新" : result.message, result.success ? "success" : "error");
+				if (uploadBtn) uploadBtn.disabled = false;
+				if (fileInput) fileInput.value = "";
+			}).catch(function() {
+				setAvatarStatus("头像上传失败", "error");
+				if (uploadBtn) uploadBtn.disabled = false;
+				if (fileInput) fileInput.value = "";
 			});
 		}
 
@@ -548,6 +653,17 @@
 			var saveBtn = document.getElementById("saveBtn");
 			if (saveBtn) {
 				saveBtn.addEventListener("click", saveUsername);
+			}
+
+			var avatarFileInput = document.getElementById("avatarFileInput");
+			var uploadAvatarBtn = document.getElementById("uploadAvatarBtn");
+			if (uploadAvatarBtn && avatarFileInput) {
+				uploadAvatarBtn.addEventListener("click", function() {
+					avatarFileInput.click();
+				});
+				avatarFileInput.addEventListener("change", function() {
+					uploadAvatar(avatarFileInput.files && avatarFileInput.files[0]);
+				});
 			}
 
 			var usernameInput = document.getElementById("usernameInput");

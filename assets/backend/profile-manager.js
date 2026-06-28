@@ -5,6 +5,7 @@
 		_cache: null,
 		_listeners: [],
 		_ready: false,
+		_avatarBucket: "avatars",
 
 		init: function() {
 			var self = this;
@@ -39,7 +40,7 @@
 			}
 			return client
 				.from("user_profiles")
-				.select("user_id, username, updated_at")
+				.select("user_id, username, updated_at, avatar_path")
 				.eq("user_id", user.id)
 				.maybeSingle()
 				.then(function(result) {
@@ -62,6 +63,105 @@
 				}
 				return { success: false, username: null };
 			});
+		},
+
+		getAvatarUrl: function(avatarPath, version) {
+			var client = window.supabaseClient;
+			if (!client || typeof avatarPath !== "string" || !avatarPath) {
+				return null;
+			}
+			var result = client.storage
+				.from(this._avatarBucket)
+				.getPublicUrl(avatarPath);
+			var publicUrl = result && result.data ? result.data.publicUrl : null;
+			if (!publicUrl) {
+				return null;
+			}
+			if (version) {
+				publicUrl += (publicUrl.indexOf("?") >= 0 ? "&" : "?") + "v=" + encodeURIComponent(version);
+			}
+			return publicUrl;
+		},
+
+		saveAvatarPath: function(avatarPath) {
+			var self = this;
+			var user = this.getCurrentUser();
+			if (!user) {
+				return Promise.resolve({ success: false, message: "请先登录" });
+			}
+			var expectedPrefix = user.id + "/avatar.";
+			if (typeof avatarPath !== "string" ||
+				avatarPath.indexOf(expectedPrefix) !== 0 ||
+				(avatarPath !== expectedPrefix + "jpg" && avatarPath !== expectedPrefix + "png")) {
+				return Promise.resolve({ success: false, message: "头像上传失败" });
+			}
+			var client = window.supabaseClient;
+			if (!client) {
+				return Promise.resolve({ success: false, message: "头像上传失败" });
+			}
+			var updatedAt = new Date().toISOString();
+			return client
+				.from("user_profiles")
+				.update({
+					avatar_path: avatarPath,
+					updated_at: updatedAt
+				})
+				.eq("user_id", user.id)
+				.select("user_id, username, updated_at, avatar_path")
+				.maybeSingle()
+				.then(function(result) {
+					if (result.error) {
+						return { success: false, message: "头像上传失败" };
+					}
+					if (!result.data) {
+						return { success: false, message: "请先设置用户名后再上传头像。" };
+					}
+					self._cache = result.data;
+					self._notify(self._cache);
+					return { success: true, message: "头像已更新", profile: self._cache };
+				})
+				.catch(function() {
+					return { success: false, message: "头像上传失败" };
+				});
+		},
+
+		uploadAvatar: function(file) {
+			var self = this;
+			var user = this.getCurrentUser();
+			if (!user) {
+				return Promise.resolve({ success: false, message: "请先登录" });
+			}
+			if (!file) {
+				return Promise.resolve({ success: false, message: "头像上传失败" });
+			}
+			if (file.type !== "image/jpeg" && file.type !== "image/png") {
+				return Promise.resolve({ success: false, message: "仅支持 JPG、PNG" });
+			}
+			if (file.size > 200 * 1024) {
+				return Promise.resolve({ success: false, message: "头像文件不能超过 200KB" });
+			}
+			var client = window.supabaseClient;
+			if (!client) {
+				return Promise.resolve({ success: false, message: "头像上传失败" });
+			}
+			var extension = file.type === "image/jpeg" ? "jpg" : "png";
+			var avatarPath = user.id + "/avatar." + extension;
+			return client.storage
+				.from(this._avatarBucket)
+				.upload(avatarPath, file, {
+					cacheControl: "0",
+					contentType: file.type,
+					upsert: true
+				})
+				.then(function(result) {
+					if (result.error) {
+						return { success: false, message: "头像上传失败" };
+					}
+					return self.saveAvatarPath(avatarPath);
+				})
+				.catch(function() {
+					return { success: false, message: "头像上传失败" };
+				});
 		},
 
 		validateUsername: function(username) {
@@ -107,6 +207,8 @@
 				}, {
 					onConflict: "user_id"
 				})
+				.select("user_id, username, updated_at, avatar_path")
+				.maybeSingle()
 				.then(function(result) {
 					if (result.error) {
 						if (result.error.code === "23505") {
@@ -114,10 +216,11 @@
 						}
 						return { success: false, message: "保存失败：" + (result.error.message || "未知错误") };
 					}
-					self._cache = {
+					self._cache = result.data || {
 						user_id: user.id,
 						username: username,
-						updated_at: new Date().toISOString()
+						updated_at: new Date().toISOString(),
+						avatar_path: self._cache ? self._cache.avatar_path : null
 					};
 					self._notify(self._cache);
 					return { success: true, message: "保存成功" };

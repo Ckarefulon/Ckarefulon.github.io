@@ -34,7 +34,7 @@
 		'			</div>',
 		'		</div>',
 		'		<div class="guestEntry" id="userEntry" style="display:none">',
-		'			<button id="siteAvatar" class="siteAvatar" type="button">?</button>',
+		'			<button id="siteAvatar" class="siteAvatar" type="button"><img id="siteAvatarImage" class="siteAvatarImage" alt="" hidden><span id="siteAvatarFallback">?</span></button>',
 		'			<div id="accountMenu" class="accountMenu">',
 		'				<div class="accountMenuEmail" id="accountMenuEmail"></div>',
 		'				<div class="accountMenuScope" id="accountMenuScope"></div>',
@@ -427,53 +427,74 @@
 			});
 		}
 
-		var _currentUsername = null;
+		var _currentProfile = null;
 		var _profileListenerBound = false;
 		var _currentAuthUser = null;
 
-		function updateMenuDisplayName(username) {
+		function updateMenuDisplay(profile) {
 			var nameEl = document.getElementById("accountMenuEmail");
 			var avatarEl = document.getElementById("siteAvatar");
+			var imageEl = document.getElementById("siteAvatarImage");
+			var fallbackEl = document.getElementById("siteAvatarFallback");
 			var user = _currentAuthUser;
 			if (!nameEl || !user) return;
+			var username = profile && profile.username ? profile.username : null;
 			var displayName = username || user.email || "";
 			nameEl.textContent = displayName;
+			var initial = displayName ? displayName.charAt(0).toUpperCase() : "?";
+			if (fallbackEl) {
+				fallbackEl.textContent = initial;
+				fallbackEl.hidden = false;
+			}
 			if (avatarEl) {
-				var initial = displayName ? displayName.charAt(0).toUpperCase() : "?";
-				avatarEl.textContent = initial;
 				avatarEl.title = displayName;
 			}
+			var avatarUrl = profile && profile.avatar_path && window.profileManager
+				? window.profileManager.getAvatarUrl(profile.avatar_path, profile.updated_at)
+				: null;
+			if (!imageEl) return;
+			if (!avatarUrl) {
+				imageEl.dataset.avatarUrl = "";
+				imageEl.hidden = true;
+				imageEl.removeAttribute("src");
+				return;
+			}
+			imageEl.dataset.avatarUrl = avatarUrl;
+			imageEl.hidden = true;
+			imageEl.onload = function() {
+				if (imageEl.dataset.avatarUrl !== avatarUrl) return;
+				imageEl.hidden = false;
+				if (fallbackEl) fallbackEl.hidden = true;
+			};
+			imageEl.onerror = function() {
+				if (imageEl.dataset.avatarUrl !== avatarUrl) return;
+				imageEl.hidden = true;
+				if (fallbackEl) fallbackEl.hidden = false;
+			};
+			imageEl.src = avatarUrl;
 		}
 
-		function fetchAndDisplayUsername() {
+		function fetchAndDisplayProfile() {
 			var user = _currentAuthUser;
 			if (!user) {
-				_currentUsername = null;
+				_currentProfile = null;
 				return;
 			}
 			if (window.profileManager && typeof window.profileManager.getOwnProfile === "function") {
 				if (!_profileListenerBound && typeof window.profileManager.onProfileChange === "function") {
 					_profileListenerBound = true;
 					window.profileManager.onProfileChange(function(profile) {
-						if (profile && profile.username) {
-							_currentUsername = profile.username;
-						} else {
-							_currentUsername = null;
-						}
-						updateMenuDisplayName(_currentUsername);
+						_currentProfile = profile || null;
+						updateMenuDisplay(_currentProfile);
 					});
 				}
 				window.profileManager.getOwnProfile().then(function(result) {
-					if (result.success && result.profile && result.profile.username) {
-						_currentUsername = result.profile.username;
-					} else {
-						_currentUsername = null;
-					}
-					updateMenuDisplayName(_currentUsername);
+					_currentProfile = result.success ? result.profile : null;
+					updateMenuDisplay(_currentProfile);
 				});
 			} else {
-				_currentUsername = null;
-				updateMenuDisplayName(null);
+				_currentProfile = null;
+				updateMenuDisplay(null);
 			}
 		}
 
@@ -485,11 +506,12 @@
 			if (user) {
 				if (guestEntry) { guestEntry.style.display = "none"; }
 				if (userEntry) { userEntry.style.display = ""; }
-				fetchAndDisplayUsername();
+				updateMenuDisplay(null);
+				fetchAndDisplayProfile();
 			} else {
 				if (guestEntry) { guestEntry.style.display = ""; }
 				if (userEntry) { userEntry.style.display = "none"; }
-				_currentUsername = null;
+				_currentProfile = null;
 			}
 		}
 
