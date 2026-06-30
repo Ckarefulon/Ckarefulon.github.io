@@ -366,12 +366,16 @@
 		if (planDone && hasDue) {
 			renderCompletionCheck(current, "已完成规划学习任务！<br/>但仍有公式今日到期。", "继续学习", function() {
 				renderDueContinuationPanel(current, due);
+			}, "直接签到", function() {
+				renderCompletionCalendar(current);
 			});
 			return;
 		}
 		if (!planDone && !memory.data.queue.length && !hasDue && memory.data.formulas.length > 0) {
 			renderCompletionCheck(current, "已完成复习学习任务！<br/>但未达今日规划目标。", "加入公式", function() {
 				openPlanDialog();
+			}, "直接签到", function() {
+				renderCompletionCalendar(current);
 			});
 			return;
 		}
@@ -409,7 +413,7 @@
 		for (var i = 0; i < presets.length; i++) {
 			html += '<button class="memoryDueBtn" type="button" data-count="' + presets[i] + '">' + presets[i] + '</button>';
 		}
-		html += '<button class="memoryDueBtn memoryDueBtnAll" type="button" data-count="' + dueCount + '">全部(' + dueCount + ')</button></div>';
+		html += '<button class="memoryDueBtn" type="button" data-count="' + dueCount + '">全部(' + dueCount + ')</button></div>';
 		html += '<div class="memoryDueCustomRow"><input id="memoryDueCustomInput" class="memoryDueCustom" type="number" min="1" max="' + dueCount + '" placeholder="自定义" value=""><button id="memoryDueSubmit" class="memoryDueSubmit" type="button" title="提交" aria-label="提交"><span class="memoryDueCheckIcon" aria-hidden="true"></span></button></div></div>';
 		current.innerHTML = html;
 
