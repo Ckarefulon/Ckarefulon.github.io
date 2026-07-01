@@ -26,7 +26,7 @@ jobs:
       - name: Checkout target repository
         uses: actions/checkout@v6
         with:
-          repository: Ckarefulon/Ckarefulon.github.io
+          repository: Ckarefulon/Cube-Formula
           token: ${{ secrets.TARGET_REPO_TOKEN }}
           path: target
           fetch-depth: 0
