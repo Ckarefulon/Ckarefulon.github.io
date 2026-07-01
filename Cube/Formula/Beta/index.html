@@ -8,8 +8,8 @@
 
 	<script src="assets/lib/jquery-4.0.0.min.js"></script>
 
-	<link rel="stylesheet" href="/nav/nav.css?v=0680">
-	<script src="/nav/nav.js?v=0680" defer></script>
+	<link rel="stylesheet" href="/nav/nav.css?v=0721">
+	<script src="/nav/nav.js?v=0721" defer></script>
 
 	<script src="/assets/services/core/site-scope.js?v=0567" defer></script>
 	<script src="/assets/services/core/storage-manager.js?v=0567" defer></script>
@@ -20,7 +20,7 @@
 	<script src="/supabase/auth-manager.js?v=0677" defer></script>
 	<script src="/assets/backend/profile-manager.js?v=0680" defer></script>
 	<script src="/assets/services/global/global-data-manager.js?v=0666" defer></script>
-	<script src="/assets/services/sync/cloud-sync-manager.js?v=0618" defer></script>
+	<script src="/assets/services/sync/cloud-sync-manager.js?v=0721" defer></script>
 
 	<script src="assets/lib/lzstring.js?v=0286" defer></script>
 	<script src="assets/lib/sha256.js?v=0286" defer></script>
@@ -40,7 +40,7 @@
 	<script src="assets/hardware/moyu32cube.js?v=0286" defer></script>
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
 
-	<link rel="stylesheet" href="assets/memory/memory.css?v=0643">
+	<link rel="stylesheet" href="assets/memory/memory.css?v=0721">
 	<script src="assets/memory/memory.js?v=0643" defer></script>
 
 	<title>学习模式</title>
@@ -277,7 +277,8 @@
 
 		.trainIcon,
 		.formulaModeIcon,
-		.libraryIcon {
+		.libraryIcon,
+		.memoryIcon {
 			background: var(--controlBg);
 			box-shadow: inset 0 0 0 1px var(--controlBorder);
 		}
@@ -337,6 +338,13 @@
 
 		.libraryIcon {
 			background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cmask id='cardMask'%3E%3Crect width='64' height='64' fill='white'/%3E%3Crect x='12' y='22' width='32' height='32' rx='6' fill='black'/%3E%3C/mask%3E%3C/defs%3E%3Crect x='20' y='14' width='32' height='32' rx='6' stroke='%2324f0ea' stroke-width='4' mask='url(%23cardMask)'/%3E%3Crect x='12' y='22' width='32' height='32' rx='6' stroke='%235d4ea8' stroke-width='4'/%3E%3C/svg%3E");
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-position: center;
+		}
+
+		.memoryIcon {
+			background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 1024 1024' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M572 835.3c17.7 0 32 14.3 32 32s-14.3 32-32 32H452c-17.7 0-32-14.3-32-32s14.3-32 32-32h120zM510 124c164.6 0 298 133.4 298 298 0 111.6-61.4 208.9-152.1 259.9v29.3c0 39.8-32.2 72-72 72H436c-39.8 0-72-32.2-72-72v-29.4c-90.7-51.1-152-148.3-152-259.9C212 257.4 345.4 124 510 124zm0 64c-129.3 0-234 104.8-234 234 0 92.6 53.8 172.7 132 210.7 6.3 3 11.8 7.9 16 14.3 4.2 6.4 6.4 13.9 6.4 21.7v47.3c0 4.4 3.6 8 8 8h148c4.4 0 8-3.6 8-8v-48c0-10.3 4.8-19.4 12.3-25.2a32 32 0 0 1 7.8-5.3c78.2-38 132-118.1 132-210.7 0-129.2-104.8-234-234-234z' fill='%235d4ea8'/%3E%3Cpath d='M469 321.6c13.2-40 69.4-40.3 83.3-0.9l0.3 0.9 18.5 56.2 56.2 18.5c40.3 13.3 40.3 70.3 0 83.6l-56.2 18.5-18.5 56.2c-13.3 40.3-70.3 40.3-83.6 0l-18.5-56.2-56.2-18.5c-40.3-13.3-40.3-70.3 0-83.6l56.2-18.5 18.5-56.2zm39.1 85.8a44 44 0 0 1-28 28l-8.1 2.7 8.1 2.7a44 44 0 0 1 28 28l2.7 8.1 2.7-8.1 0.2-0.6a44 44 0 0 1 27.8-27.4l8.1-2.7-8.1-2.7a44 44 0 0 1-28-28l-2.7-8.1-2.7 8.1z' fill='%2324f0ea'/%3E%3C/svg%3E");
 			background-size: contain;
 			background-repeat: no-repeat;
 			background-position: center;
@@ -3282,6 +3290,9 @@
 						};
 					});
 					storageManager.setJson("smartCubeFormulaEntries", data);
+					if (this.markDataDirty) {
+						this.markDataDirty();
+					}
 				},
 
 				clearFormulaModeContent: function() {
@@ -4299,9 +4310,123 @@
 				},
 
 				initSiteHeader: function() {
+					var self = this;
+					this.cloudDataDirty = false;
+					this.cloudApplyingDownload = false;
+
+					this.markDataDirty = function() {
+						if (this.cloudApplyingDownload) return;
+						this.cloudDataDirty = true;
+						if (typeof window._siteNavSetDirty === "function") {
+							window._siteNavSetDirty(true);
+						}
+					};
+
+					this.markDataClean = function() {
+						this.cloudDataDirty = false;
+						if (typeof window._siteNavSetDirty === "function") {
+							window._siteNavSetDirty(false);
+						}
+					};
+
+					this.applyCloudDownload = function(silent) {
+						if (!window.cloudSyncManager || !window.cloudSyncManager.isReady()) {
+							return Promise.resolve({ success: false });
+						}
+						return window.cloudSyncManager.downloadCloudToLocal().then(function(result) {
+							if (result.success && result.data) {
+								self.cloudApplyingDownload = true;
+								try {
+									if (result.data.smartCubeFormulaEntries !== undefined) {
+										self.loadFormulaEntries();
+										self.renderFormulaList();
+									}
+									self.syncConnectionUi();
+									self.markDataClean();
+								} finally {
+									self.cloudApplyingDownload = false;
+								}
+							}
+							return result;
+						});
+					};
+
+					var origSetJson = null;
+					if (window.storageManager && typeof window.storageManager.setJson === "function") {
+						origSetJson = window.storageManager.setJson.bind(window.storageManager);
+						window.storageManager.setJson = function(key, value) {
+							origSetJson(key, value);
+							if (key === "cube_memory_progress_v1" && !self.cloudApplyingDownload) {
+								self.markDataDirty();
+							}
+						};
+					}
+
 					if (window.siteNav && typeof window.siteNav.init === "function") {
 						window.siteNav.init(this);
 					}
+
+					window._siteNavQuickUpload = function() {
+						if (!window.cloudSyncManager || !window.cloudSyncManager.isReady()) {
+							return Promise.resolve({ success: false, message: "请先登录" });
+						}
+						var cloudStatusEl = document.getElementById("cloudStatus");
+						if (cloudStatusEl) {
+							cloudStatusEl.textContent = "正在上传...";
+							cloudStatusEl.className = "accountMenuCloudStatus";
+						}
+						return window.cloudSyncManager.uploadLocalToCloud().then(function(result) {
+							if (cloudStatusEl) {
+								cloudStatusEl.textContent = result.message;
+								cloudStatusEl.className = "accountMenuCloudStatus" + (result.success ? " isSuccess" : " isError");
+							}
+							if (result.success) {
+								self.markDataClean();
+							}
+							return result;
+						});
+					};
+
+					window._siteNavOnUploadSuccess = function() {
+						self.markDataClean();
+					};
+
+					function waitForAuthAndSync() {
+						var checks = 0;
+						function check() {
+							checks++;
+							if (window.authManager) {
+								window.authManager.onAuthStateChange(function(user) {
+									if (user) {
+										self.markDataClean();
+										setTimeout(function() {
+											self.applyCloudDownload(true).then(function(result) {
+												if (!result.success && result.message === "云端暂无数据") {
+													if (window.cloudSyncManager && window.cloudSyncManager.isReady()) {
+														window.cloudSyncManager.uploadLocalToCloud().then(function(upResult) {
+															if (upResult.success) {
+																self.markDataClean();
+															}
+														});
+													}
+												}
+											});
+										}, 500);
+									} else {
+										self.markDataClean();
+									}
+								});
+								return;
+							}
+							if (checks < 100) {
+								setTimeout(check, 50);
+							}
+						}
+						check();
+					}
+					waitForAuthAndSync();
+
+					self.markDataClean();
 				},
 
 				bindStateImport: function() {

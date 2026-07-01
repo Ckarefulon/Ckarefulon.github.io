@@ -34,6 +34,9 @@
 		'			</div>',
 		'		</div>',
 		'		<div class="guestEntry" id="userEntry" style="display:none">',
+		'			<button id="siteMobileMenuBtn" class="siteHeaderBtn siteMobileMenuBtn" type="button" title="菜单" aria-label="打开菜单">',
+		'				<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
+		'			</button>',
 		'			<button id="siteAvatar" class="siteAvatar" type="button"><img id="siteAvatarImage" class="siteAvatarImage" alt="" hidden><span id="siteAvatarFallback">?</span></button>',
 		'			<div id="accountMenu" class="accountMenu">',
 		'				<div class="accountMenuEmail" id="accountMenuEmail"></div>',
@@ -295,9 +298,24 @@
 			});
 		}
 
+		var mobileMenuBtn = document.getElementById("siteMobileMenuBtn");
+
+		if (mobileMenuBtn) {
+			mobileMenuBtn.addEventListener("click", function(e) {
+				e.stopPropagation();
+				if (accountMenu && accountMenu.classList.contains("isVisible")) {
+					accountMenu.classList.remove("isVisible");
+					touchOpened = false;
+				} else {
+					touchOpened = true;
+					showAccountMenu();
+				}
+			});
+		}
+
 		document.addEventListener("click", function(e) {
 			if (accountMenu && accountMenu.classList.contains("isVisible")) {
-				if (e.target !== avatar && !accountMenu.contains(e.target)) {
+				if (e.target !== avatar && e.target !== mobileMenuBtn && !accountMenu.contains(e.target)) {
 					accountMenu.classList.remove("isVisible");
 					touchOpened = false;
 				}
@@ -514,6 +532,46 @@
 				_currentProfile = null;
 			}
 		}
+
+		window._siteNavQuickUpload = function() {
+			if (!window.cloudSyncManager || !window.cloudSyncManager.isReady()) {
+				return Promise.resolve({ success: false, message: "请先登录" });
+			}
+			setCloudStatus("正在上传...", "");
+			return window.cloudSyncManager.uploadLocalToCloud().then(function(result) {
+				setCloudStatus(result.message, result.success ? "Success" : "Error");
+				if (result.success) {
+					if (typeof window._siteNavSetDirty === "function") {
+						window._siteNavSetDirty(false);
+					}
+					if (typeof window._siteNavOnUploadSuccess === "function") {
+						window._siteNavOnUploadSuccess();
+					}
+				}
+				return result;
+			});
+		};
+
+		window._siteNavSetDirty = function(dirty) {
+			window._siteNavDataDirty = !!dirty;
+		};
+
+		window.addEventListener("keydown", function(e) {
+			if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "s") {
+				e.preventDefault();
+				if (typeof window._siteNavQuickUpload === "function") {
+					window._siteNavQuickUpload();
+				}
+			}
+		});
+
+		window.addEventListener("beforeunload", function(e) {
+			if (window._siteNavDataDirty && window.authManager && window.authManager.isLoggedIn()) {
+				e.preventDefault();
+				e.returnValue = "您未上传数据";
+				return "您未上传数据";
+			}
+		});
 
 		if (window.authManager) {
 			window.authManager.init();

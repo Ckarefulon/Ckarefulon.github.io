@@ -120,11 +120,11 @@
 
 		/**
 		 * 从云端恢复到本地
-		 * @returns {Promise<{success: boolean, message: string}>}
+		 * @returns {Promise<{success: boolean, message: string, data: object|null}>}
 		 */
 		downloadCloudToLocal: function() {
 			if (!cloudSyncManager.isReady()) {
-				return Promise.resolve({ success: false, message: "请先登录" });
+				return Promise.resolve({ success: false, message: "请先登录", data: null });
 			}
 
 			var user = window.authManager.getUser();
@@ -139,19 +139,18 @@
 				.then(function(result) {
 					if (result.error) {
 						console.error("[CloudSync] 读取云端数据失败:", result.error);
-						return { success: false, message: "读取云端数据失败" };
+						return { success: false, message: "读取云端数据失败", data: null };
 					}
 					if (!result.data || !result.data.data) {
-						return { success: false, message: "云端暂无数据" };
+						return { success: false, message: "云端暂无数据", data: null };
 					}
 
 					var cloudData = result.data.data;
 					var dataBlock = cloudData.data;
 					if (!dataBlock) {
-						return { success: false, message: "云端数据格式不正确" };
+						return { success: false, message: "云端数据格式不正确", data: null };
 					}
 
-					// 只恢复这两个 key
 					if (dataBlock.cube_memory_progress_v1 !== undefined) {
 						window.storageManager.setJson("cube_memory_progress_v1", dataBlock.cube_memory_progress_v1);
 					}
@@ -159,11 +158,11 @@
 						window.storageManager.setJson("smartCubeFormulaEntries", dataBlock.smartCubeFormulaEntries);
 					}
 
-					return { success: true, message: "恢复成功，请刷新页面" };
+					return { success: true, message: "恢复成功", data: dataBlock };
 				})
 				.catch(function(error) {
 					console.error("[CloudSync] 恢复异常:", error);
-					return { success: false, message: "恢复失败，请稍后重试" };
+					return { success: false, message: "恢复失败，请稍后重试", data: null };
 				});
 		}
 	};

@@ -167,7 +167,8 @@
 		undoStack: [],
 		undoDebounceTimer: null,
 		undoLastSnapshot: null,
-		MAX_UNDO: 50
+		MAX_UNDO: 50,
+		dataDirty: false
 	};
 
 	var elements = {};
@@ -180,6 +181,20 @@
 		if (!elements.syncStatus) return;
 		elements.syncStatus.textContent = text;
 		elements.syncStatus.className = "relayStatus" + (type ? " is" + type.charAt(0).toUpperCase() + type.slice(1) : "");
+	}
+
+	function markDirty() {
+		state.dataDirty = true;
+		if (typeof window._siteNavSetDirty === "function") {
+			window._siteNavSetDirty(true);
+		}
+	}
+
+	function markClean() {
+		state.dataDirty = false;
+		if (typeof window._siteNavSetDirty === "function") {
+			window._siteNavSetDirty(false);
+		}
 	}
 
 	function updateMutualExclusionUI() {
@@ -235,6 +250,7 @@
 		setLocalText(prev);
 		applyTextToTextarea(prev, true);
 		updateUndoButton();
+		markDirty();
 
 		if (state.realtimeEnabled && state.isLoggedIn) {
 			scheduleRealtimeUpload();
@@ -334,6 +350,7 @@
 			state.isSyncing = false;
 			if (result.success) {
 				state.lastUploadTime = Date.now();
+				markClean();
 				setStatus("已同步 " + new Date().toLocaleTimeString(), "success");
 			} else {
 				setStatus(result.message, "error");
@@ -370,6 +387,7 @@
 					applyPrefs(result.prefs);
 				}
 
+				markClean();
 				setStatus("已同步 " + new Date().toLocaleTimeString(), "success");
 			} else {
 				if (!silent) {
@@ -416,6 +434,7 @@
 		var text = elements.textarea ? elements.textarea.value : "";
 		setLocalText(text);
 		scheduleUndoSnapshot();
+		markDirty();
 
 		if (state.realtimeEnabled && state.isLoggedIn) {
 			scheduleRealtimeUpload();
@@ -584,6 +603,7 @@
 		setLocalText("");
 		applyTextToTextarea("", true);
 		state.undoLastSnapshot = "";
+		markDirty();
 		setStatus("已清空 " + new Date().toLocaleTimeString(), "success");
 		if (state.realtimeEnabled && state.isLoggedIn) {
 			scheduleRealtimeUpload();
@@ -648,6 +668,7 @@
 				clearTimeout(state.undoDebounceTimer);
 				state.undoDebounceTimer = null;
 			}
+			markClean();
 			setStatus("请登录以使用云端同步", "error");
 		}
 	}
@@ -745,6 +766,15 @@
 					}
 				});
 			}
+
+			window._siteNavQuickUpload = function() {
+				if (!state.isLoggedIn) {
+					setStatus("请先登录", "error");
+					return Promise.resolve({ success: false });
+				}
+				return uploadNow();
+			};
+			markClean();
 
 			if (window.authManager) {
 				window.authManager.init();
