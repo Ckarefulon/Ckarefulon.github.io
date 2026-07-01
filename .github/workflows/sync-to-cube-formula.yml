@@ -10,7 +10,7 @@ on:
       - 'nav/**'
       - 'user/**'
       - 'favicon.svg'
-      - 'Cube/Formula/Beta/**'
+      - 'Cube/Formula/**'
       - '.github/workflows/sync-to-cube-formula.yml'
 
 jobs:
@@ -60,8 +60,8 @@ jobs:
           fi
 
           mkdir -p ../target/Cube/Formula
-          if [ -d "Cube/Formula/Beta" ]; then
-            cp -r Cube/Formula/Beta ../target/Cube/Formula/
+          if [ -d "Cube/Formula" ]; then
+            cp -r Cube/Formula/* ../target/Cube/Formula/
           fi
 
       - name: Commit and push to target
