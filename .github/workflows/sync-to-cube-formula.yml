@@ -1,0 +1,78 @@
+name: Sync to Cube-Formula
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'assets/**'
+      - 'supabase/**'
+      - 'nav/**'
+      - 'user/**'
+      - 'favicon.svg'
+      - 'Cube/Formula/Beta/**'
+      - '.github/workflows/sync-to-cube-formula.yml'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v6
+        with:
+          path: source
+
+      - name: Checkout target repository
+        uses: actions/checkout@v6
+        with:
+          repository: Ckarefulon/Cube-Formula
+          token: ${{ secrets.TARGET_REPO_TOKEN }}
+          path: target
+          fetch-depth: 0
+
+      - name: Clean target repository (preserve .git and .github)
+        run: |
+          cd target
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name '.github' -exec rm -rf {} +
+
+      - name: Sync folders and files
+        run: |
+          cd source
+
+          mkdir -p ../target/assets
+          rsync -av assets/ ../target/assets/
+
+          if [ -d "supabase" ]; then
+            cp -r supabase ../target/
+          fi
+
+          if [ -d "nav" ]; then
+            cp -r nav ../target/
+          fi
+
+          if [ -d "user" ]; then
+            cp -r user ../target/
+          fi
+
+          if [ -f "favicon.svg" ]; then
+            cp favicon.svg ../target/
+          fi
+
+          mkdir -p ../target/Cube/Formula
+          if [ -d "Cube/Formula/Beta" ]; then
+            cp -r Cube/Formula/Beta ../target/Cube/Formula/
+          fi
+
+      - name: Commit and push to target
+        run: |
+          cd target
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Sync from Ckarefulon.github.io (${{ github.sha }})"
+            git push origin main
+          fi
