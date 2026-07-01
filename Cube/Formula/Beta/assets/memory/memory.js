@@ -6,8 +6,8 @@
 		return;
 	}
 
-	var STORAGE_KEY = "cube_memory_progress_v1";
-	var SCHEMA_VERSION = 1;
+	var STORAGE_KEY = "cube_memory_progress_v2";
+	var SCHEMA_VERSION = 2;
 	var FSRS_URL = "https://cdn.jsdelivr.net/npm/ts-fsrs/+esm";
 	var RATING_COLORS = ["#24F0EA", "#35D68A", "#E6B84A", "#E85D6A"];
 	var RATING_NAMES = ["清晰", "犹豫", "模糊", "遗忘"];
@@ -40,9 +40,11 @@
 		confirming: false
 	};
 
-	function freshData() {
+	/* ---------- Data structure ---------- */
+
+	function freshLibrary(name) {
 		return {
-			schemaVersion: SCHEMA_VERSION,
+			name: name || "默认库",
 			planText: "",
 			formulas: [],
 			allFormulas: [],
@@ -53,56 +55,26 @@
 			todayQueue: [],
 			thresholdData: { threshold: 500, precision: 2 },
 			undoStack: [],
-			idSeed: 1
+			idSeed: 1,
+			hiddenStickerMask: {}
 		};
 	}
 
-	function mergeLoadedData(value) {
-		var base = freshData();
-		if (!value || value.schemaVersion !== SCHEMA_VERSION || !Array.isArray(value.formulas) || typeof value.progress !== "object") {
-			return base;
-		}
-		Object.keys(base).forEach(function(key) {
-			if (value[key] !== undefined) {
-				base[key] = value[key];
+	function freshData() {
+		return {
+			schemaVersion: SCHEMA_VERSION,
+			activeLibraryId: "lib_default",
+			libraries: {
+				"lib_default": freshLibrary("默认库")
 			}
-		});
-		base.schemaVersion = SCHEMA_VERSION;
-		base.settings = Object.assign({ dailyCount: 10 }, base.settings || {});
-		base.day = Object.assign({ studyDate: "", learnedIds: [] }, base.day || {});
-		base.day.learnedIds = Array.isArray(base.day.learnedIds) ? base.day.learnedIds : [];
-		base.queue = Array.isArray(base.queue) ? base.queue : [];
-		base.todayQueue = Array.isArray(base.todayQueue) ? base.todayQueue : [];
-		base.undoStack = Array.isArray(base.undoStack) ? base.undoStack : [];
-		base.allFormulas = Array.isArray(base.allFormulas) ? base.allFormulas : [];
-		base.thresholdData = Object.assign({ threshold: 500, precision: 2 }, base.thresholdData || {});
-		base.progress = base.progress || {};
-		return reviveDates(base);
+		};
 	}
 
-	function loadData() {
-		try {
-			memory.data = mergeLoadedData(storageManager.getJson(STORAGE_KEY, null));
-		} catch (error) {
-			memory.data = freshData();
+	function lib() {
+		if (!memory.data || !memory.data.libraries) {
+			return null;
 		}
-		ensureStudyDay();
-		// Same-day reinforcement is deliberately session-only. A reload releases it;
-		// the already-confirmed FSRS due date remains untouched.
-		memory.data.todayQueue = [];
-		memory.data.queue = memory.data.queue.filter(function(item) {
-			return item && !item.reinforcement && findFormula(item.id);
-		});
-		saveData();
-	}
-
-	function saveData() {
-		if (!memory.data) {
-			return;
-		}
-		memory.data.schemaVersion = SCHEMA_VERSION;
-		storageManager.setJson(STORAGE_KEY, memory.data);
-		updatePlanCounter();
+		return memory.data.libraries[memory.data.activeLibraryId] || null;
 	}
 
 	function reviveDates(value) {
@@ -124,6 +96,94 @@
 		return value;
 	}
 
+	function mergeLoadedData(value) {
+		var base = freshData();
+		if (!value || typeof value !== "object") {
+			return reviveDates(base);
+		}
+
+		/* v1 → v2 migration */
+		if (value.schemaVersion === 1 && Array.isArray(value.formulas) && typeof value.progress === "object") {
+			var migrated = freshLibrary("默认库");
+			migrated.planText = String(value.planText || "");
+			migrated.formulas = Array.isArray(value.formulas) ? value.formulas : [];
+			migrated.allFormulas = Array.isArray(value.allFormulas) ? value.allFormulas : [];
+			migrated.progress = value.progress || {};
+			migrated.settings = Object.assign({ dailyCount: 10 }, value.settings || {});
+			migrated.day = Object.assign({ studyDate: "", learnedIds: [] }, value.day || {});
+			migrated.day.learnedIds = Array.isArray(migrated.day.learnedIds) ? migrated.day.learnedIds : [];
+			migrated.queue = Array.isArray(value.queue) ? value.queue : [];
+			migrated.todayQueue = Array.isArray(value.todayQueue) ? value.todayQueue : [];
+			migrated.undoStack = Array.isArray(value.undoStack) ? value.undoStack : [];
+			migrated.thresholdData = Object.assign({ threshold: 500, precision: 2 }, value.thresholdData || {});
+			migrated.idSeed = Number(value.idSeed) || 1;
+			migrated.hiddenStickerMask = {};
+			base.libraries["lib_default"] = migrated;
+			base.activeLibraryId = "lib_default";
+			return reviveDates(base);
+		}
+
+		/* v2 */
+		if (value.schemaVersion !== SCHEMA_VERSION || !value.libraries || typeof value.libraries !== "object") {
+			return reviveDates(base);
+		}
+
+		base.activeLibraryId = value.activeLibraryId || Object.keys(value.libraries)[0] || "lib_default";
+		Object.keys(value.libraries).forEach(function(lid) {
+			var src = value.libraries[lid];
+			if (!src || typeof src !== "object") {
+				return;
+			}
+			var dest = freshLibrary(src.name || lid);
+			dest.name = src.name || dest.name;
+			dest.planText = String(src.planText || "");
+			dest.formulas = Array.isArray(src.formulas) ? src.formulas : [];
+			dest.allFormulas = Array.isArray(src.allFormulas) ? src.allFormulas : [];
+			dest.progress = src.progress || {};
+			dest.settings = Object.assign({ dailyCount: 10 }, src.settings || {});
+			dest.day = Object.assign({ studyDate: "", learnedIds: [] }, src.day || {});
+			dest.day.learnedIds = Array.isArray(dest.day.learnedIds) ? dest.day.learnedIds : [];
+			dest.queue = Array.isArray(src.queue) ? src.queue : [];
+			dest.todayQueue = Array.isArray(src.todayQueue) ? src.todayQueue : [];
+			dest.undoStack = Array.isArray(src.undoStack) ? src.undoStack : [];
+			dest.thresholdData = Object.assign({ threshold: 500, precision: 2 }, src.thresholdData || {});
+			dest.idSeed = Number(src.idSeed) || 1;
+			dest.hiddenStickerMask = (src.hiddenStickerMask && typeof src.hiddenStickerMask === "object" && !Array.isArray(src.hiddenStickerMask)) ? src.hiddenStickerMask : {};
+			base.libraries[lid] = dest;
+		});
+		if (!base.libraries[base.activeLibraryId]) {
+			base.activeLibraryId = Object.keys(base.libraries)[0];
+		}
+		return reviveDates(base);
+	}
+
+	function loadData() {
+		try {
+			memory.data = mergeLoadedData(storageManager.getJson(STORAGE_KEY, null));
+		} catch (error) {
+			memory.data = freshData();
+		}
+		ensureStudyDay();
+		var l = lib();
+		if (l) {
+			l.todayQueue = [];
+			l.queue = l.queue.filter(function(item) {
+				return item && !item.reinforcement && findFormula(item.id);
+			});
+		}
+		loadLibraryMask();
+		saveData();
+	}
+
+	function saveData() {
+		if (!memory.data) {
+			return;
+		}
+		memory.data.schemaVersion = SCHEMA_VERSION;
+		storageManager.setJson(STORAGE_KEY, memory.data);
+		updatePlanCounter();
+	}
+
 	function studyDate(value) {
 		var shifted = new Date((value instanceof Date ? value.getTime() : Number(value) || Date.now()) - 4 * 60 * 60 * 1000);
 		return [shifted.getFullYear(), String(shifted.getMonth() + 1).padStart(2, "0"), String(shifted.getDate()).padStart(2, "0")].join("-");
@@ -139,15 +199,16 @@
 	}
 
 	function ensureStudyDay() {
-		if (!memory.data) {
+		var l = lib();
+		if (!l) {
 			return;
 		}
 		var today = studyDate(Date.now());
-		if (memory.data.day.studyDate !== today) {
-			memory.data.day = { studyDate: today, learnedIds: [] };
-			memory.data.queue = [];
-			memory.data.todayQueue = [];
-			memory.data.undoStack = [];
+		if (l.day.studyDate !== today) {
+			l.day = { studyDate: today, learnedIds: [] };
+			l.queue = [];
+			l.todayQueue = [];
+			l.undoStack = [];
 			memory.promptedContinue = false;
 		}
 	}
@@ -167,9 +228,70 @@
 		return memory.fsrsPromise;
 	}
 
+	/* ---------- Library management ---------- */
+
+	function switchLibrary(id) {
+		if (!memory.data.libraries[id] || id === memory.data.activeLibraryId) {
+			return;
+		}
+		memory.data.activeLibraryId = id;
+		saveData();
+		loadLibraryMask();
+	}
+
+	function createLibrary(name) {
+		var id = "lib_" + Date.now();
+		memory.data.libraries[id] = freshLibrary(name || "新库");
+		memory.data.activeLibraryId = id;
+		saveData();
+		return id;
+	}
+
+	function deleteLibrary(id) {
+		if (Object.keys(memory.data.libraries).length <= 1) {
+			return;
+		}
+		delete memory.data.libraries[id];
+		if (memory.data.activeLibraryId === id) {
+			memory.data.activeLibraryId = Object.keys(memory.data.libraries)[0];
+		}
+		saveData();
+	}
+
+	function renameLibrary(id, name) {
+		if (memory.data.libraries[id] && name) {
+			memory.data.libraries[id].name = name;
+			saveData();
+		}
+	}
+
+	function loadLibraryMask() {
+		var l = lib();
+		if (l && typeof app.cloneStickerMask === "function") {
+			app.hiddenStickerMask = app.cloneStickerMask(l.hiddenStickerMask || {});
+			if (app.twistyScene && typeof app.applyHiddenStickerMask === "function") {
+				app.applyHiddenStickerMask(app.twistyScene, app.hiddenStickerMask);
+			}
+		}
+	}
+
+	function saveLibraryMask() {
+		var l = lib();
+		if (l && typeof app.cloneStickerMask === "function") {
+			l.hiddenStickerMask = app.cloneStickerMask(app.hiddenStickerMask || {});
+			saveData();
+		}
+	}
+
+	/* ---------- Progress & queue ---------- */
+
 	function getProgress(id) {
-		if (!memory.data.progress[id]) {
-			memory.data.progress[id] = {
+		var l = lib();
+		if (!l) {
+			return { card: null, logs: [], attempts: [], aoTimes: [], dayHistory: [], firstLearnStudyDate: "" };
+		}
+		if (!l.progress[id]) {
+			l.progress[id] = {
 				card: null,
 				logs: [],
 				attempts: [],
@@ -178,7 +300,7 @@
 				firstLearnStudyDate: ""
 			};
 		}
-		var progress = memory.data.progress[id];
+		var progress = l.progress[id];
 		progress.logs = Array.isArray(progress.logs) ? progress.logs : [];
 		progress.attempts = Array.isArray(progress.attempts) ? progress.attempts : [];
 		progress.aoTimes = Array.isArray(progress.aoTimes) ? progress.aoTimes : [];
@@ -187,7 +309,8 @@
 	}
 
 	function findFormula(id) {
-		return (memory.data && memory.data.formulas || []).find(function(formula) {
+		var l = lib();
+		return (l && l.formulas || []).find(function(formula) {
 			return formula.id === id;
 		}) || null;
 	}
@@ -207,11 +330,15 @@
 
 	function buildDailyQueue(dueOnly) {
 		ensureStudyDay();
-		var learned = memory.data.day.learnedIds;
+		var l = lib();
+		if (!l) {
+			return;
+		}
+		var learned = l.day.learnedIds;
 		var now = Date.now();
 		var due = [];
 		var fresh = [];
-		memory.data.formulas.forEach(function(formula) {
+		l.formulas.forEach(function(formula) {
 			if (learned.indexOf(formula.id) >= 0) {
 				return;
 			}
@@ -224,10 +351,10 @@
 			}
 		});
 		if (dueOnly) {
-			memory.data.queue = due;
+			l.queue = due;
 			return;
 		}
-		var remaining = Math.max(0, Number(memory.data.settings.dailyCount || 10) - learned.length);
+		var remaining = Math.max(0, Number(l.settings.dailyCount || 10) - learned.length);
 		var queue = [];
 		while (queue.length < remaining && (due.length || fresh.length)) {
 			if (due.length) {
@@ -237,13 +364,17 @@
 				queue.push(fresh.shift());
 			}
 		}
-		memory.data.queue = queue;
+		l.queue = queue;
 	}
 
 	function remainingDueItems() {
-		var learned = memory.data.day.learnedIds;
+		var l = lib();
+		if (!l) {
+			return [];
+		}
+		var learned = l.day.learnedIds;
 		var now = Date.now();
-		return memory.data.formulas.filter(function(formula) {
+		return l.formulas.filter(function(formula) {
 			if (learned.indexOf(formula.id) >= 0) {
 				return false;
 			}
@@ -252,6 +383,8 @@
 			return progress.logs.length && due && due.getTime() <= now;
 		});
 	}
+
+	/* ---------- Panel HTML ---------- */
 
 	function getMemoryPanelHtml() {
 		var seamlessActive = app.seamlessMode ? " isActive" : "";
@@ -263,21 +396,26 @@
 
 	function updatePlanCounter() {
 		var element = document.getElementById("memoryPlanCount");
-		if (element && memory.data) {
-			element.textContent = "[" + memory.data.day.learnedIds.length + "]/[" + memory.data.settings.dailyCount + "]";
+		var l = lib();
+		if (element && l) {
+			element.textContent = "[" + l.day.learnedIds.length + "]/[" + l.settings.dailyCount + "]";
 		}
 		var input = document.getElementById("memoryDailyCount");
-		if (input && memory.data && document.activeElement !== input) {
-			input.value = String(memory.data.settings.dailyCount);
+		if (input && l && document.activeElement !== input) {
+			input.value = String(l.settings.dailyCount);
 		}
 	}
 
+	/* ---------- Memory mode ---------- */
+
 	function startMemoryMode() {
 		ensureStudyDay();
+		loadLibraryMask();
 		memory.promptedContinue = false;
 		updatePlanCounter();
 		showHistoryPanel();
-		if (!memory.data.queue.length) {
+		var l = lib();
+		if (l && !l.queue.length) {
 			buildDailyQueue(false);
 		}
 		startNextFormula();
@@ -296,7 +434,8 @@
 	function startNextFormula() {
 		stopTimer();
 		showHistoryPanel();
-		memory.currentItem = memory.data.queue[0] || null;
+		var l = lib();
+		memory.currentItem = (l && l.queue[0]) || null;
 		memory.currentFormula = memory.currentItem ? findFormula(memory.currentItem.id) : null;
 		memory.state = "hidden";
 		memory.firstMoveTime = null;
@@ -350,8 +489,12 @@
 		if (!current) {
 			return;
 		}
-		var learnedCount = memory.data.day.learnedIds.length;
-		var dailyCount = memory.data.settings.dailyCount;
+		var l = lib();
+		if (!l) {
+			return;
+		}
+		var learnedCount = l.day.learnedIds.length;
+		var dailyCount = l.settings.dailyCount;
 		var due = remainingDueItems();
 		var hasDue = due.length > 0;
 		var planDone = learnedCount >= dailyCount && dailyCount > 0;
@@ -371,7 +514,7 @@
 			});
 			return;
 		}
-		if (!planDone && !memory.data.queue.length && !hasDue && memory.data.formulas.length > 0) {
+		if (!planDone && !l.queue.length && !hasDue && l.formulas.length > 0) {
 			renderCompletionCheck(current, "已完成复习学习任务！<br/>但未达今日规划目标。", "加入公式", function() {
 				openPlanDialog();
 			}, "直接签到", function() {
@@ -382,7 +525,7 @@
 		current.innerHTML = '<button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">请开始还原…<br>点击此处显示答案。</button>';
 		var history = document.getElementById("memoryHistory");
 		if (history) {
-			history.innerHTML = '<div class="memoryEmptyHistory">' + (memory.data.formulas.length ? "今日没有待学习公式" : "请先规划学习公式") + '</div>';
+			history.innerHTML = '<div class="memoryEmptyHistory">' + (l.formulas.length ? "今日没有待学习公式" : "请先规划学习公式") + '</div>';
 		}
 	}
 
@@ -420,7 +563,7 @@
 		function addDue(count) {
 			var n = Math.min(count, dueCount);
 			buildDailyQueue(true);
-			memory.data.queue = memory.data.queue.slice(0, n);
+			lib().queue = lib().queue.slice(0, n);
 			saveData();
 			startNextFormula();
 		}
@@ -455,8 +598,12 @@
 	}
 
 	function renderCompletionCalendar(current, focusYear, focusMonth) {
+		var l = lib();
+		if (!l) {
+			return;
+		}
 		var studyDates = {};
-		var formulas = memory.data.formulas || [];
+		var formulas = l.formulas || [];
 		for (var i = 0; i < formulas.length; i++) {
 			var progress = getProgress(formulas[i].id);
 			var attempts = progress.attempts || [];
@@ -584,8 +731,12 @@
 		if (!container || !memory.currentFormula) {
 			return;
 		}
+		var l = lib();
+		if (!l) {
+			return;
+		}
 		var progress = getProgress(memory.currentFormula.id);
-		var today = memory.data.day.studyDate;
+		var today = l.day.studyDate;
 		var blocks = progress.dayHistory.map(function(record) {
 			var index = Math.max(0, Math.min(3, Number(record.ratingIndex) || 0));
 			return '<div class="memoryDay" style="--dayColor:' + RATING_COLORS[index] + '"><strong>Day' + Number(record.dayNumber || 1) + '</strong><span>' + app.escapeHtml(record.label || RATING_NAMES[index]) + '</span></div>';
@@ -602,6 +753,8 @@
 			container.scrollTop = container.scrollHeight;
 		});
 	}
+
+	/* ---------- Timer ---------- */
 
 	function startTimer() {
 		stopTimer();
@@ -629,6 +782,8 @@
 		renderHiddenMemory(true);
 		startTimer();
 	}
+
+	/* ---------- Move handling ---------- */
 
 	function areAdjacentInverse(a, b) {
 		var first = /^([URFDLB])('?)$/.exec(a || "");
@@ -768,10 +923,11 @@
 		}
 		memory.state = "answer";
 		memory.answerReason = "solved";
+		var l = lib();
 		if (memory.retried || memory.repeatedMove) {
 			memory.selectedRating = 2;
 		} else {
-			memory.selectedRating = memory.reactionTime <= Number(memory.data.thresholdData.threshold || 500) ? 0 : 1;
+			memory.selectedRating = memory.reactionTime <= Number((l && l.thresholdData.threshold) || 500) ? 0 : 1;
 		}
 		memory.manualSelection = false;
 		stopTimer();
@@ -821,18 +977,24 @@
 		if (!memory.manualSelection || memory.selectedRating > 1 || typeof memory.reactionTime !== "number") {
 			return;
 		}
-		var threshold = memory.data.thresholdData;
+		var l = lib();
+		if (!l) {
+			return;
+		}
+		var threshold = l.thresholdData;
 		var precision = Math.max(1, Number(threshold.precision) || 2);
-		// A compact normal/normal Bayesian update. A binary Clear answer places the
-		// boundary slightly above the observation; Hesitant places it below.
 		var observation = Math.max(80, memory.reactionTime + (memory.selectedRating === 0 ? 125 : -125));
 		threshold.threshold = Math.round((Number(threshold.threshold || 500) * precision + observation) / (precision + 1));
 		threshold.precision = Math.min(40, precision + 1);
 	}
 
+	/* ---------- Checkpoint & undo ---------- */
+
 	function makeCheckpoint() {
 		var copy = JSON.parse(JSON.stringify(memory.data));
-		delete copy.undoStack;
+		Object.keys(copy.libraries || {}).forEach(function(lid) {
+			delete copy.libraries[lid].undoStack;
+		});
 		return copy;
 	}
 
@@ -858,10 +1020,11 @@
 			if (!item.reinforcement) {
 				scheduled = scheduleResult(module, progress, ratings[memory.selectedRating]);
 			}
+			var l = lib();
 			var undoEntry = { formulaId: formula.id, checkpoint: makeCheckpoint() };
-			memory.data.undoStack.push(undoEntry);
-			if (memory.data.undoStack.length > 20) {
-				memory.data.undoStack.shift();
+			l.undoStack.push(undoEntry);
+			if (l.undoStack.length > 20) {
+				l.undoStack.shift();
 			}
 			updateThresholdFromManualChoice();
 			if (scheduled) {
@@ -869,7 +1032,7 @@
 				progress.logs.push(scheduled.log);
 			}
 			progress.attempts.push({
-				studyDate: memory.data.day.studyDate,
+				studyDate: l.day.studyDate,
 				ratingIndex: memory.selectedRating,
 				solveTime: typeof memory.solveTime === "number" ? memory.solveTime : null,
 				reactionTime: typeof memory.reactionTime === "number" ? memory.reactionTime : null,
@@ -883,7 +1046,7 @@
 					progress.aoTimes = progress.aoTimes.slice(-200);
 				}
 			}
-			var today = memory.data.day.studyDate;
+			var today = l.day.studyDate;
 			if (wasNew && !progress.firstLearnStudyDate) {
 				progress.firstLearnStudyDate = today;
 			}
@@ -896,16 +1059,16 @@
 			} else {
 				progress.dayHistory.push(dayRecord);
 			}
-			if (memory.data.day.learnedIds.indexOf(formula.id) < 0) {
-				memory.data.day.learnedIds.push(formula.id);
+			if (l.day.learnedIds.indexOf(formula.id) < 0) {
+				l.day.learnedIds.push(formula.id);
 			}
-			memory.data.queue.shift();
+			l.queue.shift();
 			if (item.reinforcement) {
-				memory.data.todayQueue = memory.data.todayQueue.filter(function(entry) { return entry.id !== formula.id; });
-			} else if (memory.selectedRating >= 2 && !memory.data.todayQueue.some(function(entry) { return entry.id === formula.id; })) {
+				l.todayQueue = l.todayQueue.filter(function(entry) { return entry.id !== formula.id; });
+			} else if (memory.selectedRating >= 2 && !l.todayQueue.some(function(entry) { return entry.id === formula.id; })) {
 				var repeat = { id: formula.id, reinforcement: true };
-				memory.data.todayQueue.push(repeat);
-				memory.data.queue.push(repeat);
+				l.todayQueue.push(repeat);
+				l.queue.push(repeat);
 			}
 			saveData();
 			memory.confirming = false;
@@ -917,7 +1080,11 @@
 	}
 
 	function goBackPrevious() {
-		var stack = memory.data.undoStack || [];
+		var l = lib();
+		if (!l) {
+			return;
+		}
+		var stack = l.undoStack || [];
 		if (!stack.length) {
 			showToast("没有上一公式");
 			return;
@@ -925,7 +1092,7 @@
 		var undo = stack[stack.length - 1];
 		var remaining = stack.slice(0, -1);
 		memory.data = mergeLoadedData(undo.checkpoint);
-		memory.data.undoStack = remaining;
+		lib().undoStack = remaining;
 		saveData();
 		startNextFormula();
 	}
@@ -934,8 +1101,12 @@
 		if (memory.currentFormula || memory.promptedContinue) {
 			return;
 		}
+		var l = lib();
+		if (!l) {
+			return;
+		}
 		var due = remainingDueItems();
-		if (memory.data.day.learnedIds.length >= memory.data.settings.dailyCount && due.length) {
+		if (l.day.learnedIds.length >= l.settings.dailyCount && due.length) {
 			memory.promptedContinue = true;
 			openConfirmDialog("今日计划已完成", "仍有 " + due.length + " 个到期公式，是否继续学习？继续后只安排到期复习，不加入新公式。", "继续复习", function() {
 				buildDailyQueue(true);
@@ -944,6 +1115,8 @@
 			});
 		}
 	}
+
+	/* ---------- Plan dialog ---------- */
 
 	function collectModeTransferText(sourceMode) {
 		var pieces = [];
@@ -977,13 +1150,17 @@
 	function commitPlanText(text) {
 		var parsed = app.parseStateDefinitions(text || "");
 		if (!parsed.states.length && String(text || "").trim()) {
-			showToast("未读取到有效公式，请使用“名称：公式;”格式");
+			showToast("未读取到有效公式，请使用\u201c名称：公式;\u201d格式");
 			return false;
 		}
-		var previous = (memory.data.allFormulas || memory.data.formulas || []).slice();
+		var l = lib();
+		if (!l) {
+			return false;
+		}
+		var previous = (l.allFormulas || l.formulas || []).slice();
 		var formulas = parsed.states.map(function(state, index) {
 			var same = previous[index] && previous[index].name === state.name && previous[index].alg === state.alg ? previous[index] : null;
-			var id = same ? same.id : "memory_formula_" + Date.now() + "_" + memory.data.idSeed++;
+			var id = same ? same.id : "memory_formula_" + Date.now() + "_" + l.idSeed++;
 			return {
 				id: id,
 				image: null,
@@ -994,12 +1171,12 @@
 				moves: state.moves.slice()
 			};
 		});
-		memory.data.planText = String(text || "");
-		memory.data.formulas = formulas;
-		memory.data.allFormulas = formulas.slice();
-		memory.data.queue = [];
-		memory.data.todayQueue = [];
-		memory.data.undoStack = [];
+		l.planText = String(text || "");
+		l.formulas = formulas;
+		l.allFormulas = formulas.slice();
+		l.queue = [];
+		l.todayQueue = [];
+		l.undoStack = [];
 		formulas.forEach(function(formula) { getProgress(formula.id); });
 		saveData();
 		ensureFsrs().then(function(module) {
@@ -1019,13 +1196,16 @@
 
 	function openPlanDialog() {
 		if (memory.pendingAutofill) {
-			commitPlanText(joinPlanText(memory.data.planText, memory.pendingAutofill));
+			commitPlanText(joinPlanText((lib() || {}).planText || "", memory.pendingAutofill));
 			memory.pendingAutofill = "";
 		}
-		var allFormulas = memory.data.allFormulas && memory.data.allFormulas.length ? memory.data.allFormulas : (memory.data.formulas || []);
-		var formulas = memory.data.formulas || [];
+
+		var l = lib();
+		if (!l) { showToast("数据库错误，请刷新页面"); return; }
+
+		var allFormulas = (l.allFormulas && l.allFormulas.length ? l.allFormulas : (l.formulas || [])).slice();
 		var selectedIds = {};
-		formulas.forEach(function(f) { selectedIds[f.id] = true; });
+		(l.formulas || []).forEach(function(f) { selectedIds[f.id] = true; });
 
 		function renderFormulaList(container) {
 			var html = '';
@@ -1038,7 +1218,6 @@
 				}
 				var displayName = f.name || '';
 				var displayAlg = (f.alg || f.formula || '').replace(/\s+/g, ' ');
-				var labelText = displayName + '：' + displayAlg;
 				html += '<div class="memoryFormulaRow" data-formula-id="' + app.escapeHtml(f.id) + '">' +
 					'<span class="' + checkClass + '" role="checkbox" aria-checked="' + (checked ? 'true' : 'false') + '"></span>' +
 					'<span class="memoryFormulaLabel"><strong>' + app.escapeHtml(displayName) + ': </strong>' + app.escapeHtml(displayAlg) + '</span>' +
@@ -1058,23 +1237,91 @@
 			check.setAttribute('aria-checked', checked ? 'true' : 'false');
 		}
 
-		var overlay = createOverlay('<div class="memoryDialog memoryPlanDialog" role="dialog" aria-modal="true"><div class="memoryDialogHeader"><strong>规划学习</strong><button class="button secondary small" type="button" data-memory-close>关闭</button></div><div class="memoryFormulaListWrap"><div class="memoryFormulaList"></div><button id="memoryEditPlanBtn" class="memoryEditPlanBtn" type="button" title="编辑公式文本" aria-label="编辑公式文本"></button></div><div class="memoryDialogBottom"><label class="memoryDailyLabel">每日公式数 <input id="memoryDailyCount" class="memoryDailyInput" type="number" min="1" max="999" value="' + (memory.data.settings.dailyCount || 10) + '"></label><span id="memoryPlanCount" class="memoryPlanCount">[0]/[' + (memory.data.settings.dailyCount || 10) + ']</span></div><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-close>取消</button><button id="memorySavePlanBtn" class="button" type="button">保存计划</button></div></div>');
+		function reloadLibraryContent() {
+			var nl = lib();
+			allFormulas = (nl.allFormulas && nl.allFormulas.length ? nl.allFormulas : (nl.formulas || [])).slice();
+			selectedIds = {};
+			(nl.formulas || []).forEach(function(f) { selectedIds[f.id] = true; });
+			renderFormulaList(listContainer);
+			var dailyInput = overlay.querySelector("#memoryDailyCount");
+			if (dailyInput && document.activeElement !== dailyInput) {
+				dailyInput.value = String(nl.settings.dailyCount || 10);
+			}
+			updatePlanCounter();
+		}
+
+		function updateLibraryDropdown() {
+			var select = overlay.querySelector("#memoryLibrarySelect");
+			if (!select) return;
+			select.innerHTML = Object.keys(memory.data.libraries).map(function(lid) {
+				var libName = memory.data.libraries[lid].name || lid;
+				return '<option value="' + app.escapeHtml(lid) + '"' + (lid === memory.data.activeLibraryId ? ' selected' : '') + '>' + app.escapeHtml(libName) + '</option>';
+			}).join('');
+		}
+
+		var overlay = createOverlay('<div class="memoryDialog memoryPlanDialog" role="dialog" aria-modal="true"><div class="memoryDialogHeader"><strong>规划学习</strong><button class="button secondary small" type="button" data-memory-close>关闭</button></div><div class="memoryLibraryBar"><select id="memoryLibrarySelect" class="memoryLibrarySelect"></select><button id="memoryLibraryAddBtn" class="memoryLibraryIconBtn" type="button" title="新建公式库">+</button><button id="memoryLibraryRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名当前库">&#9998;</button><button id="memoryLibraryDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除当前库">&#10005;</button></div><div class="memoryFormulaListWrap"><div class="memoryFormulaList"></div><button id="memoryEditPlanBtn" class="memoryEditPlanBtn" type="button" title="编辑公式文本" aria-label="编辑公式文本"></button></div><div class="memoryDialogBottom"><label class="memoryDailyLabel">每日公式数 <input id="memoryDailyCount" class="memoryDailyInput" type="number" min="1" max="999" value="' + (l.settings.dailyCount || 10) + '"></label><span id="memoryPlanCount" class="memoryPlanCount">[0]/[' + (l.settings.dailyCount || 10) + ']</span></div><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-close>取消</button><button id="memorySavePlanBtn" class="button" type="button">保存计划</button></div></div>');
 
 		var listContainer = overlay.querySelector('.memoryFormulaList');
 		renderFormulaList(listContainer);
+		updateLibraryDropdown();
 
+		/* Library bar events */
+		overlay.querySelector("#memoryLibrarySelect").addEventListener("change", function(e) {
+			var newId = e.target.value;
+			if (newId === memory.data.activeLibraryId) return;
+			memory.data.activeLibraryId = newId;
+			saveData();
+			loadLibraryMask();
+			reloadLibraryContent();
+		});
+
+		overlay.querySelector("#memoryLibraryAddBtn").addEventListener("click", function() {
+			var name = window.prompt("输入新公式库名称：", "");
+			if (name && name.trim()) {
+				createLibrary(name.trim());
+				loadLibraryMask();
+				reloadLibraryContent();
+				updateLibraryDropdown();
+			}
+		});
+
+		overlay.querySelector("#memoryLibraryRenameBtn").addEventListener("click", function() {
+			var currentName = lib().name || "";
+			var newName = window.prompt("重命名公式库：", currentName);
+			if (newName && newName.trim()) {
+				renameLibrary(memory.data.activeLibraryId, newName.trim());
+				updateLibraryDropdown();
+			}
+		});
+
+		overlay.querySelector("#memoryLibraryDeleteBtn").addEventListener("click", function() {
+			if (Object.keys(memory.data.libraries).length <= 1) {
+				showToast("至少保留一个公式库");
+				return;
+			}
+			var currentName = lib().name || "";
+			openConfirmDialog("删除公式库", "确定删除「" + currentName + "」？该库的所有公式和记忆数据将被永久删除。", "删除", function() {
+				deleteLibrary(memory.data.activeLibraryId);
+				loadLibraryMask();
+				reloadLibraryContent();
+				updateLibraryDropdown();
+			});
+		});
+
+		/* Save plan */
 		overlay.querySelector("#memorySavePlanBtn").addEventListener("click", function() {
 			var kept = allFormulas.filter(function(f) { return selectedIds[f.id]; });
 			if (kept.length === 0) {
 				showToast("请至少选择一个公式");
 				return;
 			}
-			memory.data.formulas = kept;
-			memory.data.allFormulas = allFormulas.slice();
-			memory.data.planText = formulasToPlanText(allFormulas);
-			memory.data.queue = [];
-			memory.data.todayQueue = [];
-			memory.data.undoStack = [];
+			var sl = lib();
+			sl.formulas = kept;
+			sl.allFormulas = allFormulas.slice();
+			sl.planText = formulasToPlanText(allFormulas);
+			sl.queue = [];
+			sl.todayQueue = [];
+			sl.undoStack = [];
 			memory.pendingAutofill = "";
 			saveData();
 			if (app.currentMode === "memory") {
@@ -1083,15 +1330,17 @@
 			closeOverlay(overlay);
 		});
 
+		/* Daily count */
 		overlay.querySelector("#memoryDailyCount").addEventListener("change", function(event) {
-			memory.data.settings.dailyCount = Math.max(1, Math.min(999, Math.round(Number(event.target.value) || 10)));
+			lib().settings.dailyCount = Math.max(1, Math.min(999, Math.round(Number(event.target.value) || 10)));
 			saveData();
 			updatePlanCounter();
 		});
 
+		/* Edit plan */
 		overlay.querySelector("#memoryEditPlanBtn").addEventListener("click", function() {
 			openPlanEditDialog(allFormulas, selectedIds, function() {
-				allFormulas = memory.data.allFormulas.slice();
+				allFormulas = lib().allFormulas.slice();
 				allFormulas.forEach(function(f) {
 					if (!(f.id in selectedIds)) {
 						selectedIds[f.id] = true;
@@ -1102,6 +1351,7 @@
 			});
 		});
 
+		/* Formula list interactions */
 		listContainer.addEventListener("click", function(event) {
 			var check = event.target.closest('.memoryFormulaCheck');
 			if (!check) return;
@@ -1184,7 +1434,7 @@
 
 	function openPlanEditDialog(formulas, selectedIds, onSaved) {
 		var currentText = formulasToPlanText(formulas);
-		var editOverlay = createOverlay('<div class="memoryDialog" role="dialog" aria-modal="true"><div class="memoryDialogHeader"><strong>编辑公式</strong><button class="button secondary small" type="button" data-memory-close>关闭</button></div><p>每行或连续文本均可，沿用 TXT 的\u201c名称: 公式;\u201d格式；重复公式会原样保留。</p><textarea id="memoryPlanEditTextarea" class="memoryPlanTextarea" spellcheck="false"></textarea><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-close>取消</button><button id="memoryEditSaveBtn" class="button" type="button">保存</button></div></div>');
+		var editOverlay = createOverlay('<div class="memoryDialog" role="dialog" aria-modal="true"><div class="memoryDialogHeader"><strong>编辑公式</strong><button class="button secondary small" type="button" data-memory-close>关闭</button></div><p>每行或连续文本均可，沿用 TXT 的"名称: 公式;"格式；重复公式会原样保留。</p><textarea id="memoryPlanEditTextarea" class="memoryPlanTextarea" spellcheck="false"></textarea><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-close>取消</button><button id="memoryEditSaveBtn" class="button" type="button">保存</button></div></div>');
 		var textarea = editOverlay.querySelector("#memoryPlanEditTextarea");
 		textarea.value = currentText;
 		editOverlay.querySelector("#memoryEditSaveBtn").addEventListener("click", function() {
@@ -1195,6 +1445,8 @@
 		});
 		requestAnimationFrame(function() { textarea.focus(); });
 	}
+
+	/* ---------- Overlay utilities ---------- */
 
 	function createOverlay(html) {
 		var overlay = document.createElement("div");
@@ -1247,13 +1499,16 @@
 		setTimeout(function() { if (toast.parentNode) toast.remove(); }, 2600);
 	}
 
+	/* ---------- Import / Export ---------- */
+
 	function exportData() {
 		var payload = JSON.stringify(memory.data, null, 2);
 		var blob = new Blob([payload], { type: "application/json;charset=utf-8" });
 		var url = URL.createObjectURL(blob);
 		var link = document.createElement("a");
 		link.href = url;
-		link.download = "cube-memory-" + memory.data.day.studyDate + ".json";
+		var l = lib();
+		link.download = "cube-memory-" + (l && l.day.studyDate || "export") + ".json";
 		document.body.appendChild(link);
 		link.click();
 		link.remove();
@@ -1261,9 +1516,23 @@
 	}
 
 	function validateImport(value) {
-		return !!(value && value.schemaVersion === SCHEMA_VERSION && Array.isArray(value.formulas) && value.formulas.every(function(formula) {
+		if (!value) {
+			return false;
+		}
+		/* v1 */
+		if (value.schemaVersion === 1 && Array.isArray(value.formulas) && value.formulas.every(function(formula) {
 			return formula && typeof formula.id === "string" && typeof formula.name === "string" && Array.isArray(formula.moves);
-		}) && value.progress && typeof value.progress === "object" && value.settings && Number(value.settings.dailyCount) > 0);
+		}) && value.progress && typeof value.progress === "object" && value.settings && Number(value.settings.dailyCount) > 0) {
+			return true;
+		}
+		/* v2 */
+		if (value.schemaVersion === 2 && value.libraries && typeof value.libraries === "object" && !Array.isArray(value.libraries)) {
+			return Object.keys(value.libraries).every(function(lid) {
+				var libObj = value.libraries[lid];
+				return libObj && typeof libObj === "object" && Array.isArray(libObj.formulas);
+			});
+		}
+		return false;
 	}
 
 	function importFile(file) {
@@ -1279,6 +1548,7 @@
 			openConfirmDialog("替换记忆数据", "导入会替换当前全部记忆模式数据，是否继续？", "替换", function() {
 				memory.data = replacement;
 				ensureStudyDay();
+				loadLibraryMask();
 				saveData();
 				startMemoryMode();
 				showToast("数据已导入");
@@ -1287,6 +1557,8 @@
 			showToast("导入失败，原数据未更改：" + String(error && error.message || error));
 		});
 	}
+
+	/* ---------- Panel binding ---------- */
 
 	function bindMemoryPanel() {
 		var root = document.querySelector(".memoryPanel");
@@ -1361,6 +1633,8 @@
 		updatePlanCounter();
 	}
 
+	/* ---------- App patches ---------- */
+
 	var originalInit = app.init;
 	app.init = function() {
 		loadData();
@@ -1401,7 +1675,7 @@
 		if (mode === "memory" && transfer) {
 			memory.pendingAutofill = transfer;
 			openConfirmDialog("导入公式到记忆计划", "检测到当前模式中的公式，是否追加到记忆计划？重复公式会保留。", "追加公式", function() {
-				commitPlanText(joinPlanText(memory.data.planText, transfer));
+				commitPlanText(joinPlanText((lib() || {}).planText || "", transfer));
 				memory.pendingAutofill = "";
 			}, function() {
 				memory.pendingAutofill = "";
@@ -1440,6 +1714,24 @@
 		originalUpdateSolveDetection.call(this, facelet, hadCubeMove);
 		updateMemorySolveDetection(facelet, hadCubeMove);
 	};
+
+	/* Monkey-patch openCustomStateDialog to persist mask per library */
+	var originalOpenCustomStateDialog = app.openCustomStateDialog;
+	if (originalOpenCustomStateDialog) {
+		app.openCustomStateDialog = function() {
+			originalOpenCustomStateDialog.call(this);
+			if (app.currentMode === "memory") {
+				var confirmBtn = document.getElementById("confirmCustomStateBtn");
+				if (confirmBtn) {
+					confirmBtn.addEventListener("click", function() {
+						saveLibraryMask();
+					});
+				}
+			}
+		};
+	}
+
+	/* ---------- Keyboard ---------- */
 
 	document.addEventListener("keydown", function(event) {
 		var overlay = document.querySelector(".memoryOverlay");
@@ -1482,6 +1774,8 @@
 			retryCurrentFormula();
 		}
 	}, true);
+
+	/* ---------- Fullscreen ---------- */
 
 	function syncFullscreenMode() {
 		var isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);

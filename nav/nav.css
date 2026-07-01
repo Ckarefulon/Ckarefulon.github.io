@@ -335,7 +335,11 @@ body {
 
 .accountMenuProfileBtn {
 	width: 100%;
-	margin-bottom: 0;
+	margin-bottom: 4px;
+}
+
+#siteSignOutBtn {
+	margin-bottom: 4px;
 }
 
 .accountMenu .siteHeaderBtn {
@@ -379,11 +383,27 @@ body {
 
 .accountMenuCloudActions {
 	display: flex;
-	flex-direction: column;
+	flex-direction: row;
 	gap: 6px;
+	justify-content: center;
 }
 
-.accountMenuCloudActions .siteHeaderBtn {
-	font-size: 11px;
-	height: 28px;
+.cloudIconBtn {
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	cursor: pointer;
+	transition: background 0.15s, border-color 0.15s;
+	flex-shrink: 0;
+}
+
+.cloudIconBtn:hover {
+	background: var(--controlHoverBg);
 }

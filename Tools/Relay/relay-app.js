@@ -563,6 +563,83 @@
 		clearIntervalTimer();
 	}
 
+	function onCloudUpload() {
+		if (!state.isLoggedIn) {
+			setStatus("请先登录后再上传", "error");
+			return;
+		}
+		cloudSyncManager.getCloudStatus().then(function(statusResult) {
+			if (statusResult.success && statusResult.hasData) {
+				if (!confirm("云端已有数据，继续上传会覆盖云端数据，是否继续？")) {
+					return;
+				}
+			}
+			doCloudUpload();
+		}).catch(function() {
+			doCloudUpload();
+		});
+	}
+
+	function doCloudUpload() {
+		setStatus("正在上传...", "syncing");
+		cloudSyncManager.uploadLocalToCloud().then(function(result) {
+			if (result.success) {
+				state.lastUploadTime = Date.now();
+				markClean();
+				setStatus("已上传 " + new Date().toLocaleTimeString(), "success");
+			} else {
+				setStatus(result.message, "error");
+			}
+		});
+	}
+
+	function onCloudDownload() {
+		if (!state.isLoggedIn) {
+			setStatus("请先登录后再恢复", "error");
+			return;
+		}
+		if (!confirm("这会用云端数据覆盖当前本地数据，是否继续？")) {
+			return;
+		}
+		downloadNow();
+	}
+
+	function onCopyAll() {
+		if (!elements.textarea) return;
+		var text = elements.textarea.value;
+		if (!text) {
+			setStatus("没有可复制的内容", "");
+			return;
+		}
+		if (navigator.clipboard && navigator.clipboard.writeText) {
+			navigator.clipboard.writeText(text).then(function() {
+				setStatus("已复制到剪贴板", "success");
+			}).catch(function() {
+				fallbackCopy(text);
+			});
+		} else {
+			fallbackCopy(text);
+		}
+	}
+
+	function fallbackCopy(text) {
+		var ta = document.createElement("textarea");
+		ta.value = text;
+		ta.style.position = "fixed";
+		ta.style.left = "-9999px";
+		ta.style.top = "-9999px";
+		document.body.appendChild(ta);
+		ta.focus();
+		ta.select();
+		try {
+			document.execCommand("copy");
+			setStatus("已复制到剪贴板", "success");
+		} catch(e) {
+			setStatus("复制失败，请手动复制", "error");
+		}
+		document.body.removeChild(ta);
+	}
+
 	function onManualSync() {
 		if (!state.isLoggedIn) {
 			setStatus("请先登录后再同步", "error");
@@ -626,11 +703,17 @@
 		if (elements.intervalInput) {
 			elements.intervalInput.disabled = !state.isLoggedIn;
 		}
-		if (elements.manualSyncBtn) {
-			elements.manualSyncBtn.disabled = !state.isLoggedIn;
+		if (elements.cloudUploadBtn) {
+			elements.cloudUploadBtn.disabled = !state.isLoggedIn;
+		}
+		if (elements.cloudDownloadBtn) {
+			elements.cloudDownloadBtn.disabled = !state.isLoggedIn;
 		}
 		if (elements.clearBtn) {
 			elements.clearBtn.disabled = !state.isLoggedIn;
+		}
+		if (elements.copyAllBtn) {
+			elements.copyAllBtn.disabled = !state.isLoggedIn;
 		}
 		updateUndoButton();
 
@@ -724,9 +807,11 @@
 		elements.intervalToggle = $("intervalToggle");
 		elements.intervalWrap = $("intervalWrap");
 		elements.intervalInput = $("intervalInput");
-		elements.manualSyncBtn = $("manualSyncBtn");
+		elements.cloudUploadBtn = $("cloudUploadBtn");
+		elements.cloudDownloadBtn = $("cloudDownloadBtn");
 		elements.undoBtn = $("undoBtn");
 		elements.clearBtn = $("clearBtn");
+		elements.copyAllBtn = $("copyAllBtn");
 		elements.syncStatus = $("syncStatus");
 		elements.textarea = $("relayTextarea");
 
@@ -746,14 +831,20 @@
 			elements.intervalInput.addEventListener("blur", commitIntervalValue);
 			elements.intervalInput.addEventListener("keydown", onIntervalKeypress);
 		}
-		if (elements.manualSyncBtn) {
-			elements.manualSyncBtn.addEventListener("click", onManualSync);
+		if (elements.cloudUploadBtn) {
+			elements.cloudUploadBtn.addEventListener("click", onCloudUpload);
+		}
+		if (elements.cloudDownloadBtn) {
+			elements.cloudDownloadBtn.addEventListener("click", onCloudDownload);
 		}
 		if (elements.undoBtn) {
 			elements.undoBtn.addEventListener("click", onUndo);
 		}
 		if (elements.clearBtn) {
 			elements.clearBtn.addEventListener("click", onClear);
+		}
+		if (elements.copyAllBtn) {
+			elements.copyAllBtn.addEventListener("click", onCopyAll);
 		}
 
 		updateUndoButton();
