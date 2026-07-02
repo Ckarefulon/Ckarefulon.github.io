@@ -22,6 +22,18 @@
 		'	</div>',
 		'	<div class="siteHeaderRight">',
 		'		<button id="siteThemeToggle" class="siteHeaderBtn siteHeaderBtnTheme" type="button" title="切换主题">☀</button>',
+		'		<div class="donateEntry" id="donateEntry">',
+		'			<button id="siteDonateBtn" class="siteHeaderBtn siteDonateBtn" type="button" title="捐赠">',
+		'				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+		'				<span class="donateBtnLabel">捐赠</span>',
+		'			</button>',
+		'			<div id="donateMenu" class="donateMenu">',
+		'				<div class="donateImageWrap">',
+		'					<object class="donateImage" type="image/svg+xml" data="/nav/Reward.svg"></object>',
+		'				</div>',
+		'				<div class="donateText">君之分文，亦为至劲之励！</div>',
+		'			</div>',
+		'		</div>',
 		'		<div class="guestEntry" id="guestEntry">',
 		'			<button id="siteLoginBtn" class="siteHeaderBtn" type="button">登录</button>',
 		'			<div id="guestTooltip" class="guestTooltip">',
@@ -313,11 +325,34 @@
 			});
 		}
 
+		var donateBtn = document.getElementById("siteDonateBtn");
+		var donateMenu = document.getElementById("donateMenu");
+
+		if (donateBtn) {
+			donateBtn.addEventListener("click", function(e) {
+				e.stopPropagation();
+				if (donateMenu) {
+					donateMenu.classList.toggle("isVisible");
+				}
+			});
+		}
+
+		if (donateMenu) {
+			donateMenu.addEventListener("click", function(e) {
+				e.stopPropagation();
+			});
+		}
+
 		document.addEventListener("click", function(e) {
 			if (accountMenu && accountMenu.classList.contains("isVisible")) {
 				if (e.target !== avatar && e.target !== mobileMenuBtn && !accountMenu.contains(e.target)) {
 					accountMenu.classList.remove("isVisible");
 					touchOpened = false;
+				}
+			}
+			if (donateMenu && donateMenu.classList.contains("isVisible")) {
+				if (e.target !== donateBtn && !donateMenu.contains(e.target)) {
+					donateMenu.classList.remove("isVisible");
 				}
 			}
 		});

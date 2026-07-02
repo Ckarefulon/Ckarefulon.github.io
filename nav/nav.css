@@ -407,3 +407,76 @@ body {
 .cloudIconBtn:hover {
 	background: var(--controlHoverBg);
 }
+
+/* 捐赠按钮 */
+.donateEntry {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.siteDonateBtn {
+	gap: 4px;
+	color: var(--red, #e74c3c) !important;
+	border-color: var(--red, #e74c3c) !important;
+}
+
+.siteDonateBtn:hover {
+	background: var(--controlHoverBg);
+}
+
+.donateBtnLabel {
+	font-size: 12px;
+}
+
+@media (max-width: 540px) {
+	.donateBtnLabel {
+		display: none;
+	}
+}
+
+/* 捐赠下拉菜单 */
+.donateMenu {
+	position: absolute;
+	top: calc(100% + 8px);
+	right: 0;
+	width: 220px;
+	padding: 18px 16px 14px;
+	background: var(--surfaceSolid);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+	z-index: 1010;
+	text-align: center;
+	display: none;
+}
+
+.donateMenu.isVisible {
+	display: block;
+}
+
+.donateImageWrap {
+	width: 140px;
+	height: 140px;
+	margin: 0 auto 10px;
+	border-radius: 50%;
+	background: #f5f5f5;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+}
+
+.donateImage {
+	width: 100px;
+	height: 100px;
+	display: block;
+}
+
+.donateText {
+	font-size: 13px;
+	color: var(--ink);
+	font-weight: 500;
+	line-height: 1.5;
+	letter-spacing: 0.02em;
+}
