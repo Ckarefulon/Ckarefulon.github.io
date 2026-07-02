@@ -143,10 +143,6 @@
 	transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
 }
 
-.memoryLibraryOption:first-child {
-	border-top: 0;
-}
-
 .memoryLibraryOption:last-child {
 	border-radius: 0 0 7px 7px;
 }
