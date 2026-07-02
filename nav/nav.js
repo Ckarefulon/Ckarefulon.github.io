@@ -413,7 +413,7 @@
 			downloadBtn.addEventListener("click", function() {
 				var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Cube-Formula";
 				var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "/Cube/Formula";
-				var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress_v1", null) : null;
+				var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress", null) : null;
 				var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
 
 				var now = new Date();
@@ -427,7 +427,7 @@
 					siteBasePath: basePath,
 					version: 1,
 					data: {
-						cube_memory_progress_v1: mem,
+						cube_memory_progress: mem,
 						smartCubeFormulaEntries: entries
 					}
 				};

@@ -6,7 +6,7 @@
 	 *
 	 * 本阶段只做手动上传/下载，不做自动同步。
 	 * 所有云端读写都使用 user_id + site_scope。
-	 * 只上传 cube_memory_progress_v1 和 smartCubeFormulaEntries。
+	 * 只上传 cube_memory_progress 和 smartCubeFormulaEntries。
 	 * 不上传 smartCubeMacMap、smartCubeTheme、密码、token、Supabase session。
 	 */
 
@@ -26,7 +26,7 @@
 		buildLocalPayload: function() {
 			var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Cube-Formula";
 			var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "/Cube/Formula";
-			var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress_v1", null) : null;
+			var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress", null) : null;
 			var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
 
 			return {
@@ -36,7 +36,7 @@
 				siteBasePath: basePath,
 				version: 1,
 				data: {
-					cube_memory_progress_v1: mem,
+					cube_memory_progress: mem,
 					smartCubeFormulaEntries: entries
 				}
 			};
@@ -151,8 +151,8 @@
 						return { success: false, message: "云端数据格式不正确", data: null };
 					}
 
-					if (dataBlock.cube_memory_progress_v1 !== undefined) {
-						window.storageManager.setJson("cube_memory_progress_v1", dataBlock.cube_memory_progress_v1);
+					if (dataBlock.cube_memory_progress !== undefined) {
+						window.storageManager.setJson("cube_memory_progress", dataBlock.cube_memory_progress);
 					}
 					if (dataBlock.smartCubeFormulaEntries !== undefined) {
 						window.storageManager.setJson("smartCubeFormulaEntries", dataBlock.smartCubeFormulaEntries);

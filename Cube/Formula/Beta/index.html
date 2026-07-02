@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN">
 <head>
 	<meta charset="utf-8">
@@ -8,8 +8,8 @@
 
 	<script src="assets/lib/jquery-4.0.0.min.js"></script>
 
-	<link rel="stylesheet" href="/nav/nav.css?v=0761">
-	<script src="/nav/nav.js?v=0761" defer></script>
+	<link rel="stylesheet" href="/nav/nav.css?v=0787">
+	<script src="/nav/nav.js?v=0787" defer></script>
 
 	<script src="/assets/services/core/site-scope.js?v=0567" defer></script>
 	<script src="/assets/services/core/storage-manager.js?v=0567" defer></script>
@@ -20,7 +20,7 @@
 	<script src="/supabase/auth-manager.js?v=0677" defer></script>
 	<script src="/assets/backend/profile-manager.js?v=0680" defer></script>
 	<script src="/assets/services/global/global-data-manager.js?v=0666" defer></script>
-	<script src="/assets/services/sync/cloud-sync-manager.js?v=0721" defer></script>
+	<script src="/assets/services/sync/cloud-sync-manager.js?v=0787" defer></script>
 
 	<script src="assets/lib/lzstring.js?v=0286" defer></script>
 	<script src="assets/lib/sha256.js?v=0286" defer></script>
@@ -40,8 +40,8 @@
 	<script src="assets/hardware/moyu32cube.js?v=0286" defer></script>
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
 
-	<link rel="stylesheet" href="assets/memory/memory.css?v=0761">
-	<script src="assets/memory/memory.js?v=0761" defer></script>
+	<link rel="stylesheet" href="assets/memory/memory.css?v=0787">
+	<script src="assets/memory/memory.js?v=0787" defer></script>
 
 	<title>学习模式</title>
 	<style>
@@ -4343,9 +4343,13 @@
 							if (result.success && result.data) {
 								self.cloudApplyingDownload = true;
 								try {
+									var hasMemoryData = result.data.cube_memory_progress !== undefined;
 									if (result.data.smartCubeFormulaEntries !== undefined) {
 										self.loadFormulaEntries();
 										self.renderFormulaList();
+									}
+									if (hasMemoryData && typeof self.reloadMemoryData === "function") {
+										self.reloadMemoryData();
 									}
 									self.syncConnectionUi();
 									self.markDataClean();
@@ -4362,7 +4366,7 @@
 						origSetJson = window.storageManager.setJson.bind(window.storageManager);
 						window.storageManager.setJson = function(key, value) {
 							origSetJson(key, value);
-							if (key === "cube_memory_progress_v1" && !self.cloudApplyingDownload) {
+							if ((key === "cube_memory_progress" || key === "smartCubeFormulaEntries") && !self.cloudApplyingDownload) {
 								self.markDataDirty();
 							}
 						};

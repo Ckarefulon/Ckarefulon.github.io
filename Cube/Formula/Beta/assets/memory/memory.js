@@ -6,7 +6,7 @@
 		return;
 	}
 
-	var STORAGE_KEY = "cube_memory_progress_v2";
+	var STORAGE_KEY = "cube_memory_progress";
 	var SCHEMA_VERSION = 2;
 	var FSRS_URL = "https://cdn.jsdelivr.net/npm/ts-fsrs/+esm";
 	var RATING_COLORS = ["#24F0EA", "#35D68A", "#E6B84A", "#E85D6A"];
@@ -1723,6 +1723,14 @@
 		loadData();
 		ensureFsrs().catch(function() {});
 		originalInit.call(this);
+	};
+
+	app.reloadMemoryData = function() {
+		loadData();
+		loadLibraryMask();
+		if (app.currentMode === "memory") {
+			startMemoryMode();
+		}
 	};
 
 	var originalGetModeMeta = app.getModeMeta;
