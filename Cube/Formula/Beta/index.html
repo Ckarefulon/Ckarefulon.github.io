@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
 	<meta charset="utf-8">
@@ -238,7 +238,7 @@
 			width: 188px;
 			min-width: 188px;
 			padding: 0;
-			border: 1px solid var(--line);
+			border: 1px solid rgba(93, 78, 168, 0.45);
 			border-radius: 8px;
 			background: var(--panel);
 			color: var(--ink);
@@ -413,7 +413,7 @@
 			display: grid;
 			gap: 0;
 			padding: 0;
-			border: 1px solid var(--line);
+			border: 1px solid rgba(93, 78, 168, 0.45);
 			border-top: 0;
 			border-radius: 0 0 8px 8px;
 			background: var(--surfaceSolid);
@@ -434,8 +434,12 @@
 
 		.modeMenu .modeOption {
 			min-height: 50px;
-			border-top: 1px solid var(--line);
+			border-top: 1px solid rgba(93, 78, 168, 0.45);
 			border-radius: 0;
+		}
+
+		.modeMenu .modeOption:first-child {
+			border-top: 0;
 		}
 
 		.modeMenu .modeOption:last-child {
@@ -698,31 +702,39 @@
 		.practiceModeSelect {
 			position: relative;
 			width: 144px;
-			min-height: 42px;
-			border: 1px solid var(--controlBorder);
+			min-height: 50px;
+			border: 1px solid rgba(93, 78, 168, 0.45);
 			border-radius: 8px;
-			background: var(--controlBg);
-			transition: border-color 0.14s ease, box-shadow 0.14s ease, background-color 0.22s ease;
+			background: var(--panel);
+			-webkit-backdrop-filter: blur(14px);
+			backdrop-filter: blur(14px);
+			box-shadow: 0 10px 30px rgba(93, 78, 168, 0.12);
+			cursor: pointer;
+			transition: transform 0.16s ease, border-color 0.16s ease, background 0.22s ease, box-shadow 0.16s ease;
 		}
 
+		.practiceModeSelect:hover,
 		.practiceModeSelect.isOpen {
 			border-color: rgba(93, 78, 168, 0.45);
 			background: var(--surfaceSolid);
+		}
+
+		.practiceModeSelect.isOpen {
 			border-bottom-color: transparent;
 			border-radius: 8px 8px 0 0;
 		}
 
 		.practiceModeCurrent {
 			width: 100%;
-			min-height: 40px;
+			min-height: 50px;
 			display: flex;
 			align-items: center;
-			gap: 8px;
-			padding: 0 12px;
+			gap: 10px;
+			padding: 10px 12px;
 			border: 0;
 			border-radius: 7px;
 			background: transparent;
-			color: var(--controlText);
+			color: var(--ink);
 			font: inherit;
 			font-weight: 700;
 			text-align: left;
@@ -735,6 +747,8 @@
 
 		.practiceModeCurrentText {
 			white-space: nowrap;
+			font-size: 15px;
+			letter-spacing: 0;
 		}
 
 		.practiceModeChevron {
@@ -759,7 +773,7 @@
 			display: grid;
 			gap: 0;
 			padding: 0;
-			border: 1px solid var(--line);
+			border: 1px solid rgba(93, 78, 168, 0.45);
 			border-top: 0;
 			border-radius: 0 0 8px 8px;
 			background: var(--surfaceSolid);
@@ -781,12 +795,12 @@
 
 		.practiceModeOption {
 			width: 100%;
-			min-height: 42px;
+			min-height: 50px;
 			display: flex;
 			align-items: center;
-			padding: 0 12px;
+			padding: 10px 12px;
 			border: 0;
-			border-top: 1px solid var(--line);
+			border-top: 1px solid rgba(93, 78, 168, 0.45);
 			border-radius: 0;
 			background: transparent;
 			color: var(--ink);
