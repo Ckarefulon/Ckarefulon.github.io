@@ -881,7 +881,11 @@
 					});
 				}
 				window.profileManager.getOwnProfile().then(function(result) {
-					_currentProfile = result.success ? result.profile : null;
+					// 只在成功时才更新，失败则保留当前头像，避免标签页切回前台时
+					// 因网络请求失败导致头像被重置为占位符
+					if (result.success) {
+						_currentProfile = result.profile;
+					}
 					updateMenuDisplay(_currentProfile);
 				});
 			} else {
@@ -893,12 +897,17 @@
 		function updateAuthUI(user) {
 			var guestEntry = document.getElementById("guestEntry");
 			var userEntry = document.getElementById("userEntry");
+			// 判断是否是同一用户重新触发（标签页切回前台时 Supabase 会重新派发 auth 事件）
+			var sameUser = _currentAuthUser && user && _currentAuthUser.id === user.id;
 			_currentAuthUser = user;
 
 			if (user) {
 				if (guestEntry) { guestEntry.style.display = "none"; }
 				if (userEntry) { userEntry.style.display = ""; }
-				updateMenuDisplay(null);
+				// 同一用户不再重置头像，避免切回前台时短暂闪烁成邮箱占位符
+				if (!sameUser) {
+					updateMenuDisplay(null);
+				}
 				fetchAndDisplayProfile();
 			} else {
 				if (guestEntry) { guestEntry.style.display = ""; }
@@ -954,6 +963,76 @@
 				}
 			}
 		});
+
+		// 页面生命周期：在页面被隐藏前保存状态，在页面恢复时还原状态
+		// 这能缓解 Chrome 丢弃后台标签页后回来页面重新加载造成的状态丢失。
+		(function() {
+			var _stateSaved = false;
+
+			// 标记本页是否曾被 discard 后重新加载
+			if (typeof document.wasDiscarded !== "undefined" && document.wasDiscarded) {
+				window._siteNavWasDiscarded = true;
+			}
+
+			function saveStateToSession() {
+				if (_stateSaved) return;
+				_stateSaved = true;
+				try {
+					var state = {
+						scrollX: window.scrollX,
+						scrollY: window.scrollY,
+						formData: {}
+					};
+					document.querySelectorAll("input, textarea, select").forEach(function(el) {
+						var key = el.id || el.name;
+						if (key) {
+							state.formData[key] = el.value;
+						}
+					});
+					sessionStorage.setItem("__siteNav_savedState", JSON.stringify(state));
+				} catch (e) {}
+			}
+
+			function restoreStateFromSession() {
+				try {
+					var raw = sessionStorage.getItem("__siteNav_savedState");
+					if (!raw) return;
+					var state = JSON.parse(raw);
+					if (state.scrollX !== undefined && state.scrollY !== undefined) {
+						window.scrollTo(state.scrollX, state.scrollY);
+					}
+					if (state.formData) {
+						Object.keys(state.formData).forEach(function(key) {
+							var el = document.getElementById(key) || document.querySelector("[name='" + key + "']");
+							if (el && el.value === "" && state.formData[key]) {
+								el.value = state.formData[key];
+							}
+						});
+					}
+					sessionStorage.removeItem("__siteNav_savedState");
+				} catch (e) {}
+			}
+
+			// 页面即将进入后台（可能被丢弃）时保存状态到 sessionStorage
+			document.addEventListener("visibilitychange", function() {
+				if (document.hidden) {
+					_stateSaved = false;
+					saveStateToSession();
+				}
+			});
+
+			// 页面恢复显示时（从 bfcache 恢复，或被 discard 后重新加载）
+			// 还原滚动位置和表单输入，避免重新加载后状态全失
+			window.addEventListener("pageshow", function(e) {
+				if (e.persisted) {
+					// 从 bfcache 恢复：直接还原
+					restoreStateFromSession();
+				} else if (typeof document.wasDiscarded !== "undefined" && document.wasDiscarded) {
+					// 被 discard 后重新加载：延迟一点等 DOM 就绪
+					setTimeout(restoreStateFromSession, 100);
+				}
+			});
+		})();
 
 		if (window.authManager) {
 			window.authManager.init();

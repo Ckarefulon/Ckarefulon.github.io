@@ -9,7 +9,7 @@
 	<script src="assets/lib/jquery-4.0.0.min.js"></script>
 
 	<link rel="stylesheet" href="/nav/nav.css?v=0817">
-	<script src="/nav/nav.js?v=0829" defer></script>
+	<script src="/nav/nav.js?v=0843" defer></script>
 
 	<script src="/assets/services/core/site-scope.js?v=0567" defer></script>
 	<script src="/assets/services/core/storage-manager.js?v=0567" defer></script>
@@ -18,7 +18,7 @@
 	<script src="/supabase/supabase-config.js?v=0618" defer></script>
 	<script src="/supabase/supabase-client.js?v=0618" defer></script>
 	<script src="/supabase/auth-manager.js?v=0677" defer></script>
-	<script src="/assets/backend/profile-manager.js?v=0680" defer></script>
+	<script src="/assets/backend/profile-manager.js?v=0843" defer></script>
 	<script src="/assets/services/global/global-data-manager.js?v=0666" defer></script>
 	<script src="/assets/services/sync/cloud-sync-manager.js?v=0817" defer></script>
 
@@ -41,7 +41,7 @@
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
 
 	<link rel="stylesheet" href="assets/memory/memory.css?v=0829">
-	<script src="assets/memory/memory.js?v=0829" defer></script>
+	<script src="assets/memory/memory.js?v=0843" defer></script>
 
 	<title>学习模式</title>
 	<style>
@@ -2815,7 +2815,7 @@
 				},
 
 				getLearnPanelHtml: function() {
-					return '<aside class="panel">' + this.getPanelHeaderHtml("学习模式") + this.getConnectSectionHtml("") + this.getMacHelpHtml() + '<section class="panelSection"><div class="metrics"><div class="metric"><span>设备</span><strong id="deviceName">-</strong></div><div class="metric"><span>转动数</span><strong id="moveCount">0</strong></div></div></section><section class="panelSection customStateSection"><button id="customFinalStateBtn" class="button" type="button">自定义魔方最终状态</button></section>' + this.getManualMovesHtml() + this.getStateImportHtml(true, false) + this.getDiagnosticsHtml(false) + '</aside>';
+					return '<aside class="panel">' + this.getPanelHeaderHtml("学习模式") + this.getConnectSectionHtml("") + this.getMacHelpHtml() + '<section class="panelSection"><div class="metrics"><div class="metric"><span>设备</span><strong id="deviceName">-</strong></div><div class="metric"><span>转动数</span><strong id="moveCount">0</strong></div></div></section><section class="panelSection customStateSection"><button id="customFinalStateBtn" class="button" type="button">自定义魔方复原状态</button></section>' + this.getManualMovesHtml() + this.getStateImportHtml(true, false) + this.getDiagnosticsHtml(false) + '</aside>';
 				},
 
 				getPracticePanelHtml: function() {
@@ -3112,7 +3112,7 @@
 					var overlay = document.createElement("div");
 					overlay.id = "customStateOverlay";
 					overlay.className = "customStateOverlay";
-					overlay.innerHTML = '<div class="customStateDialog" role="dialog" aria-modal="true" aria-labelledby="customStateTitle"><div class="customStateHeader"><strong id="customStateTitle">自定义魔方最终状态</strong><button id="closeCustomStateBtn" class="button secondary small" type="button">关闭</button></div><div id="customCubeStage" class="customCubeStage"></div><p id="customStateHint" class="customStateHint"></p><div class="customStateActions"><button id="showAllStickersBtn" class="button secondary" type="button">显示全部</button><div class="customStateActionRight"><button id="cancelCustomStateBtn" class="button secondary" type="button">取消</button><button id="confirmCustomStateBtn" class="button" type="button">确认</button></div></div></div>';
+					overlay.innerHTML = '<div class="customStateDialog" role="dialog" aria-modal="true" aria-labelledby="customStateTitle"><div class="customStateHeader"><strong id="customStateTitle">自定义魔方复原状态</strong><button id="closeCustomStateBtn" class="button secondary small" type="button">关闭</button></div><div id="customCubeStage" class="customCubeStage"></div><p id="customStateHint" class="customStateHint"></p><div class="customStateActions"><button id="showAllStickersBtn" class="button secondary" type="button">显示全部</button><div class="customStateActionRight"><button id="cancelCustomStateBtn" class="button secondary" type="button">取消</button><button id="confirmCustomStateBtn" class="button" type="button">确认</button></div></div></div>';
 					document.body.appendChild(overlay);
 					var stage = document.getElementById("customCubeStage");
 					var closeDialog = function() {
@@ -4403,11 +4403,15 @@
 
 					function waitForAuthAndSync() {
 						var checks = 0;
+						var _syncedUserId = null; // 防止同一用户重复触发云端同步（标签页切回前台时 Supabase 会重新派发 auth 事件）
 						function check() {
 							checks++;
 							if (window.authManager) {
 								window.authManager.onAuthStateChange(function(user) {
 									if (user) {
+										// 同一用户已同步过，跳过（避免标签页切回前台时 Supabase token refresh 导致重复覆盖本地数据）
+										if (_syncedUserId === user.id) return;
+										_syncedUserId = user.id;
 										self.markDataClean();
 										setTimeout(function() {
 											self.applyCloudDownload(true).then(function(result) {
@@ -4423,6 +4427,7 @@
 											});
 										}, 500);
 									} else {
+										_syncedUserId = null;
 										self.markDataClean();
 									}
 								});

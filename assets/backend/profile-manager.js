@@ -11,9 +11,19 @@
 			var self = this;
 			if (window.authManager) {
 				window.authManager.onAuthStateChange(function(user) {
-					self._cache = null;
-					self._ready = true;
-					self._notify(user ? self._cache : null);
+					if (!user) {
+						self._cache = null;
+						self._ready = true;
+						self._notify(null);
+					} else {
+						self._ready = true;
+						// 已登录：不清空缓存。
+						// 有缓存则立即通知（避免头像闪烁），然后后台刷新。
+						if (self._cache) {
+							self._notify(self._cache);
+						}
+						self.getOwnProfile();
+					}
 				});
 			} else {
 				self._ready = true;
@@ -48,6 +58,7 @@
 						return { success: false, message: "读取资料失败", profile: null };
 					}
 					self._cache = result.data || null;
+					self._notify(self._cache);
 					return { success: true, profile: result.data || null };
 				})
 				.catch(function() {
@@ -178,7 +189,7 @@
 			if (username.indexOf("@") >= 0) {
 				return { valid: false, message: "用户名不能包含 @ 符号" };
 			}
-			if (!/^[A-Za-z0-9._ -]+$/.test(username)) {
+			if (!/^[A-Za-z0-9._\- ]+$/.test(username)) {
 				return { valid: false, message: "用户名只能包含英文字母、数字、空格、-、_、." };
 			}
 			return { valid: true };
