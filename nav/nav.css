@@ -381,6 +381,10 @@ body {
 	color: var(--red);
 }
 
+.accountMenuCloudStatus.isWarning {
+	color: var(--orange, #e6b84a);
+}
+
 .accountMenuCloudActions {
 	display: flex;
 	flex-direction: row;
@@ -417,8 +421,8 @@ body {
 
 .siteDonateBtn {
 	gap: 4px;
-	color: var(--red, #e74c3c) !important;
-	border-color: var(--red, #e74c3c) !important;
+	color: var(--red, #e85d6a) !important;
+	border-color: var(--red, #e85d6a) !important;
 }
 
 .siteDonateBtn:hover {

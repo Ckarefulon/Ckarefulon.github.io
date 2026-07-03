@@ -289,7 +289,7 @@
 
 .relayStatus.isError {
 	color: var(--red);
-	border-color: rgba(216, 72, 95, 0.35);
+	border-color: rgba(232, 93, 106, 0.35);
 }
 
 .relayStatus.isSyncing {

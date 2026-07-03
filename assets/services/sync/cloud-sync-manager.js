@@ -105,13 +105,15 @@
 				}, {
 					onConflict: "user_id,site_scope"
 				})
-				.then(function(result) {
-					if (result.error) {
-						console.error("[CloudSync] 上传失败:", result.error);
-						return { success: false, message: "上传失败，请稍后重试" };
-					}
-					return { success: true, message: "上传成功" };
-				})
+			.then(function(result) {
+				if (result.error) {
+					console.error("[CloudSync] 上传失败:", result.error);
+					return { success: false, message: "上传失败，请稍后重试" };
+				}
+				// 记录已同步的数据快照（仅 data 部分），供 beforeunload 对比
+				window._siteNavLastSyncedData = JSON.stringify(payload.data);
+				return { success: true, message: "上传成功" };
+			})
 				.catch(function(error) {
 					console.error("[CloudSync] 上传异常:", error);
 					return { success: false, message: "上传失败，请稍后重试" };

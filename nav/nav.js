@@ -383,6 +383,62 @@
 			cloudStatusEl.className = "accountMenuCloudStatus" + (type ? " is" + type.charAt(0).toUpperCase() + type.slice(1) : "");
 		}
 
+		// 内联二次确认（替代浏览器 confirm）
+		var _cloudConfirmPending = null;
+		var _cloudConfirmTimer = null;
+
+		function setCloudConfirm(action) {
+			if (_cloudConfirmTimer) {
+				clearTimeout(_cloudConfirmTimer);
+				_cloudConfirmTimer = null;
+			}
+			_cloudConfirmPending = action;
+			if (action === "upload") {
+				setCloudStatus("云端已有数据，再次点击上传确认覆盖", "Warning");
+				_cloudConfirmTimer = setTimeout(function() {
+					_cloudConfirmPending = null;
+					_cloudConfirmTimer = null;
+					setCloudStatus("未检查", "");
+				}, 5000);
+			} else if (action === "download") {
+				setCloudStatus("再次点击下载确认用云端覆盖本地", "Warning");
+				_cloudConfirmTimer = setTimeout(function() {
+					_cloudConfirmPending = null;
+					_cloudConfirmTimer = null;
+					setCloudStatus("未检查", "");
+				}, 5000);
+			} else {
+				_cloudConfirmPending = null;
+			}
+		}
+
+		function doCloudUpload() {
+			setCloudStatus("正在上传...", "");
+			window.cloudSyncManager.uploadLocalToCloud().then(function(result) {
+				setCloudStatus(result.message, result.success ? "Success" : "Error");
+				if (result.success) {
+					if (typeof window._siteNavSetDirty === "function") {
+						window._siteNavSetDirty(false);
+					}
+					if (typeof window._siteNavOnUploadSuccess === "function") {
+						window._siteNavOnUploadSuccess();
+					}
+				}
+			});
+		}
+
+		function doCloudDownload() {
+			setCloudStatus("正在读取...", "");
+			window.cloudSyncManager.downloadCloudToLocal().then(function(result) {
+				setCloudStatus(result.message, result.success ? "Success" : "Error");
+				if (result.success) {
+					setTimeout(function() {
+						location.reload();
+					}, 1500);
+				}
+			});
+		}
+
 		if (cloudCheckBtn) {
 			cloudCheckBtn.addEventListener("click", function() {
 				if (!window.cloudSyncManager) {
@@ -409,16 +465,20 @@
 					setCloudStatus("云同步模块未加载", "Error");
 					return;
 				}
+				// 如果已有上传确认待定，直接执行
+				if (_cloudConfirmPending === "upload") {
+					setCloudConfirm(null);
+					doCloudUpload();
+					return;
+				}
+				// 先检查云端是否有数据
+				setCloudStatus("正在检查...", "");
 				window.cloudSyncManager.getCloudStatus().then(function(status) {
 					if (status.hasData) {
-						if (!confirm("云端已有数据，继续上传会覆盖云端数据，是否继续？")) {
-							return;
-						}
+						setCloudConfirm("upload");
+					} else {
+						doCloudUpload();
 					}
-					setCloudStatus("正在上传...", "");
-					window.cloudSyncManager.uploadLocalToCloud().then(function(result) {
-						setCloudStatus(result.message, result.success ? "Success" : "Error");
-					});
 				});
 			});
 		}
@@ -429,18 +489,13 @@
 					setCloudStatus("云同步模块未加载", "Error");
 					return;
 				}
-				if (!confirm("这会用云端数据覆盖当前本地数据，是否继续？")) {
+				// 如果已有下载确认待定，直接执行
+				if (_cloudConfirmPending === "download") {
+					setCloudConfirm(null);
+					doCloudDownload();
 					return;
 				}
-				setCloudStatus("正在读取...", "");
-				window.cloudSyncManager.downloadCloudToLocal().then(function(result) {
-					setCloudStatus(result.message, result.success ? "Success" : "Error");
-					if (result.success) {
-						setTimeout(function() {
-							location.reload();
-						}, 1500);
-					}
-				});
+				setCloudConfirm("download");
 			});
 		}
 
@@ -603,9 +658,17 @@
 
 		window.addEventListener("beforeunload", function(e) {
 			if (window._siteNavDataDirty && window.authManager && window.authManager.isLoggedIn()) {
-				e.preventDefault();
-				e.returnValue = "您未上传数据";
-				return "您未上传数据";
+				// 二次确认：对比当前数据与上次成功上传的数据（仅对比 data 部分，忽略 exportedAt 时间戳）
+				var hasActualChanges = true;
+				if (window._siteNavLastSyncedData && window.cloudSyncManager && typeof window.cloudSyncManager.buildLocalPayload === "function") {
+					var currentPayload = window.cloudSyncManager.buildLocalPayload();
+					hasActualChanges = (JSON.stringify(currentPayload.data) !== window._siteNavLastSyncedData);
+				}
+				if (hasActualChanges) {
+					e.preventDefault();
+					e.returnValue = "您未上传数据";
+					return "您未上传数据";
+				}
 			}
 		});
 
