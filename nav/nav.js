@@ -466,9 +466,19 @@
 		window.cloudSyncManager.downloadCloudToLocal().then(function(result) {
 			setCloudStatus(result.message, result.success ? "Success" : "Error");
 			if (result.success) {
+				// 下载完成：清掉 dirty 标志并记录当前数据快照，
+				// 避免接下来的 location.reload() 被 beforeunload 拦截
+				if (typeof window._siteNavSetDirty === "function") {
+					window._siteNavSetDirty(false);
+				}
+				if (window.cloudSyncManager && typeof window.cloudSyncManager.buildLocalPayload === "function") {
+					var refreshed = window.cloudSyncManager.buildLocalPayload();
+					window._siteNavLastSyncedData = JSON.stringify(refreshed.data);
+				}
+				// 用 setTimeout(0) 让状态文字先 paint 再刷新，不再等 1500ms
 				setTimeout(function() {
 					location.reload();
-				}, 1500);
+				}, 0);
 			}
 		});
 	}
@@ -691,6 +701,15 @@
 				} catch (e) {
 					_reportImportError("写入本地存储时出错：" + (e && e.message || e));
 					return;
+				}
+				// 导入完成：清掉 dirty 标志并记录当前数据快照，
+				// 避免接下来的 location.reload() 被 beforeunload 拦截
+				if (typeof window._siteNavSetDirty === "function") {
+					window._siteNavSetDirty(false);
+				}
+				if (window.cloudSyncManager && typeof window.cloudSyncManager.buildLocalPayload === "function") {
+					var refreshed = window.cloudSyncManager.buildLocalPayload();
+					window._siteNavLastSyncedData = JSON.stringify(refreshed.data);
 				}
 				if (inMenu) {
 					setCloudStatus("导入成功，正在刷新...", "Success");

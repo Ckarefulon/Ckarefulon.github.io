@@ -364,6 +364,9 @@
 			if (result.success) {
 				state.lastUploadTime = Date.now();
 				markClean();
+				// 记录已同步的数据快照（仅 data 部分），供 beforeunload 对比
+				var syncedPayload = cloudSyncManager.buildLocalPayload();
+				window._siteNavLastSyncedData = JSON.stringify(syncedPayload.data);
 				setStatus("已同步 " + new Date().toLocaleTimeString(), "success");
 			} else {
 				setStatus(result.message, "error");
@@ -401,6 +404,10 @@
 				}
 
 				markClean();
+				// 记录当前数据快照，供 beforeunload 对比；
+				// 这样下载后即便本地未做改动也不会被误判为"未上传"
+				var syncedPayload = cloudSyncManager.buildLocalPayload();
+				window._siteNavLastSyncedData = JSON.stringify(syncedPayload.data);
 				setStatus("已同步 " + new Date().toLocaleTimeString(), "success");
 			} else {
 				if (!silent) {

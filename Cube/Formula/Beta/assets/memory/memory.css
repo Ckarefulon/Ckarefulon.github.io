@@ -209,6 +209,14 @@
 	display: block !important;
 }
 
+.memoryLibraryBar.isCreating .memoryIconTrash {
+	display: none;
+}
+
+.memoryLibraryBar.isCreating .memoryIconClose {
+	display: block !important;
+}
+
 .memoryLibraryIconBtn {
 	flex: 0 0 auto;
 	width: 32px;

@@ -1272,7 +1272,7 @@
 		if (selector) selector.classList.remove("isOpen");
 	}
 
-		var overlay = createOverlay('<div class="memoryDialog memoryPlanDialog" role="dialog" aria-modal="true"><div class="memoryDialogHeader"><strong>规划学习</strong><button class="button secondary small" type="button" data-memory-close>关闭</button></div><div class="memoryLibraryBar"><div id="memoryLibrarySelector" class="memoryLibrarySelector"><button id="memoryLibraryCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="memoryLibraryCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="memoryLibraryMenu" class="memoryLibraryMenu"></div></div><input id="memoryLibraryNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="memoryLibraryAddBtn" class="memoryLibraryIconBtn" type="button" title="新建公式库"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="memoryLibraryRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名当前库"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="memoryLibraryDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除当前库"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div><div class="memoryFormulaListWrap"><div class="memoryFormulaList"></div><button id="memoryEditPlanBtn" class="memoryEditPlanBtn" type="button" title="编辑公式文本" aria-label="编辑公式文本"></button></div><div class="memoryDialogBottom"><label class="memoryDailyLabel">每日公式数 <input id="memoryDailyCount" class="memoryDailyInput" type="number" min="1" max="999" value="' + (l.settings.dailyCount || 10) + '"></label><span id="memoryPlanCount" class="memoryPlanCount">[0]/[' + (l.settings.dailyCount || 10) + ']</span></div><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-close>取消</button><button id="memorySavePlanBtn" class="button" type="button">保存计划</button></div></div>');
+		var overlay = createOverlay('<div class="memoryDialog memoryPlanDialog" role="dialog" aria-modal="true"><div class="memoryDialogHeader"><strong>规划学习</strong><button class="button secondary small" type="button" data-memory-close>关闭</button></div><div class="memoryLibraryBar"><div id="memoryLibrarySelector" class="memoryLibrarySelector"><button id="memoryLibraryCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="memoryLibraryCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="memoryLibraryMenu" class="memoryLibraryMenu"></div></div><input id="memoryLibraryNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="memoryLibraryAddBtn" class="memoryLibraryIconBtn" type="button" title="新建公式库"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="memoryLibraryRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名当前库"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="memoryLibraryDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除当前库"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><div class="memoryFormulaListWrap"><div class="memoryFormulaList"></div><button id="memoryEditPlanBtn" class="memoryEditPlanBtn" type="button" title="编辑公式文本" aria-label="编辑公式文本"></button></div><div class="memoryDialogBottom"><label class="memoryDailyLabel">每日公式数 <input id="memoryDailyCount" class="memoryDailyInput" type="number" min="1" max="999" value="' + (l.settings.dailyCount || 10) + '"></label><span id="memoryPlanCount" class="memoryPlanCount">[0]/[' + (l.settings.dailyCount || 10) + ']</span></div><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-close>取消</button><button id="memorySavePlanBtn" class="button" type="button">保存计划</button></div></div>');
 
 		var listContainer = overlay.querySelector('.memoryFormulaList');
 		renderFormulaList(listContainer);
@@ -1311,14 +1311,23 @@
 
 		function enterEditing(mode) {
 			if (libraryBar.classList.contains("isEditing") || libraryBar.classList.contains("isCreating")) return;
+			var addBtn = overlay.querySelector("#memoryLibraryAddBtn");
+			var renameBtn = overlay.querySelector("#memoryLibraryRenameBtn");
+			var deleteBtn = overlay.querySelector("#memoryLibraryDeleteBtn");
 			if (mode === "create") {
 				nameInput.value = "";
 				nameInput.placeholder = "输入公式库名称";
 				libraryBar.classList.add("isCreating");
+				if (addBtn) addBtn.title = "确认新建";
+				if (renameBtn) renameBtn.title = "重命名当前库";
+				if (deleteBtn) deleteBtn.title = "取消新建";
 			} else {
 				nameInput.value = (lib() || {}).name || "";
 				nameInput.placeholder = "";
 				libraryBar.classList.add("isEditing");
+				if (addBtn) addBtn.title = "新建公式库";
+				if (renameBtn) renameBtn.title = "保存名称";
+				if (deleteBtn) deleteBtn.title = "删除当前库";
 			}
 			nameInput.focus();
 			nameInput.select();
@@ -1326,6 +1335,12 @@
 
 		function exitEditing() {
 			libraryBar.classList.remove("isEditing", "isCreating");
+			var addBtn = overlay.querySelector("#memoryLibraryAddBtn");
+			var renameBtn = overlay.querySelector("#memoryLibraryRenameBtn");
+			var deleteBtn = overlay.querySelector("#memoryLibraryDeleteBtn");
+			if (addBtn) addBtn.title = "新建公式库";
+			if (renameBtn) renameBtn.title = "重命名当前库";
+			if (deleteBtn) deleteBtn.title = "删除当前库";
 		}
 
 		function commitEditing() {
@@ -1348,7 +1363,11 @@
 		}
 
 		overlay.querySelector("#memoryLibraryAddBtn").addEventListener("click", function() {
-			enterEditing("create");
+			if (libraryBar.classList.contains("isCreating")) {
+				commitEditing();
+			} else {
+				enterEditing("create");
+			}
 		});
 
 		overlay.querySelector("#memoryLibraryRenameBtn").addEventListener("click", function() {
@@ -1369,7 +1388,17 @@
 			}
 		});
 
-		nameInput.addEventListener("blur", function() {
+		nameInput.addEventListener("blur", function(e) {
+			var relatedTarget = e.relatedTarget;
+			var isDeleteBtn = relatedTarget && relatedTarget.closest("#memoryLibraryDeleteBtn");
+			var isAddBtn = relatedTarget && relatedTarget.closest("#memoryLibraryAddBtn");
+			var isRenameBtn = relatedTarget && relatedTarget.closest("#memoryLibraryRenameBtn");
+			if (libraryBar.classList.contains("isCreating") && (isDeleteBtn || isAddBtn)) {
+				return;
+			}
+			if (libraryBar.classList.contains("isEditing") && isRenameBtn) {
+				return;
+			}
 			setTimeout(function() {
 				if (libraryBar.classList.contains("isEditing") || libraryBar.classList.contains("isCreating")) {
 					commitEditing();
@@ -1378,6 +1407,10 @@
 		});
 
 		overlay.querySelector("#memoryLibraryDeleteBtn").addEventListener("click", function() {
+			if (libraryBar.classList.contains("isCreating")) {
+				exitEditing();
+				return;
+			}
 			if (Object.keys(memory.data.libraries).length <= 1) {
 				showToast("至少保留一个公式库");
 				return;
