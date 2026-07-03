@@ -76,18 +76,6 @@
 	line-height: 1;
 }
 
-.siteMobileMenuBtn {
-	width: 30px;
-	padding: 0;
-	display: none;
-}
-
-@media (max-width: 640px) {
-	.siteMobileMenuBtn {
-		display: inline-flex;
-	}
-}
-
 /* 游客入口 */
 .guestEntry {
 	position: relative;

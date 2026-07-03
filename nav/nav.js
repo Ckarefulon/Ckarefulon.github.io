@@ -47,10 +47,7 @@
 		'			</div>',
 		'		</div>',
 		'		<div class="guestEntry" id="userEntry" style="display:none">',
-		'			<button id="siteMobileMenuBtn" class="siteHeaderBtn siteMobileMenuBtn" type="button" title="菜单" aria-label="打开菜单">',
-		'				<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
-		'			</button>',
-		'			<button id="siteAvatar" class="siteAvatar" type="button"><img id="siteAvatarImage" class="siteAvatarImage" alt="" hidden><span id="siteAvatarFallback">?</span></button>',
+		'			<button id="siteAvatar" class="siteAvatar" type="button" title="账户菜单" aria-label="账户菜单" aria-haspopup="true" aria-expanded="false"><img id="siteAvatarImage" class="siteAvatarImage" alt="" hidden><span id="siteAvatarFallback">?</span></button>',
 		'			<div id="accountMenu" class="accountMenu">',
 		'				<div class="accountMenuEmail" id="accountMenuEmail"></div>',
 		'				<div class="accountMenuScope" id="accountMenuScope"></div>',
@@ -64,6 +61,7 @@
 		'						<button id="cloudCheckBtn" class="cloudIconBtn" type="button" title="检查云端状态"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg></button>',
 		'						<button id="cloudUploadBtn" class="cloudIconBtn" type="button" title="上传本地数据到云端"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>',
 		'						<button id="cloudDownloadBtn" class="cloudIconBtn" type="button" title="从云端恢复到本地"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>',
+		'						<button id="cloudSaveLocalBtn" class="cloudIconBtn" type="button" title="下载数据自行保存"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg></button>',
 		'					</div>',
 		'				</div>',
 		'			</div>',
@@ -249,82 +247,61 @@
 			tooltip.addEventListener("mouseleave", hideTooltip);
 		}
 
-		var avatar = document.getElementById("siteAvatar");
-		var accountMenu = document.getElementById("accountMenu");
-		var signOutBtn = document.getElementById("siteSignOutBtn");
-		var profileBtn = document.getElementById("siteProfileBtn");
-		var accountHideTimer = null;
-		var touchOpened = false;
+	var avatar = document.getElementById("siteAvatar");
+	var accountMenu = document.getElementById("accountMenu");
+	var signOutBtn = document.getElementById("siteSignOutBtn");
+	var profileBtn = document.getElementById("siteProfileBtn");
 
-		function goToProfile() {
-			window.location.href = "/user/profile/";
-		}
+	function goToProfile() {
+		window.location.href = "/user/profile/";
+	}
 
-		function showAccountMenu() {
-			if (accountHideTimer) { clearTimeout(accountHideTimer); accountHideTimer = null; }
-			if (accountMenu) { accountMenu.classList.add("isVisible"); }
-		}
-
-		function hideAccountMenu() {
-			accountHideTimer = setTimeout(function() {
-				if (accountMenu) { accountMenu.classList.remove("isVisible"); }
-				touchOpened = false;
-			}, 200);
-		}
-
-		function cancelAccountHide() {
-			if (accountHideTimer) { clearTimeout(accountHideTimer); accountHideTimer = null; }
-		}
-
-		if (avatar) {
-			avatar.addEventListener("click", function() {
-				if (touchOpened) {
-					touchOpened = false;
-					showAccountMenu();
-					return;
-				}
-				goToProfile();
-			});
-			avatar.addEventListener("mouseenter", function() {
-				if (!touchOpened) {
-					showAccountMenu();
-				}
-			});
-			avatar.addEventListener("mouseleave", hideAccountMenu);
-			avatar.addEventListener("touchstart", function(e) {
-				touchOpened = true;
-			}, { passive: true });
-		}
-
-		if (profileBtn) {
-			profileBtn.addEventListener("click", function(e) {
-				e.stopPropagation();
-				goToProfile();
-			});
-		}
-
+	function showAccountMenu() {
 		if (accountMenu) {
-			accountMenu.addEventListener("mouseenter", cancelAccountHide);
-			accountMenu.addEventListener("mouseleave", hideAccountMenu);
-			accountMenu.addEventListener("click", function(e) {
-				e.stopPropagation();
-			});
+			accountMenu.classList.add("isVisible");
+			if (avatar) { avatar.setAttribute("aria-expanded", "true"); }
 		}
+	}
 
-		var mobileMenuBtn = document.getElementById("siteMobileMenuBtn");
-
-		if (mobileMenuBtn) {
-			mobileMenuBtn.addEventListener("click", function(e) {
-				e.stopPropagation();
-				if (accountMenu && accountMenu.classList.contains("isVisible")) {
-					accountMenu.classList.remove("isVisible");
-					touchOpened = false;
-				} else {
-					touchOpened = true;
-					showAccountMenu();
-				}
-			});
+	function hideAccountMenu() {
+		if (accountMenu) {
+			accountMenu.classList.remove("isVisible");
+			if (avatar) { avatar.setAttribute("aria-expanded", "false"); }
 		}
+	}
+
+	function toggleAccountMenu() {
+		if (accountMenu && accountMenu.classList.contains("isVisible")) {
+			hideAccountMenu();
+		} else {
+			showAccountMenu();
+		}
+	}
+
+	if (avatar) {
+		avatar.addEventListener("click", function(e) {
+			e.stopPropagation();
+			// 关闭其他下拉菜单，保证同一时间只有一个打开
+			if (donateMenu && donateMenu.classList.contains("isVisible")) {
+				donateMenu.classList.remove("isVisible");
+			}
+			toggleAccountMenu();
+		});
+	}
+
+	if (profileBtn) {
+		profileBtn.addEventListener("click", function(e) {
+			e.stopPropagation();
+			hideAccountMenu();
+			goToProfile();
+		});
+	}
+
+	if (accountMenu) {
+		accountMenu.addEventListener("click", function(e) {
+			e.stopPropagation();
+		});
+	}
 
 		var donateBtn = document.getElementById("siteDonateBtn");
 		var donateMenu = document.getElementById("donateMenu");
@@ -332,6 +309,8 @@
 		if (donateBtn) {
 			donateBtn.addEventListener("click", function(e) {
 				e.stopPropagation();
+				// 关闭账户菜单，保证同一时间只有一个下拉打开
+				hideAccountMenu();
 				if (donateMenu) {
 					donateMenu.classList.toggle("isVisible");
 				}
@@ -344,19 +323,25 @@
 			});
 		}
 
-		document.addEventListener("click", function(e) {
-			if (accountMenu && accountMenu.classList.contains("isVisible")) {
-				if (e.target !== avatar && e.target !== mobileMenuBtn && !accountMenu.contains(e.target)) {
-					accountMenu.classList.remove("isVisible");
-					touchOpened = false;
-				}
+	document.addEventListener("click", function(e) {
+		// 头像与账户菜单内部点击已 stopPropagation，到这里的都是“外部点击”
+		if (accountMenu && accountMenu.classList.contains("isVisible")) {
+			hideAccountMenu();
+		}
+		if (donateMenu && donateMenu.classList.contains("isVisible")) {
+			if (e.target !== donateBtn && !donateMenu.contains(e.target)) {
+				donateMenu.classList.remove("isVisible");
 			}
-			if (donateMenu && donateMenu.classList.contains("isVisible")) {
-				if (e.target !== donateBtn && !donateMenu.contains(e.target)) {
-					donateMenu.classList.remove("isVisible");
-				}
-			}
-		});
+		}
+	});
+
+	// Esc 键关闭所有下拉菜单
+	document.addEventListener("keydown", function(e) {
+		if (e.key === "Escape") {
+			hideAccountMenu();
+			if (donateMenu) { donateMenu.classList.remove("isVisible"); }
+		}
+	});
 
 		if (signOutBtn) {
 			signOutBtn.addEventListener("click", function() {
@@ -499,42 +484,54 @@
 			});
 		}
 
-		var downloadBtn = document.getElementById("siteDownloadBtn");
-		if (downloadBtn) {
-			downloadBtn.addEventListener("click", function() {
-				var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Cube-Formula";
-				var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "/Cube/Formula";
-				var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress", null) : null;
-				var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
+	// 导出本地数据为 JSON 文件自行保存（游客下载按钮 / 已登录菜单内下载按钮共用）
+	function downloadLocalBackup() {
+		var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Cube-Formula";
+		var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "/Cube/Formula";
+		var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress", null) : null;
+		var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
 
-				var now = new Date();
-				var pad = function(n) { return String(n).padStart(2, "0"); };
-				var dateStr = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
+		var now = new Date();
+		var pad = function(n) { return String(n).padStart(2, "0"); };
+		var dateStr = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
 
-				var payload = {
-					exportedAt: now.toISOString(),
-					source: "Ckarefulon",
-					siteScope: scope,
-					siteBasePath: basePath,
-					version: 1,
-					data: {
-						cube_memory_progress: mem,
-						smartCubeFormulaEntries: entries
-					}
-				};
+		var payload = {
+			exportedAt: now.toISOString(),
+			source: "Ckarefulon",
+			siteScope: scope,
+			siteBasePath: basePath,
+			version: 1,
+			data: {
+				cube_memory_progress: mem,
+				smartCubeFormulaEntries: entries
+			}
+		};
 
-				var json = JSON.stringify(payload, null, "\t");
-				var blob = new Blob([json], { type: "application/json" });
-				var url = URL.createObjectURL(blob);
-				var a = document.createElement("a");
-				a.href = url;
-				a.download = scope + "_LocalData_" + dateStr + ".json";
-				document.body.appendChild(a);
-				a.click();
-				document.body.removeChild(a);
-				URL.revokeObjectURL(url);
-			});
-		}
+		var json = JSON.stringify(payload, null, "\t");
+		var blob = new Blob([json], { type: "application/json" });
+		var url = URL.createObjectURL(blob);
+		var a = document.createElement("a");
+		a.href = url;
+		a.download = scope + "_LocalData_" + dateStr + ".json";
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+	}
+
+	var downloadBtn = document.getElementById("siteDownloadBtn");
+	if (downloadBtn) {
+		downloadBtn.addEventListener("click", downloadLocalBackup);
+	}
+
+	var cloudSaveLocalBtn = document.getElementById("cloudSaveLocalBtn");
+	if (cloudSaveLocalBtn) {
+		cloudSaveLocalBtn.addEventListener("click", function(e) {
+			e.stopPropagation();
+			hideAccountMenu();
+			downloadLocalBackup();
+		});
+	}
 
 		var _currentProfile = null;
 		var _profileListenerBound = false;
