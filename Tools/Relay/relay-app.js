@@ -101,6 +101,31 @@
 				});
 		},
 
+		/**
+		 * 将数据块写回本地存储（覆盖对应字段）
+		 * 供云端恢复 / 文件导入共用。
+		 * @param {object} dataBlock - payload.data
+		 * @returns {object} 实际写入的偏好（prefs），便于上层刷新 UI
+		 */
+		applyDataToLocalStorage: function(dataBlock) {
+			if (!dataBlock || typeof dataBlock !== "object") {
+				return {};
+			}
+			if (dataBlock.relay_text !== undefined) {
+				window.storageManager.setItem(LOCAL_STORAGE_PREFIX + RELAY_DATA_KEY, dataBlock.relay_text);
+			}
+			var prefs = {};
+			if (typeof dataBlock.relay_realtime_enabled === "boolean") {
+				prefs.realtimeEnabled = dataBlock.relay_realtime_enabled;
+				window.storageManager.setItem(LOCAL_STORAGE_PREFIX + RELAY_REALTIME_KEY, dataBlock.relay_realtime_enabled ? "true" : "false");
+			}
+			if (typeof dataBlock.relay_interval_seconds === "number" && !isNaN(dataBlock.relay_interval_seconds) && dataBlock.relay_interval_seconds >= 0) {
+				prefs.intervalSeconds = Math.floor(dataBlock.relay_interval_seconds);
+				window.storageManager.setItem(LOCAL_STORAGE_PREFIX + RELAY_INTERVAL_KEY, String(prefs.intervalSeconds));
+			}
+			return prefs;
+		},
+
 		downloadCloudToLocal: function() {
 			if (!cloudSyncManager.isReady()) {
 				return Promise.resolve({ success: false, message: "请先登录" });
@@ -130,19 +155,7 @@
 						return { success: false, message: "云端数据格式不正确" };
 					}
 
-					if (dataBlock.relay_text !== undefined) {
-						window.storageManager.setItem(LOCAL_STORAGE_PREFIX + RELAY_DATA_KEY, dataBlock.relay_text);
-					}
-
-					var prefs = {};
-					if (typeof dataBlock.relay_realtime_enabled === "boolean") {
-						prefs.realtimeEnabled = dataBlock.relay_realtime_enabled;
-						window.storageManager.setItem(LOCAL_STORAGE_PREFIX + RELAY_REALTIME_KEY, dataBlock.relay_realtime_enabled ? "true" : "false");
-					}
-					if (typeof dataBlock.relay_interval_seconds === "number" && !isNaN(dataBlock.relay_interval_seconds) && dataBlock.relay_interval_seconds >= 0) {
-						prefs.intervalSeconds = Math.floor(dataBlock.relay_interval_seconds);
-						window.storageManager.setItem(LOCAL_STORAGE_PREFIX + RELAY_INTERVAL_KEY, String(prefs.intervalSeconds));
-					}
+					var prefs = cloudSyncManager.applyDataToLocalStorage(dataBlock);
 
 					return { success: true, message: "同步成功", text: dataBlock.relay_text || "", prefs: prefs };
 				})

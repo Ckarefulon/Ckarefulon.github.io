@@ -255,6 +255,74 @@ body {
 	color: var(--good);
 }
 
+/* ========== 覆盖确认对话框 ========== */
+.confirmOverlay {
+	position: fixed;
+	inset: 0;
+	z-index: 2100;
+	background: rgba(0, 0, 0, 0.45);
+	display: none;
+	align-items: center;
+	justify-content: center;
+}
+
+.confirmOverlay.isVisible {
+	display: flex;
+}
+
+.confirmPanel {
+	width: 360px;
+	max-width: calc(100vw - 32px);
+	padding: 22px 24px 18px;
+	background: var(--surfaceSolid);
+	border: 1px solid var(--line);
+	border-top: 3px solid var(--red, #e85d6a);
+	border-radius: 12px;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+	font-size: 13px;
+	color: var(--ink);
+}
+
+.confirmTitle {
+	font-size: 15px;
+	font-weight: 600;
+	margin-bottom: 10px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--red, #e85d6a);
+}
+
+.confirmMessage {
+	font-size: 13px;
+	line-height: 1.6;
+	color: var(--muted);
+	margin-bottom: 16px;
+	word-break: break-word;
+	white-space: pre-wrap;
+}
+
+.confirmActions {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+}
+
+.confirmActions .siteHeaderBtn {
+	min-width: 80px;
+	height: 34px;
+}
+
+.confirmDangerBtn {
+	background: var(--red, #e85d6a) !important;
+	color: #fff !important;
+	border-color: var(--red, #e85d6a) !important;
+}
+
+.confirmDangerBtn:hover {
+	filter: brightness(0.92);
+}
+
 /* 头像 */
 .siteAvatar {
 	width: 30px;
@@ -373,6 +441,18 @@ body {
 	color: var(--orange, #e6b84a);
 }
 
+/* Warning 文案可点击：点击弹出确认对话框 */
+.accountMenuCloudStatus.isActionable {
+	cursor: pointer;
+	text-decoration: underline;
+	text-decoration-style: dotted;
+	text-underline-offset: 3px;
+}
+
+.accountMenuCloudStatus.isActionable:hover {
+	filter: brightness(1.15);
+}
+
 .accountMenuCloudActions {
 	display: flex;
 	flex-direction: row;
@@ -398,6 +478,19 @@ body {
 
 .cloudIconBtn:hover {
 	background: var(--controlHoverBg);
+}
+
+/* 待办确认：对应原始按钮显示黄色 warning 标记 */
+.cloudIconBtn.isPendingConfirm {
+	border-color: var(--orange, #e6b84a);
+	color: var(--orange, #e6b84a);
+	background: color-mix(in srgb, var(--orange, #e6b84a) 12%, var(--controlBg));
+	animation: cloudBtnPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes cloudBtnPulse {
+	0%, 100% { box-shadow: 0 0 0 0 rgba(230, 184, 74, 0); }
+	50% { box-shadow: 0 0 0 4px rgba(230, 184, 74, 0.25); }
 }
 
 /* 捐赠按钮 */

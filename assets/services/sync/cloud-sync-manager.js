@@ -121,6 +121,28 @@
 		},
 
 		/**
+		 * 将数据块写回本地存储（覆盖对应字段）
+		 * 供云端恢复 / 文件导入共用。
+		 * @param {object} dataBlock - payload.data
+		 * @returns {object} 实际写入的字段名集合，便于上层提示
+		 */
+		applyDataToLocalStorage: function(dataBlock) {
+			if (!dataBlock || typeof dataBlock !== "object") {
+				return {};
+			}
+			var applied = {};
+			if (dataBlock.cube_memory_progress !== undefined) {
+				window.storageManager.setJson("cube_memory_progress", dataBlock.cube_memory_progress);
+				applied.cube_memory_progress = true;
+			}
+			if (dataBlock.smartCubeFormulaEntries !== undefined) {
+				window.storageManager.setJson("smartCubeFormulaEntries", dataBlock.smartCubeFormulaEntries);
+				applied.smartCubeFormulaEntries = true;
+			}
+			return applied;
+		},
+
+		/**
 		 * 从云端恢复到本地
 		 * @returns {Promise<{success: boolean, message: string, data: object|null}>}
 		 */
@@ -153,12 +175,7 @@
 						return { success: false, message: "云端数据格式不正确", data: null };
 					}
 
-					if (dataBlock.cube_memory_progress !== undefined) {
-						window.storageManager.setJson("cube_memory_progress", dataBlock.cube_memory_progress);
-					}
-					if (dataBlock.smartCubeFormulaEntries !== undefined) {
-						window.storageManager.setJson("smartCubeFormulaEntries", dataBlock.smartCubeFormulaEntries);
-					}
+					cloudSyncManager.applyDataToLocalStorage(dataBlock);
 
 					return { success: true, message: "恢复成功", data: dataBlock };
 				})

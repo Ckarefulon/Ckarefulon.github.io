@@ -44,6 +44,7 @@
 		'					<li>个人数据需自行保存</li>',
 		'				</ul>',
 		'				<button id="siteDownloadBtn" class="siteHeaderBtn" type="button">下载数据</button>',
+		'				<button id="siteImportBtn" class="siteHeaderBtn" type="button">导入数据</button>',
 		'			</div>',
 		'		</div>',
 		'		<div class="guestEntry" id="userEntry" style="display:none">',
@@ -62,6 +63,7 @@
 		'						<button id="cloudUploadBtn" class="cloudIconBtn" type="button" title="上传本地数据到云端"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>',
 		'						<button id="cloudDownloadBtn" class="cloudIconBtn" type="button" title="从云端恢复到本地"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>',
 		'						<button id="cloudSaveLocalBtn" class="cloudIconBtn" type="button" title="下载数据自行保存"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg></button>',
+		'						<button id="cloudImportLocalBtn" class="cloudIconBtn" type="button" title="导入自行保存的数据"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><polyline points="9 15 12 12 15 15"/></svg></button>',
 		'					</div>',
 		'				</div>',
 		'			</div>',
@@ -88,7 +90,18 @@
 		'		</div>',
 		'		<div class="loginStatus" id="loginStatus"></div>',
 		'	</div>',
-		'</div>'
+		'</div>',
+		'<div class="confirmOverlay" id="confirmOverlay">',
+		'	<div class="confirmPanel">',
+		'		<div class="confirmTitle" id="confirmTitle"></div>',
+		'		<div class="confirmMessage" id="confirmMessage"></div>',
+		'		<div class="confirmActions">',
+		'			<button id="confirmCancelBtn" class="siteHeaderBtn" type="button">取消</button>',
+		'			<button id="confirmOkBtn" class="siteHeaderBtn confirmDangerBtn" type="button">确认</button>',
+		'		</div>',
+		'	</div>',
+		'</div>',
+		'<input type="file" id="siteImportFileInput" accept=".json,application/json" hidden>'
 	].join("");
 
 	function renderNav() {
@@ -263,16 +276,27 @@
 		}
 	}
 
-	function hideAccountMenu() {
+	// 菜单锁定：当 cloudStatus 处于 Warning / Error 时锁定菜单，
+	// 外部点击与 Esc 都不会关闭，只有点击头像（force=true）才关闭。
+	var _menuLocked = false;
+
+	function hideAccountMenu(force) {
+		if (!force && _menuLocked) return;
 		if (accountMenu) {
 			accountMenu.classList.remove("isVisible");
 			if (avatar) { avatar.setAttribute("aria-expanded", "false"); }
+		}
+		// 强制关闭时一并清空锁定与待办动作
+		_menuLocked = false;
+		if (typeof _cloudStatusAction !== "undefined") { _cloudStatusAction = null; }
+		if (typeof cloudStatusEl !== "undefined" && cloudStatusEl) {
+			cloudStatusEl.classList.remove("isActionable");
 		}
 	}
 
 	function toggleAccountMenu() {
 		if (accountMenu && accountMenu.classList.contains("isVisible")) {
-			hideAccountMenu();
+			hideAccountMenu(true); // 头像点击 = 强制关闭
 		} else {
 			showAccountMenu();
 		}
@@ -335,10 +359,13 @@
 		}
 	});
 
-	// Esc 键关闭所有下拉菜单
+	// Esc 键关闭所有下拉菜单（尊重锁定；确认对话框自身有独立 Esc 处理且优先）
 	document.addEventListener("keydown", function(e) {
 		if (e.key === "Escape") {
-			hideAccountMenu();
+			// 确认对话框打开时，Esc 只关对话框，不关菜单
+			var confirmOv = document.getElementById("confirmOverlay");
+			if (confirmOv && confirmOv.classList.contains("isVisible")) return;
+			hideAccountMenu(); // 尊重 _menuLocked
 			if (donateMenu) { donateMenu.classList.remove("isVisible"); }
 		}
 	});
@@ -362,67 +389,89 @@
 		var cloudUploadBtn = document.getElementById("cloudUploadBtn");
 		var cloudDownloadBtn = document.getElementById("cloudDownloadBtn");
 
-		function setCloudStatus(text, type) {
-			if (!cloudStatusEl) return;
-			cloudStatusEl.textContent = text;
-			cloudStatusEl.className = "accountMenuCloudStatus" + (type ? " is" + type.charAt(0).toUpperCase() + type.slice(1) : "");
+	// cloudStatus 统一状态文案 + 可点击的待办动作
+	// 用法：setCloudStatus("文案", "Warning", { dialog:{...}, onConfirm:fn })
+	//   type 为 "Warning" / "Error" 时自动锁定菜单（外部点击不关，只有头像能关）
+	//   传入 action 后，cloudStatus 文字变为可点击，点击弹出确认对话框
+	var _cloudStatusAction = null;
+	// 各按钮与 key 的映射，用于在待办激活时给对应按钮加黄色 warning 标记
+	var _cloudBtnByKey = {
+		upload: cloudUploadBtn,
+		download: cloudDownloadBtn,
+		import: null // import 按钮在 cloudImportLocalBtn 绑定时已知，稍后注入
+	};
+
+	function setCloudStatus(text, type, action) {
+		if (!cloudStatusEl) return;
+		cloudStatusEl.textContent = text;
+		cloudStatusEl.className = "accountMenuCloudStatus" + (type ? " is" + type.charAt(0).toUpperCase() + type.slice(1) : "");
+		// 先清除所有按钮的 warning 标记
+		Object.keys(_cloudBtnByKey).forEach(function(k) {
+			var btn = _cloudBtnByKey[k];
+			if (btn) { btn.classList.remove("isPendingConfirm"); }
+		});
+		_cloudStatusAction = action || null;
+		if (_cloudStatusAction) {
+			cloudStatusEl.classList.add("isActionable");
+			// 给对应原始按钮加黄色 warning 标记
+			var targetBtn = _cloudStatusAction.key && _cloudBtnByKey[_cloudStatusAction.key];
+			if (targetBtn) { targetBtn.classList.add("isPendingConfirm"); }
+		} else {
+			cloudStatusEl.classList.remove("isActionable");
 		}
+		// Warning / Error 锁定菜单；其它状态解锁
+		_menuLocked = (type === "Warning" || type === "Error");
+	}
 
-		// 内联二次确认（替代浏览器 confirm）
-		var _cloudConfirmPending = null;
-		var _cloudConfirmTimer = null;
-
-		function setCloudConfirm(action) {
-			if (_cloudConfirmTimer) {
-				clearTimeout(_cloudConfirmTimer);
-				_cloudConfirmTimer = null;
+	if (cloudStatusEl) {
+		cloudStatusEl.addEventListener("click", function(e) {
+			e.stopPropagation();
+			// 单击文字 → 弹对话框显示详情（对话框里点确认按钮也能执行）
+			if (_cloudStatusAction && _cloudStatusAction.dialog) {
+				openConfirmDialog(_cloudStatusAction.dialog, _cloudStatusAction.onConfirm);
 			}
-			_cloudConfirmPending = action;
-			if (action === "upload") {
-				setCloudStatus("云端已有数据，再次点击上传确认覆盖", "Warning");
-				_cloudConfirmTimer = setTimeout(function() {
-					_cloudConfirmPending = null;
-					_cloudConfirmTimer = null;
-					setCloudStatus("未检查", "");
-				}, 5000);
-			} else if (action === "download") {
-				setCloudStatus("再次点击下载确认用云端覆盖本地", "Warning");
-				_cloudConfirmTimer = setTimeout(function() {
-					_cloudConfirmPending = null;
-					_cloudConfirmTimer = null;
-					setCloudStatus("未检查", "");
-				}, 5000);
-			} else {
-				_cloudConfirmPending = null;
+		});
+	}
+
+	// 清空待办状态并执行回调（按钮再次单击时调用）
+	function consumeCloudStatusAction() {
+		if (!_cloudStatusAction) return null;
+		var act = _cloudStatusAction;
+		_cloudStatusAction = null;
+		if (cloudStatusEl) { cloudStatusEl.classList.remove("isActionable"); }
+		// 清除对应按钮的 warning 标记
+		var targetBtn = act.key && _cloudBtnByKey[act.key];
+		if (targetBtn) { targetBtn.classList.remove("isPendingConfirm"); }
+		_menuLocked = false;
+		return act;
+	}
+
+	function doCloudUpload() {
+		setCloudStatus("正在上传...", "");
+		window.cloudSyncManager.uploadLocalToCloud().then(function(result) {
+			setCloudStatus(result.message, result.success ? "Success" : "Error");
+			if (result.success) {
+				if (typeof window._siteNavSetDirty === "function") {
+					window._siteNavSetDirty(false);
+				}
+				if (typeof window._siteNavOnUploadSuccess === "function") {
+					window._siteNavOnUploadSuccess();
+				}
 			}
-		}
+		});
+	}
 
-		function doCloudUpload() {
-			setCloudStatus("正在上传...", "");
-			window.cloudSyncManager.uploadLocalToCloud().then(function(result) {
-				setCloudStatus(result.message, result.success ? "Success" : "Error");
-				if (result.success) {
-					if (typeof window._siteNavSetDirty === "function") {
-						window._siteNavSetDirty(false);
-					}
-					if (typeof window._siteNavOnUploadSuccess === "function") {
-						window._siteNavOnUploadSuccess();
-					}
-				}
-			});
-		}
-
-		function doCloudDownload() {
-			setCloudStatus("正在读取...", "");
-			window.cloudSyncManager.downloadCloudToLocal().then(function(result) {
-				setCloudStatus(result.message, result.success ? "Success" : "Error");
-				if (result.success) {
-					setTimeout(function() {
-						location.reload();
-					}, 1500);
-				}
-			});
-		}
+	function doCloudDownload() {
+		setCloudStatus("正在读取...", "");
+		window.cloudSyncManager.downloadCloudToLocal().then(function(result) {
+			setCloudStatus(result.message, result.success ? "Success" : "Error");
+			if (result.success) {
+				setTimeout(function() {
+					location.reload();
+				}, 1500);
+			}
+		});
+	}
 
 		if (cloudCheckBtn) {
 			cloudCheckBtn.addEventListener("click", function() {
@@ -444,75 +493,113 @@
 			});
 		}
 
-		if (cloudUploadBtn) {
-			cloudUploadBtn.addEventListener("click", function() {
-				if (!window.cloudSyncManager) {
-					setCloudStatus("云同步模块未加载", "Error");
-					return;
-				}
-				// 如果已有上传确认待定，直接执行
-				if (_cloudConfirmPending === "upload") {
-					setCloudConfirm(null);
+	if (cloudUploadBtn) {
+		cloudUploadBtn.addEventListener("click", function(e) {
+			e.stopPropagation();
+			if (!window.cloudSyncManager) {
+				setCloudStatus("云同步模块未加载", "Error");
+				return;
+			}
+			// 再次单击 = 确认覆盖
+			var pending = consumeCloudStatusAction();
+			if (pending && pending.key === "upload") {
+				pending.onConfirm();
+				return;
+			}
+			// 先检查云端是否有数据
+			setCloudStatus("正在检查...", "");
+			window.cloudSyncManager.getCloudStatus().then(function(status) {
+				if (status.hasData) {
+					var timeStr = status.updatedAt ? new Date(status.updatedAt).toLocaleString() : "未知";
+					setCloudStatus("再次单击 确认覆盖云端数据", "Warning", {
+						key: "upload",
+						dialog: {
+							title: "⚠ 覆盖警告",
+							message: "云端已有数据（更新时间：" + timeStr + "）。\n上传将覆盖云端数据，此操作不可撤销。\n\n确认继续？",
+							confirmText: "确认覆盖"
+						},
+						onConfirm: doCloudUpload
+					});
+				} else {
 					doCloudUpload();
-					return;
 				}
-				// 先检查云端是否有数据
-				setCloudStatus("正在检查...", "");
-				window.cloudSyncManager.getCloudStatus().then(function(status) {
-					if (status.hasData) {
-						setCloudConfirm("upload");
-					} else {
-						doCloudUpload();
-					}
-				});
 			});
-		}
+		});
+	}
 
-		if (cloudDownloadBtn) {
-			cloudDownloadBtn.addEventListener("click", function() {
-				if (!window.cloudSyncManager) {
-					setCloudStatus("云同步模块未加载", "Error");
-					return;
+	if (cloudDownloadBtn) {
+		cloudDownloadBtn.addEventListener("click", function(e) {
+			e.stopPropagation();
+			if (!window.cloudSyncManager) {
+				setCloudStatus("云同步模块未加载", "Error");
+				return;
+			}
+			// 再次单击 = 确认覆盖
+			var pending = consumeCloudStatusAction();
+			if (pending && pending.key === "download") {
+				pending.onConfirm();
+				return;
+			}
+			setCloudStatus("正在检查...", "");
+			window.cloudSyncManager.getCloudStatus().then(function(status) {
+				if (status.hasData) {
+					var timeStr = status.updatedAt ? new Date(status.updatedAt).toLocaleString() : "未知";
+					setCloudStatus("再次单击 确认覆盖本地数据", "Warning", {
+						key: "download",
+						dialog: {
+							title: "⚠ 覆盖警告",
+							message: "将从云端恢复数据并覆盖本地，此操作不可撤销。\n\n云端更新时间：" + timeStr + "\n\n确认后页面将自动刷新。",
+							confirmText: "确认覆盖"
+						},
+						onConfirm: doCloudDownload
+					});
+				} else {
+					setCloudStatus("云端暂无数据，无法恢复", "Error");
 				}
-				// 如果已有下载确认待定，直接执行
-				if (_cloudConfirmPending === "download") {
-					setCloudConfirm(null);
-					doCloudDownload();
-					return;
-				}
-				setCloudConfirm("download");
 			});
-		}
+		});
+	}
 
 	// 导出本地数据为 JSON 文件自行保存（游客下载按钮 / 已登录菜单内下载按钮共用）
+	// 优先委托给当前站点注册的 cloudSyncManager.buildLocalPayload()，保证按站点作用域
+	// 导出正确的 storage key（Cube/Formula 导出 cube_memory_progress 等，Relay 导出 relay_* 等）。
+	// 仅当 cloudSyncManager 未加载时，才回退到 Cube/Formula 默认逻辑。
 	function downloadLocalBackup() {
-		var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Cube-Formula";
-		var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "/Cube/Formula";
-		var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress", null) : null;
-		var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
-
 		var now = new Date();
 		var pad = function(n) { return String(n).padStart(2, "0"); };
 		var dateStr = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
 
-		var payload = {
-			exportedAt: now.toISOString(),
-			source: "Ckarefulon",
-			siteScope: scope,
-			siteBasePath: basePath,
-			version: 1,
-			data: {
-				cube_memory_progress: mem,
-				smartCubeFormulaEntries: entries
-			}
-		};
+		var payload;
+		if (window.cloudSyncManager && typeof window.cloudSyncManager.buildLocalPayload === "function") {
+			// 站点已注册云同步模块：用它构建的 payload（已包含正确的 siteScope / data）
+			payload = window.cloudSyncManager.buildLocalPayload();
+		} else {
+			// 回退：按 Cube/Formula 默认作用域导出
+			var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Cube-Formula";
+			var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "/Cube/Formula";
+			var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress", null) : null;
+			var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
+			payload = {
+				exportedAt: now.toISOString(),
+				source: "Ckarefulon",
+				siteScope: scope,
+				siteBasePath: basePath,
+				version: 1,
+				data: {
+					cube_memory_progress: mem,
+					smartCubeFormulaEntries: entries
+				}
+			};
+		}
 
+		// 文件名按 payload 里的 siteScope 命名，便于区分不同站点备份
+		var fileScope = (payload && payload.siteScope) ? payload.siteScope : "Site";
 		var json = JSON.stringify(payload, null, "\t");
 		var blob = new Blob([json], { type: "application/json" });
 		var url = URL.createObjectURL(blob);
 		var a = document.createElement("a");
 		a.href = url;
-		a.download = scope + "_LocalData_" + dateStr + ".json";
+		a.download = fileScope + "_LocalData_" + dateStr + ".json";
 		document.body.appendChild(a);
 		a.click();
 		document.body.removeChild(a);
@@ -530,6 +617,186 @@
 			e.stopPropagation();
 			hideAccountMenu();
 			downloadLocalBackup();
+		});
+	}
+
+	// 通用确认对话框（红色覆盖警告样式）
+	// 用法：openConfirmDialog({ title, message, confirmText }, onConfirm)
+	var _confirmCallback = null;
+	function openConfirmDialog(opts, onConfirm) {
+		var overlay = document.getElementById("confirmOverlay");
+		var titleEl = document.getElementById("confirmTitle");
+		var msgEl = document.getElementById("confirmMessage");
+		var okBtn = document.getElementById("confirmOkBtn");
+		var cancelBtn = document.getElementById("confirmCancelBtn");
+		if (!overlay || !titleEl || !msgEl || !okBtn || !cancelBtn) return;
+		titleEl.textContent = (opts && opts.title) || "确认操作";
+		msgEl.textContent = (opts && opts.message) || "";
+		okBtn.textContent = (opts && opts.confirmText) || "确认";
+		_confirmCallback = onConfirm;
+		overlay.classList.add("isVisible");
+		setTimeout(function() { okBtn.focus(); }, 50);
+	}
+
+	function closeConfirmDialog(confirmed) {
+		var overlay = document.getElementById("confirmOverlay");
+		if (overlay) { overlay.classList.remove("isVisible"); }
+		var cb = _confirmCallback;
+		_confirmCallback = null;
+		if (confirmed && typeof cb === "function") {
+			try { cb(); } catch (e) { console.error("[Nav] 确认回调异常:", e); }
+		}
+	}
+
+	// 导入用户自行保存的 JSON 备份，覆盖本地数据
+	// 已登录（账户菜单可见）：在 cloudStatus 显示警告，点击提示文字再弹对话框
+	// 游客（账户菜单不可见）：直接弹对话框
+	function importLocalBackup(file) {
+		if (!file) return;
+		var importInput = document.getElementById("siteImportFileInput");
+		file.text().then(function(text) {
+			var parsed;
+			try {
+				parsed = JSON.parse(text);
+			} catch (e) {
+				_reportImportError("文件不是有效的 JSON 格式");
+				return;
+			}
+			if (!parsed || typeof parsed !== "object") {
+				_reportImportError("数据格式不正确");
+				return;
+			}
+			var dataBlock = parsed.data;
+			if (!dataBlock || typeof dataBlock !== "object") {
+				_reportImportError("缺少 data 数据块，可能是错误的文件");
+				return;
+			}
+
+			var fileScope = parsed.siteScope || "未知站点";
+			var exportTime = parsed.exportedAt ? new Date(parsed.exportedAt).toLocaleString() : "未知时间";
+			var inMenu = accountMenu && accountMenu.classList.contains("isVisible");
+
+			var doWrite = function() {
+				try {
+					if (window.cloudSyncManager && typeof window.cloudSyncManager.applyDataToLocalStorage === "function") {
+						window.cloudSyncManager.applyDataToLocalStorage(dataBlock);
+					} else {
+						if (dataBlock.cube_memory_progress !== undefined && window.storageManager) {
+							window.storageManager.setJson("cube_memory_progress", dataBlock.cube_memory_progress);
+						}
+						if (dataBlock.smartCubeFormulaEntries !== undefined && window.storageManager) {
+							window.storageManager.setJson("smartCubeFormulaEntries", dataBlock.smartCubeFormulaEntries);
+						}
+					}
+				} catch (e) {
+					_reportImportError("写入本地存储时出错：" + (e && e.message || e));
+					return;
+				}
+				if (inMenu) {
+					setCloudStatus("导入成功，正在刷新...", "Success");
+				}
+				setTimeout(function() { location.reload(); }, 600);
+			};
+
+		if (inMenu) {
+			// 菜单内：cloudStatus 显示“再次单击”提示，单击文字弹对话框看详情，再次单击导入按钮确认
+			setCloudStatus("再次单击 确认覆盖当前数据", "Warning", {
+				key: "import",
+				dialog: {
+					title: "⚠ 覆盖警告",
+					message: "即将从备份导入数据并覆盖当前本地数据，此操作不可撤销。\n\n备份来源：" + fileScope + "\n导出时间：" + exportTime + "\n\n确认后页面将自动刷新。",
+					confirmText: "确认覆盖"
+				},
+				onConfirm: doWrite
+			});
+		} else {
+				// 游客：直接弹对话框
+				openConfirmDialog({
+					title: "⚠ 覆盖警告",
+					message: "即将从备份导入数据并覆盖当前本地数据，此操作不可撤销。\n\n备份来源：" + fileScope + "\n导出时间：" + exportTime + "\n\n确认后页面将自动刷新。",
+					confirmText: "确认覆盖"
+				}, doWrite);
+			}
+		}).catch(function(error) {
+			_reportImportError("读取文件失败：" + (error && error.message || error));
+		}).then(function() {
+			if (importInput) { importInput.value = ""; }
+		});
+	}
+
+	// 导入错误提示：菜单内走 cloudStatus(Error)，游客走对话框
+	function _reportImportError(msg) {
+		var inMenu = accountMenu && accountMenu.classList.contains("isVisible");
+		if (inMenu) {
+			setCloudStatus("导入失败：" + msg, "Error");
+		} else {
+			openConfirmDialog({
+				title: "导入失败",
+				message: msg,
+				confirmText: "知道了"
+			}, function() {});
+		}
+	}
+
+	// 绑定确认对话框按钮
+	(function bindConfirmDialog() {
+		var overlay = document.getElementById("confirmOverlay");
+		var okBtn = document.getElementById("confirmOkBtn");
+		var cancelBtn = document.getElementById("confirmCancelBtn");
+		if (okBtn) {
+			okBtn.addEventListener("click", function() { closeConfirmDialog(true); });
+		}
+		if (cancelBtn) {
+			cancelBtn.addEventListener("click", function() { closeConfirmDialog(false); });
+		}
+		if (overlay) {
+			// 点击遮罩空白处 = 取消
+			overlay.addEventListener("click", function(e) {
+				if (e.target === overlay) { closeConfirmDialog(false); }
+			});
+		}
+		// Esc 键关闭（视为取消）
+		document.addEventListener("keydown", function(e) {
+			if (e.key === "Escape" && overlay && overlay.classList.contains("isVisible")) {
+				closeConfirmDialog(false);
+			}
+		});
+	})();
+
+	function triggerImportFile() {
+		var importInput = document.getElementById("siteImportFileInput");
+		if (importInput) { importInput.click(); }
+	}
+
+	var siteImportBtn = document.getElementById("siteImportBtn");
+	if (siteImportBtn) {
+		siteImportBtn.addEventListener("click", function(e) {
+			e.stopPropagation();
+			triggerImportFile();
+		});
+	}
+
+	var cloudImportLocalBtn = document.getElementById("cloudImportLocalBtn");
+	if (cloudImportLocalBtn) {
+		_cloudBtnByKey.import = cloudImportLocalBtn;
+		cloudImportLocalBtn.addEventListener("click", function(e) {
+			e.stopPropagation();
+			// 再次单击 = 确覆盖导入
+			var pending = consumeCloudStatusAction();
+			if (pending && pending.key === "import") {
+				pending.onConfirm();
+				return;
+			}
+			triggerImportFile();
+		});
+	}
+
+	var siteImportFileInput = document.getElementById("siteImportFileInput");
+	if (siteImportFileInput) {
+		siteImportFileInput.addEventListener("change", function() {
+			if (siteImportFileInput.files && siteImportFileInput.files[0]) {
+				importLocalBackup(siteImportFileInput.files[0]);
+			}
 		});
 	}
 
