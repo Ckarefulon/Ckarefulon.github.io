@@ -155,6 +155,12 @@
 						return { success: false, message: "云端数据格式不正确" };
 					}
 
+					if (typeof window._siteNavPrepareOverwrite === "function") {
+						var guard = window._siteNavPrepareOverwrite("云端数据恢复", dataBlock);
+						if (!guard.success) {
+							return { success: false, message: guard.message, data: null };
+						}
+					}
 					var prefs = cloudSyncManager.applyDataToLocalStorage(dataBlock);
 
 					return { success: true, message: "同步成功", text: dataBlock.relay_text || "", prefs: prefs };
@@ -194,6 +200,11 @@
 		if (!elements.syncStatus) return;
 		elements.syncStatus.textContent = text;
 		elements.syncStatus.className = "relayStatus" + (type ? " is" + type.charAt(0).toUpperCase() + type.slice(1) : "");
+	}
+	function setNavCloudStatus(text, type) {
+		if (typeof window._siteNavSetCloudStatus === "function") {
+			window._siteNavSetCloudStatus(text, type);
+		}
 	}
 
 	function markDirty() {
@@ -358,8 +369,10 @@
 		}
 		state.isSyncing = true;
 		setStatus("正在上传...", "syncing");
+		setNavCloudStatus("正在上传...", "");
 
 		return cloudSyncManager.uploadLocalToCloud().then(function(result) {
+			setNavCloudStatus(result.message, result.success ? "Success" : "Error");
 			state.isSyncing = false;
 			if (result.success) {
 				state.lastUploadTime = Date.now();
@@ -382,9 +395,13 @@
 		state.isSyncing = true;
 		if (!silent) {
 			setStatus("正在下载...", "syncing");
+			setNavCloudStatus("正在下载...", "");
 		}
 
 		return cloudSyncManager.downloadCloudToLocal().then(function(result) {
+			if (!silent) {
+				setNavCloudStatus(result.message, result.success ? "Success" : "Error");
+			}
 			state.isSyncing = false;
 			if (result.success) {
 				var cloudText = result.text || "";
@@ -602,7 +619,9 @@
 
 	function doCloudUpload() {
 		setStatus("正在上传...", "syncing");
+		setNavCloudStatus("正在上传...", "");
 		cloudSyncManager.uploadLocalToCloud().then(function(result) {
+			setNavCloudStatus(result.message, result.success ? "Success" : "Error");
 			if (result.success) {
 				state.lastUploadTime = Date.now();
 				markClean();
@@ -750,6 +769,14 @@
 			var localPrefs = getLocalPrefs();
 			applyPrefs(localPrefs);
 
+			if (window._siteNavConsumeAutoDownloadSkip && window._siteNavConsumeAutoDownloadSkip()) {
+				markDirty();
+				clearIntervalTimer();
+				setStatus("已保留恢复后的本地数据，请上传后再刷新", "warning");
+				setNavCloudStatus("已保留恢复后的本地数据，请上传后再刷新", "Warning");
+				return;
+			}
+			markClean();
 			setTimeout(function() {
 				downloadNow().then(function(result) {
 					if (!result.success && result.message === "云端暂无数据") {

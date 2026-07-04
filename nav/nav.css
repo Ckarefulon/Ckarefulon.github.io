@@ -479,6 +479,11 @@ body {
 .cloudIconBtn:hover {
 	background: var(--controlHoverBg);
 }
+.cloudIconBtn:disabled {
+	opacity: 0.42;
+	cursor: not-allowed;
+	background: var(--controlBg);
+}
 
 /* 待办确认：对应原始按钮显示黄色 warning 标记 */
 .cloudIconBtn.isPendingConfirm {

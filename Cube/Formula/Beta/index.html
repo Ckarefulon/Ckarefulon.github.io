@@ -8,8 +8,8 @@
 
 	<script src="assets/lib/jquery-4.0.0.min.js"></script>
 
-	<link rel="stylesheet" href="/nav/nav.css?v=0817">
-	<script src="/nav/nav.js?v=0843" defer></script>
+	<link rel="stylesheet" href="/nav/nav.css?v=20260704">
+	<script src="/nav/nav.js?v=20260704" defer></script>
 
 	<script src="/assets/services/core/site-scope.js?v=0567" defer></script>
 	<script src="/assets/services/core/storage-manager.js?v=0567" defer></script>
@@ -20,7 +20,7 @@
 	<script src="/supabase/auth-manager.js?v=0677" defer></script>
 	<script src="/assets/backend/profile-manager.js?v=0843" defer></script>
 	<script src="/assets/services/global/global-data-manager.js?v=0666" defer></script>
-	<script src="/assets/services/sync/cloud-sync-manager.js?v=0817" defer></script>
+	<script src="/assets/services/sync/cloud-sync-manager.js?v=20260704" defer></script>
 
 	<script src="assets/lib/lzstring.js?v=0286" defer></script>
 	<script src="assets/lib/sha256.js?v=0286" defer></script>
@@ -2371,11 +2371,12 @@
 				customStickerGroups: null,
 				elements: {},
 
-				init: function() {
-					this.refreshElements();
+			init: function() {
+				this.refreshElements();
 
-					this.loadFormulaEntries();
-					this.initTwisty();
+				this.loadFormulaEntries();
+				this.loadStateImportText();
+				this.initTwisty();
 					this.initTheme();
 					this.initSiteHeader();
 					this.renderModePanel("learn");
@@ -4339,26 +4340,29 @@
 						if (!window.cloudSyncManager || !window.cloudSyncManager.isReady()) {
 							return Promise.resolve({ success: false });
 						}
-						return window.cloudSyncManager.downloadCloudToLocal().then(function(result) {
-							if (result.success && result.data) {
-								self.cloudApplyingDownload = true;
-								try {
-									var hasMemoryData = result.data.cube_memory_progress !== undefined;
-									if (result.data.smartCubeFormulaEntries !== undefined) {
-										self.loadFormulaEntries();
-										self.renderFormulaList();
-									}
-									if (hasMemoryData && typeof self.reloadMemoryData === "function") {
-										self.reloadMemoryData();
-									}
-									self.syncConnectionUi();
-									self.markDataClean();
-								} finally {
-									self.cloudApplyingDownload = false;
+					return window.cloudSyncManager.downloadCloudToLocal().then(function(result) {
+						if (result.success && result.data) {
+							self.cloudApplyingDownload = true;
+							try {
+								var hasMemoryData = result.data.cube_memory_progress !== undefined;
+								if (result.data.smartCubeFormulaEntries !== undefined) {
+									self.loadFormulaEntries();
+									self.renderFormulaList();
 								}
+								if (result.data.smartCubeStateImportText !== undefined) {
+									self.loadStateImportText();
+								}
+								if (hasMemoryData && typeof self.reloadMemoryData === "function") {
+									self.reloadMemoryData();
+								}
+								self.syncConnectionUi();
+								self.markDataClean();
+							} finally {
+								self.cloudApplyingDownload = false;
 							}
-							return result;
-						});
+						}
+						return result;
+					});
 					};
 
 					var origSetJson = null;
@@ -4376,20 +4380,25 @@
 						window.siteNav.init(this);
 					}
 
+					function setNavCloudStatus(text, type) {
+						if (typeof window._siteNavSetCloudStatus === "function") {
+							window._siteNavSetCloudStatus(text, type);
+							return;
+						}
+						var cloudStatusEl = document.getElementById("cloudStatus");
+						if (cloudStatusEl) {
+							cloudStatusEl.textContent = text;
+							cloudStatusEl.className = "accountMenuCloudStatus" + (type ? " is" + type : "");
+						}
+					}
+
 					window._siteNavQuickUpload = function() {
 						if (!window.cloudSyncManager || !window.cloudSyncManager.isReady()) {
 							return Promise.resolve({ success: false, message: "请先登录" });
 						}
-						var cloudStatusEl = document.getElementById("cloudStatus");
-						if (cloudStatusEl) {
-							cloudStatusEl.textContent = "正在上传...";
-							cloudStatusEl.className = "accountMenuCloudStatus";
-						}
+						setNavCloudStatus("正在上传...", "");
 						return window.cloudSyncManager.uploadLocalToCloud().then(function(result) {
-							if (cloudStatusEl) {
-								cloudStatusEl.textContent = result.message;
-								cloudStatusEl.className = "accountMenuCloudStatus" + (result.success ? " isSuccess" : " isError");
-							}
+							setNavCloudStatus(result.message, result.success ? "Success" : "Error");
 							if (result.success) {
 								self.markDataClean();
 							}
@@ -4412,6 +4421,11 @@
 										// 同一用户已同步过，跳过（避免标签页切回前台时 Supabase token refresh 导致重复覆盖本地数据）
 										if (_syncedUserId === user.id) return;
 										_syncedUserId = user.id;
+										if (window._siteNavConsumeAutoDownloadSkip && window._siteNavConsumeAutoDownloadSkip()) {
+											self.markDataDirty();
+											setNavCloudStatus("已保留恢复后的本地数据，请上传后再刷新", "Warning");
+											return;
+										}
 										self.markDataClean();
 										setTimeout(function() {
 											self.applyCloudDownload(true).then(function(result) {
@@ -4469,9 +4483,10 @@
 						self.captureStateTextInput();
 						self.importStateText(self.elements.stateTextInput.value, "text");
 					});
-					this.elements.stateTextInput.addEventListener("input", function(event) {
-						self.stateImportText = event.target.value;
-					});
+				this.elements.stateTextInput.addEventListener("input", function(event) {
+					self.stateImportText = event.target.value;
+					self.saveStateImportText();
+				});
 					if (this.elements.showStateThumbs) {
 						this.elements.showStateThumbs.checked = this.showStateThumbs;
 						this.elements.showStateThumbs.addEventListener("change", function(event) {
@@ -4596,28 +4611,51 @@
 					}
 				},
 
-				fillStateTextInput: function(text, reveal, focus) {
-					this.stateImportText = text || "";
-					if (!this.elements.stateTextInput) {
-						return;
+			fillStateTextInput: function(text, reveal, focus) {
+				var newText = text || "";
+				var changed = newText !== (this.stateImportText || "");
+				this.stateImportText = newText;
+				if (changed) {
+					this.saveStateImportText();
+				}
+				if (!this.elements.stateTextInput) {
+					return;
+				}
+				this.elements.stateTextInput.value = newText;
+				if (reveal && this.elements.textImportBox) {
+					this.elements.textImportBox.classList.add("isVisible");
+					if (this.elements.toggleTextImportBtn) {
+						this.elements.toggleTextImportBtn.textContent = "收起文本框";
 					}
-					this.elements.stateTextInput.value = text || "";
-					if (reveal && this.elements.textImportBox) {
-						this.elements.textImportBox.classList.add("isVisible");
-						if (this.elements.toggleTextImportBtn) {
-							this.elements.toggleTextImportBtn.textContent = "收起文本框";
-						}
-					}
-					if (focus) {
-						this.elements.stateTextInput.focus();
-					}
-				},
+				}
+				if (focus) {
+					this.elements.stateTextInput.focus();
+				}
+			},
 
-				captureStateTextInput: function() {
+			captureStateTextInput: function() {
+				if (this.elements.stateTextInput) {
+					this.stateImportText = this.elements.stateTextInput.value;
+					this.saveStateImportText();
+				}
+			},
+
+			loadStateImportText: function() {
+				var saved = storageManager.getItem("smartCubeStateImportText", "");
+				if (saved) {
+					this.stateImportText = saved;
 					if (this.elements.stateTextInput) {
-						this.stateImportText = this.elements.stateTextInput.value;
+						this.elements.stateTextInput.value = saved;
 					}
-				},
+				}
+			},
+
+			saveStateImportText: function() {
+				storageManager.setItem("smartCubeStateImportText", this.stateImportText || "");
+				if (this.markDataDirty) {
+					this.markDataDirty();
+				}
+			},
 
 				appendStateImportText: function(text) {
 					text = String(text || "").trim();
@@ -4629,6 +4667,7 @@
 						return false;
 					}
 					this.stateImportText = current ? current + "\n" + text : text;
+					this.saveStateImportText();
 					return true;
 				},
 

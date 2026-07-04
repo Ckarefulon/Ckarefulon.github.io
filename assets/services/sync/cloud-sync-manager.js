@@ -6,7 +6,7 @@
 	 *
 	 * 本阶段只做手动上传/下载，不做自动同步。
 	 * 所有云端读写都使用 user_id + site_scope。
-	 * 只上传 cube_memory_progress 和 smartCubeFormulaEntries。
+	 * 只上传 cube_memory_progress、smartCubeFormulaEntries 和 smartCubeStateImportText。
 	 * 不上传 smartCubeMacMap、smartCubeTheme、密码、token、Supabase session。
 	 */
 
@@ -28,6 +28,7 @@
 			var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "/Cube/Formula";
 			var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress", null) : null;
 			var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
+			var stateImportText = window.storageManager ? window.storageManager.getItem("smartCubeStateImportText", "") : "";
 
 			return {
 				exportedAt: new Date().toISOString(),
@@ -37,7 +38,8 @@
 				version: 1,
 				data: {
 					cube_memory_progress: mem,
-					smartCubeFormulaEntries: entries
+					smartCubeFormulaEntries: entries,
+					smartCubeStateImportText: stateImportText
 				}
 			};
 		},
@@ -139,6 +141,10 @@
 				window.storageManager.setJson("smartCubeFormulaEntries", dataBlock.smartCubeFormulaEntries);
 				applied.smartCubeFormulaEntries = true;
 			}
+			if (dataBlock.smartCubeStateImportText !== undefined) {
+				window.storageManager.setItem("smartCubeStateImportText", dataBlock.smartCubeStateImportText || "");
+				applied.smartCubeStateImportText = true;
+			}
 			return applied;
 		},
 
@@ -175,6 +181,12 @@
 						return { success: false, message: "云端数据格式不正确", data: null };
 					}
 
+					if (typeof window._siteNavPrepareOverwrite === "function") {
+						var guard = window._siteNavPrepareOverwrite("云端数据恢复", dataBlock);
+						if (!guard.success) {
+							return { success: false, message: guard.message, data: null };
+						}
+					}
 					cloudSyncManager.applyDataToLocalStorage(dataBlock);
 
 					return { success: true, message: "恢复成功", data: dataBlock };

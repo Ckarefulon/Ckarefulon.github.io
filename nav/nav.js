@@ -57,9 +57,9 @@
 		'				<div class="accountMenuCloud" id="accountMenuCloud">',
 		'					<div class="accountMenuDivider"></div>',
 		'					<div class="accountMenuCloudTitle">云端数据</div>',
-		'					<div class="accountMenuCloudStatus" id="cloudStatus">未检查</div>',
+		'					<div class="accountMenuCloudStatus" id="cloudStatus">暂无可恢复的覆盖前状态</div>',
 		'					<div class="accountMenuCloudActions">',
-		'						<button id="cloudCheckBtn" class="cloudIconBtn" type="button" title="检查云端状态"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg></button>',
+		'						<button id="cloudRollbackBtn" class="cloudIconBtn" type="button" title="回到未覆盖前状态" aria-label="回到未覆盖前状态"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20a9 9 0 0 0-9-11H4"/></svg></button>',
 		'						<button id="cloudUploadBtn" class="cloudIconBtn" type="button" title="上传本地数据到云端"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>',
 		'						<button id="cloudDownloadBtn" class="cloudIconBtn" type="button" title="从云端恢复到本地"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>',
 		'						<button id="cloudSaveLocalBtn" class="cloudIconBtn" type="button" title="下载数据自行保存"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg></button>',
@@ -276,27 +276,33 @@
 		}
 	}
 
-	// 菜单锁定：当 cloudStatus 处于 Warning / Error 时锁定菜单，
-	// 外部点击与 Esc 都不会关闭，只有点击头像（force=true）才关闭。
+	// cloudStatus 为 Warning / Error 时强制保持菜单展开，
+	// 外部点击与 Esc 不能关闭；头像点击可强制关闭并清空待办状态。
 	var _menuLocked = false;
 
 	function hideAccountMenu(force) {
-		if (!force && _menuLocked) return;
+		var wasLocked = _menuLocked;
+		// 非强制关闭（外部点击 / Esc）时，锁定状态下保持菜单展开
+		// 强制关闭（头像点击 force=true）可突破锁定
+		if (!force && _menuLocked) {
+			showAccountMenu();
+			return;
+		}
 		if (accountMenu) {
 			accountMenu.classList.remove("isVisible");
 			if (avatar) { avatar.setAttribute("aria-expanded", "false"); }
 		}
-		// 强制关闭时一并清空锁定与待办动作
 		_menuLocked = false;
-		if (typeof _cloudStatusAction !== "undefined") { _cloudStatusAction = null; }
-		if (typeof cloudStatusEl !== "undefined" && cloudStatusEl) {
-			cloudStatusEl.classList.remove("isActionable");
+		// 仅在从锁定状态（Warning/Error）强制关闭时，清空待办并恢复 cloudStatus 为中性文案
+		// 普通关闭不动 cloudStatus，保留 Success 等正常状态文案
+		if (force && wasLocked && typeof refreshRollbackAvailability === "function") {
+			refreshRollbackAvailability(true);
 		}
 	}
 
 	function toggleAccountMenu() {
 		if (accountMenu && accountMenu.classList.contains("isVisible")) {
-			hideAccountMenu(true); // 头像点击 = 强制关闭
+			hideAccountMenu(true);
 		} else {
 			showAccountMenu();
 		}
@@ -335,6 +341,7 @@
 				e.stopPropagation();
 				// 关闭账户菜单，保证同一时间只有一个下拉打开
 				hideAccountMenu();
+				if (_menuLocked) return;
 				if (donateMenu) {
 					donateMenu.classList.toggle("isVisible");
 				}
@@ -385,17 +392,100 @@
 		}
 
 		var cloudStatusEl = document.getElementById("cloudStatus");
-		var cloudCheckBtn = document.getElementById("cloudCheckBtn");
+		var cloudRollbackBtn = document.getElementById("cloudRollbackBtn");
 		var cloudUploadBtn = document.getElementById("cloudUploadBtn");
 		var cloudDownloadBtn = document.getElementById("cloudDownloadBtn");
+		var PRE_OVERWRITE_PREFIX = "__siteNav_preOverwrite_v1:";
+		var SKIP_AUTO_DOWNLOAD_PREFIX = "__siteNav_skipAutoDownloadOnce_v1:";
+
+	function getSiteStorageKey(prefix) {
+		return prefix + encodeURIComponent(detectSiteScope());
+	}
+	function skipNextAutomaticDownload() {
+		try {
+			sessionStorage.setItem(getSiteStorageKey(SKIP_AUTO_DOWNLOAD_PREFIX), "1");
+		} catch (e) {}
+	}
+
+	function consumeAutomaticDownloadSkip() {
+		try {
+			var key = getSiteStorageKey(SKIP_AUTO_DOWNLOAD_PREFIX);
+			if (sessionStorage.getItem(key) !== "1") return false;
+			sessionStorage.removeItem(key);
+			return true;
+		} catch (e) {
+			return false;
+		}
+	}
+
+	function buildCurrentLocalPayload() {
+		if (window.cloudSyncManager && typeof window.cloudSyncManager.buildLocalPayload === "function") {
+			return window.cloudSyncManager.buildLocalPayload();
+		}
+		var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Cube-Formula";
+		var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "/Cube/Formula";
+		var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress", null) : null;
+		var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
+		var stateImportText = window.storageManager ? window.storageManager.getItem("smartCubeStateImportText", "") : "";
+		return {
+			exportedAt: new Date().toISOString(),
+			source: "Ckarefulon",
+			siteScope: scope,
+			siteBasePath: basePath,
+			version: 1,
+			data: {
+				cube_memory_progress: mem,
+				smartCubeFormulaEntries: entries,
+				smartCubeStateImportText: stateImportText
+			}
+		};
+	}
+
+	function getPreOverwriteSnapshot() {
+		try {
+			var raw = localStorage.getItem(getSiteStorageKey(PRE_OVERWRITE_PREFIX));
+			if (!raw) return null;
+			var snapshot = JSON.parse(raw);
+			if (!snapshot || !snapshot.payload || !snapshot.payload.data) return null;
+			if (snapshot.siteScope && snapshot.siteScope !== detectSiteScope()) return null;
+			return snapshot;
+		} catch (e) {
+			return null;
+		}
+	}
+
+	// 在任何本地覆盖发生前保存完整站点数据。快照放在 localStorage，刷新后仍可恢复。
+	function prepareLocalOverwrite(reason, replacementData, details) {
+		try {
+			var currentPayload = buildCurrentLocalPayload();
+			if (replacementData && JSON.stringify(currentPayload.data) === JSON.stringify(replacementData)) {
+				return { success: true, saved: false };
+			}
+			var snapshot = {
+				version: 1,
+				savedAt: new Date().toISOString(),
+				reason: reason || "数据覆盖",
+				details: details || null,
+				siteScope: currentPayload.siteScope || detectSiteScope(),
+				payload: currentPayload
+			};
+			localStorage.setItem(getSiteStorageKey(PRE_OVERWRITE_PREFIX), JSON.stringify(snapshot));
+			refreshRollbackAvailability(false);
+			return { success: true, saved: true, snapshot: snapshot };
+		} catch (e) {
+			console.error("[Nav] 保存覆盖前状态失败:", e);
+			return { success: false, saved: false, message: "无法保存覆盖前状态，已取消覆盖以防止数据丢失" };
+		}
+	}
 
 	// cloudStatus 统一状态文案 + 可点击的待办动作
 	// 用法：setCloudStatus("文案", "Warning", { dialog:{...}, onConfirm:fn })
-	//   type 为 "Warning" / "Error" 时自动锁定菜单（外部点击不关，只有头像能关）
+	//   type 为 "Warning" / "Error" 时自动展开并锁定菜单
 	//   传入 action 后，cloudStatus 文字变为可点击，点击弹出确认对话框
 	var _cloudStatusAction = null;
 	// 各按钮与 key 的映射，用于在待办激活时给对应按钮加黄色 warning 标记
 	var _cloudBtnByKey = {
+		rollback: cloudRollbackBtn,
 		upload: cloudUploadBtn,
 		download: cloudDownloadBtn,
 		import: null // import 按钮在 cloudImportLocalBtn 绑定时已知，稍后注入
@@ -421,7 +511,26 @@
 		}
 		// Warning / Error 锁定菜单；其它状态解锁
 		_menuLocked = (type === "Warning" || type === "Error");
+		if (_menuLocked) {
+			showAccountMenu();
+		}
 	}
+	function refreshRollbackAvailability(updateStatus) {
+		var snapshot = getPreOverwriteSnapshot();
+		if (cloudRollbackBtn) {
+			cloudRollbackBtn.disabled = !snapshot;
+			cloudRollbackBtn.title = snapshot ? "回到未覆盖前状态" : "暂无可恢复的覆盖前状态";
+		}
+		if (updateStatus) {
+			setCloudStatus(snapshot ? "已保留覆盖前状态" : "暂无可恢复的覆盖前状态", snapshot ? "Success" : "");
+		}
+		return snapshot;
+	}
+
+	window._siteNavPrepareOverwrite = prepareLocalOverwrite;
+	window._siteNavConsumeAutoDownloadSkip = consumeAutomaticDownloadSkip;
+	window._siteNavSetCloudStatus = setCloudStatus;
+	refreshRollbackAvailability(true);
 
 	if (cloudStatusEl) {
 		cloudStatusEl.addEventListener("click", function(e) {
@@ -483,26 +592,62 @@
 		});
 	}
 
-		if (cloudCheckBtn) {
-			cloudCheckBtn.addEventListener("click", function() {
-				if (!window.cloudSyncManager) {
-					setCloudStatus("云同步模块未加载", "Error");
-					return;
-				}
-				setCloudStatus("正在检查...", "");
-				window.cloudSyncManager.getCloudStatus().then(function(result) {
-					if (result.success && result.hasData) {
-						var timeStr = result.updatedAt ? new Date(result.updatedAt).toLocaleString() : "未知";
-						setCloudStatus("云端已有数据（" + timeStr + "）", "Success");
-					} else if (result.success && !result.hasData) {
-						setCloudStatus("云端暂无数据", "");
-					} else {
-						setCloudStatus(result.message, "Error");
+	if (cloudRollbackBtn) {
+		cloudRollbackBtn.addEventListener("click", function(e) {
+			e.stopPropagation();
+			var pending = consumeCloudStatusAction();
+			if (pending && pending.key === "rollback") {
+				pending.onConfirm();
+				return;
+			}
+			var snapshot = refreshRollbackAvailability(false);
+			if (!snapshot) {
+				setCloudStatus("暂无可恢复的覆盖前状态", "");
+				return;
+			}
+			var savedAt = snapshot.savedAt ? new Date(snapshot.savedAt).toLocaleString() : "未知";
+			var reason = snapshot.reason || "数据覆盖";
+			setCloudStatus("再次单击 确认舍弃当前数据", "Warning", {
+				key: "rollback",
+				dialog: {
+					title: "回到未覆盖前状态",
+					message: "将舍弃当前数据，恢复到上次覆盖发生前的本地状态。\n\n覆盖来源：" + reason + "\n恢复点时间：" + savedAt + "\n\n恢复点保存在本机，刷新页面不会丢失。确认后页面将自动刷新。",
+					confirmText: "确认舍弃并恢复"
+				},
+				onConfirm: function() {
+					var latest = getPreOverwriteSnapshot();
+					if (!latest || !latest.payload || !latest.payload.data) {
+						setCloudStatus("恢复点已不存在", "Error");
+						refreshRollbackAvailability(false);
+						return;
 					}
-				});
+					try {
+						if (window.cloudSyncManager && typeof window.cloudSyncManager.applyDataToLocalStorage === "function") {
+							window.cloudSyncManager.applyDataToLocalStorage(latest.payload.data);
+						} else {
+							if (latest.payload.data.cube_memory_progress !== undefined && window.storageManager) {
+								window.storageManager.setJson("cube_memory_progress", latest.payload.data.cube_memory_progress);
+							}
+							if (latest.payload.data.smartCubeFormulaEntries !== undefined && window.storageManager) {
+								window.storageManager.setJson("smartCubeFormulaEntries", latest.payload.data.smartCubeFormulaEntries);
+							}
+						}
+						localStorage.removeItem(getSiteStorageKey(PRE_OVERWRITE_PREFIX));
+					} catch (error) {
+						setCloudStatus("恢复失败：" + (error && error.message || error), "Error");
+						return;
+					}
+					if (typeof window._siteNavSetDirty === "function") {
+						window._siteNavSetDirty(true);
+					}
+					window._siteNavAllowUnloadOnce = true;
+					skipNextAutomaticDownload();
+					setCloudStatus("已恢复，正在刷新...", "Success");
+					setTimeout(function() { location.reload(); }, 0);
+				}
 			});
-		}
-
+		});
+	}
 	if (cloudUploadBtn) {
 		cloudUploadBtn.addEventListener("click", function(e) {
 			e.stopPropagation();
@@ -558,7 +703,7 @@
 						key: "download",
 						dialog: {
 							title: "⚠ 覆盖警告",
-							message: "将从云端恢复数据并覆盖本地，此操作不可撤销。\n\n云端更新时间：" + timeStr + "\n\n确认后页面将自动刷新。",
+							message: "将从云端恢复数据并覆盖本地。覆盖前状态会保存在本机，可从头像菜单恢复。\n\n云端更新时间：" + timeStr + "\n\n确认后页面将自动刷新。",
 							confirmText: "确认覆盖"
 						},
 						onConfirm: doCloudDownload
@@ -579,28 +724,7 @@
 		var pad = function(n) { return String(n).padStart(2, "0"); };
 		var dateStr = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
 
-		var payload;
-		if (window.cloudSyncManager && typeof window.cloudSyncManager.buildLocalPayload === "function") {
-			// 站点已注册云同步模块：用它构建的 payload（已包含正确的 siteScope / data）
-			payload = window.cloudSyncManager.buildLocalPayload();
-		} else {
-			// 回退：按 Cube/Formula 默认作用域导出
-			var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Cube-Formula";
-			var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "/Cube/Formula";
-			var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress", null) : null;
-			var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
-			payload = {
-				exportedAt: now.toISOString(),
-				source: "Ckarefulon",
-				siteScope: scope,
-				siteBasePath: basePath,
-				version: 1,
-				data: {
-					cube_memory_progress: mem,
-					smartCubeFormulaEntries: entries
-				}
-			};
-		}
+		var payload = buildCurrentLocalPayload();
 
 		// 文件名按 payload 里的 siteScope 命名，便于区分不同站点备份
 		var fileScope = (payload && payload.siteScope) ? payload.siteScope : "Site";
@@ -687,6 +811,14 @@
 			var inMenu = accountMenu && accountMenu.classList.contains("isVisible");
 
 			var doWrite = function() {
+				var guard = prepareLocalOverwrite("本地备份导入", dataBlock, {
+					source: fileScope,
+					exportedAt: parsed.exportedAt || null
+				});
+				if (!guard.success) {
+					_reportImportError(guard.message);
+					return;
+				}
 				try {
 					if (window.cloudSyncManager && typeof window.cloudSyncManager.applyDataToLocalStorage === "function") {
 						window.cloudSyncManager.applyDataToLocalStorage(dataBlock);
@@ -702,15 +834,12 @@
 					_reportImportError("写入本地存储时出错：" + (e && e.message || e));
 					return;
 				}
-				// 导入完成：清掉 dirty 标志并记录当前数据快照，
-				// 避免接下来的 location.reload() 被 beforeunload 拦截
+				// 导入内容尚未上传云端，持久标记为 dirty；本次程序刷新单独放行。
 				if (typeof window._siteNavSetDirty === "function") {
-					window._siteNavSetDirty(false);
+					window._siteNavSetDirty(true);
 				}
-				if (window.cloudSyncManager && typeof window.cloudSyncManager.buildLocalPayload === "function") {
-					var refreshed = window.cloudSyncManager.buildLocalPayload();
-					window._siteNavLastSyncedData = JSON.stringify(refreshed.data);
-				}
+				window._siteNavAllowUnloadOnce = true;
+					skipNextAutomaticDownload();
 				if (inMenu) {
 					setCloudStatus("导入成功，正在刷新...", "Success");
 				}
@@ -723,7 +852,7 @@
 				key: "import",
 				dialog: {
 					title: "⚠ 覆盖警告",
-					message: "即将从备份导入数据并覆盖当前本地数据，此操作不可撤销。\n\n备份来源：" + fileScope + "\n导出时间：" + exportTime + "\n\n确认后页面将自动刷新。",
+					message: "即将从备份导入数据并覆盖当前本地数据。覆盖前状态会保存在本机，可从头像菜单恢复。\n\n备份来源：" + fileScope + "\n导出时间：" + exportTime + "\n\n确认后页面将自动刷新。",
 					confirmText: "确认覆盖"
 				},
 				onConfirm: doWrite
@@ -732,7 +861,7 @@
 				// 游客：直接弹对话框
 				openConfirmDialog({
 					title: "⚠ 覆盖警告",
-					message: "即将从备份导入数据并覆盖当前本地数据，此操作不可撤销。\n\n备份来源：" + fileScope + "\n导出时间：" + exportTime + "\n\n确认后页面将自动刷新。",
+					message: "即将从备份导入数据并覆盖当前本地数据。覆盖前状态会保存在本机，可从头像菜单恢复。\n\n备份来源：" + fileScope + "\n导出时间：" + exportTime + "\n\n确认后页面将自动刷新。",
 					confirmText: "确认覆盖"
 				}, doWrite);
 			}
@@ -949,6 +1078,10 @@
 		});
 
 		window.addEventListener("beforeunload", function(e) {
+			if (window._siteNavAllowUnloadOnce) {
+				window._siteNavAllowUnloadOnce = false;
+				return;
+			}
 			if (window._siteNavDataDirty && window.authManager && window.authManager.isLoggedIn()) {
 				// 二次确认：对比当前数据与上次成功上传的数据（仅对比 data 部分，忽略 exportedAt 时间戳）
 				var hasActualChanges = true;
@@ -964,29 +1097,29 @@
 			}
 		});
 
-		// 页面生命周期：在页面被隐藏前保存状态，在页面恢复时还原状态
-		// 这能缓解 Chrome 丢弃后台标签页后回来页面重新加载造成的状态丢失。
+		// 页面生命周期：刷新、bfcache 或后台标签页丢弃前保存临时表单状态。
 		(function() {
-			var _stateSaved = false;
-
-			// 标记本页是否曾被 discard 后重新加载
 			if (typeof document.wasDiscarded !== "undefined" && document.wasDiscarded) {
 				window._siteNavWasDiscarded = true;
 			}
 
 			function saveStateToSession() {
-				if (_stateSaved) return;
-				_stateSaved = true;
 				try {
 					var state = {
+						path: window.location.pathname,
+						savedAt: Date.now(),
 						scrollX: window.scrollX,
 						scrollY: window.scrollY,
 						formData: {}
 					};
 					document.querySelectorAll("input, textarea, select").forEach(function(el) {
 						var key = el.id || el.name;
-						if (key) {
-							state.formData[key] = el.value;
+						var type = (el.type || "").toLowerCase();
+						if (key && type !== "password" && type !== "file") {
+							state.formData[key] = {
+								value: el.value,
+								checked: (type === "checkbox" || type === "radio") ? el.checked : undefined
+							};
 						}
 					});
 					sessionStorage.setItem("__siteNav_savedState", JSON.stringify(state));
@@ -998,14 +1131,21 @@
 					var raw = sessionStorage.getItem("__siteNav_savedState");
 					if (!raw) return;
 					var state = JSON.parse(raw);
+					if (state.path && state.path !== window.location.pathname) return;
 					if (state.scrollX !== undefined && state.scrollY !== undefined) {
 						window.scrollTo(state.scrollX, state.scrollY);
 					}
 					if (state.formData) {
 						Object.keys(state.formData).forEach(function(key) {
 							var el = document.getElementById(key) || document.querySelector("[name='" + key + "']");
-							if (el && el.value === "" && state.formData[key]) {
-								el.value = state.formData[key];
+							var saved = state.formData[key];
+							if (!saved || typeof saved !== "object") saved = { value: saved };
+							if (el && el.value === "" && saved.value) {
+								el.value = saved.value;
+								el.dispatchEvent(new Event("input", { bubbles: true }));
+							}
+							if (el && typeof saved.checked === "boolean") {
+								el.checked = saved.checked;
 							}
 						});
 					}
@@ -1013,27 +1153,15 @@
 				} catch (e) {}
 			}
 
-			// 页面即将进入后台（可能被丢弃）时保存状态到 sessionStorage
 			document.addEventListener("visibilitychange", function() {
-				if (document.hidden) {
-					_stateSaved = false;
-					saveStateToSession();
-				}
+				if (document.hidden) saveStateToSession();
 			});
-
-			// 页面恢复显示时（从 bfcache 恢复，或被 discard 后重新加载）
-			// 还原滚动位置和表单输入，避免重新加载后状态全失
-			window.addEventListener("pageshow", function(e) {
-				if (e.persisted) {
-					// 从 bfcache 恢复：直接还原
-					restoreStateFromSession();
-				} else if (typeof document.wasDiscarded !== "undefined" && document.wasDiscarded) {
-					// 被 discard 后重新加载：延迟一点等 DOM 就绪
-					setTimeout(restoreStateFromSession, 100);
-				}
+			window.addEventListener("pagehide", saveStateToSession);
+			window.addEventListener("beforeunload", saveStateToSession);
+			window.addEventListener("pageshow", function() {
+				setTimeout(restoreStateFromSession, 100);
 			});
 		})();
-
 		if (window.authManager) {
 			window.authManager.init();
 			window.authManager.onAuthStateChange(updateAuthUI);
