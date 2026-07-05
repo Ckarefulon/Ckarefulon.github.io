@@ -509,8 +509,14 @@
 		} else {
 			cloudStatusEl.classList.remove("isActionable");
 		}
-		// Warning / Error 锁定菜单；其它状态解锁
-		_menuLocked = (type === "Warning" || type === "Error");
+		// Warning / Error 锁定菜单；Success 解锁；
+		// 空类型（操作进行中）不改变锁定状态，允许操作过程中保持菜单
+		if (type === "Warning" || type === "Error") {
+			_menuLocked = true;
+		} else if (type === "Success") {
+			_menuLocked = false;
+		}
+		// type="" 不改变 _menuLocked
 		if (_menuLocked) {
 			showAccountMenu();
 		}
@@ -581,6 +587,8 @@
 
 	function doCloudUpload() {
 		setCloudStatus("正在上传...", "");
+		_menuLocked = true;
+		showAccountMenu();
 		window.cloudSyncManager.uploadLocalToCloud().then(function(result) {
 			setCloudStatus(result.message, result.success ? "Success" : "Error");
 			if (result.success) {
@@ -596,6 +604,8 @@
 
 	function doCloudDownload() {
 		setCloudStatus("正在读取...", "");
+		_menuLocked = true;
+		showAccountMenu();
 		window.cloudSyncManager.downloadCloudToLocal().then(function(result) {
 			if (result.success) {
 				if (typeof window._siteNavSetDirty === "function") {
@@ -776,7 +786,6 @@
 	if (cloudSaveLocalBtn) {
 		cloudSaveLocalBtn.addEventListener("click", function(e) {
 			e.stopPropagation();
-			hideAccountMenu();
 			downloadLocalBackup();
 		});
 	}
@@ -963,6 +972,9 @@
 				pending.onConfirm();
 				return;
 			}
+			// 锁定菜单，在打开文件选择器期间保持可见
+			_menuLocked = true;
+			showAccountMenu();
 			triggerImportFile();
 		});
 	}
