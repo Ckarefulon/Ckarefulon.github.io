@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
 	<meta charset="utf-8">
@@ -8,8 +8,8 @@
 
 	<script src="assets/lib/jquery-4.0.0.min.js"></script>
 
-	<link rel="stylesheet" href="/nav/nav.css?v=20260704">
-	<script src="/nav/nav.js?v=20260704" defer></script>
+	<link rel="stylesheet" href="/nav/nav.css?v=0916">
+	<script src="/nav/nav.js?v=0916" defer></script>
 
 	<script src="/assets/services/core/site-scope.js?v=0567" defer></script>
 	<script src="/assets/services/core/storage-manager.js?v=0567" defer></script>
@@ -20,7 +20,7 @@
 	<script src="/supabase/auth-manager.js?v=0677" defer></script>
 	<script src="/assets/backend/profile-manager.js?v=0843" defer></script>
 	<script src="/assets/services/global/global-data-manager.js?v=0666" defer></script>
-	<script src="/assets/services/sync/cloud-sync-manager.js?v=20260704" defer></script>
+	<script src="/assets/services/sync/cloud-sync-manager.js?v=0916" defer></script>
 
 	<script src="assets/lib/lzstring.js?v=0286" defer></script>
 	<script src="assets/lib/sha256.js?v=0286" defer></script>
@@ -970,6 +970,56 @@
 			gap: 8px;
 		}
 
+		.textImportWrap {
+			position: relative;
+		}
+		.textImportActions {
+			position: absolute;
+			top: 6px;
+			right: 6px;
+			display: flex;
+			gap: 4px;
+			z-index: 2;
+		}
+		.textImportActionBtn {
+			width: 28px;
+			height: 28px;
+			border: none;
+			background: rgba(128,128,128,0.15);
+			border-radius: 6px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 14px;
+			color: var(--text2);
+			transition: background 0.15s;
+		}
+		.textImportActionBtn:hover {
+			background: rgba(128,128,128,0.3);
+			color: var(--text);
+		}
+		.toastNotify {
+			position: fixed;
+			bottom: 80px;
+			left: 50%;
+			transform: translateX(-50%) translateY(20px);
+			background: var(--panel, #333);
+			color: var(--text, #fff);
+			padding: 10px 20px;
+			border-radius: 8px;
+			box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+			font-size: 14px;
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity 0.25s, transform 0.25s;
+			z-index: 9999;
+		}
+		.toastNotify.isVisible {
+			opacity: 1;
+			transform: translateX(-50%) translateY(0);
+		}
+
 		.stateTextarea {
 			width: 100%;
 			min-height: 92px;
@@ -977,6 +1027,7 @@
 			border: 1px solid var(--line);
 			border-radius: 8px;
 			padding: 10px;
+			padding-right: 70px;
 			background: var(--controlBg);
 			color: var(--controlText);
 			font: 13px/1.45 "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
@@ -2114,7 +2165,13 @@
 				</div>
 				<input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain">
 				<div id="textImportBox" class="textImport">
-					<textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea>
+					<div class="textImportWrap">
+						<textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea>
+						<div class="textImportActions">
+							<button id="clearStateTextBtn" class="textImportActionBtn" type="button" title="清空文本">🗑</button>
+							<button id="copyStateTextBtn" class="textImportActionBtn" type="button" title="复制全文">📋</button>
+						</div>
+					</div>
 					<button id="parseStateTextBtn" class="button small" type="button">导入文本</button>
 				</div>
 				<div class="stateOptionRow">
@@ -2716,6 +2773,13 @@
 					this.renderModePanel(mode);
 					if (formulaTextAppended) {
 						this.importStateText(this.stateImportText, sourceMode === "library" ? "library" : "formula");
+						var addedCount = 0;
+						if (sourceMode === "formula" && this.formulaEntries) {
+							addedCount = this.formulaEntries.filter(function(f) { return f.selected; }).length;
+						}
+						if (addedCount > 0) {
+							this.showToast("已添加 " + addedCount + " 个公式到状态列表");
+						}
 					}
 					if (enteringFormulaMode) {
 						this.resetView();
@@ -2800,7 +2864,7 @@
 				},
 
 				getStateImportHtml: function(showThumbOption, practiceCards) {
-					return '<section class="panelSection stateImport" id="stateImport"><div id="stateDropZone" class="importDropZone">拖入 TXT 状态文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea><button id="parseStateTextBtn" class="button small" type="button">导入文本</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showStateThumbs" type="checkbox"><span class="checkVisual"></span><span>显示状态缩略图</span></label><label class="stateOptions smartCheck"><input id="stateDisplayFormula" name="stateDisplayMode" type="radio" value="formula"><span class="checkVisual"></span><span>公式</span></label><label class="stateOptions smartCheck"><input id="stateDisplayState" name="stateDisplayMode" type="radio" value="state"><span class="checkVisual"></span><span>状态</span></label></div>' : "") + '<div id="stateImportStatus" class="importStatus">未导入状态</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"></div>' : "") + '<div id="stateList" class="stateList"></div></section>';
+					return '<section class="panelSection stateImport" id="stateImport"><div id="stateDropZone" class="importDropZone">拖入 TXT 状态文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><div class="textImportWrap"><textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea><div class="textImportActions"><button id="clearStateTextBtn" class="textImportActionBtn" type="button" title="清空文本">🗑</button><button id="copyStateTextBtn" class="textImportActionBtn" type="button" title="复制全文">📋</button></div></div><button id="parseStateTextBtn" class="button small" type="button">导入文本</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showStateThumbs" type="checkbox"><span class="checkVisual"></span><span>显示状态缩略图</span></label><label class="stateOptions smartCheck"><input id="stateDisplayFormula" name="stateDisplayMode" type="radio" value="formula"><span class="checkVisual"></span><span>公式</span></label><label class="stateOptions smartCheck"><input id="stateDisplayState" name="stateDisplayMode" type="radio" value="state"><span class="checkVisual"></span><span>状态</span></label></div>' : "") + '<div id="stateImportStatus" class="importStatus">未导入状态</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"></div>' : "") + '<div id="stateList" class="stateList"></div></section>';
 				},
 
 				getDiagnosticsHtml: function(hidden) {
@@ -3586,10 +3650,14 @@
 						}
 						return;
 					}
+					var selectedCount = Object.keys(this.formulaLibrarySelections || {}).filter(function(k) { return this.formulaLibrarySelections[k]; }.bind(this)).length;
 					this.appendStateImportText(text);
 					this.switchMode("learn");
 					this.fillStateTextInput(this.stateImportText, false, false);
 					this.importStateText(this.stateImportText, "library");
+					if (selectedCount > 0) {
+						this.showToast("已添加 " + selectedCount + " 个公式到状态列表");
+					}
 				},
 
 				openLibraryExportDialog: function() {
@@ -3610,6 +3678,10 @@
 							this.fillStateTextInput(this.stateImportText, false, false);
 							if (appended) {
 								this.importStateText(this.stateImportText, "library");
+								var selectedCount = Object.keys(this.formulaLibrarySelections || {}).filter(function(k) { return this.formulaLibrarySelections[k]; }.bind(this)).length;
+								if (selectedCount > 0) {
+									this.showToast("已添加 " + selectedCount + " 个公式到状态列表");
+								}
 							}
 						}.bind(this)
 					});
@@ -4336,33 +4408,26 @@
 						}
 					};
 
-					this.applyCloudDownload = function(silent) {
-						if (!window.cloudSyncManager || !window.cloudSyncManager.isReady()) {
-							return Promise.resolve({ success: false });
+					this.reloadDataFromStorage = function() {
+					this.cloudApplyingDownload = true;
+					try {
+						this.loadFormulaEntries();
+						this.renderFormulaList();
+						this.loadStateImportText();
+						if (typeof this.reloadMemoryData === "function") {
+							this.reloadMemoryData();
 						}
-					return window.cloudSyncManager.downloadCloudToLocal().then(function(result) {
-						if (result.success && result.data) {
-							self.cloudApplyingDownload = true;
-							try {
-								var hasMemoryData = result.data.cube_memory_progress !== undefined;
-								if (result.data.smartCubeFormulaEntries !== undefined) {
-									self.loadFormulaEntries();
-									self.renderFormulaList();
-								}
-								if (result.data.smartCubeStateImportText !== undefined) {
-									self.loadStateImportText();
-								}
-								if (hasMemoryData && typeof self.reloadMemoryData === "function") {
-									self.reloadMemoryData();
-								}
-								self.syncConnectionUi();
-								self.markDataClean();
-							} finally {
-								self.cloudApplyingDownload = false;
-							}
+						this.syncConnectionUi();
+						if (this.elements.stateImportBox && this.elements.stateImportBox.classList.contains("isVisible")) {
+							this.renderStateImportText();
 						}
-						return result;
-					});
+					} finally {
+						this.cloudApplyingDownload = false;
+					}
+				};
+
+					window._siteNavReloadData = function() {
+						self.reloadDataFromStorage();
 					};
 
 					var origSetJson = null;
@@ -4371,6 +4436,17 @@
 						window.storageManager.setJson = function(key, value) {
 							origSetJson(key, value);
 							if ((key === "cube_memory_progress" || key === "smartCubeFormulaEntries") && !self.cloudApplyingDownload) {
+								self.markDataDirty();
+							}
+						};
+					}
+
+					var origSetItem = null;
+					if (window.storageManager && typeof window.storageManager.setItem === "function") {
+						origSetItem = window.storageManager.setItem.bind(window.storageManager);
+						window.storageManager.setItem = function(key, value) {
+							origSetItem(key, value);
+							if (key === "smartCubeStateImportText" && !self.cloudApplyingDownload) {
 								self.markDataDirty();
 							}
 						};
@@ -4412,37 +4488,32 @@
 
 					function waitForAuthAndSync() {
 						var checks = 0;
-						var _syncedUserId = null; // 防止同一用户重复触发云端同步（标签页切回前台时 Supabase 会重新派发 auth 事件）
+						var _syncedUserId = null;
 						function check() {
 							checks++;
 							if (window.authManager) {
 								window.authManager.onAuthStateChange(function(user) {
 									if (user) {
-										// 同一用户已同步过，跳过（避免标签页切回前台时 Supabase token refresh 导致重复覆盖本地数据）
 										if (_syncedUserId === user.id) return;
 										_syncedUserId = user.id;
 										if (window._siteNavConsumeAutoDownloadSkip && window._siteNavConsumeAutoDownloadSkip()) {
 											self.markDataDirty();
-											setNavCloudStatus("已保留恢复后的本地数据，请上传后再刷新", "Warning");
+											setNavCloudStatus("已保留本地数据，可回滚或上传", "Warning");
 											return;
 										}
-										self.markDataClean();
-										setTimeout(function() {
-											self.applyCloudDownload(true).then(function(result) {
-												if (!result.success && result.message === "云端暂无数据") {
-													if (window.cloudSyncManager && window.cloudSyncManager.isReady()) {
-														window.cloudSyncManager.uploadLocalToCloud().then(function(upResult) {
-															if (upResult.success) {
-																self.markDataClean();
-															}
-														});
-													}
+										if (window.cloudSyncManager && window.cloudSyncManager.isReady()) {
+											window.cloudSyncManager.getCloudStatus().then(function(status) {
+												if (status.hasData) {
+													var timeStr = status.updatedAt ? new Date(status.updatedAt).toLocaleString() : "未知";
+													setNavCloudStatus("云端有数据（" + timeStr + "），点击 ↓ 恢复到本地", "");
+												} else {
+													setNavCloudStatus("云端暂无数据，点击 ↑ 上传本地数据", "");
 												}
 											});
-										}, 500);
+										}
 									} else {
 										_syncedUserId = null;
-										self.markDataClean();
+										setNavCloudStatus("游客模式：请自行备份数据", "");
 									}
 								});
 								return;
@@ -4487,6 +4558,49 @@
 					self.stateImportText = event.target.value;
 					self.saveStateImportText();
 				});
+				var clearBtn = document.getElementById("clearStateTextBtn");
+				if (clearBtn && !clearBtn.dataset.smartBound) {
+					clearBtn.dataset.smartBound = "1";
+					clearBtn.addEventListener("click", function() {
+						if (self.elements.stateTextInput) {
+							self.elements.stateTextInput.value = "";
+							self.stateImportText = "";
+							self.saveStateImportText();
+							self.showToast("已清空");
+						}
+					});
+				}
+				var copyBtn = document.getElementById("copyStateTextBtn");
+				if (copyBtn && !copyBtn.dataset.smartBound) {
+					copyBtn.dataset.smartBound = "1";
+					copyBtn.addEventListener("click", function() {
+						var text = self.elements.stateTextInput ? self.elements.stateTextInput.value : (self.stateImportText || "");
+						if (navigator.clipboard && navigator.clipboard.writeText) {
+							navigator.clipboard.writeText(text).then(function() {
+								self.showToast("已复制到剪贴板");
+							}).catch(function() {
+								fallbackCopy(text, self);
+							});
+						} else {
+							fallbackCopy(text, self);
+						}
+					});
+				}
+				function fallbackCopy(text, selfRef) {
+					try {
+						var ta = document.createElement("textarea");
+						ta.value = text;
+						ta.style.position = "fixed";
+						ta.style.opacity = "0";
+						document.body.appendChild(ta);
+						ta.select();
+						document.execCommand("copy");
+						document.body.removeChild(ta);
+						selfRef.showToast("已复制到剪贴板");
+					} catch (e) {
+						selfRef.showToast("复制失败");
+					}
+				}
 					if (this.elements.showStateThumbs) {
 						this.elements.showStateThumbs.checked = this.showStateThumbs;
 						this.elements.showStateThumbs.addEventListener("change", function(event) {
@@ -4642,11 +4756,9 @@
 
 			loadStateImportText: function() {
 				var saved = storageManager.getItem("smartCubeStateImportText", "");
-				if (saved) {
-					this.stateImportText = saved;
-					if (this.elements.stateTextInput) {
-						this.elements.stateTextInput.value = saved;
-					}
+				this.stateImportText = saved || "";
+				if (this.elements.stateTextInput) {
+					this.elements.stateTextInput.value = this.stateImportText;
 				}
 			},
 
@@ -6263,6 +6375,22 @@
 						minute: "2-digit",
 						second: "2-digit"
 					});
+				},
+
+				showToast: function(message, duration) {
+					var el = document.getElementById("toastNotify");
+					if (!el) {
+						el = document.createElement("div");
+						el.id = "toastNotify";
+						el.className = "toastNotify";
+						document.body.appendChild(el);
+					}
+					el.textContent = message;
+					el.classList.add("isVisible");
+					clearTimeout(el._toastTimer);
+					el._toastTimer = setTimeout(function() {
+						el.classList.remove("isVisible");
+					}, duration || 2000);
 				}
 			};
 

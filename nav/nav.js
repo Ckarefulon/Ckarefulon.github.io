@@ -522,9 +522,33 @@
 			cloudRollbackBtn.title = snapshot ? "回到未覆盖前状态" : "暂无可恢复的覆盖前状态";
 		}
 		if (updateStatus) {
-			setCloudStatus(snapshot ? "已保留覆盖前状态" : "暂无可恢复的覆盖前状态", snapshot ? "Success" : "");
+			if (snapshot) {
+				setCloudStatus("可回滚到覆盖前状态", "");
+			} else if (window.authManager && window.authManager.isLoggedIn()) {
+				setCloudStatus("选择云端操作或管理备份", "");
+			} else {
+				setCloudStatus("游客模式：请自行备份数据", "");
+			}
 		}
 		return snapshot;
+	}
+
+	function reloadAfterDataChange(successMessage) {
+		if (typeof window._siteNavReloadData === "function") {
+			try {
+				window._siteNavReloadData();
+			} catch (e) {
+				console.error("[Nav] 热重载失败，降级为刷新:", e);
+				if (successMessage) setCloudStatus(successMessage, "Success");
+				setTimeout(function() { location.reload(); }, 300);
+				return;
+			}
+			refreshRollbackAvailability(true);
+			if (successMessage) setCloudStatus(successMessage, "Success");
+		} else {
+			if (successMessage) setCloudStatus(successMessage, "Success");
+			setTimeout(function() { location.reload(); }, 300);
+		}
 	}
 
 	window._siteNavPrepareOverwrite = prepareLocalOverwrite;
@@ -573,10 +597,7 @@
 	function doCloudDownload() {
 		setCloudStatus("正在读取...", "");
 		window.cloudSyncManager.downloadCloudToLocal().then(function(result) {
-			setCloudStatus(result.message, result.success ? "Success" : "Error");
 			if (result.success) {
-				// 下载完成：清掉 dirty 标志并记录当前数据快照，
-				// 避免接下来的 location.reload() 被 beforeunload 拦截
 				if (typeof window._siteNavSetDirty === "function") {
 					window._siteNavSetDirty(false);
 				}
@@ -584,10 +605,12 @@
 					var refreshed = window.cloudSyncManager.buildLocalPayload();
 					window._siteNavLastSyncedData = JSON.stringify(refreshed.data);
 				}
-				// 用 setTimeout(0) 让状态文字先 paint 再刷新，不再等 1500ms
+				setCloudStatus("恢复成功", "Success");
 				setTimeout(function() {
-					location.reload();
-				}, 0);
+					reloadAfterDataChange();
+				}, 200);
+			} else {
+				setCloudStatus(result.message, "Error");
 			}
 		});
 	}
@@ -611,7 +634,7 @@
 				key: "rollback",
 				dialog: {
 					title: "回到未覆盖前状态",
-					message: "将舍弃当前数据，恢复到上次覆盖发生前的本地状态。\n\n覆盖来源：" + reason + "\n恢复点时间：" + savedAt + "\n\n恢复点保存在本机，刷新页面不会丢失。确认后页面将自动刷新。",
+					message: "将舍弃当前数据，恢复到上次覆盖发生前的本地状态。\n\n覆盖来源：" + reason + "\n恢复点时间：" + savedAt + "\n\n恢复点保存在本机，可随时回滚。",
 					confirmText: "确认舍弃并恢复"
 				},
 				onConfirm: function() {
@@ -631,6 +654,9 @@
 							if (latest.payload.data.smartCubeFormulaEntries !== undefined && window.storageManager) {
 								window.storageManager.setJson("smartCubeFormulaEntries", latest.payload.data.smartCubeFormulaEntries);
 							}
+							if (latest.payload.data.smartCubeStateImportText !== undefined && window.storageManager) {
+								window.storageManager.setItem("smartCubeStateImportText", latest.payload.data.smartCubeStateImportText || "");
+							}
 						}
 						localStorage.removeItem(getSiteStorageKey(PRE_OVERWRITE_PREFIX));
 					} catch (error) {
@@ -640,10 +666,11 @@
 					if (typeof window._siteNavSetDirty === "function") {
 						window._siteNavSetDirty(true);
 					}
-					window._siteNavAllowUnloadOnce = true;
-					skipNextAutomaticDownload();
-					setCloudStatus("已恢复，正在刷新...", "Success");
-					setTimeout(function() { location.reload(); }, 0);
+					window._siteNavLastSyncedData = null;
+					setCloudStatus("已恢复", "Success");
+					setTimeout(function() {
+						reloadAfterDataChange();
+					}, 200);
 				}
 			});
 		});
@@ -703,7 +730,7 @@
 						key: "download",
 						dialog: {
 							title: "⚠ 覆盖警告",
-							message: "将从云端恢复数据并覆盖本地。覆盖前状态会保存在本机，可从头像菜单恢复。\n\n云端更新时间：" + timeStr + "\n\n确认后页面将自动刷新。",
+							message: "将从云端恢复数据并覆盖本地。覆盖前状态会保存在本机，可从头像菜单回滚。\n\n云端更新时间：" + timeStr + "\n\n确认继续？",
 							confirmText: "确认覆盖"
 						},
 						onConfirm: doCloudDownload
@@ -829,42 +856,43 @@
 						if (dataBlock.smartCubeFormulaEntries !== undefined && window.storageManager) {
 							window.storageManager.setJson("smartCubeFormulaEntries", dataBlock.smartCubeFormulaEntries);
 						}
+						if (dataBlock.smartCubeStateImportText !== undefined && window.storageManager) {
+							window.storageManager.setItem("smartCubeStateImportText", dataBlock.smartCubeStateImportText || "");
+						}
 					}
 				} catch (e) {
 					_reportImportError("写入本地存储时出错：" + (e && e.message || e));
 					return;
 				}
-				// 导入内容尚未上传云端，持久标记为 dirty；本次程序刷新单独放行。
 				if (typeof window._siteNavSetDirty === "function") {
 					window._siteNavSetDirty(true);
 				}
-				window._siteNavAllowUnloadOnce = true;
-					skipNextAutomaticDownload();
+				window._siteNavLastSyncedData = null;
 				if (inMenu) {
-					setCloudStatus("导入成功，正在刷新...", "Success");
+					setCloudStatus("导入成功", "Success");
 				}
-				setTimeout(function() { location.reload(); }, 600);
+				setTimeout(function() {
+					reloadAfterDataChange();
+				}, 200);
 			};
 
 		if (inMenu) {
-			// 菜单内：cloudStatus 显示“再次单击”提示，单击文字弹对话框看详情，再次单击导入按钮确认
 			setCloudStatus("再次单击 确认覆盖当前数据", "Warning", {
 				key: "import",
 				dialog: {
 					title: "⚠ 覆盖警告",
-					message: "即将从备份导入数据并覆盖当前本地数据。覆盖前状态会保存在本机，可从头像菜单恢复。\n\n备份来源：" + fileScope + "\n导出时间：" + exportTime + "\n\n确认后页面将自动刷新。",
+					message: "即将从备份导入数据并覆盖当前本地数据。覆盖前状态会保存在本机，可从头像菜单回滚。\n\n备份来源：" + fileScope + "\n导出时间：" + exportTime + "\n\n确认继续？",
 					confirmText: "确认覆盖"
 				},
 				onConfirm: doWrite
 			});
 		} else {
-				// 游客：直接弹对话框
-				openConfirmDialog({
-					title: "⚠ 覆盖警告",
-					message: "即将从备份导入数据并覆盖当前本地数据。覆盖前状态会保存在本机，可从头像菜单恢复。\n\n备份来源：" + fileScope + "\n导出时间：" + exportTime + "\n\n确认后页面将自动刷新。",
-					confirmText: "确认覆盖"
-				}, doWrite);
-			}
+			openConfirmDialog({
+				title: "⚠ 覆盖警告",
+				message: "即将从备份导入数据并覆盖当前本地数据。覆盖前状态会保存在本机，可从头像菜单回滚。\n\n备份来源：" + fileScope + "\n导出时间：" + exportTime + "\n\n确认继续？",
+				confirmText: "确认覆盖"
+			}, doWrite);
+		}
 		}).catch(function(error) {
 			_reportImportError("读取文件失败：" + (error && error.message || error));
 		}).then(function() {
