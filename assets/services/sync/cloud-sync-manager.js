@@ -112,8 +112,9 @@
 					console.error("[CloudSync] 上传失败:", result.error);
 					return { success: false, message: "上传失败，请稍后重试" };
 				}
-				// 记录已同步的数据快照（仅 data 部分），供 beforeunload 对比
-				window._siteNavLastSyncedData = JSON.stringify(payload.data);
+				if (typeof window._siteNavMarkAsSynced === "function") {
+					try { window._siteNavMarkAsSynced(); } catch(e) {}
+				}
 				return { success: true, message: "上传成功" };
 			})
 				.catch(function(error) {
@@ -132,20 +133,25 @@
 			if (!dataBlock || typeof dataBlock !== "object") {
 				return {};
 			}
-			var applied = {};
-			if (dataBlock.cube_memory_progress !== undefined) {
-				window.storageManager.setJson("cube_memory_progress", dataBlock.cube_memory_progress);
-				applied.cube_memory_progress = true;
+			window._siteNavApplyingCloudData = true;
+			try {
+				var applied = {};
+				if (dataBlock.cube_memory_progress !== undefined) {
+					window.storageManager.setJson("cube_memory_progress", dataBlock.cube_memory_progress);
+					applied.cube_memory_progress = true;
+				}
+				if (dataBlock.smartCubeFormulaEntries !== undefined) {
+					window.storageManager.setJson("smartCubeFormulaEntries", dataBlock.smartCubeFormulaEntries);
+					applied.smartCubeFormulaEntries = true;
+				}
+				if (dataBlock.smartCubeStateImportText !== undefined) {
+					window.storageManager.setItem("smartCubeStateImportText", dataBlock.smartCubeStateImportText || "");
+					applied.smartCubeStateImportText = true;
+				}
+				return applied;
+			} finally {
+				setTimeout(function() { window._siteNavApplyingCloudData = false; }, 0);
 			}
-			if (dataBlock.smartCubeFormulaEntries !== undefined) {
-				window.storageManager.setJson("smartCubeFormulaEntries", dataBlock.smartCubeFormulaEntries);
-				applied.smartCubeFormulaEntries = true;
-			}
-			if (dataBlock.smartCubeStateImportText !== undefined) {
-				window.storageManager.setItem("smartCubeStateImportText", dataBlock.smartCubeStateImportText || "");
-				applied.smartCubeStateImportText = true;
-			}
-			return applied;
 		},
 
 		/**

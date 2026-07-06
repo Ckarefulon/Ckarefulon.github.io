@@ -157,22 +157,62 @@
 		return reviveDates(base);
 	}
 
+	function stripTransientState(data) {
+		if (!data || !data.libraries) {
+			return data;
+		}
+		Object.keys(data.libraries).forEach(function(lid) {
+			var lib = data.libraries[lid];
+			if (lib) {
+				lib.todayQueue = [];
+				if (Array.isArray(lib.queue)) {
+					lib.queue = lib.queue.filter(function(item) {
+						return item && !item.reinforcement;
+					});
+				}
+			}
+		});
+		return data;
+	}
+
 	function loadData() {
 		try {
 			memory.data = mergeLoadedData(storageManager.getJson(STORAGE_KEY, null));
 		} catch (error) {
 			memory.data = freshData();
 		}
-		ensureStudyDay();
+		var hadDayChange = ensureStudyDay();
+		var needsCleanup = false;
+		var memLibs = memory.data && memory.data.libraries;
+		if (memLibs) {
+			Object.keys(memLibs).forEach(function(lid) {
+				var l = memLibs[lid];
+				if (l) {
+					if (l.todayQueue && l.todayQueue.length > 0) {
+						needsCleanup = true;
+					}
+					if (Array.isArray(l.queue) && l.queue.some(function(item) { return item && item.reinforcement; })) {
+						needsCleanup = true;
+					}
+				}
+			});
+		}
+		stripTransientState(memory.data);
 		var l = lib();
 		if (l) {
-			l.todayQueue = [];
 			l.queue = l.queue.filter(function(item) {
-				return item && !item.reinforcement && findFormula(item.id);
+				return item && findFormula(item.id);
 			});
 		}
 		loadLibraryMask();
-		saveData();
+		if (hadDayChange || needsCleanup) {
+			window._siteNavApplyingCloudData = true;
+			try {
+				saveData();
+			} finally {
+				setTimeout(function() { window._siteNavApplyingCloudData = false; }, 0);
+			}
+		}
 	}
 
 	function saveData() {
@@ -180,7 +220,9 @@
 			return;
 		}
 		memory.data.schemaVersion = SCHEMA_VERSION;
-		storageManager.setJson(STORAGE_KEY, memory.data);
+		var saved = JSON.parse(JSON.stringify(memory.data));
+		stripTransientState(saved);
+		storageManager.setJson(STORAGE_KEY, saved);
 		updatePlanCounter();
 	}
 
@@ -201,7 +243,7 @@
 	function ensureStudyDay() {
 		var l = lib();
 		if (!l) {
-			return;
+			return false;
 		}
 		var today = studyDate(Date.now());
 		if (l.day.studyDate !== today) {
@@ -210,7 +252,9 @@
 			l.todayQueue = [];
 			l.undoStack = [];
 			memory.promptedContinue = false;
+			return true;
 		}
+		return false;
 	}
 
 	function ensureFsrs() {

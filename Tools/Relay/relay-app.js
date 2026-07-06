@@ -93,13 +93,16 @@
 						console.error("[RelayCloud] 上传失败:", result.error);
 						return { success: false, message: "上传失败，请稍后重试" };
 					}
+					if (typeof window._siteNavMarkAsSynced === "function") {
+						try { window._siteNavMarkAsSynced(); } catch(e) {}
+					}
 					return { success: true, message: "上传成功" };
 				})
 				.catch(function(error) {
 					console.error("[RelayCloud] 上传异常:", error);
 					return { success: false, message: "上传失败，请稍后重试" };
 				});
-		},
+			},
 
 		/**
 		 * 将数据块写回本地存储（覆盖对应字段）
@@ -111,19 +114,24 @@
 			if (!dataBlock || typeof dataBlock !== "object") {
 				return {};
 			}
-			if (dataBlock.relay_text !== undefined) {
-				window.storageManager.setItem(LOCAL_STORAGE_PREFIX + RELAY_DATA_KEY, dataBlock.relay_text);
+			window._siteNavApplyingCloudData = true;
+			try {
+				if (dataBlock.relay_text !== undefined) {
+					window.storageManager.setItem(LOCAL_STORAGE_PREFIX + RELAY_DATA_KEY, dataBlock.relay_text);
+				}
+				var prefs = {};
+				if (typeof dataBlock.relay_realtime_enabled === "boolean") {
+					prefs.realtimeEnabled = dataBlock.relay_realtime_enabled;
+					window.storageManager.setItem(LOCAL_STORAGE_PREFIX + RELAY_REALTIME_KEY, dataBlock.relay_realtime_enabled ? "true" : "false");
+				}
+				if (typeof dataBlock.relay_interval_seconds === "number" && !isNaN(dataBlock.relay_interval_seconds) && dataBlock.relay_interval_seconds >= 0) {
+					prefs.intervalSeconds = Math.floor(dataBlock.relay_interval_seconds);
+					window.storageManager.setItem(LOCAL_STORAGE_PREFIX + RELAY_INTERVAL_KEY, String(prefs.intervalSeconds));
+				}
+				return prefs;
+			} finally {
+				setTimeout(function() { window._siteNavApplyingCloudData = false; }, 0);
 			}
-			var prefs = {};
-			if (typeof dataBlock.relay_realtime_enabled === "boolean") {
-				prefs.realtimeEnabled = dataBlock.relay_realtime_enabled;
-				window.storageManager.setItem(LOCAL_STORAGE_PREFIX + RELAY_REALTIME_KEY, dataBlock.relay_realtime_enabled ? "true" : "false");
-			}
-			if (typeof dataBlock.relay_interval_seconds === "number" && !isNaN(dataBlock.relay_interval_seconds) && dataBlock.relay_interval_seconds >= 0) {
-				prefs.intervalSeconds = Math.floor(dataBlock.relay_interval_seconds);
-				window.storageManager.setItem(LOCAL_STORAGE_PREFIX + RELAY_INTERVAL_KEY, String(prefs.intervalSeconds));
-			}
-			return prefs;
 		},
 
 		downloadCloudToLocal: function() {
@@ -377,9 +385,9 @@
 			if (result.success) {
 				state.lastUploadTime = Date.now();
 				markClean();
-				// 记录已同步的数据快照（仅 data 部分），供 beforeunload 对比
-				var syncedPayload = cloudSyncManager.buildLocalPayload();
-				window._siteNavLastSyncedData = JSON.stringify(syncedPayload.data);
+				if (typeof window._siteNavMarkAsSynced === "function") {
+					try { window._siteNavMarkAsSynced(); } catch(e) {}
+				}
 				setStatus("已同步 " + new Date().toLocaleTimeString(), "success");
 			} else {
 				setStatus(result.message, "error");
@@ -421,10 +429,9 @@
 				}
 
 				markClean();
-				// 记录当前数据快照，供 beforeunload 对比；
-				// 这样下载后即便本地未做改动也不会被误判为"未上传"
-				var syncedPayload = cloudSyncManager.buildLocalPayload();
-				window._siteNavLastSyncedData = JSON.stringify(syncedPayload.data);
+				if (typeof window._siteNavMarkAsSynced === "function") {
+					try { window._siteNavMarkAsSynced(); } catch(e) {}
+				}
 				setStatus("已同步 " + new Date().toLocaleTimeString(), "success");
 			} else {
 				if (!silent) {
@@ -728,6 +735,9 @@
 	}
 
 	function onAuthStateChange(user) {
+		var uid = user ? user.id : null;
+		if (onAuthStateChange._lastUid === uid) return;
+		onAuthStateChange._lastUid = uid;
 		state.isLoggedIn = !!user;
 
 		if (elements.textarea) {
@@ -774,6 +784,9 @@
 				clearIntervalTimer();
 				setStatus("已保留恢复后的本地数据，请上传后再刷新", "warning");
 				setNavCloudStatus("已保留恢复后的本地数据，请上传后再刷新", "Warning");
+				if (typeof window._siteNavInitialSyncComplete === "function") {
+					window._siteNavInitialSyncComplete();
+				}
 				return;
 			}
 			markClean();
@@ -781,10 +794,25 @@
 				downloadNow().then(function(result) {
 					if (!result.success && result.message === "云端暂无数据") {
 						if (localText || state.realtimeEnabled || state.intervalSeconds > 0) {
-							uploadNow();
+							uploadNow().then(function() {
+								if (typeof window._siteNavInitialSyncComplete === "function") {
+									window._siteNavInitialSyncComplete();
+								}
+							});
 						} else {
 							setStatus("就绪，请输入文字", "");
+							if (typeof window._siteNavInitialSyncComplete === "function") {
+								window._siteNavInitialSyncComplete();
+							}
 						}
+					} else {
+						if (typeof window._siteNavInitialSyncComplete === "function") {
+							window._siteNavInitialSyncComplete();
+						}
+					}
+				}).catch(function() {
+					if (typeof window._siteNavInitialSyncComplete === "function") {
+						window._siteNavInitialSyncComplete();
 					}
 				});
 			}, 300);
@@ -800,6 +828,9 @@
 			}
 			markClean();
 			setStatus("请登录以使用云端同步", "error");
+			if (typeof window._siteNavInitialSyncComplete === "function") {
+				window._siteNavInitialSyncComplete();
+			}
 		}
 	}
 
@@ -915,13 +946,22 @@
 			markClean();
 
 			if (window.authManager) {
-				window.authManager.init();
 				window.authManager.onAuthStateChange(function(user) {
 					onAuthStateChange(user);
 					if (user && window.globalDataManager) {
 						window.globalDataManager.applyCloudThemeIfLoggedIn();
 					}
 				});
+				if (!window.authManager._siteNavInitialized) {
+					window.authManager._siteNavInitialized = true;
+					window.authManager.init();
+				}
+				if (window.authManager.isLoggedIn()) {
+					var u = window.authManager.getUser();
+					if (u) onAuthStateChange(u);
+				} else {
+					onAuthStateChange(null);
+				}
 			} else {
 				onAuthStateChange(null);
 			}

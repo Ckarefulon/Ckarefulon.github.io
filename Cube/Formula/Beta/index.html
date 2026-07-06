@@ -9,7 +9,7 @@
 	<script src="assets/lib/jquery-4.0.0.min.js"></script>
 
 	<link rel="stylesheet" href="/nav/nav.css?v=0916">
-	<script src="/nav/nav.js?v=0921" defer></script>
+	<script src="/nav/nav.js?v=0943" defer></script>
 
 	<script src="/assets/services/core/site-scope.js?v=0567" defer></script>
 	<script src="/assets/services/core/storage-manager.js?v=0567" defer></script>
@@ -20,7 +20,7 @@
 	<script src="/supabase/auth-manager.js?v=0677" defer></script>
 	<script src="/assets/backend/profile-manager.js?v=0843" defer></script>
 	<script src="/assets/services/global/global-data-manager.js?v=0666" defer></script>
-	<script src="/assets/services/sync/cloud-sync-manager.js?v=0916" defer></script>
+	<script src="/assets/services/sync/cloud-sync-manager.js?v=0943" defer></script>
 
 	<script src="assets/lib/lzstring.js?v=0286" defer></script>
 	<script src="assets/lib/sha256.js?v=0286" defer></script>
@@ -41,7 +41,7 @@
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
 
 	<link rel="stylesheet" href="assets/memory/memory.css?v=0829">
-	<script src="assets/memory/memory.js?v=0843" defer></script>
+	<script src="assets/memory/memory.js?v=0943" defer></script>
 
 	<title>学习模式</title>
 	<style>
@@ -4395,6 +4395,7 @@
 
 					this.markDataDirty = function() {
 						if (this.cloudApplyingDownload) return;
+						if (window._siteNavApplyingCloudData) return;
 						this.cloudDataDirty = true;
 						if (typeof window._siteNavSetDirty === "function") {
 							window._siteNavSetDirty(true);
@@ -4410,6 +4411,7 @@
 
 					this.reloadDataFromStorage = function() {
 					this.cloudApplyingDownload = true;
+					window._siteNavApplyingCloudData = true;
 					try {
 						this.loadFormulaEntries();
 						this.renderFormulaList();
@@ -4423,6 +4425,7 @@
 						}
 					} finally {
 						this.cloudApplyingDownload = false;
+						setTimeout(function() { window._siteNavApplyingCloudData = false; }, 0);
 					}
 				};
 
@@ -4435,7 +4438,7 @@
 						origSetJson = window.storageManager.setJson.bind(window.storageManager);
 						window.storageManager.setJson = function(key, value) {
 							origSetJson(key, value);
-							if ((key === "cube_memory_progress" || key === "smartCubeFormulaEntries") && !self.cloudApplyingDownload) {
+							if ((key === "cube_memory_progress" || key === "smartCubeFormulaEntries") && !self.cloudApplyingDownload && !window._siteNavApplyingCloudData) {
 								self.markDataDirty();
 							}
 						};
@@ -4446,7 +4449,7 @@
 						origSetItem = window.storageManager.setItem.bind(window.storageManager);
 						window.storageManager.setItem = function(key, value) {
 							origSetItem(key, value);
-							if (key === "smartCubeStateImportText" && !self.cloudApplyingDownload) {
+							if (key === "smartCubeStateImportText" && !self.cloudApplyingDownload && !window._siteNavApplyingCloudData) {
 								self.markDataDirty();
 							}
 						};
@@ -4456,25 +4459,17 @@
 						window.siteNav.init(this);
 					}
 
-					function setNavCloudStatus(text, type) {
-						if (typeof window._siteNavSetCloudStatus === "function") {
-							window._siteNavSetCloudStatus(text, type);
-							return;
-						}
-						var cloudStatusEl = document.getElementById("cloudStatus");
-						if (cloudStatusEl) {
-							cloudStatusEl.textContent = text;
-							cloudStatusEl.className = "accountMenuCloudStatus" + (type ? " is" + type : "");
-						}
-					}
-
 					window._siteNavQuickUpload = function() {
 						if (!window.cloudSyncManager || !window.cloudSyncManager.isReady()) {
 							return Promise.resolve({ success: false, message: "请先登录" });
 						}
-						setNavCloudStatus("正在上传...", "");
+						if (typeof window._siteNavSetCloudStatus === "function") {
+							window._siteNavSetCloudStatus("正在上传...", "");
+						}
 						return window.cloudSyncManager.uploadLocalToCloud().then(function(result) {
-							setNavCloudStatus(result.message, result.success ? "Success" : "Error");
+							if (typeof window._siteNavSetCloudStatus === "function") {
+								window._siteNavSetCloudStatus(result.message, result.success ? "Success" : "Error");
+							}
 							if (result.success) {
 								self.markDataClean();
 							}
@@ -4489,37 +4484,66 @@
 					function waitForAuthAndSync() {
 						var checks = 0;
 						var _syncedUserId = null;
+						var _notified = false;
+						function notifyInitialSyncComplete() {
+							if (_notified) return;
+							_notified = true;
+							if (typeof window._siteNavInitialSyncComplete === "function") {
+								window._siteNavInitialSyncComplete();
+							}
+						}
+						function waitForCloudReady(user) {
+							var readyChecks = 0;
+							function checkReady() {
+								readyChecks++;
+								if (window.cloudSyncManager && window.cloudSyncManager.isReady()) {
+									notifyInitialSyncComplete();
+									return;
+								}
+								if (readyChecks < 100) {
+									setTimeout(checkReady, 100);
+								} else {
+									notifyInitialSyncComplete();
+								}
+							}
+							checkReady();
+						}
+						function handleAuthUser(user) {
+							if (user) {
+								if (_syncedUserId === user.id) return;
+								_syncedUserId = user.id;
+								_notified = false;
+								if (window._siteNavConsumeAutoDownloadSkip && window._siteNavConsumeAutoDownloadSkip()) {
+									self.markDataDirty();
+									if (typeof window._siteNavSetCloudStatus === "function") {
+										window._siteNavSetCloudStatus("已保留本地数据，可回滚或上传", "Warning");
+									}
+									notifyInitialSyncComplete();
+									return;
+								}
+								waitForCloudReady(user);
+							} else {
+								_syncedUserId = null;
+								_notified = false;
+								notifyInitialSyncComplete();
+							}
+						}
 						function check() {
 							checks++;
 							if (window.authManager) {
-								window.authManager.onAuthStateChange(function(user) {
-									if (user) {
-										if (_syncedUserId === user.id) return;
-										_syncedUserId = user.id;
-										if (window._siteNavConsumeAutoDownloadSkip && window._siteNavConsumeAutoDownloadSkip()) {
-											self.markDataDirty();
-											setNavCloudStatus("已保留本地数据，可回滚或上传", "Warning");
-											return;
-										}
-										if (window.cloudSyncManager && window.cloudSyncManager.isReady()) {
-											window.cloudSyncManager.getCloudStatus().then(function(status) {
-												if (status.hasData) {
-													var timeStr = status.updatedAt ? new Date(status.updatedAt).toLocaleString() : "未知";
-													setNavCloudStatus("云端有数据（" + timeStr + "），点击 ↓ 恢复到本地", "");
-												} else {
-													setNavCloudStatus("云端暂无数据，点击 ↑ 上传本地数据", "");
-												}
-											});
-										}
-									} else {
-										_syncedUserId = null;
-										setNavCloudStatus("游客模式：请自行备份数据", "");
-									}
-								});
+								window.authManager.onAuthStateChange(handleAuthUser);
+								if (window.authManager.isLoggedIn()) {
+									var u = window.authManager.getUser();
+									if (u) handleAuthUser(u);
+								} else {
+									handleAuthUser(null);
+								}
 								return;
 							}
 							if (checks < 100) {
 								setTimeout(check, 50);
+							} else {
+								notifyInitialSyncComplete();
 							}
 						}
 						check();

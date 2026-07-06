@@ -276,12 +276,11 @@
 		}
 	}
 
-	// cloudStatus 为 Warning / Error 时强制保持菜单展开，
-	// 外部点击与 Esc 不能关闭；头像点击可强制关闭并清空待办状态。
+	// _menuLocked — Warning/Error/操作进行中锁定菜单，外部点击不关闭；
+	// 头像点击/Esc 关闭菜单时归零清空待办状态。
 	var _menuLocked = false;
 
 	function hideAccountMenu(force) {
-		var wasLocked = _menuLocked;
 		// 非强制关闭（外部点击 / Esc）时，锁定状态下保持菜单展开
 		// 强制关闭（头像点击 force=true）可突破锁定
 		if (!force && _menuLocked) {
@@ -293,10 +292,14 @@
 			if (avatar) { avatar.setAttribute("aria-expanded", "false"); }
 		}
 		_menuLocked = false;
-		// 仅在从锁定状态（Warning/Error）强制关闭时，清空待办并恢复 cloudStatus 为中性文案
-		// 普通关闭不动 cloudStatus，保留 Success 等正常状态文案
-		if (force && wasLocked && typeof refreshRollbackAvailability === "function") {
-			refreshRollbackAvailability(true);
+		// 头像点击关闭菜单时归零（外部点击不归零，保留 Warning 状态）
+		if (force) {
+			var confirmOv = document.getElementById("confirmOverlay");
+			if (!confirmOv || !confirmOv.classList.contains("isVisible")) {
+				if (_cloudStatusAction && typeof clearCloudStatus === "function") {
+					clearCloudStatus();
+				}
+			}
 		}
 	}
 
@@ -330,6 +333,10 @@
 	if (accountMenu) {
 		accountMenu.addEventListener("click", function(e) {
 			e.stopPropagation();
+			// 菜单内点击空白/非交互区域 → Warning 归零
+			if (_cloudStatusAction) {
+				clearCloudStatus();
+			}
 		});
 	}
 
@@ -366,13 +373,18 @@
 		}
 	});
 
-	// Esc 键关闭所有下拉菜单（尊重锁定；确认对话框自身有独立 Esc 处理且优先）
+	// Esc 键关闭所有下拉菜单。
+	// 有待办动作（Warning 状态）时强制关闭并归零；
+	// 对话框自身有独立 Esc 处理且优先。
 	document.addEventListener("keydown", function(e) {
 		if (e.key === "Escape") {
-			// 确认对话框打开时，Esc 只关对话框，不关菜单
 			var confirmOv = document.getElementById("confirmOverlay");
 			if (confirmOv && confirmOv.classList.contains("isVisible")) return;
-			hideAccountMenu(); // 尊重 _menuLocked
+			if (_cloudStatusAction) {
+				hideAccountMenu(true);
+			} else {
+				hideAccountMenu();
+			}
 			if (donateMenu) { donateMenu.classList.remove("isVisible"); }
 		}
 	});
@@ -395,11 +407,80 @@
 		var cloudRollbackBtn = document.getElementById("cloudRollbackBtn");
 		var cloudUploadBtn = document.getElementById("cloudUploadBtn");
 		var cloudDownloadBtn = document.getElementById("cloudDownloadBtn");
+		var accountMenuCloud = document.getElementById("accountMenuCloud");
 		var PRE_OVERWRITE_PREFIX = "__siteNav_preOverwrite_v1:";
 		var SKIP_AUTO_DOWNLOAD_PREFIX = "__siteNav_skipAutoDownloadOnce_v1:";
+		var SYNC_STATE_PREFIX = "__siteNav_syncState_v1:";
+		var _cloudReadyRetries = 0;
 
 	function getSiteStorageKey(prefix) {
 		return prefix + encodeURIComponent(detectSiteScope());
+	}
+
+	function loadSyncState() {
+		try {
+			var raw = localStorage.getItem(getSiteStorageKey(SYNC_STATE_PREFIX));
+			if (!raw) return null;
+			var state = JSON.parse(raw);
+			if (!state || typeof state !== "object") return null;
+			if (state.siteScope && state.siteScope !== detectSiteScope()) return null;
+			return state;
+		} catch (e) {
+			return null;
+		}
+	}
+
+	function saveSyncState(state) {
+		try {
+			state.siteScope = detectSiteScope();
+			localStorage.setItem(getSiteStorageKey(SYNC_STATE_PREFIX), JSON.stringify(state));
+		} catch (e) {}
+	}
+
+	function deepEqual(a, b) {
+		if (a === b) return true;
+		if (a === null || b === null) return a === b;
+		if (typeof a !== typeof b) return false;
+		if (typeof a !== "object") return a === b;
+		if (Array.isArray(a) !== Array.isArray(b)) return false;
+		if (Array.isArray(a)) {
+			if (a.length !== b.length) return false;
+			for (var i = 0; i < a.length; i++) {
+				if (!deepEqual(a[i], b[i])) return false;
+			}
+			return true;
+		}
+		var keysA = Object.keys(a).sort();
+		var keysB = Object.keys(b).sort();
+		if (keysA.length !== keysB.length) return false;
+		for (var i = 0; i < keysA.length; i++) {
+			if (keysA[i] !== keysB[i]) return false;
+			if (!deepEqual(a[keysA[i]], b[keysB[i]])) return false;
+		}
+		return true;
+	}
+
+	function markAsSynced() {
+		var payload = buildCurrentLocalPayload();
+		var dataStr = JSON.stringify(payload.data);
+		var state = {
+			lastSyncedData: dataStr,
+			lastSyncTime: new Date().toISOString(),
+			siteScope: detectSiteScope()
+		};
+		window._siteNavSyncState = state;
+		saveSyncState(state);
+		window._siteNavDataDirty = false;
+		return state;
+	}
+
+	function getSyncState() {
+		if (window._siteNavSyncState) return window._siteNavSyncState;
+		var loaded = loadSyncState();
+		if (loaded) {
+			window._siteNavSyncState = loaded;
+		}
+		return loaded;
 	}
 	function skipNextAutomaticDownload() {
 		try {
@@ -458,7 +539,7 @@
 	function prepareLocalOverwrite(reason, replacementData, details) {
 		try {
 			var currentPayload = buildCurrentLocalPayload();
-			if (replacementData && JSON.stringify(currentPayload.data) === JSON.stringify(replacementData)) {
+			if (replacementData && deepEqual(currentPayload.data, replacementData)) {
 				return { success: true, saved: false };
 			}
 			var snapshot = {
@@ -509,7 +590,7 @@
 		} else {
 			cloudStatusEl.classList.remove("isActionable");
 		}
-		// Warning / Error 锁定菜单；Success 解锁；
+		// Warning / Error 锁定菜单（外部点击不关闭）；Success 解锁；
 		// 空类型（操作进行中）不改变锁定状态，允许操作过程中保持菜单
 		if (type === "Warning" || type === "Error") {
 			_menuLocked = true;
@@ -521,6 +602,16 @@
 			showAccountMenu();
 		}
 	}
+	// 归零：仅当有待办动作（Warning/Error）时清空状态并显示"已取消"；
+	// Success 等正常状态不受影响。
+	function clearCloudStatus() {
+		if (!_cloudStatusAction) return;
+		consumeCloudStatusAction();
+		if (cloudStatusEl) {
+			cloudStatusEl.textContent = "已取消";
+			cloudStatusEl.className = "accountMenuCloudStatus";
+		}
+	}
 	function refreshRollbackAvailability(updateStatus) {
 		var snapshot = getPreOverwriteSnapshot();
 		if (cloudRollbackBtn) {
@@ -528,13 +619,7 @@
 			cloudRollbackBtn.title = snapshot ? "回到未覆盖前状态" : "暂无可恢复的覆盖前状态";
 		}
 		if (updateStatus) {
-			if (snapshot) {
-				setCloudStatus("可回滚到覆盖前状态", "");
-			} else if (window.authManager && window.authManager.isLoggedIn()) {
-				setCloudStatus("选择云端操作或管理备份", "");
-			} else {
-				setCloudStatus("游客模式：请自行备份数据", "");
-			}
+			setCloudStatus("等待操作", "");
 		}
 		return snapshot;
 	}
@@ -560,7 +645,169 @@
 	window._siteNavPrepareOverwrite = prepareLocalOverwrite;
 	window._siteNavConsumeAutoDownloadSkip = consumeAutomaticDownloadSkip;
 	window._siteNavSetCloudStatus = setCloudStatus;
+	window._siteNavMarkAsSynced = markAsSynced;
 	refreshRollbackAvailability(true);
+
+	var _cloudDiffCheckPending = false;
+
+	function hasLocalData(data) {
+		if (!data) return false;
+		for (var key in data) {
+			if (!Object.prototype.hasOwnProperty.call(data, key)) continue;
+			var val = data[key];
+			if (val == null) continue;
+			if (typeof val === "string" && val === "") continue;
+			if (Array.isArray(val) && val.length === 0) continue;
+			if (typeof val === "object" && !Array.isArray(val)) {
+				var hasAny = false;
+				for (var k in val) {
+					if (Object.prototype.hasOwnProperty.call(val, k)) { hasAny = true; break; }
+				}
+				if (!hasAny) continue;
+			}
+			if (typeof val === "boolean" && val === false) continue;
+			if (typeof val === "number" && val === 0) continue;
+			return true;
+		}
+		return false;
+	}
+
+	function checkCloudDiff() {
+		if (!window.authManager || !window.authManager.isLoggedIn()) {
+			setCloudStatus("游客模式：数据仅保存在本地", "");
+			refreshRollbackAvailability(false);
+			return;
+		}
+		if (!window.cloudSyncManager) {
+			if (accountMenuCloud) accountMenuCloud.style.display = "none";
+			return;
+		}
+		if (!window.cloudSyncManager.isReady()) {
+			_cloudReadyRetries++;
+			if (_cloudReadyRetries > 20) {
+				setCloudStatus("同步服务未就绪", "Error");
+				return;
+			}
+			setCloudStatus("同步服务初始化中...", "");
+			setTimeout(checkCloudDiff, 500);
+			return;
+		}
+		_cloudReadyRetries = 0;
+		if (_cloudDiffCheckPending) return;
+		_cloudDiffCheckPending = true;
+
+		var localPayload = window.cloudSyncManager.buildLocalPayload();
+		var localData = localPayload.data;
+
+		window.cloudSyncManager.getCloudStatus().then(function(status) {
+			_cloudDiffCheckPending = false;
+			if (!status.success) {
+				setCloudStatus("同步状态检查失败，请刷新重试", "Error");
+				return;
+			}
+
+			if (!status.hasData) {
+				if (hasLocalData(localPayload.data)) {
+					setCloudStatus("本地数据尚未备份到云端", "Warning", {
+						key: "upload",
+						dialog: {
+							title: "上传本地数据到云端",
+							message: "云端暂无此站点数据，本地有数据可以上传备份。\n\n确认上传？",
+							confirmText: "确认上传"
+						},
+						onConfirm: doCloudUpload
+					});
+				} else {
+					setCloudStatus("已就绪", "");
+				}
+				return;
+			}
+
+			var cloudData = status.cloudData && status.cloudData.data;
+
+			if (deepEqual(localData, cloudData)) {
+				markAsSynced();
+				var syncState = getSyncState();
+				var timeStr = syncState && syncState.lastSyncTime
+					? new Date(syncState.lastSyncTime).toLocaleString()
+					: "";
+				setCloudStatus(timeStr ? "已同步 · " + timeStr : "已同步", "");
+				return;
+			}
+
+			var syncState = getSyncState();
+			var lastSyncedData = null;
+			if (syncState && syncState.lastSyncedData) {
+				try { lastSyncedData = JSON.parse(syncState.lastSyncedData); } catch(e) { lastSyncedData = null; }
+			}
+
+			if (lastSyncedData) {
+				var localChanged = !deepEqual(lastSyncedData, localData);
+				var cloudChanged = !deepEqual(lastSyncedData, cloudData);
+
+				if (localChanged && !cloudChanged) {
+					setCloudStatus("本地有未上传更改", "Warning", {
+						key: "upload",
+						dialog: {
+							title: "上传本地更改",
+							message: "本地数据自上次同步后有更改，云端数据未变。\n\n确认上传覆盖云端？",
+							confirmText: "确认上传"
+						},
+						onConfirm: doCloudUpload
+					});
+				} else if (!localChanged && cloudChanged) {
+					setCloudStatus("云端有更新（其他设备修改）", "Warning", {
+						key: "download",
+						dialog: {
+							title: "下载云端更新",
+							message: "云端数据在其他设备上被修改，本地数据未变。\n\n确认下载覆盖本地？",
+							confirmText: "确认下载"
+						},
+						onConfirm: doCloudDownload
+					});
+				} else {
+					setCloudStatus("数据冲突：本地和云端都有修改", "Warning", {
+						key: "download",
+						dialog: {
+							title: "数据冲突",
+							message: "本地和云端数据都自上次同步后被修改。\n\n点击确认将从云端下载并覆盖本地（本地更改会丢失，但覆盖前状态会自动保存可回滚）。\n\n如需保留本地版本，请取消后点击上传按钮。",
+							confirmText: "下载云端版本"
+						},
+						onConfirm: doCloudDownload
+					});
+				}
+			} else {
+				if (hasLocalData(localPayload.data)) {
+					setCloudStatus("本地有未上传数据", "Warning", {
+						key: "upload",
+						dialog: {
+							title: "数据状态",
+							message: "检测到本地和云端数据不一致（无上次同步记录）。\n\n建议先下载云端数据查看，或上传本地数据覆盖云端。\n\n点击确认将上传本地数据到云端。",
+							confirmText: "上传本地数据"
+						},
+						onConfirm: doCloudUpload
+					});
+				} else {
+					setCloudStatus("云端有数据，可下载恢复", "", {
+						key: "download",
+						dialog: {
+							title: "下载云端数据",
+							message: "本地暂无数据，云端有备份数据。\n\n确认下载到本地？",
+							confirmText: "确认下载"
+						},
+						onConfirm: doCloudDownload
+					});
+				}
+			}
+		}).catch(function() {
+			_cloudDiffCheckPending = false;
+		});
+	}
+
+	window._siteNavCheckCloudDiff = checkCloudDiff;
+	window._siteNavInitialSyncComplete = function() {
+		setTimeout(checkCloudDiff, 100);
+	};
 
 	if (cloudStatusEl) {
 		cloudStatusEl.addEventListener("click", function(e) {
@@ -590,14 +837,17 @@
 		_menuLocked = true;
 		showAccountMenu();
 		window.cloudSyncManager.uploadLocalToCloud().then(function(result) {
-			setCloudStatus(result.message, result.success ? "Success" : "Error");
 			if (result.success) {
-				if (typeof window._siteNavSetDirty === "function") {
-					window._siteNavSetDirty(false);
-				}
+				markAsSynced();
 				if (typeof window._siteNavOnUploadSuccess === "function") {
-					window._siteNavOnUploadSuccess();
+					try { window._siteNavOnUploadSuccess(); } catch(e) {}
 				}
+				if (typeof window._siteNavReloadData === "function") {
+					try { window._siteNavReloadData(); } catch(e) {}
+				}
+				setCloudStatus("上传成功 · " + new Date().toLocaleString(), "Success");
+			} else {
+				setCloudStatus(result.message, "Error");
 			}
 		});
 	}
@@ -608,16 +858,9 @@
 		showAccountMenu();
 		window.cloudSyncManager.downloadCloudToLocal().then(function(result) {
 			if (result.success) {
-				if (typeof window._siteNavSetDirty === "function") {
-					window._siteNavSetDirty(false);
-				}
-				if (window.cloudSyncManager && typeof window.cloudSyncManager.buildLocalPayload === "function") {
-					var refreshed = window.cloudSyncManager.buildLocalPayload();
-					window._siteNavLastSyncedData = JSON.stringify(refreshed.data);
-				}
-				setCloudStatus("恢复成功", "Success");
 				setTimeout(function() {
-					reloadAfterDataChange();
+					markAsSynced();
+					reloadAfterDataChange("恢复成功");
 				}, 200);
 			} else {
 				setCloudStatus(result.message, "Error");
@@ -676,10 +919,11 @@
 					if (typeof window._siteNavSetDirty === "function") {
 						window._siteNavSetDirty(true);
 					}
-					window._siteNavLastSyncedData = null;
+					window._siteNavSyncState = null;
+					try { localStorage.removeItem(getSiteStorageKey(SYNC_STATE_PREFIX)); } catch(e) {}
 					setCloudStatus("已恢复", "Success");
 					setTimeout(function() {
-						reloadAfterDataChange();
+						reloadAfterDataChange("已恢复");
 					}, 200);
 				}
 			});
@@ -815,6 +1059,11 @@
 		_confirmCallback = null;
 		if (confirmed && typeof cb === "function") {
 			try { cb(); } catch (e) { console.error("[Nav] 确认回调异常:", e); }
+		} else {
+			// 取消 → 归零（清空 Warning 待办状态）
+			if (typeof clearCloudStatus === "function") {
+				clearCloudStatus();
+			}
 		}
 	}
 
@@ -876,12 +1125,13 @@
 				if (typeof window._siteNavSetDirty === "function") {
 					window._siteNavSetDirty(true);
 				}
-				window._siteNavLastSyncedData = null;
+				window._siteNavSyncState = null;
+				try { localStorage.removeItem(getSiteStorageKey(SYNC_STATE_PREFIX)); } catch(e) {}
 				if (inMenu) {
 					setCloudStatus("导入成功", "Success");
 				}
 				setTimeout(function() {
-					reloadAfterDataChange();
+					reloadAfterDataChange("导入成功");
 				}, 200);
 			};
 
@@ -1091,14 +1341,17 @@
 			}
 			setCloudStatus("正在上传...", "");
 			return window.cloudSyncManager.uploadLocalToCloud().then(function(result) {
-				setCloudStatus(result.message, result.success ? "Success" : "Error");
 				if (result.success) {
-					if (typeof window._siteNavSetDirty === "function") {
-						window._siteNavSetDirty(false);
-					}
+					markAsSynced();
 					if (typeof window._siteNavOnUploadSuccess === "function") {
-						window._siteNavOnUploadSuccess();
+						try { window._siteNavOnUploadSuccess(); } catch(e) {}
 					}
+					if (typeof window._siteNavReloadData === "function") {
+						try { window._siteNavReloadData(); } catch(e) {}
+					}
+					setCloudStatus("上传成功 · " + new Date().toLocaleString(), "Success");
+				} else {
+					setCloudStatus(result.message, "Error");
 				}
 				return result;
 			});
@@ -1123,16 +1376,21 @@
 				return;
 			}
 			if (window._siteNavDataDirty && window.authManager && window.authManager.isLoggedIn()) {
-				// 二次确认：对比当前数据与上次成功上传的数据（仅对比 data 部分，忽略 exportedAt 时间戳）
 				var hasActualChanges = true;
-				if (window._siteNavLastSyncedData && window.cloudSyncManager && typeof window.cloudSyncManager.buildLocalPayload === "function") {
+				var syncState = getSyncState();
+				if (syncState && syncState.lastSyncedData && window.cloudSyncManager && typeof window.cloudSyncManager.buildLocalPayload === "function") {
 					var currentPayload = window.cloudSyncManager.buildLocalPayload();
-					hasActualChanges = (JSON.stringify(currentPayload.data) !== window._siteNavLastSyncedData);
+					try {
+						var lastData = JSON.parse(syncState.lastSyncedData);
+						hasActualChanges = !deepEqual(lastData, currentPayload.data);
+					} catch(ex) {
+						hasActualChanges = true;
+					}
 				}
 				if (hasActualChanges) {
 					e.preventDefault();
-					e.returnValue = "您未上传数据";
-					return "您未上传数据";
+					e.returnValue = "您有未上传的数据更改";
+					return "您有未上传的数据更改";
 				}
 			}
 		});
@@ -1203,8 +1461,22 @@
 			});
 		})();
 		if (window.authManager) {
-			window.authManager.init();
-			window.authManager.onAuthStateChange(updateAuthUI);
+			window.authManager.onAuthStateChange(function(user) {
+				updateAuthUI(user);
+				if (!user) {
+					window._siteNavSyncState = null;
+				}
+			});
+			if (!window.authManager._siteNavInitialized) {
+				window.authManager._siteNavInitialized = true;
+				window.authManager.init();
+			}
+			if (window.authManager.isLoggedIn()) {
+				updateAuthUI(window.authManager.getUser());
+				refreshRollbackAvailability(true);
+			} else {
+				updateAuthUI(null);
+			}
 		} else {
 			updateAuthUI(null);
 		}
