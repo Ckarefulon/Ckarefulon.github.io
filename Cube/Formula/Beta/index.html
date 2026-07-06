@@ -976,28 +976,38 @@
 		.textImportActions {
 			position: absolute;
 			top: 6px;
-			right: 6px;
+			right: 22px;
 			display: flex;
-			gap: 4px;
+			gap: 3px;
 			z-index: 2;
 		}
 		.textImportActionBtn {
-			width: 28px;
-			height: 28px;
-			border: none;
-			background: rgba(128,128,128,0.15);
+			width: 26px;
+			height: 26px;
+			border: 1px solid var(--controlBorder);
+			background: var(--controlBg);
 			border-radius: 6px;
 			cursor: pointer;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			font-size: 14px;
-			color: var(--text2);
-			transition: background 0.15s;
+			color: var(--controlText);
+			padding: 0;
+			transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+			-webkit-user-select: none;
+			user-select: none;
+		}
+		.textImportActionBtn svg {
+			display: block;
+			transition: transform 0.2s ease;
 		}
 		.textImportActionBtn:hover {
-			background: rgba(128,128,128,0.3);
-			color: var(--text);
+			border-color: var(--cyan);
+			background: var(--controlHoverBg);
+			color: var(--cyan);
+		}
+		.textImportActionBtn:hover svg {
+			transform: scale(1.08);
 		}
 		.toastNotify {
 			position: fixed;
@@ -2168,8 +2178,8 @@
 					<div class="textImportWrap">
 						<textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea>
 						<div class="textImportActions">
-							<button id="clearStateTextBtn" class="textImportActionBtn" type="button" title="清空文本">🗑</button>
-							<button id="copyStateTextBtn" class="textImportActionBtn" type="button" title="复制全文">📋</button>
+							<button id="clearStateTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+							<button id="copyStateTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
 						</div>
 					</div>
 					<button id="parseStateTextBtn" class="button small" type="button">导入文本</button>
@@ -2864,7 +2874,7 @@
 				},
 
 				getStateImportHtml: function(showThumbOption, practiceCards) {
-					return '<section class="panelSection stateImport" id="stateImport"><div id="stateDropZone" class="importDropZone">拖入 TXT 状态文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><div class="textImportWrap"><textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea><div class="textImportActions"><button id="clearStateTextBtn" class="textImportActionBtn" type="button" title="清空文本">🗑</button><button id="copyStateTextBtn" class="textImportActionBtn" type="button" title="复制全文">📋</button></div></div><button id="parseStateTextBtn" class="button small" type="button">导入文本</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showStateThumbs" type="checkbox"><span class="checkVisual"></span><span>显示状态缩略图</span></label><label class="stateOptions smartCheck"><input id="stateDisplayFormula" name="stateDisplayMode" type="radio" value="formula"><span class="checkVisual"></span><span>公式</span></label><label class="stateOptions smartCheck"><input id="stateDisplayState" name="stateDisplayMode" type="radio" value="state"><span class="checkVisual"></span><span>状态</span></label></div>' : "") + '<div id="stateImportStatus" class="importStatus">未导入状态</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"></div>' : "") + '<div id="stateList" class="stateList"></div></section>';
+					return '<section class="panelSection stateImport" id="stateImport"><div id="stateDropZone" class="importDropZone">拖入 TXT 状态文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><div class="textImportWrap"><textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea><div class="textImportActions"><button id="clearStateTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button><button id="copyStateTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div><button id="parseStateTextBtn" class="button small" type="button">导入文本</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showStateThumbs" type="checkbox"><span class="checkVisual"></span><span>显示状态缩略图</span></label><label class="stateOptions smartCheck"><input id="stateDisplayFormula" name="stateDisplayMode" type="radio" value="formula"><span class="checkVisual"></span><span>公式</span></label><label class="stateOptions smartCheck"><input id="stateDisplayState" name="stateDisplayMode" type="radio" value="state"><span class="checkVisual"></span><span>状态</span></label></div>' : "") + '<div id="stateImportStatus" class="importStatus">未导入状态</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"></div>' : "") + '<div id="stateList" class="stateList"></div></section>';
 				},
 
 				getDiagnosticsHtml: function(hidden) {
