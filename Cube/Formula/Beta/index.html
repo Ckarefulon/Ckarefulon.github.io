@@ -40,7 +40,7 @@
 	<script src="assets/hardware/moyu32cube.js?v=0286" defer></script>
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
 
-	<link rel="stylesheet" href="assets/memory/memory.css?v=0829">
+	<link rel="stylesheet" href="assets/memory/memory.css?v=0996">
 	<script src="assets/memory/memory.js?v=0943" defer></script>
 
 	<title>学习模式</title>
@@ -699,12 +699,10 @@
 			position: relative;
 			width: 144px;
 			min-height: 50px;
-			border: 1px solid rgba(93, 78, 168, 0.45);
+			padding: 0;
+			border: 0;
 			border-radius: 8px;
-			background: var(--panel);
-			-webkit-backdrop-filter: blur(14px);
-			backdrop-filter: blur(14px);
-			box-shadow: 0 10px 30px rgba(93, 78, 168, 0.12);
+			background: transparent;
 			cursor: pointer;
 			transition: transform 0.16s ease, border-color 0.16s ease, background 0.22s ease, box-shadow 0.16s ease;
 		}
@@ -727,18 +725,32 @@
 			align-items: center;
 			gap: 10px;
 			padding: 10px 12px;
-			border: 0;
-			border-radius: 7px;
-			background: transparent;
+			border: 1px solid rgba(93, 78, 168, 0.45);
+			border-radius: 8px;
+			background: var(--panel);
 			color: var(--ink);
 			font: inherit;
 			font-weight: 700;
 			text-align: left;
 			cursor: pointer;
+			-webkit-backdrop-filter: blur(14px);
+			backdrop-filter: blur(14px);
+			box-shadow: 0 10px 30px rgba(93, 78, 168, 0.12);
+			transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
+		}
+
+		.practiceModeCurrent:hover,
+		.practiceModeCurrent:focus-visible {
+			background: var(--controlHoverBg);
+			color: var(--controlText);
+			box-shadow: inset 2px 0 0 var(--cyan);
+			outline: none;
 		}
 
 		.practiceModeSelect.isOpen .practiceModeCurrent {
-			border-radius: 7px 7px 0 0;
+			border-bottom-color: transparent;
+			border-radius: 8px 8px 0 0;
+			background: var(--surfaceSolid);
 		}
 
 		.practiceModeCurrentText {
@@ -764,8 +776,8 @@
 		.practiceModeMenu {
 			position: absolute;
 			top: calc(100% - 1px);
-			left: -1px;
-			right: -1px;
+			left: 0;
+			right: 0;
 			display: grid;
 			gap: 0;
 			padding: 0;
