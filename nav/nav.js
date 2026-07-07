@@ -281,6 +281,11 @@
 	var _menuLocked = false;
 
 	function hideAccountMenu(force) {
+		// 菜单关闭时取消成功提示的自动关闭倒计时
+		if (_successAutoCloseTimer) {
+			clearTimeout(_successAutoCloseTimer);
+			_successAutoCloseTimer = null;
+		}
 		// 非强制关闭（外部点击 / Esc）时，锁定状态下保持菜单展开
 		// 强制关闭（头像点击 force=true）可突破锁定
 		if (!force && _menuLocked) {
@@ -564,6 +569,8 @@
 	//   type 为 "Warning" / "Error" 时自动展开并锁定菜单
 	//   传入 action 后，cloudStatus 文字变为可点击，点击弹出确认对话框
 	var _cloudStatusAction = null;
+	// 成功提示后自动关闭菜单的定时器句柄（头像菜单栏）
+	var _successAutoCloseTimer = null;
 	// 各按钮与 key 的映射，用于在待办激活时给对应按钮加黄色 warning 标记
 	var _cloudBtnByKey = {
 		rollback: cloudRollbackBtn,
@@ -594,10 +601,21 @@
 		// 空类型（操作进行中）不改变锁定状态，允许操作过程中保持菜单
 		if (type === "Warning" || type === "Error") {
 			_menuLocked = true;
+			// 有待办动作时取消成功提示的自动关闭倒计时
+			if (_successAutoCloseTimer) {
+				clearTimeout(_successAutoCloseTimer);
+				_successAutoCloseTimer = null;
+			}
 		} else if (type === "Success") {
 			_menuLocked = false;
+			// 成功提示后 0.7 秒自动关闭头像菜单，避免一直挂起
+			if (_successAutoCloseTimer) { clearTimeout(_successAutoCloseTimer); }
+			_successAutoCloseTimer = setTimeout(function() {
+				_successAutoCloseTimer = null;
+				hideAccountMenu();
+			}, 700);
 		}
-		// type="" 不改变 _menuLocked
+		// type="" 不改变 _menuLocked，也不改动自动关闭定时器
 		if (_menuLocked) {
 			showAccountMenu();
 		}
@@ -708,15 +726,7 @@
 
 			if (!status.hasData) {
 				if (hasLocalData(localPayload.data)) {
-					setCloudStatus("本地数据尚未备份到云端", "Warning", {
-						key: "upload",
-						dialog: {
-							title: "上传本地数据到云端",
-							message: "云端暂无此站点数据，本地有数据可以上传备份。\n\n确认上传？",
-							confirmText: "确认上传"
-						},
-						onConfirm: doCloudUpload
-					});
+				setCloudStatus("本地数据尚未备份到云端", "Warning");
 				} else {
 					setCloudStatus("已就绪", "");
 				}
@@ -746,47 +756,15 @@
 				var cloudChanged = !deepEqual(lastSyncedData, cloudData);
 
 				if (localChanged && !cloudChanged) {
-					setCloudStatus("本地有未上传更改", "Warning", {
-						key: "upload",
-						dialog: {
-							title: "上传本地更改",
-							message: "本地数据自上次同步后有更改，云端数据未变。\n\n确认上传覆盖云端？",
-							confirmText: "确认上传"
-						},
-						onConfirm: doCloudUpload
-					});
+				setCloudStatus("本地有未上传更改", "Warning");
 				} else if (!localChanged && cloudChanged) {
-					setCloudStatus("云端有更新（其他设备修改）", "Warning", {
-						key: "download",
-						dialog: {
-							title: "下载云端更新",
-							message: "云端数据在其他设备上被修改，本地数据未变。\n\n确认下载覆盖本地？",
-							confirmText: "确认下载"
-						},
-						onConfirm: doCloudDownload
-					});
+				setCloudStatus("云端有更新（其他设备修改）", "Warning");
 				} else {
-					setCloudStatus("数据冲突：本地和云端都有修改", "Warning", {
-						key: "download",
-						dialog: {
-							title: "数据冲突",
-							message: "本地和云端数据都自上次同步后被修改。\n\n点击确认将从云端下载并覆盖本地（本地更改会丢失，但覆盖前状态会自动保存可回滚）。\n\n如需保留本地版本，请取消后点击上传按钮。",
-							confirmText: "下载云端版本"
-						},
-						onConfirm: doCloudDownload
-					});
+				setCloudStatus("数据冲突：本地和云端都有修改", "Warning");
 				}
 			} else {
 				if (hasLocalData(localPayload.data)) {
-					setCloudStatus("本地有未上传数据", "Warning", {
-						key: "upload",
-						dialog: {
-							title: "数据状态",
-							message: "检测到本地和云端数据不一致（无上次同步记录）。\n\n建议先下载云端数据查看，或上传本地数据覆盖云端。\n\n点击确认将上传本地数据到云端。",
-							confirmText: "上传本地数据"
-						},
-						onConfirm: doCloudUpload
-					});
+				setCloudStatus("本地有未上传数据", "Warning");
 				} else {
 					setCloudStatus("云端有数据，可下载恢复", "", {
 						key: "download",
