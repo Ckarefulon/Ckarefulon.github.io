@@ -6,8 +6,9 @@
 	 *
 	 * 本阶段只做手动上传/下载，不做自动同步。
 	 * 所有云端读写都使用 user_id + site_scope。
-	 * 只上传 cube_memory_progress、smartCubeFormulaEntries 和 smartCubeStateImportText。
+	 * 只上传 cube_memory_progress、smartCubeFormulaEntries 和 smartCubePracticeStats。
 	 * 不上传 smartCubeMacMap、smartCubeTheme、密码、token、Supabase session。
+	 * smartCubeStateImportText 已合并到 cube_memory_progress 中（planText 字段）。
 	 */
 
 	var cloudSyncManager = {
@@ -28,7 +29,7 @@
 			var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "/Cube/Formula";
 			var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress", null) : null;
 			var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
-			var stateImportText = window.storageManager ? window.storageManager.getItem("smartCubeStateImportText", "") : "";
+			var practiceStats = window.storageManager ? window.storageManager.getJson("smartCubePracticeStats", null) : null;
 
 			return {
 				exportedAt: new Date().toISOString(),
@@ -39,7 +40,7 @@
 				data: {
 					cube_memory_progress: mem,
 					smartCubeFormulaEntries: entries,
-					smartCubeStateImportText: stateImportText
+					smartCubePracticeStats: practiceStats
 				}
 			};
 		},
@@ -147,6 +148,10 @@
 				if (dataBlock.smartCubeStateImportText !== undefined) {
 					window.storageManager.setItem("smartCubeStateImportText", dataBlock.smartCubeStateImportText || "");
 					applied.smartCubeStateImportText = true;
+				}
+				if (dataBlock.smartCubePracticeStats !== undefined) {
+					window.storageManager.setJson("smartCubePracticeStats", dataBlock.smartCubePracticeStats);
+					applied.smartCubePracticeStats = true;
 				}
 				return applied;
 			} finally {

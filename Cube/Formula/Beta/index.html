@@ -20,7 +20,7 @@
 	<script src="/supabase/auth-manager.js?v=0677" defer></script>
 	<script src="/assets/backend/profile-manager.js?v=0843" defer></script>
 	<script src="/assets/services/global/global-data-manager.js?v=0666" defer></script>
-	<script src="/assets/services/sync/cloud-sync-manager.js?v=0943" defer></script>
+	<script src="/assets/services/sync/cloud-sync-manager.js?v=1077" defer></script>
 
 	<script src="assets/lib/lzstring.js?v=0286" defer></script>
 	<script src="assets/lib/sha256.js?v=0286" defer></script>
@@ -41,7 +41,7 @@
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
 
 	<link rel="stylesheet" href="assets/memory/memory.css?v=1034">
-	<script src="assets/memory/memory.js?v=1034" defer></script>
+	<script src="assets/memory/memory.js?v=1077" defer></script>
 
 	<title>学习模式</title>
 	<style>
@@ -2205,7 +2205,7 @@
 			</section>
 
 			<section class="panelSection stateImport" id="stateImport">
-				<div id="stateDropZone" class="importDropZone">拖入 TXT 状态文件</div>
+				<div id="stateDropZone" class="importDropZone">拖入 TXT 公式文件</div>
 				<div class="controls">
 					<button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button>
 					<button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button>
@@ -2213,32 +2213,22 @@
 				<input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain">
 				<div id="textImportBox" class="textImport">
 					<div class="textImportWrap">
-						<textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea>
+						<textarea id="stateTextInput" class="stateTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea>
 						<div class="textImportActions">
 							<button id="clearStateTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
 							<button id="copyStateTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
 						</div>
 					</div>
-					<button id="parseStateTextBtn" class="button small" type="button">导入文本</button>
+					<button id="parseStateTextBtn" class="button small" type="button">导入公式</button>
 				</div>
 				<div class="stateOptionRow">
 					<label class="stateOptions smartCheck">
 						<input id="showStateThumbs" type="checkbox">
 						<span class="checkVisual"></span>
-						<span>显示状态缩略图</span>
-					</label>
-					<label class="stateOptions smartCheck">
-						<input id="stateDisplayFormula" name="stateDisplayMode" type="radio" value="formula" checked>
-						<span class="checkVisual"></span>
-						<span>公式</span>
-					</label>
-					<label class="stateOptions smartCheck">
-						<input id="stateDisplayState" name="stateDisplayMode" type="radio" value="state">
-						<span class="checkVisual"></span>
-						<span>状态</span>
+						<span>显示公式缩略图</span>
 					</label>
 				</div>
-				<div id="stateImportStatus" class="importStatus">未导入状态</div>
+				<div id="stateImportStatus" class="importStatus">未导入公式</div>
 				<div id="stateList" class="stateList"></div>
 			</section>
 
@@ -2412,12 +2402,16 @@
 		(function() {
 			"use strict";
 
+			var PRACTICE_STATS_SCHEMA_VERSION = 1;
+			var PRACTICE_STATS_KEY = "smartCubePracticeStats";
+
 			var app = {
 				twistyScene: null,
 				virtualCubie: null,
 				moveHistory: [],
 				importedStates: [],
 				stateImportText: "",
+				stateImported: false,
 				formulaEntries: [],
 				formulaExportTextOverride: "",
 				activeFormulaId: null,
@@ -2431,8 +2425,8 @@
 				formulaLibraryLoading: false,
 				suppressLibraryTransferOnce: false,
 				showStateThumbs: false,
-				stateDisplayMode: "formula",
 				showPracticeFormula: false,
+				practiceStats: null,
 				thumbnailScenes: [],
 				thumbnailYaw: 0,
 				thumbnailPitch: 0,
@@ -2459,6 +2453,7 @@
 				seenUnsolvedFaceletSinceState: false,
 				seenUnsolvedVirtualSinceState: false,
 				lastFaceletSolved: false,
+				currentFacelet: "",
 				deviceName: "",
 				batteryLevel: null,
 				connected: false,
@@ -2481,12 +2476,38 @@
 				this.refreshElements();
 
 				this.loadFormulaEntries();
+				this.loadPracticeStats();
 				this.loadStateImportText();
 				this.initTwisty();
 					this.initTheme();
 					this.initSiteHeader();
 					this.renderModePanel("learn");
 					this.bindUI();
+					if (this.onActiveLibraryChanged) {
+						var self = this;
+						this.onActiveLibraryChanged(function() {
+							var planText = self.getActiveLibraryPlanText ? self.getActiveLibraryPlanText() : "";
+							self.stateImportText = planText;
+							if (self.elements.stateTextInput) {
+								self.elements.stateTextInput.value = planText;
+							}
+							if (planText && planText.trim()) {
+								self.importStateText(planText, "library");
+								self.stateImported = true;
+							} else {
+								self.importedStates = [];
+								self.stateSolveTimes = {};
+								self.stateImported = false;
+								self.renderStateList();
+								self.setImportStatus("未导入公式");
+							}
+						});
+					}
+					this.fillStateTextInput(this.stateImportText, false, false);
+					if (this.stateImportText && this.stateImportText.trim()) {
+						this.importStateText(this.stateImportText, "restore");
+						this.stateImported = true;
+					}
 					this.setStatus("idle", "未连接");
 					this.log("ready", "页面已就绪");
 					if (!navigator.bluetooth) {
@@ -2530,8 +2551,6 @@
 						stateTextInput: document.getElementById("stateTextInput"),
 						parseStateTextBtn: document.getElementById("parseStateTextBtn"),
 						showStateThumbs: document.getElementById("showStateThumbs"),
-						stateDisplayFormula: document.getElementById("stateDisplayFormula"),
-						stateDisplayState: document.getElementById("stateDisplayState"),
 						showPracticeFormula: document.getElementById("showPracticeFormula"),
 						practiceFormulaText: document.getElementById("practiceFormulaText"),
 						practiceFormulaToggle: document.getElementById("practiceFormulaToggle"),
@@ -2913,7 +2932,7 @@
 				},
 
 				getStateImportHtml: function(showThumbOption, practiceCards) {
-					return '<section class="panelSection stateImport" id="stateImport"><div id="stateDropZone" class="importDropZone">拖入 TXT 状态文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><div class="textImportWrap"><textarea id="stateTextInput" class="stateTextarea" spellcheck="false"></textarea><div class="textImportActions"><button id="clearStateTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button><button id="copyStateTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div><button id="parseStateTextBtn" class="button small" type="button">导入文本</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showStateThumbs" type="checkbox"><span class="checkVisual"></span><span>显示状态缩略图</span></label><label class="stateOptions smartCheck"><input id="stateDisplayFormula" name="stateDisplayMode" type="radio" value="formula"><span class="checkVisual"></span><span>公式</span></label><label class="stateOptions smartCheck"><input id="stateDisplayState" name="stateDisplayMode" type="radio" value="state"><span class="checkVisual"></span><span>状态</span></label></div>' : "") + '<div id="stateImportStatus" class="importStatus">未导入状态</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"></div>' : "") + '<div id="stateList" class="stateList"></div></section>';
+					return '<section class="panelSection stateImport" id="stateImport"><div id="stateDropZone" class="importDropZone">拖入 TXT 公式文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><div class="textImportWrap"><textarea id="stateTextInput" class="stateTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea><div class="textImportActions"><button id="clearStateTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button><button id="copyStateTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div><button id="parseStateTextBtn" class="button small" type="button">导入公式</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showStateThumbs" type="checkbox"><span class="checkVisual"></span><span>显示公式缩略图</span></label></div>' : "") + '<div id="stateImportStatus" class="importStatus">未导入公式</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"></div>' : "") + '<div id="stateList" class="stateList"></div></section>';
 				},
 
 				getDiagnosticsHtml: function(hidden) {
@@ -3005,6 +3024,7 @@
 								self.randomBag = [];
 								self.updatePracticeModeSelect();
 								self.closePracticeModeMenu();
+								self.savePracticeStats();
 							}
 						});
 					});
@@ -3410,6 +3430,57 @@
 						};
 					});
 					storageManager.setJson("smartCubeFormulaEntries", data);
+					if (this.markDataDirty) {
+						this.markDataDirty();
+					}
+				},
+
+				loadPracticeStats: function() {
+					try {
+						var saved = storageManager.getJson(PRACTICE_STATS_KEY, null);
+						if (!saved || typeof saved !== "object") {
+							this.practiceStats = {
+								schemaVersion: PRACTICE_STATS_SCHEMA_VERSION,
+								solveTimes: {},
+								practiceMode: "sequence"
+							};
+							return;
+						}
+						if (saved.schemaVersion !== PRACTICE_STATS_SCHEMA_VERSION) {
+							this.practiceStats = {
+								schemaVersion: PRACTICE_STATS_SCHEMA_VERSION,
+								solveTimes: {},
+								practiceMode: "sequence"
+							};
+							return;
+						}
+						this.practiceStats = {
+							schemaVersion: PRACTICE_STATS_SCHEMA_VERSION,
+							solveTimes: saved.solveTimes && typeof saved.solveTimes === "object" ? saved.solveTimes : {},
+							practiceMode: saved.practiceMode || "sequence"
+						};
+						this.stateSolveTimes = this.practiceStats.solveTimes;
+						this.practiceMode = this.practiceStats.practiceMode || "sequence";
+					} catch (error) {
+						this.practiceStats = {
+							schemaVersion: PRACTICE_STATS_SCHEMA_VERSION,
+							solveTimes: {},
+							practiceMode: "sequence"
+						};
+					}
+				},
+
+				savePracticeStats: function() {
+					if (!this.practiceStats) {
+						this.practiceStats = {
+							schemaVersion: PRACTICE_STATS_SCHEMA_VERSION,
+							solveTimes: {},
+							practiceMode: "sequence"
+						};
+					}
+					this.practiceStats.solveTimes = this.stateSolveTimes || {};
+					this.practiceStats.practiceMode = this.practiceMode || "sequence";
+					storageManager.setJson(PRACTICE_STATS_KEY, this.practiceStats);
 					if (this.markDataDirty) {
 						this.markDataDirty();
 					}
@@ -4462,16 +4533,27 @@
 					this.cloudApplyingDownload = true;
 					window._siteNavApplyingCloudData = true;
 					try {
-						this.loadFormulaEntries();
-						this.renderFormulaList();
-						this.loadStateImportText();
 						if (typeof this.reloadMemoryData === "function") {
 							this.reloadMemoryData();
 						}
-						this.syncConnectionUi();
-						if (this.elements.stateImportBox && this.elements.stateImportBox.classList.contains("isVisible")) {
-							this.renderStateImportText();
+						this.loadFormulaEntries();
+						this.loadPracticeStats();
+						this.renderFormulaList();
+						this.stateImportText = this.getActiveLibraryPlanText ? this.getActiveLibraryPlanText() : "";
+						this.fillStateTextInput(this.stateImportText, false, false);
+						if (this.stateImportText && this.stateImportText.trim()) {
+							this.importStateText(this.stateImportText, "restore");
+							this.stateImported = true;
+						} else {
+							this.importedStates = [];
+							this.stateSolveTimes = (this.practiceStats && this.practiceStats.solveTimes) || {};
+							this.stateImported = false;
+							this.renderStateList();
+							this.setImportStatus("未导入公式");
+							this.updatePracticeAoTimes();
 						}
+						this.syncConnectionUi();
+						this.updatePracticeModeSelect();
 					} finally {
 						this.cloudApplyingDownload = false;
 						setTimeout(function() { window._siteNavApplyingCloudData = false; }, 0);
@@ -4487,7 +4569,7 @@
 						origSetJson = window.storageManager.setJson.bind(window.storageManager);
 						window.storageManager.setJson = function(key, value) {
 							origSetJson(key, value);
-							if ((key === "cube_memory_progress" || key === "smartCubeFormulaEntries") && !self.cloudApplyingDownload && !window._siteNavApplyingCloudData) {
+							if ((key === "cube_memory_progress" || key === "smartCubeFormulaEntries" || key === "smartCubePracticeStats") && !self.cloudApplyingDownload && !window._siteNavApplyingCloudData) {
 								self.markDataDirty();
 							}
 						};
@@ -4498,9 +4580,6 @@
 						origSetItem = window.storageManager.setItem.bind(window.storageManager);
 						window.storageManager.setItem = function(key, value) {
 							origSetItem(key, value);
-							if (key === "smartCubeStateImportText" && !self.cloudApplyingDownload && !window._siteNavApplyingCloudData) {
-								self.markDataDirty();
-							}
 						};
 					}
 
@@ -4681,24 +4760,6 @@
 							self.renderStateList();
 						});
 					}
-					if (this.elements.stateDisplayFormula) {
-						this.elements.stateDisplayFormula.checked = this.stateDisplayMode !== "state";
-						this.elements.stateDisplayFormula.addEventListener("change", function(event) {
-							if (event.target.checked) {
-								self.stateDisplayMode = "formula";
-								self.renderStateList();
-							}
-						});
-					}
-					if (this.elements.stateDisplayState) {
-						this.elements.stateDisplayState.checked = this.stateDisplayMode === "state";
-						this.elements.stateDisplayState.addEventListener("change", function(event) {
-							if (event.target.checked) {
-								self.stateDisplayMode = "state";
-								self.renderStateList();
-							}
-						});
-					}
 					if (this.elements.showPracticeFormula) {
 						this.elements.showPracticeFormula.checked = this.showPracticeFormula;
 						this.elements.showPracticeFormula.addEventListener("change", function(event) {
@@ -4823,7 +4884,17 @@
 			},
 
 			loadStateImportText: function() {
-				var saved = storageManager.getItem("smartCubeStateImportText", "");
+				var saved = "";
+				if (this.getActiveLibraryPlanText) {
+					saved = this.getActiveLibraryPlanText();
+				}
+				if (!saved) {
+					saved = storageManager.getItem("smartCubeStateImportText", "") || "";
+					if (saved && this.setActiveLibraryPlanText) {
+						this.setActiveLibraryPlanText(saved);
+						storageManager.setItem("smartCubeStateImportText", "");
+					}
+				}
 				this.stateImportText = saved || "";
 				if (this.elements.stateTextInput) {
 					this.elements.stateTextInput.value = this.stateImportText;
@@ -4831,7 +4902,14 @@
 			},
 
 			saveStateImportText: function() {
-				storageManager.setItem("smartCubeStateImportText", this.stateImportText || "");
+				var text = this.stateImportText || "";
+				if (this.setActiveLibraryPlanTextQuiet) {
+					this.setActiveLibraryPlanTextQuiet(text);
+				} else if (this.setActiveLibraryPlanText) {
+					this.setActiveLibraryPlanText(text);
+				} else {
+					storageManager.setItem("smartCubeStateImportText", text);
+				}
 				if (this.markDataDirty) {
 					this.markDataDirty();
 				}
@@ -4890,14 +4968,61 @@
 
 				importStateText: function(text, source) {
 					var result = this.parseStateDefinitions(text || "");
+					var oldStates = this.importedStates || [];
+					var oldSolveTimes = source === "restore"
+						? (this.practiceStats && this.practiceStats.solveTimes ? this.practiceStats.solveTimes : {})
+						: (this.stateSolveTimes || {});
+					var newSolveTimes = {};
+					function normalizeAlg(alg) {
+						return String(alg || "").replace(/\s+/g, "").toUpperCase();
+					}
+					function findMatchingTimes(newState) {
+						var newAlg = normalizeAlg(newState.alg);
+						if (!newAlg) return null;
+						for (var ki = 0; ki < oldStates.length; ki++) {
+							var oldState = oldStates[ki];
+							if (normalizeAlg(oldState.alg) === newAlg) {
+								var oldKey = oldState.name || String(ki);
+								if (oldSolveTimes[oldKey] && oldSolveTimes[oldKey].length) {
+									return oldSolveTimes[oldKey];
+								}
+							}
+						}
+						var byNameKey = newState.name ? oldSolveTimes[newState.name] : null;
+						if (byNameKey && byNameKey.length) return byNameKey;
+						return null;
+					}
+					for (var si = 0; si < result.states.length; si++) {
+						var state = result.states[si];
+						var key = state.name || String(si);
+						var migrated = findMatchingTimes(state);
+						if (migrated) {
+							newSolveTimes[key] = migrated.slice();
+						} else if (source === "restore" && oldSolveTimes[key]) {
+							newSolveTimes[key] = oldSolveTimes[key].slice();
+						}
+					}
 					this.importedStates = result.states;
-					this.stateSolveTimes = {};
+					this.stateSolveTimes = newSolveTimes;
+					this.stateImported = result.states.length > 0;
+					var isUserImport = source !== "restore" && source !== "library";
+					if (isUserImport && this.setActiveLibraryFormulasFromStates) {
+						this.setActiveLibraryFormulasFromStates(result.states);
+					}
+					if (isUserImport) {
+						this.stateImportText = text || "";
+						this.saveStateImportText();
+					}
 					this.renderStateList();
-					this.setImportStatus("已导入 " + result.states.length + " 个状态" + (result.skipped ? "，跳过 " + result.skipped + " 条" : ""));
+					this.setImportStatus("已导入 " + result.states.length + " 个公式" + (result.skipped ? "，跳过 " + result.skipped + " 条" : ""));
 					this.updatePracticeFormulaToggle();
+					this.updatePracticeAoTimes();
 					this.log("state", "import " + result.states.length + " from " + (source || "text"));
-					if (this.isPracticeMode && result.states.length > 0) {
+					if (this.isPracticeMode && result.states.length > 0 && source !== "restore" && source !== "library") {
 						this.applyImportedState(0);
+					}
+					if (isUserImport) {
+						this.savePracticeStats();
 					}
 				},
 
@@ -5130,9 +5255,6 @@
 			},
 
 				getStateDisplayAlg: function(state) {
-					if (this.stateDisplayMode === "state") {
-						return state.alg || "";
-					}
 					return this.invertFormulaDisplayText(state.alg || "", state.moves || []);
 				},
 
@@ -5339,6 +5461,7 @@
 							this.stateSolveTimes[key] = this.stateSolveTimes[key].slice(-200);
 						}
 						this.updatePracticeAoTimes();
+						this.savePracticeStats();
 					}
 					this.setImportStatus(this.practiceMode === "loop" ? "已还原，正在循环" : "已还原，正在切换");
 					this.showPracticeSolvedCheck();
@@ -5722,6 +5845,7 @@
 
 				onCubeCallback: function(facelet, prevMoves, lastTs, hardware) {
 					this.hasValidCubeState = true;
+					this.currentFacelet = String(facelet || "").toUpperCase();
 					this.hideMacHelp();
 					if (hardware) {
 						this.setDevice(hardware, this.batteryLevel);

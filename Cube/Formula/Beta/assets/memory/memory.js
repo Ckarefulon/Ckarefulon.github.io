@@ -285,6 +285,7 @@
 		memory.data.activeLibraryId = id;
 		saveData();
 		loadLibraryMask();
+		app._notifyActiveLibraryChanged();
 	}
 
 	function createLibrary(name) {
@@ -292,6 +293,7 @@
 		memory.data.libraries[id] = freshLibrary(name || "新库");
 		memory.data.activeLibraryId = id;
 		saveData();
+		app._notifyActiveLibraryChanged();
 		return id;
 	}
 
@@ -304,12 +306,14 @@
 			memory.data.activeLibraryId = Object.keys(memory.data.libraries)[0];
 		}
 		saveData();
+		app._notifyActiveLibraryChanged();
 	}
 
 	function renameLibrary(id, name) {
 		if (memory.data.libraries[id] && name) {
 			memory.data.libraries[id].name = name;
 			saveData();
+			app._notifyActiveLibraryChanged();
 		}
 	}
 
@@ -1234,17 +1238,31 @@
 			return false;
 		}
 		var previous = (l.allFormulas || l.formulas || []).slice();
+		function findPreviousCustomState(state) {
+			var normalized = String(state.alg || "").replace(/\s+/g, "").toUpperCase();
+			if (!normalized) return null;
+			for (var i = 0; i < previous.length; i++) {
+				var prevAlg = String(previous[i].alg || previous[i].formula || "").replace(/\s+/g, "").toUpperCase();
+				if (prevAlg === normalized && previous[i].customSolvedState) {
+					return previous[i].customSolvedState;
+				}
+			}
+			return null;
+		}
 		var formulas = parsed.states.map(function(state, index) {
 			var same = previous[index] && previous[index].name === state.name && previous[index].alg === state.alg ? previous[index] : null;
 			var id = same ? same.id : "memory_formula_" + Date.now() + "_" + l.idSeed++;
+			var existing = same || previous.find(function(p) { return p.name === state.name && p.alg === state.alg; });
+			var customSolvedState = existing ? (existing.customSolvedState || null) : findPreviousCustomState(state);
 			return {
 				id: id,
-				image: null,
+				image: existing ? (existing.image || null) : null,
 				name: state.name,
 				alg: state.alg,
 				formula: state.alg,
 				answer: app.invertFormulaDisplayText(state.alg || "", state.moves || []),
-				moves: state.moves.slice()
+				moves: state.moves.slice(),
+				customSolvedState: customSolvedState
 			};
 		});
 		l.planText = String(text || "");
@@ -1264,6 +1282,7 @@
 			});
 			saveData();
 		}).catch(function() {});
+		app._notifyActiveLibraryChanged();
 		if (app.currentMode === "memory") {
 			startMemoryMode();
 		}
@@ -1987,4 +2006,152 @@
 	}
 	document.addEventListener("fullscreenchange", syncFullscreenMode);
 	document.addEventListener("webkitfullscreenchange", syncFullscreenMode);
+
+	/* ---------- Shared formula API for learn/practice modes ---------- */
+
+	app.getActiveLibraryPlanText = function() {
+		var l = lib();
+		return l ? String(l.planText || "") : "";
+	};
+
+	app.setActiveLibraryPlanText = function(text) {
+		var l = lib();
+		if (!l) return;
+		var newText = String(text || "");
+		if (newText === String(l.planText || "")) {
+			return;
+		}
+		l.planText = newText;
+		if (!newText.trim()) {
+			l.formulas = [];
+			l.allFormulas = [];
+			saveData();
+			app._notifyActiveLibraryChanged();
+			return;
+		}
+		if (typeof app.parseStateDefinitions === "function") {
+			var parsed = app.parseStateDefinitions(newText);
+			if (parsed.states.length) {
+				var previous = (l.allFormulas || l.formulas || []).slice();
+				function findPreviousCustomState(state) {
+					var normalized = String(state.alg || "").replace(/\s+/g, "").toUpperCase();
+					if (!normalized) return null;
+					for (var i = 0; i < previous.length; i++) {
+						var prevAlg = String(previous[i].alg || previous[i].formula || "").replace(/\s+/g, "").toUpperCase();
+						if (prevAlg === normalized && previous[i].customSolvedState) {
+							return previous[i].customSolvedState;
+						}
+					}
+					return null;
+				}
+				var formulas = parsed.states.map(function(state, index) {
+					var same = previous[index] && previous[index].name === state.name && previous[index].alg === state.alg ? previous[index] : null;
+					var id = same ? same.id : "memory_formula_" + Date.now() + "_" + l.idSeed++;
+					var existing = same || previous.find(function(p) { return p.name === state.name && p.alg === state.alg; });
+					var customSolvedState = existing ? (existing.customSolvedState || null) : findPreviousCustomState(state);
+					return {
+						id: id,
+						image: existing ? (existing.image || null) : null,
+						name: state.name,
+						alg: state.alg,
+						formula: state.alg,
+						answer: app.invertFormulaDisplayText ? app.invertFormulaDisplayText(state.alg || "", state.moves || []) : state.alg,
+						moves: state.moves.slice(),
+						customSolvedState: customSolvedState
+					};
+				});
+				l.formulas = formulas;
+				l.allFormulas = formulas.slice();
+				formulas.forEach(function(formula) { getProgress(formula.id); });
+			}
+		}
+		saveData();
+		app._notifyActiveLibraryChanged();
+	};
+
+	app.setActiveLibraryPlanTextQuiet = function(text) {
+		var l = lib();
+		if (!l) return;
+		l.planText = String(text || "");
+		saveData();
+	};
+
+	app.getActiveLibraryFormulas = function() {
+		var l = lib();
+		return l ? (l.formulas || []) : [];
+	};
+
+	app.setActiveLibraryFormulasFromStates = function(parsedStates, silent) {
+		var l = lib();
+		if (!l) return;
+		var previous = (l.allFormulas || l.formulas || []).slice();
+		var formulas = parsedStates.map(function(state, index) {
+			var same = previous[index] && previous[index].name === state.name && previous[index].alg === state.alg ? previous[index] : null;
+			var id = same ? same.id : "memory_formula_" + Date.now() + "_" + l.idSeed++;
+			var existing = same || previous.find(function(p) { return p.name === state.name && p.alg === state.alg; });
+			return {
+				id: id,
+				image: existing ? (existing.image || null) : null,
+				name: state.name,
+				alg: state.alg,
+				formula: state.alg,
+				answer: app.invertFormulaDisplayText ? app.invertFormulaDisplayText(state.alg || "", state.moves || []) : state.alg,
+				moves: state.moves.slice(),
+				customSolvedState: existing ? (existing.customSolvedState || null) : null
+			};
+		});
+		l.formulas = formulas;
+		l.allFormulas = formulas.slice();
+		l.planText = formulas.map(function(f) {
+			var alg = f.alg || f.formula || '';
+			if (!alg.endsWith(';')) { alg += ';'; }
+			return f.name + ': ' + alg;
+		}).join('\n');
+		l.queue = [];
+		l.todayQueue = [];
+		l.undoStack = [];
+		formulas.forEach(function(formula) { getProgress(formula.id); });
+		saveData();
+		if (!silent) {
+			app._notifyActiveLibraryChanged();
+		}
+	};
+
+	app.findMemoryFormulaByAlg = function(alg) {
+		var l = lib();
+		if (!l || !alg) return null;
+		var normalized = String(alg).replace(/\s+/g, "").toUpperCase();
+		var allFormulas = l.allFormulas && l.allFormulas.length ? l.allFormulas : (l.formulas || []);
+		for (var i = 0; i < allFormulas.length; i++) {
+			var fAlg = String(allFormulas[i].alg || allFormulas[i].formula || "").replace(/\s+/g, "").toUpperCase();
+			if (fAlg === normalized) return allFormulas[i];
+		}
+		return null;
+	};
+
+	app.setFormulaCustomSolvedState = function(formulaId, facelet) {
+		var l = lib();
+		if (!l) return false;
+		var allFormulas = l.allFormulas && l.allFormulas.length ? l.allFormulas : (l.formulas || []);
+		for (var i = 0; i < allFormulas.length; i++) {
+			if (allFormulas[i].id === formulaId) {
+				allFormulas[i].customSolvedState = (facelet && String(facelet).length === 54) ? String(facelet).toUpperCase() : null;
+				saveData();
+				return true;
+			}
+		}
+		return false;
+	};
+
+	var _activeLibraryChangeListeners = [];
+	app.onActiveLibraryChanged = function(callback) {
+		if (typeof callback === "function" && _activeLibraryChangeListeners.indexOf(callback) === -1) {
+			_activeLibraryChangeListeners.push(callback);
+		}
+	};
+	app._notifyActiveLibraryChanged = function() {
+		for (var i = 0; i < _activeLibraryChangeListeners.length; i++) {
+			try { _activeLibraryChangeListeners[i](); } catch(e) {}
+		}
+	};
 })();
