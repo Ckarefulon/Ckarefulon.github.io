@@ -437,6 +437,7 @@
 }
 
 .memoryOption {
+	position: relative;
 	min-width: 0;
 	min-height: 42px;
 	padding: 5px 2px;
@@ -452,6 +453,22 @@
 	border-width: 3px;
 	font-weight: 900;
 	box-shadow: 0 0 0 1px color-mix(in srgb, var(--memoryColor) 28%, transparent);
+}
+
+.memoryOption.isLastChoice::after {
+	content: "上次选择";
+	position: absolute;
+	top: 2px;
+	right: 3px;
+	padding: 0 4px;
+	border-radius: 999px;
+	background: #5d4ea8;
+	color: #fff;
+	font-size: 9px;
+	font-weight: 700;
+	line-height: 14px;
+	white-space: nowrap;
+	pointer-events: none;
 }
 
 .memoryHistory {
@@ -604,16 +621,20 @@
 	flex: 1 1 auto;
 	min-height: 200px;
 	max-height: 420px;
-	overflow-y: auto;
 	border: 1px solid var(--controlBorder);
 	border-radius: 6px;
 	background: var(--controlBg);
 	position: relative;
+	display: flex;
+	flex-direction: column;
 }
 
 .memoryFormulaList {
 	display: flex;
 	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
 	padding-bottom: 44px;
 }
 
@@ -705,7 +726,7 @@
 .memoryFormulaListWrap .memoryEditPlanBtn {
 	position: absolute;
 	bottom: 8px;
-	right: 8px;
+	right: 24px;
 	width: 32px;
 	height: 32px;
 	padding: 0;

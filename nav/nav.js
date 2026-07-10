@@ -313,6 +313,9 @@
 			hideAccountMenu(true);
 		} else {
 			showAccountMenu();
+			if (typeof checkCloudDiff === "function") {
+				setTimeout(checkCloudDiff, 0);
+			}
 		}
 	}
 
@@ -579,7 +582,8 @@
 		import: null // import 按钮在 cloudImportLocalBtn 绑定时已知，稍后注入
 	};
 
-	function setCloudStatus(text, type, action) {
+	function setCloudStatus(text, type, action, options) {
+		options = options || {};
 		if (!cloudStatusEl) return;
 		cloudStatusEl.textContent = text;
 		cloudStatusEl.className = "accountMenuCloudStatus" + (type ? " is" + type.charAt(0).toUpperCase() + type.slice(1) : "");
@@ -597,10 +601,12 @@
 		} else {
 			cloudStatusEl.classList.remove("isActionable");
 		}
-		// Warning / Error 锁定菜单（外部点击不关闭）；Success 解锁；
+		// 用户触发的 Warning / Error 锁定菜单（外部点击不关闭）；被动检测只更新状态。
 		// 空类型（操作进行中）不改变锁定状态，允许操作过程中保持菜单
 		if (type === "Warning" || type === "Error") {
-			_menuLocked = true;
+			if (!options.passive) {
+				_menuLocked = true;
+			}
 			// 有待办动作时取消成功提示的自动关闭倒计时
 			if (_successAutoCloseTimer) {
 				clearTimeout(_successAutoCloseTimer);
@@ -616,10 +622,17 @@
 			}, 700);
 		}
 		// type="" 不改变 _menuLocked，也不改动自动关闭定时器
-		if (_menuLocked) {
+		if (_menuLocked && !options.passive) {
 			showAccountMenu();
 		}
 	}
+	function setCloudDetectionStatus(text, type, action) {
+		if (action) {
+			action.passive = true;
+		}
+		setCloudStatus(text, type, action, { passive: true });
+	}
+
 	// 归零：仅当有待办动作（Warning/Error）时清空状态并显示"已取消"；
 	// Success 等正常状态不受影响。
 	function clearCloudStatus() {
@@ -668,31 +681,111 @@
 
 	var _cloudDiffCheckPending = false;
 
-	function hasLocalData(data) {
-		if (!data) return false;
-		for (var key in data) {
-			if (!Object.prototype.hasOwnProperty.call(data, key)) continue;
-			var val = data[key];
-			if (val == null) continue;
-			if (typeof val === "string" && val === "") continue;
-			if (Array.isArray(val) && val.length === 0) continue;
-			if (typeof val === "object" && !Array.isArray(val)) {
-				var hasAny = false;
-				for (var k in val) {
-					if (Object.prototype.hasOwnProperty.call(val, k)) { hasAny = true; break; }
-				}
-				if (!hasAny) continue;
-			}
-			if (typeof val === "boolean" && val === false) continue;
-			if (typeof val === "number" && val === 0) continue;
-			return true;
-		}
+	function hasText(value) {
+		return typeof value === "string" && value.trim() !== "";
+	}
+
+	function hasObjectKeys(value) {
+		return !!(value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length > 0);
+	}
+
+	function hasFormulaEntries(value) {
+		return Array.isArray(value) && value.some(function(item) {
+			if (!item || typeof item !== "object") return false;
+			return hasText(item.name) || hasText(item.alg) || (Array.isArray(item.moves) && item.moves.length > 0);
+		});
+	}
+
+	function hasCubeMemoryLibraryData(lib, id) {
+		if (!lib || typeof lib !== "object") return false;
+		if (hasText(lib.planText)) return true;
+		if (Array.isArray(lib.formulas) && lib.formulas.length > 0) return true;
+		if (Array.isArray(lib.allFormulas) && lib.allFormulas.length > 0) return true;
+		if (hasObjectKeys(lib.progress)) return true;
+		if (Array.isArray(lib.queue) && lib.queue.length > 0) return true;
+		if (Array.isArray(lib.todayQueue) && lib.todayQueue.length > 0) return true;
+		if (Array.isArray(lib.undoStack) && lib.undoStack.length > 0) return true;
+		if (lib.day && Array.isArray(lib.day.learnedIds) && lib.day.learnedIds.length > 0) return true;
+		if (hasObjectKeys(lib.hiddenStickerMask)) return true;
+		if (lib.settings && Number(lib.settings.dailyCount) !== 10) return true;
+		if (lib.thresholdData && (Number(lib.thresholdData.threshold) !== 500 || Number(lib.thresholdData.precision) !== 2)) return true;
+		if (id !== "lib_default") return true;
+		if (hasText(lib.name) && lib.name !== "默认库") return true;
 		return false;
 	}
 
+	function hasCubeMemoryData(value) {
+		if (!value || typeof value !== "object") return false;
+		if (hasText(value.planText)) return true;
+		if (Array.isArray(value.formulas) && value.formulas.length > 0) return true;
+		if (Array.isArray(value.allFormulas) && value.allFormulas.length > 0) return true;
+		if (hasObjectKeys(value.progress)) return true;
+		var libs = value.libraries;
+		if (!libs || typeof libs !== "object" || Array.isArray(libs)) return false;
+		return Object.keys(libs).some(function(id) {
+			return hasCubeMemoryLibraryData(libs[id], id);
+		});
+	}
+
+	function hasMeaningfulValue(value) {
+		if (value == null) return false;
+		if (typeof value === "string") return hasText(value);
+		if (typeof value === "boolean") return value;
+		if (typeof value === "number") return value !== 0;
+		if (Array.isArray(value)) return value.some(hasMeaningfulValue);
+		if (typeof value === "object") return Object.keys(value).some(function(key) { return hasMeaningfulValue(value[key]); });
+		return true;
+	}
+
+	function hasMeaningfulLocalField(key, value) {
+		if (key === "cube_memory_progress") return hasCubeMemoryData(value);
+		if (key === "smartCubeFormulaEntries") return hasFormulaEntries(value);
+		if (key === "smartCubeStateImportText") return hasText(value);
+		if (key === "relay_text") return hasText(value);
+		if (key === "relay_realtime_enabled") return value === true;
+		if (key === "relay_interval_seconds") return Number(value) > 0;
+		return hasMeaningfulValue(value);
+	}
+
+	function hasLocalData(data) {
+		if (!data || typeof data !== "object") return false;
+		return Object.keys(data).some(function(key) {
+			return hasMeaningfulLocalField(key, data[key]);
+		});
+	}
+
+	function formatCloudUpdatedAt(status) {
+		return status && status.updatedAt ? new Date(status.updatedAt).toLocaleString() : "未知";
+	}
+
+	function createUploadAction(message) {
+		return {
+			key: "upload",
+			dialog: {
+				title: "上传本地数据",
+				message: message || "确认将本地数据上传到云端？",
+				confirmText: "确认上传"
+			},
+			onConfirm: doCloudUpload
+		};
+	}
+
+	function createDownloadAction(message) {
+		return {
+			key: "download",
+			dialog: {
+				title: "下载云端数据",
+				message: message || "确认从云端恢复到本地？",
+				confirmText: "确认下载"
+			},
+			onConfirm: doCloudDownload
+		};
+	}
+
 	function checkCloudDiff() {
+		if (_menuLocked) return;
 		if (!window.authManager || !window.authManager.isLoggedIn()) {
-			setCloudStatus("游客模式：数据仅保存在本地", "");
+			setCloudDetectionStatus("游客模式：数据仅保存在本地", "");
 			refreshRollbackAvailability(false);
 			return;
 		}
@@ -703,10 +796,10 @@
 		if (!window.cloudSyncManager.isReady()) {
 			_cloudReadyRetries++;
 			if (_cloudReadyRetries > 20) {
-				setCloudStatus("同步服务未就绪", "Error");
+				setCloudDetectionStatus("同步服务未就绪", "Error");
 				return;
 			}
-			setCloudStatus("同步服务初始化中...", "");
+			setCloudDetectionStatus("同步服务初始化中...", "");
 			setTimeout(checkCloudDiff, 500);
 			return;
 		}
@@ -720,15 +813,15 @@
 		window.cloudSyncManager.getCloudStatus().then(function(status) {
 			_cloudDiffCheckPending = false;
 			if (!status.success) {
-				setCloudStatus("同步状态检查失败，请刷新重试", "Error");
+				setCloudDetectionStatus("同步状态检查失败，请刷新重试", "Error");
 				return;
 			}
 
 			if (!status.hasData) {
-				if (hasLocalData(localPayload.data)) {
-				setCloudStatus("本地数据尚未备份到云端", "Warning");
+				if (hasLocalData(localData)) {
+					setCloudDetectionStatus("本地数据尚未备份到云端", "Warning", createUploadAction("云端暂无数据。\n\n确认上传当前本地数据作为云端备份？"));
 				} else {
-					setCloudStatus("已就绪", "");
+					setCloudDetectionStatus("已就绪", "");
 				}
 				return;
 			}
@@ -741,7 +834,7 @@
 				var timeStr = syncState && syncState.lastSyncTime
 					? new Date(syncState.lastSyncTime).toLocaleString()
 					: "";
-				setCloudStatus(timeStr ? "已同步 · " + timeStr : "已同步", "");
+				setCloudDetectionStatus(timeStr ? "已同步 · " + timeStr : "已同步", "");
 				return;
 			}
 
@@ -754,27 +847,22 @@
 			if (lastSyncedData) {
 				var localChanged = !deepEqual(lastSyncedData, localData);
 				var cloudChanged = !deepEqual(lastSyncedData, cloudData);
+				var cloudTime = formatCloudUpdatedAt(status);
 
 				if (localChanged && !cloudChanged) {
-				setCloudStatus("本地有未上传更改", "Warning");
+					setCloudDetectionStatus("本地有未上传更改", "Warning", createUploadAction("云端仍是上次同步版本。\n\n确认上传本地更改？"));
 				} else if (!localChanged && cloudChanged) {
-				setCloudStatus("云端有更新（其他设备修改）", "Warning");
+					setCloudDetectionStatus("云端有更新（其他设备修改）", "Warning", createDownloadAction("本地仍是上次同步版本，云端更新时间：" + cloudTime + "。\n\n确认下载云端更新并覆盖本地？"));
+				} else if (localChanged && cloudChanged) {
+					setCloudDetectionStatus("数据冲突：请选择上传或下载", "Warning");
 				} else {
-				setCloudStatus("数据冲突：本地和云端都有修改", "Warning");
+					setCloudDetectionStatus("数据状态待确认", "");
 				}
 			} else {
-				if (hasLocalData(localPayload.data)) {
-				setCloudStatus("本地有未上传数据", "Warning");
+				if (hasLocalData(localData)) {
+					setCloudDetectionStatus("本地和云端都有数据，请选择上传或下载", "Warning");
 				} else {
-					setCloudStatus("云端有数据，可下载恢复", "", {
-						key: "download",
-						dialog: {
-							title: "下载云端数据",
-							message: "本地暂无数据，云端有备份数据。\n\n确认下载到本地？",
-							confirmText: "确认下载"
-						},
-						onConfirm: doCloudDownload
-					});
+					setCloudDetectionStatus("云端有数据，可下载恢复", "", createDownloadAction("本地暂无数据，云端有备份数据。\n\n确认下载到本地？"));
 				}
 			}
 		}).catch(function() {
@@ -916,7 +1004,7 @@
 			}
 			// 再次单击 = 确认覆盖
 			var pending = consumeCloudStatusAction();
-			if (pending && pending.key === "upload") {
+			if (pending && pending.key === "upload" && !pending.passive) {
 				pending.onConfirm();
 				return;
 			}
@@ -950,7 +1038,7 @@
 			}
 			// 再次单击 = 确认覆盖
 			var pending = consumeCloudStatusAction();
-			if (pending && pending.key === "download") {
+			if (pending && pending.key === "download" && !pending.passive) {
 				pending.onConfirm();
 				return;
 			}
@@ -1337,6 +1425,9 @@
 
 		window._siteNavSetDirty = function(dirty) {
 			window._siteNavDataDirty = !!dirty;
+			if (dirty && !_menuLocked && window.authManager && window.authManager.isLoggedIn()) {
+				setCloudDetectionStatus("本地有未上传更改", "Warning", createUploadAction("确认上传当前本地更改到云端？"));
+			}
 		};
 
 		window.addEventListener("keydown", function(e) {

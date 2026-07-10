@@ -9,7 +9,7 @@
 	<script src="assets/lib/jquery-4.0.0.min.js"></script>
 
 	<link rel="stylesheet" href="/nav/nav.css?v=1002">
-	<script src="/nav/nav.js?v=1002" defer></script>
+	<script src="/nav/nav.js?v=20260707" defer></script>
 
 	<script src="/assets/services/core/site-scope.js?v=0567" defer></script>
 	<script src="/assets/services/core/storage-manager.js?v=0567" defer></script>
@@ -29,7 +29,7 @@
 	<script src="assets/lib/pnltri.js?v=0286" defer></script>
 	<script src="assets/lib/threemin.js?v=0286" defer></script>
 
-	<script src="assets/twisty/twisty.js?v=0341" defer></script>
+	<script src="assets/twisty/twisty.js?v=1034" defer></script>
 	<script src="assets/twisty/twistynnn.js?v=0484" defer></script>
 
 	<script src="assets/hardware/bluetooth.js?v=0286" defer></script>
@@ -40,8 +40,8 @@
 	<script src="assets/hardware/moyu32cube.js?v=0286" defer></script>
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
 
-	<link rel="stylesheet" href="assets/memory/memory.css?v=0996">
-	<script src="assets/memory/memory.js?v=0943" defer></script>
+	<link rel="stylesheet" href="assets/memory/memory.css?v=1034">
+	<script src="assets/memory/memory.js?v=1034" defer></script>
 
 	<title>学习模式</title>
 	<style>
@@ -188,25 +188,39 @@
 			margin: auto;
 		}
 
-		.practiceSolvedCheck {
-			position: absolute;
-			left: 5%;
-			bottom: 5%;
-			font-size: clamp(48px, 12vw, 120px);
-			line-height: 1;
-			color: #24f0ea;
-			text-shadow: 0 0 18px rgba(36, 240, 234, 0.55), 0 4px 14px rgba(0, 0, 0, 0.18);
-			pointer-events: none;
-			opacity: 0;
-			transform: scale(0.85);
-			transition: opacity 0.22s ease, transform 0.22s ease;
-			z-index: 5;
-		}
+	.practiceSolvedCheck {
+		position: absolute;
+		left: 5%;
+		bottom: 5%;
+		width: clamp(48px, 12vw, 120px);
+		height: clamp(48px, 12vw, 120px);
+		border-radius: 50%;
+		background: #5d4ea8;
+		box-shadow: 0 0 18px rgba(36, 240, 234, 0.5), 0 6px 18px rgba(0, 0, 0, 0.18);
+		pointer-events: none;
+		opacity: 0;
+		transform: scale(0.85);
+		transition: opacity 0.22s ease, transform 0.22s ease;
+		z-index: 5;
+		/* 贯穿透明对勾：实心圆挖空对勾，透出后面的魔方 */
+		-webkit-mask:
+			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23fff'/%3E%3C/svg%3E") center / contain no-repeat,
+			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M30 52 L44 67 L74 33' fill='none' stroke='%23fff' stroke-width='13' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+		-webkit-mask-composite: source-out;
+		mask:
+			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23fff'/%3E%3C/svg%3E") center / contain no-repeat,
+			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M30 52 L44 67 L74 33' fill='none' stroke='%23fff' stroke-width='13' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+		mask-composite: subtract;
+	}
 
-		.practiceSolvedCheck.isVisible {
-			opacity: 1;
-			transform: scale(1);
-		}
+	:root[data-theme="dark"] .practiceSolvedCheck {
+		background: #24f0ea;
+	}
+
+	.practiceSolvedCheck.isVisible {
+		opacity: 1;
+		transform: scale(1);
+	}
 
 		.touchcube {
 			position: absolute;
@@ -1095,18 +1109,14 @@
 			overflow-wrap: anywhere;
 		}
 
-		.practiceAoTimes {
-			display: grid;
-			grid-template-columns: repeat(4, 1fr);
-			gap: 6px;
-			margin-top: 8px;
-		}
+	.practiceAoTimes {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 6px;
+		margin-top: 8px;
+	}
 
-		.practiceAoTimes:empty {
-			display: none;
-		}
-
-		.practiceAoTime {
+	.practiceAoTime {
 			padding: 6px 3px;
 			border: 1px solid var(--line);
 			border-radius: 6px;
@@ -2022,26 +2032,41 @@
 			white-space: pre-wrap;
 		}
 
-		@media (max-width: 900px) {
-			body {
-				overflow: auto;
-			}
-
-			.app {
-				grid-template-columns: 1fr;
-				height: auto;
-				min-height: 100%;
-			}
-
-			.stage {
-				min-height: 62vh;
-			}
-
-			.panel {
-				min-height: 460px;
-				max-height: none;
-			}
+	@media (max-width: 900px) {
+		body {
+			overflow: auto;
 		}
+
+		.app {
+			grid-template-columns: 1fr;
+			height: auto;
+			min-height: 100%;
+		}
+
+		.stage {
+			min-height: 62vh;
+		}
+
+		.panel {
+			min-height: 460px;
+			max-height: none;
+		}
+
+		/* 移动端训练模式控件 1/2 平分，并在过窄时自动换行（与其它模式按钮换行逻辑一致）。 */
+		.practicePanel .practiceControls {
+			display: flex;
+			flex-wrap: wrap;
+		}
+
+		.practicePanel .practiceControls > * {
+			flex: 1 1 50%;
+			min-width: 140px;
+		}
+
+		.practicePanel .practiceModeSelect {
+			width: auto;
+		}
+	}
 
 		@media (max-width: 520px) {
 			.app {
@@ -2104,7 +2129,7 @@
 				</div>
 			</div>
 			<div id="cubeStage"></div>
-			<div id="practiceSolvedCheck" class="practiceSolvedCheck" aria-hidden="true">✔</div>
+			<div id="practiceSolvedCheck" class="practiceSolvedCheck" aria-hidden="true"></div>
 		</section>
 
 		<aside class="panel">
@@ -2428,6 +2453,8 @@
 				recentStateIndices: [],
 				solveSwitchTimer: null,
 				solvedAdvancePending: false,
+				solvedCheckFeedbackActive: false,
+				solvedCheckHideTimer: null,
 				seenUnsolvedSinceState: false,
 				seenUnsolvedFaceletSinceState: false,
 				seenUnsolvedVirtualSinceState: false,
@@ -4755,21 +4782,16 @@
 					});
 				},
 
-				setThumbnailDrag: function(yaw, pitch) {
-					var limit = Math.PI / 4;
-					var length = Math.sqrt(yaw * yaw + pitch * pitch);
-					if (length > limit) {
-						yaw = yaw / length * limit;
-						pitch = pitch / length * limit;
+			setThumbnailDrag: function(yaw, pitch) {
+				// 缩略图旋转不限制在 45° 内（主魔方 setViewDrag 保持原有限制不受影响）。
+				this.thumbnailYaw = yaw;
+				this.thumbnailPitch = pitch;
+				for (var i = 0; i < this.thumbnailScenes.length; i++) {
+					if (this.thumbnailScenes[i] && this.thumbnailScenes[i].setViewDrag) {
+						this.thumbnailScenes[i].setViewDrag(yaw, pitch);
 					}
-					this.thumbnailYaw = yaw;
-					this.thumbnailPitch = pitch;
-					for (var i = 0; i < this.thumbnailScenes.length; i++) {
-						if (this.thumbnailScenes[i] && this.thumbnailScenes[i].setViewDrag) {
-							this.thumbnailScenes[i].setViewDrag(yaw, pitch);
-						}
-					}
-				},
+				}
+			},
 
 			fillStateTextInput: function(text, reveal, focus) {
 				var newText = text || "";
@@ -5094,13 +5116,18 @@
 						frag.appendChild(card);
 					});
 					this.elements.stateList.appendChild(frag);
-					// Defer preview rendering until the containers are attached to the
-					// live DOM so that TwistyScene.resize() can compute a non-zero size
-					// from the styled container.
-					pendingPreviews.forEach(function(entry) {
-						self.renderStatePreview(entry.container, entry.state);
-					});
-				},
+				// Defer preview rendering until the containers are attached to the
+				// live DOM so that TwistyScene.resize() can compute a non-zero size
+				// from the styled container.
+				pendingPreviews.forEach(function(entry) {
+					self.renderStatePreview(entry.container, entry.state);
+				});
+				// 新渲染的缩略图仅应用了无缝贴片缩放，隐藏贴片材质需要在此同步，
+				// 否则切换模式后缩略图要重开无缝模式才会刷新隐藏贴片外观。
+				if (this.seamlessMode) {
+					this.updateHiddenStickerAppearance();
+				}
+			},
 
 				getStateDisplayAlg: function(state) {
 					if (this.stateDisplayMode === "state") {
@@ -5126,28 +5153,25 @@
 					}
 				},
 
-				updatePracticeAoTimes: function() {
-					if (!this.elements.practiceAoTimes) {
-						return;
-					}
-					var state = this.importedStates[this.currentStateIndex];
-					var key = state ? state.name : String(this.currentStateIndex);
-					var times = this.stateSolveTimes[key] || [];
-					if (!times.length) {
-						this.elements.practiceAoTimes.innerHTML = "";
-						return;
-					}
-					var self = this;
-					var latest = times[times.length - 1];
-					var stats = [5, 10, 50].map(function(count) {
-						return self.formatPracticeDuration(self.averageOfPractice(times, count));
-					});
-					this.elements.practiceAoTimes.innerHTML =
-						'<div class="practiceAoTime"><span>本次</span><strong>' + this.formatPracticeDuration(latest) + '</strong></div>' +
-						'<div class="practiceAoTime"><span>AO5</span><strong>' + stats[0] + '</strong></div>' +
-						'<div class="practiceAoTime"><span>AO10</span><strong>' + stats[1] + '</strong></div>' +
-						'<div class="practiceAoTime"><span>AO50</span><strong>' + stats[2] + '</strong></div>';
-				},
+			updatePracticeAoTimes: function() {
+				if (!this.elements.practiceAoTimes) {
+					return;
+				}
+				var state = this.importedStates[this.currentStateIndex];
+				var key = state ? state.name : String(this.currentStateIndex);
+				var times = this.stateSolveTimes[key] || [];
+				var self = this;
+				// 训练模式下始终展示 AO 区块；数据不足时以 "--" 占位。
+				var latest = times.length ? this.formatPracticeDuration(times[times.length - 1]) : "--";
+				var stats = [5, 10, 50].map(function(count) {
+					return self.formatPracticeDuration(self.averageOfPractice(times, count));
+				});
+				this.elements.practiceAoTimes.innerHTML =
+					'<div class="practiceAoTime"><span>本次</span><strong>' + latest + '</strong></div>' +
+					'<div class="practiceAoTime"><span>AO5</span><strong>' + stats[0] + '</strong></div>' +
+					'<div class="practiceAoTime"><span>AO10</span><strong>' + stats[1] + '</strong></div>' +
+					'<div class="practiceAoTime"><span>AO50</span><strong>' + stats[2] + '</strong></div>';
+			},
 
 				formatPracticeDuration: function(value) {
 					if (typeof value !== "number" || !isFinite(value)) {
@@ -5175,15 +5199,19 @@
 				renderStatePreview: function(container, state) {
 					var previewScene = new twistyjs.TwistyScene();
 					container.appendChild(previewScene.getDomElement());
-					previewScene.initializeTwisty({
-						type: "cube",
-						dimension: this.cubeDimension,
-						stickerWidth: 1.9,
-						scale: 0.92,
-						allowDragging: false,
-						faceColors: [0xffffff, 0xf05a3b, 0x2dbb70, 0xffd447, 0xff941f, 0x2f69df]
-					});
-					this.prepareStickerScene(previewScene);
+				previewScene.initializeTwisty({
+					type: "cube",
+					dimension: this.cubeDimension,
+					stickerWidth: 1.9,
+					scale: 0.92,
+					allowDragging: false,
+					faceColors: [0xffffff, 0xf05a3b, 0x2dbb70, 0xffd447, 0xff941f, 0x2f69df]
+				});
+				// 缩略图不受 45° 旋转限制（主魔方保持默认限制）。
+				if (previewScene.setViewDragClamped) {
+					previewScene.setViewDragClamped(false);
+				}
+				this.prepareStickerScene(previewScene);
 					var moves = this.buildTwistyMoves(state.moves, false);
 					if (moves.length) {
 						previewScene.applyMoves(moves);
@@ -5275,6 +5303,11 @@
 				},
 
 				hidePracticeSolvedCheck: function() {
+					// 打勾反馈作为非阻塞视觉提示：在反馈窗口内保留显示，
+					// 由独立的隐藏定时器收尾，不被状态切换/还原检测提前清掉。
+					if (this.solvedCheckFeedbackActive) {
+						return;
+					}
 					if (this.elements.practiceSolvedCheck) {
 						this.elements.practiceSolvedCheck.classList.remove("isVisible");
 					}
@@ -5310,16 +5343,25 @@
 					this.setImportStatus(this.practiceMode === "loop" ? "已还原，正在循环" : "已还原，正在切换");
 					this.showPracticeSolvedCheck();
 					var self = this;
+					// 打勾仅作为视觉反馈，不阻塞流程：检测到完成立即切换到下一个训练状态。
+					this.solvedCheckFeedbackActive = true;
 					this.solveSwitchTimer = setTimeout(function() {
 						self.solveSwitchTimer = null;
 						self.solvedAdvancePending = false;
-						self.hidePracticeSolvedCheck();
 						if (self.practiceMode === "loop") {
 							self.applyImportedState(self.currentStateIndex);
 						} else {
 							self.advancePracticeState();
 						}
-					}, 700);
+					}, 0);
+			// 反馈窗口结束后再隐藏打勾图标（独立于状态切换，不阻塞切换）。
+				if (this.solvedCheckHideTimer) {
+					clearTimeout(this.solvedCheckHideTimer);
+				}
+				this.solvedCheckHideTimer = setTimeout(function() {
+					self.solvedCheckFeedbackActive = false;
+					self.hidePracticeSolvedCheck();
+				}, 700);
 				},
 
 				advancePracticeState: function() {

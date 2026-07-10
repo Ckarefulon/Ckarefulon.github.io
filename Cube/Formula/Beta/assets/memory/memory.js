@@ -37,7 +37,11 @@
 		skipNextDetection: false,
 		promptedContinue: false,
 		pendingAutofill: "",
-		confirming: false
+		confirming: false,
+		// 仅 UI 层“返回再点开答案默认选中上次选择”用，不进 memory.data、不被 undo 回滚。
+		lastChoiceByFormula: {},
+		justReturned: false,
+		lastChoiceShown: null
 	};
 
 	/* ---------- Data structure ---------- */
@@ -493,6 +497,7 @@
 		memory.attemptMoves = [];
 		memory.manualSelection = false;
 		memory.lastAnswerMove = null;
+		memory.lastChoiceShown = null;
 		if (!memory.currentFormula) {
 			renderIdleMemory();
 			return;
@@ -762,8 +767,16 @@
 			return formatDuration(averageOf(previewTimes, count));
 		});
 		var labels = optionLabels();
+		var lastRating = (typeof memory.lastChoiceShown === "number") ? memory.lastChoiceShown : null;
 		var options = labels.map(function(label, index) {
-			return '<button class="memoryOption' + (index === memory.selectedRating ? ' isSelected' : '') + '" style="--memoryColor:' + RATING_COLORS[index] + '" type="button" data-memory-rating="' + index + '">' + app.escapeHtml(label) + '</button>';
+			var cls = "memoryOption";
+			if (index === memory.selectedRating) {
+				cls += " isSelected";
+			}
+			if (lastRating !== null && index === lastRating) {
+				cls += " isLastChoice";
+			}
+			return '<button class="' + cls + '" style="--memoryColor:' + RATING_COLORS[index] + '" type="button" data-memory-rating="' + index + '">' + app.escapeHtml(label) + '</button>';
 		}).join("");
 		current.innerHTML = '<button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><div class="memoryAnswer"><strong class="memoryAnswerName">' + app.escapeHtml(memory.currentFormula.name) + '</strong><div class="memoryAnswerFormula">' + app.escapeHtml(memory.currentFormula.answer || memory.currentFormula.alg || "") + '</div></div>' +
 			'<div class="memoryTimes"><div class="memoryTime"><span>反应</span><strong>' + formatDuration(memory.reactionTime) + '</strong></div><div class="memoryTime"><span>AO5</span><strong>' + stats[0] + '</strong></div><div class="memoryTime"><span>AO10</span><strong>' + stats[1] + '</strong></div><div class="memoryTime"><span>AO50</span><strong>' + stats[2] + '</strong></div></div>' +
@@ -948,7 +961,18 @@
 		}
 		memory.state = "answer";
 		memory.answerReason = reason || "reveal";
+		// 原先正常默认选择逻辑保持不变（=3）。
 		memory.selectedRating = 3;
+		memory.lastChoiceShown = null;
+		// 仅当“返回先前的公式后再点开答案”时，才用上次选择覆盖默认。
+		if (memory.justReturned) {
+			memory.justReturned = false;
+			var stored = memory.lastChoiceByFormula[memory.currentFormula.id];
+			if (typeof stored === "number" && stored >= 0 && stored <= 3) {
+				memory.selectedRating = stored;
+				memory.lastChoiceShown = stored;
+			}
+		}
 		memory.manualSelection = false;
 		stopTimer();
 		renderAnswerMemory();
@@ -967,6 +991,9 @@
 		}
 		memory.state = "answer";
 		memory.answerReason = "solved";
+		// 解题直接出答案走原有反应时默认逻辑，不应用“返回再点开”的上次选择覆盖。
+		memory.justReturned = false;
+		memory.lastChoiceShown = null;
 		var l = lib();
 		if (memory.retried || memory.repeatedMove) {
 			memory.selectedRating = 2;
@@ -1053,6 +1080,9 @@
 		if (memory.state !== "answer" || memory.confirming || !memory.currentFormula || !memory.currentItem) {
 			return;
 		}
+		// UI 层记录本次选择，供“返回上一公式再点开答案”默认选中；不进 memory.data、不被 undo 回滚。
+		memory.lastChoiceByFormula[memory.currentFormula.id] = memory.selectedRating;
+		memory.justReturned = false;
 		memory.confirming = true;
 		ensureFsrs().then(function(module) {
 			var formula = memory.currentFormula;
@@ -1138,6 +1168,8 @@
 		memory.data = mergeLoadedData(undo.checkpoint);
 		lib().undoStack = remaining;
 		saveData();
+		// 标记本次加载来自“返回上一公式”，供点开答案时用上次选择覆盖默认。
+		memory.justReturned = true;
 		startNextFormula();
 	}
 
