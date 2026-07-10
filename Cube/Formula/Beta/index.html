@@ -2035,6 +2035,17 @@
 	@media (max-width: 900px) {
 		body {
 			overflow: auto;
+			background: transparent;
+		}
+
+		/* 移动端背景固定并占满一屏：用 fixed 全屏层承载渐变，避免随内容滚动。 */
+		body::before {
+			content: "";
+			position: fixed;
+			inset: 0;
+			z-index: -1;
+			background: var(--pageBg);
+			transition: background 0.22s ease;
 		}
 
 		.app {
