@@ -48,7 +48,7 @@
 
 	function freshLibrary(name) {
 		return {
-			name: name || "默认库",
+			name: name || "默认组",
 			planText: "",
 			formulas: [],
 			allFormulas: [],
@@ -69,7 +69,7 @@
 			schemaVersion: SCHEMA_VERSION,
 			activeLibraryId: "lib_default",
 			libraries: {
-				"lib_default": freshLibrary("默认库")
+				"lib_default": freshLibrary("默认组")
 			}
 		};
 	}
@@ -108,7 +108,7 @@
 
 		/* v1 → v2 migration */
 		if (value.schemaVersion === 1 && Array.isArray(value.formulas) && typeof value.progress === "object") {
-			var migrated = freshLibrary("默认库");
+			var migrated = freshLibrary("默认组");
 			migrated.planText = String(value.planText || "");
 			migrated.formulas = Array.isArray(value.formulas) ? value.formulas : [];
 			migrated.allFormulas = Array.isArray(value.allFormulas) ? value.allFormulas : [];
@@ -158,6 +158,11 @@
 		if (!base.libraries[base.activeLibraryId]) {
 			base.activeLibraryId = Object.keys(base.libraries)[0];
 		}
+		Object.keys(base.libraries).forEach(function(lid) {
+			if (base.libraries[lid].name === "默认库") {
+				base.libraries[lid].name = "默认组";
+			}
+		});
 		return reviveDates(base);
 	}
 
@@ -285,7 +290,7 @@
 		memory.data.activeLibraryId = id;
 		saveData();
 		loadLibraryMask();
-		app._notifyActiveLibraryChanged();
+		app._notifyActiveGroupChanged();
 	}
 
 	function createLibrary(name) {
@@ -293,7 +298,8 @@
 		memory.data.libraries[id] = freshLibrary(name || "新库");
 		memory.data.activeLibraryId = id;
 		saveData();
-		app._notifyActiveLibraryChanged();
+		app._notifyGroupListChanged();
+		app._notifyActiveGroupChanged();
 		return id;
 	}
 
@@ -301,19 +307,23 @@
 		if (Object.keys(memory.data.libraries).length <= 1) {
 			return;
 		}
+		var wasActive = memory.data.activeLibraryId === id;
 		delete memory.data.libraries[id];
-		if (memory.data.activeLibraryId === id) {
+		if (wasActive) {
 			memory.data.activeLibraryId = Object.keys(memory.data.libraries)[0];
+			loadLibraryMask();
 		}
 		saveData();
-		app._notifyActiveLibraryChanged();
+		app._notifyGroupListChanged();
+		app._notifyActiveGroupChanged();
 	}
 
 	function renameLibrary(id, name) {
 		if (memory.data.libraries[id] && name) {
 			memory.data.libraries[id].name = name;
 			saveData();
-			app._notifyActiveLibraryChanged();
+			app._notifyGroupListChanged();
+			if (id === memory.data.activeLibraryId) app._notifyActiveGroupChanged();
 		}
 	}
 
@@ -440,8 +450,9 @@
 
 	function getMemoryPanelHtml() {
 		var seamlessActive = app.seamlessMode ? " isActive" : "";
+		var groupBarHtml = (typeof app.getGroupSelectorHtml === 'function') ? app.getGroupSelectorHtml() : '';
 		return '<aside class="panel memoryPanel"><header class="panelHeader"><h1>记忆模式</h1><button id="memorySeamlessBtn" class="seamlessToggle' + seamlessActive + '" type="button" aria-pressed="' + (app.seamlessMode ? "true" : "false") + '"><span class="toggleSwitch"></span><span class="toggleLabel">无缝</span></button></header>' +
-			'<section class="panelSection"><div class="controls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="customFinalStateBtn" class="button secondary" type="button">复原状态</button></div><button id="memoryPlanBtn" class="button" type="button">规划学习</button><div class="controls"><button id="memoryImportBtn" class="button secondary" type="button">导入数据</button><button id="memoryExportBtn" class="button secondary" type="button">导出数据</button></div><input id="memoryImportFile" class="hiddenFileInput" type="file" accept=".json,application/json"></section>' +
+			'<section class="panelSection">' + groupBarHtml + '<button id="sharedCustomStateBtn" class="button secondary" type="button" style="width:100%;margin-bottom:8px;font-size:13px;">自定义本组复原状态</button><div class="controls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="customFinalStateBtn" class="button secondary" type="button">复原状态</button></div><button id="memoryPlanBtn" class="button" type="button">规划学习</button><div class="controls"><button id="memoryImportBtn" class="button secondary" type="button">导入数据</button><button id="memoryExportBtn" class="button secondary" type="button">导出数据</button></div><input id="memoryImportFile" class="hiddenFileInput" type="file" accept=".json,application/json"></section>' +
 			'<section class="memoryArea"><div id="memoryCurrent" class="memoryCurrent"><button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">请开始还原…<br>点击此处显示答案。</button></div><div id="memoryHistory" class="memoryHistory"></div></section>' +
 			app.getDiagnosticsHtml(true) + '</aside>';
 	}
@@ -1282,7 +1293,7 @@
 			});
 			saveData();
 		}).catch(function() {});
-		app._notifyActiveLibraryChanged();
+		app._notifyActiveGroupChanged();
 		if (app.currentMode === "memory") {
 			startMemoryMode();
 		}
@@ -1391,6 +1402,7 @@
 			closeLibraryMenu();
 			renderLibrarySelector();
 			reloadLibraryContent();
+			app._notifyActiveGroupChanged();
 		});
 
 		/* Close library menu when clicking outside */
@@ -1535,6 +1547,7 @@
 			sl.undoStack = [];
 			memory.pendingAutofill = "";
 			saveData();
+			app._notifyActiveGroupChanged();
 			if (app.currentMode === "memory") {
 				startMemoryMode();
 			}
@@ -1888,18 +1901,7 @@
 
 	var originalSwitchMode = app.switchMode;
 	app.switchMode = function(mode) {
-		var sourceMode = this.currentMode;
-		var transfer = mode === "memory" && sourceMode !== "memory" ? collectModeTransferText(sourceMode) : "";
 		originalSwitchMode.call(this, mode);
-		if (mode === "memory" && transfer) {
-			memory.pendingAutofill = transfer;
-			openConfirmDialog("导入公式到记忆计划", "检测到当前模式中的公式，是否追加到记忆计划？重复公式会保留。", "追加公式", function() {
-				commitPlanText(joinPlanText((lib() || {}).planText || "", transfer));
-				memory.pendingAutofill = "";
-			}, function() {
-				memory.pendingAutofill = "";
-			});
-		}
 	};
 
 	var originalGetPanelHtml = app.getPanelHtml;
@@ -2007,121 +2009,150 @@
 	document.addEventListener("fullscreenchange", syncFullscreenMode);
 	document.addEventListener("webkitfullscreenchange", syncFullscreenMode);
 
-	/* ---------- Shared formula API for learn/practice modes ---------- */
+	/* ---------- Shared formula groups API for all modes ---------- */
 
-	app.getActiveLibraryPlanText = function() {
+	app.getFormulaGroups = function() {
+		if (!memory.data || !memory.data.libraries) return [];
+		return Object.keys(memory.data.libraries).map(function(id) {
+			var g = memory.data.libraries[id];
+			return { id: id, name: g.name || id };
+		});
+	};
+
+	app.getActiveGroupId = function() {
+		return memory.data ? memory.data.activeLibraryId : null;
+	};
+
+	app.setActiveGroupId = function(id) {
+		if (!memory.data || !memory.data.libraries || !memory.data.libraries[id]) return false;
+		if (memory.data.activeLibraryId === id) return true;
+		memory.data.activeLibraryId = id;
+		saveData();
+		loadLibraryMask();
+		app._notifyActiveGroupChanged();
+		return true;
+	};
+
+	app.getActiveGroupName = function() {
+		var l = lib();
+		return l ? (l.name || "") : "";
+	};
+
+	app.createFormulaGroup = function(name) {
+		var id = "lib_" + Date.now();
+		memory.data.libraries[id] = freshLibrary(name || "新组");
+		memory.data.activeLibraryId = id;
+		saveData();
+		app._notifyGroupListChanged();
+		app._notifyActiveGroupChanged();
+		return id;
+	};
+
+	app.renameFormulaGroup = function(id, name) {
+		var g = memory.data && memory.data.libraries ? memory.data.libraries[id] : null;
+		if (!g || !name) return false;
+		g.name = name;
+		saveData();
+		app._notifyGroupListChanged();
+		if (id === memory.data.activeLibraryId) app._notifyActiveGroupChanged();
+		return true;
+	};
+
+	app.deleteFormulaGroup = function(id) {
+		if (!memory.data || !memory.data.libraries || !memory.data.libraries[id]) return false;
+		if (Object.keys(memory.data.libraries).length <= 1) return false;
+		delete memory.data.libraries[id];
+		if (memory.data.activeLibraryId === id) {
+			memory.data.activeLibraryId = Object.keys(memory.data.libraries)[0];
+			loadLibraryMask();
+		}
+		saveData();
+		app._notifyGroupListChanged();
+		app._notifyActiveGroupChanged();
+		return true;
+	};
+
+	app.getActiveGroupPlanText = function() {
 		var l = lib();
 		return l ? String(l.planText || "") : "";
 	};
 
-	app.setActiveLibraryPlanText = function(text) {
+	app.setActiveGroupPlanText = function(text) {
 		var l = lib();
 		if (!l) return;
 		var newText = String(text || "");
-		if (newText === String(l.planText || "")) {
-			return;
-		}
+		if (newText === String(l.planText || "")) return;
 		l.planText = newText;
-		if (!newText.trim()) {
-			l.formulas = [];
-			l.allFormulas = [];
-			saveData();
-			app._notifyActiveLibraryChanged();
-			return;
-		}
-		if (typeof app.parseStateDefinitions === "function") {
-			var parsed = app.parseStateDefinitions(newText);
-			if (parsed.states.length) {
-				var previous = (l.allFormulas || l.formulas || []).slice();
-				function findPreviousCustomState(state) {
-					var normalized = String(state.alg || "").replace(/\s+/g, "").toUpperCase();
-					if (!normalized) return null;
-					for (var i = 0; i < previous.length; i++) {
-						var prevAlg = String(previous[i].alg || previous[i].formula || "").replace(/\s+/g, "").toUpperCase();
-						if (prevAlg === normalized && previous[i].customSolvedState) {
-							return previous[i].customSolvedState;
-						}
-					}
-					return null;
-				}
-				var formulas = parsed.states.map(function(state, index) {
-					var same = previous[index] && previous[index].name === state.name && previous[index].alg === state.alg ? previous[index] : null;
-					var id = same ? same.id : "memory_formula_" + Date.now() + "_" + l.idSeed++;
-					var existing = same || previous.find(function(p) { return p.name === state.name && p.alg === state.alg; });
-					var customSolvedState = existing ? (existing.customSolvedState || null) : findPreviousCustomState(state);
-					return {
-						id: id,
-						image: existing ? (existing.image || null) : null,
-						name: state.name,
-						alg: state.alg,
-						formula: state.alg,
-						answer: app.invertFormulaDisplayText ? app.invertFormulaDisplayText(state.alg || "", state.moves || []) : state.alg,
-						moves: state.moves.slice(),
-						customSolvedState: customSolvedState
-					};
-				});
-				l.formulas = formulas;
-				l.allFormulas = formulas.slice();
-				formulas.forEach(function(formula) { getProgress(formula.id); });
-			}
-		}
+		app._parseAndUpdateFormulas(l, newText);
 		saveData();
-		app._notifyActiveLibraryChanged();
+		app._notifyActiveGroupChanged();
 	};
 
-	app.setActiveLibraryPlanTextQuiet = function(text) {
+	app.setActiveGroupPlanTextQuiet = function(text) {
 		var l = lib();
 		if (!l) return;
 		l.planText = String(text || "");
 		saveData();
 	};
 
-	app.getActiveLibraryFormulas = function() {
+	app.getActiveGroupFormulas = function() {
 		var l = lib();
 		return l ? (l.formulas || []) : [];
 	};
 
-	app.setActiveLibraryFormulasFromStates = function(parsedStates, silent) {
+	app.setActiveGroupFormulasFromStates = function(parsedStates, silent) {
 		var l = lib();
 		if (!l) return;
-		var previous = (l.allFormulas || l.formulas || []).slice();
-		var formulas = parsedStates.map(function(state, index) {
-			var same = previous[index] && previous[index].name === state.name && previous[index].alg === state.alg ? previous[index] : null;
-			var id = same ? same.id : "memory_formula_" + Date.now() + "_" + l.idSeed++;
-			var existing = same || previous.find(function(p) { return p.name === state.name && p.alg === state.alg; });
-			return {
-				id: id,
-				image: existing ? (existing.image || null) : null,
-				name: state.name,
-				alg: state.alg,
-				formula: state.alg,
-				answer: app.invertFormulaDisplayText ? app.invertFormulaDisplayText(state.alg || "", state.moves || []) : state.alg,
-				moves: state.moves.slice(),
-				customSolvedState: existing ? (existing.customSolvedState || null) : null
-			};
-		});
-		l.formulas = formulas;
-		l.allFormulas = formulas.slice();
-		l.planText = formulas.map(function(f) {
-			var alg = f.alg || f.formula || '';
-			if (!alg.endsWith(';')) { alg += ';'; }
-			return f.name + ': ' + alg;
-		}).join('\n');
-		l.queue = [];
-		l.todayQueue = [];
-		l.undoStack = [];
-		formulas.forEach(function(formula) { getProgress(formula.id); });
+		app._replaceFormulasFromStates(l, parsedStates);
 		saveData();
-		if (!silent) {
-			app._notifyActiveLibraryChanged();
-		}
+		if (!silent) app._notifyActiveGroupChanged();
 	};
 
-	app.findMemoryFormulaByAlg = function(alg) {
+	app.appendTextToActiveGroup = function(text) {
+		return app.appendTextToGroup(memory.data.activeLibraryId, text);
+	};
+
+	app.appendTextToGroup = function(groupId, text) {
+		var g = memory.data && memory.data.libraries ? memory.data.libraries[groupId] : null;
+		if (!g) return false;
+		text = String(text || "").trim();
+		if (!text) return false;
+		var current = String(g.planText || "").replace(/\s+$/g, "");
+		var newText = current ? current + "\n" + text : text;
+		g.planText = newText;
+		app._parseAndUpdateFormulas(g, newText);
+		saveData();
+		if (groupId === memory.data.activeLibraryId) {
+			app._notifyActiveGroupChanged();
+		}
+		return true;
+	};
+
+	app.getActiveGroupCustomMask = function() {
 		var l = lib();
-		if (!l || !alg) return null;
+		return l ? (l.hiddenStickerMask || {}) : {};
+	};
+
+	app.setActiveGroupCustomMask = function(mask) {
+		var l = lib();
+		if (!l) return false;
+		l.hiddenStickerMask = (mask && typeof mask === "object") ? mask : {};
+		saveData();
+		loadLibraryMask();
+		app._notifyActiveGroupChanged();
+		return true;
+	};
+
+	app.findGroupFormulaByAlg = function(alg, groupId) {
+		var g;
+		if (groupId) {
+			g = memory.data && memory.data.libraries ? memory.data.libraries[groupId] : null;
+		} else {
+			g = lib();
+		}
+		if (!g || !alg) return null;
 		var normalized = String(alg).replace(/\s+/g, "").toUpperCase();
-		var allFormulas = l.allFormulas && l.allFormulas.length ? l.allFormulas : (l.formulas || []);
+		var allFormulas = g.allFormulas && g.allFormulas.length ? g.allFormulas : (g.formulas || []);
 		for (var i = 0; i < allFormulas.length; i++) {
 			var fAlg = String(allFormulas[i].alg || allFormulas[i].formula || "").replace(/\s+/g, "").toUpperCase();
 			if (fAlg === normalized) return allFormulas[i];
@@ -2143,15 +2174,92 @@
 		return false;
 	};
 
-	var _activeLibraryChangeListeners = [];
-	app.onActiveLibraryChanged = function(callback) {
-		if (typeof callback === "function" && _activeLibraryChangeListeners.indexOf(callback) === -1) {
-			_activeLibraryChangeListeners.push(callback);
+	app._parseAndUpdateFormulas = function(g, newText) {
+		if (!newText.trim()) {
+			g.formulas = [];
+			g.allFormulas = [];
+			g.queue = [];
+			g.todayQueue = [];
+			return;
+		}
+		if (typeof app.parseStateDefinitions !== "function") return;
+		var parsed = app.parseStateDefinitions(newText);
+		if (!parsed.states.length) return;
+		app._replaceFormulasFromStates(g, parsed.states);
+	};
+
+	app._replaceFormulasFromStates = function(g, parsedStates) {
+		var previous = (g.allFormulas || g.formulas || []).slice();
+		function findPreviousCustomState(state) {
+			var normalized = String(state.alg || "").replace(/\s+/g, "").toUpperCase();
+			if (!normalized) return null;
+			for (var i = 0; i < previous.length; i++) {
+				var prevAlg = String(previous[i].alg || previous[i].formula || "").replace(/\s+/g, "").toUpperCase();
+				if (prevAlg === normalized && previous[i].customSolvedState) {
+					return previous[i].customSolvedState;
+				}
+			}
+			return null;
+		}
+		var formulas = parsedStates.map(function(state, index) {
+			var same = previous[index] && previous[index].name === state.name && previous[index].alg === state.alg ? previous[index] : null;
+			var id = same ? same.id : "memory_formula_" + Date.now() + "_" + g.idSeed++;
+			var existing = same || previous.find(function(p) { return p.name === state.name && p.alg === state.alg; });
+			var customSolvedState = existing ? (existing.customSolvedState || null) : findPreviousCustomState(state);
+			return {
+				id: id,
+				image: existing ? (existing.image || null) : null,
+				name: state.name,
+				alg: state.alg,
+				formula: state.alg,
+				answer: app.invertFormulaDisplayText ? app.invertFormulaDisplayText(state.alg || "", state.moves || []) : state.alg,
+				moves: state.moves.slice(),
+				customSolvedState: customSolvedState
+			};
+		});
+		g.formulas = formulas;
+		g.allFormulas = formulas.slice();
+		g.planText = formulas.map(function(f) {
+			var alg = f.alg || f.formula || '';
+			if (!alg.endsWith(';')) { alg += ';'; }
+			return f.name + ': ' + alg;
+		}).join('\n');
+		g.queue = [];
+		g.todayQueue = [];
+		g.undoStack = [];
+		formulas.forEach(function(formula) { getProgress(formula.id); });
+	};
+
+	app.getActiveLibraryPlanText = function() { return app.getActiveGroupPlanText(); };
+	app.setActiveLibraryPlanText = function(text) { app.setActiveGroupPlanText(text); };
+	app.setActiveLibraryPlanTextQuiet = function(text) { app.setActiveGroupPlanTextQuiet(text); };
+	app.getActiveLibraryFormulas = function() { return app.getActiveGroupFormulas(); };
+	app.setActiveLibraryFormulasFromStates = function(states, silent) { app.setActiveGroupFormulasFromStates(states, silent); };
+	app.findMemoryFormulaByAlg = function(alg) { return app.findGroupFormulaByAlg(alg); };
+
+	var _activeGroupChangeListeners = [];
+	var _groupListChangeListeners = [];
+
+	app.onActiveGroupChanged = function(callback) {
+		if (typeof callback === "function" && _activeGroupChangeListeners.indexOf(callback) === -1) {
+			_activeGroupChangeListeners.push(callback);
 		}
 	};
-	app._notifyActiveLibraryChanged = function() {
-		for (var i = 0; i < _activeLibraryChangeListeners.length; i++) {
-			try { _activeLibraryChangeListeners[i](); } catch(e) {}
+	app.onGroupListChanged = function(callback) {
+		if (typeof callback === "function" && _groupListChangeListeners.indexOf(callback) === -1) {
+			_groupListChangeListeners.push(callback);
+		}
+	};
+	app.onActiveLibraryChanged = function(cb) { app.onActiveGroupChanged(cb); };
+	app._notifyActiveLibraryChanged = function() { app._notifyActiveGroupChanged(); };
+	app._notifyActiveGroupChanged = function() {
+		for (var i = 0; i < _activeGroupChangeListeners.length; i++) {
+			try { _activeGroupChangeListeners[i](); } catch(e) {}
+		}
+	};
+	app._notifyGroupListChanged = function() {
+		for (var i = 0; i < _groupListChangeListeners.length; i++) {
+			try { _groupListChangeListeners[i](); } catch(e) {}
 		}
 	};
 })();

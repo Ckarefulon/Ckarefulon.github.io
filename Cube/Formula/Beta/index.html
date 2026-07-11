@@ -41,7 +41,7 @@
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
 
 	<link rel="stylesheet" href="assets/memory/memory.css?v=1034">
-	<script src="assets/memory/memory.js?v=1077" defer></script>
+	<script src="assets/memory/memory.js?v=1105" defer></script>
 
 	<title>学习模式</title>
 	<style>
@@ -1735,6 +1735,52 @@
 			background-position: center;
 		}
 
+		.sharedGroupBar {
+			margin-bottom: 8px;
+		}
+		.formulaAddGroupDialog {
+			position: fixed;
+			inset: 0;
+			z-index: 50;
+			background: rgba(0,0,0,0.5);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+		.formulaAddGroupDialogBox {
+			background: var(--bg-primary, #1a1a2e);
+			border: 1px solid rgba(255,255,255,0.15);
+			border-radius: 12px;
+			padding: 20px;
+			max-width: 360px;
+			width: calc(100% - 32px);
+		}
+		.formulaAddGroupDialogTitle {
+			font-size: 16px;
+			font-weight: 600;
+			margin-bottom: 6px;
+		}
+		.formulaAddGroupDialogDesc {
+			font-size: 13px;
+			opacity: 0.7;
+			margin-bottom: 14px;
+		}
+		.formulaAddGroupDialogActions {
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+		}
+		.formulaAddGroupDialogActions .button {
+			width: 100%;
+			justify-content: center;
+		}
+		.formulaAddOtherList {
+			display: none;
+			flex-direction: column;
+			gap: 4px;
+			margin-top: 4px;
+		}
+
 		.formulaExportOverlay {
 			position: fixed;
 			inset: 0;
@@ -2413,7 +2459,7 @@
 		(function() {
 			"use strict";
 
-			var PRACTICE_STATS_SCHEMA_VERSION = 1;
+			var PRACTICE_STATS_SCHEMA_VERSION = 3;
 			var PRACTICE_STATS_KEY = "smartCubePracticeStats";
 
 			var app = {
@@ -2423,6 +2469,7 @@
 				importedStates: [],
 				stateImportText: "",
 				stateImported: false,
+				stateEntries: [],
 				formulaEntries: [],
 				formulaExportTextOverride: "",
 				activeFormulaId: null,
@@ -2437,7 +2484,10 @@
 				suppressLibraryTransferOnce: false,
 				showStateThumbs: false,
 				showPracticeFormula: false,
-				practiceStats: null,
+				practiceStats: {
+					schemaVersion: 3,
+					groups: {}
+				},
 				thumbnailScenes: [],
 				thumbnailYaw: 0,
 				thumbnailPitch: 0,
@@ -2494,31 +2544,74 @@
 					this.initSiteHeader();
 					this.renderModePanel("learn");
 					this.bindUI();
-					if (this.onActiveLibraryChanged) {
-						var self = this;
-						this.onActiveLibraryChanged(function() {
-							var planText = self.getActiveLibraryPlanText ? self.getActiveLibraryPlanText() : "";
-							self.stateImportText = planText;
-							if (self.elements.stateTextInput) {
-								self.elements.stateTextInput.value = planText;
+					this.syncSharedGroupToStateEntries();
+					var self = this;
+					if (typeof this.onActiveGroupChanged === 'function') {
+						this.onActiveGroupChanged(function() {
+							if (!this.elements) return;
+							this.stateImportText = typeof this.getActiveGroupPlanText === 'function' ? this.getActiveGroupPlanText() : '';
+							this.syncSharedGroupToStateEntries();
+							var textarea = document.getElementById('stateTextInput');
+							if (textarea && document.activeElement !== textarea) {
+								textarea.value = this.stateImportText;
 							}
-							if (planText && planText.trim()) {
-								self.importStateText(planText, "library");
-								self.stateImported = true;
+							this.renderSharedGroupSelector();
+							var groupData = this.getCurrentGroupPracticeData();
+							this.stateSolveTimes = groupData.solveTimes;
+							this.fillStateTextInput(this.stateImportText, false, false);
+							if (this.stateImportText && this.stateImportText.trim()) {
+								if (this.stateEntries.length > 0) {
+									this.stateImported = true;
+									this.importedStates = this.stateEntries.map(function(e) {
+										return { name: e.name, alg: e.alg, moves: e.moves || [], image: e.image || null, customSolvedState: e.customSolvedState || null };
+									});
+									this.renderStateList();
+									this.setImportStatus("已导入 " + this.stateEntries.length + " 个公式");
+								} else {
+									this.importStateText(this.stateImportText, "restore");
+									this.stateImported = true;
+								}
 							} else {
-								self.importedStates = [];
-								self.stateSolveTimes = {};
-								self.stateImported = false;
-								self.renderStateList();
-								self.setImportStatus("未导入公式");
+								this.stateEntries = [];
+								this.importedStates = [];
+								this.stateImported = false;
+								if (this.elements && this.elements.stateList) this.elements.stateList.innerHTML = '';
+								if (this.elements && this.elements.stateImportStatus) this.elements.stateImportStatus.textContent = '未导入公式';
 							}
-						});
+							this.applyGroupMaskToCube();
+							if (this.isPracticeMode) {
+								this.resetPracticeState();
+							}
+							this.updatePracticeAoTimes();
+						}.bind(this));
+					}
+					if (typeof this.onGroupListChanged === 'function') {
+						this.onGroupListChanged(function() {
+							this.renderSharedGroupSelector();
+						}.bind(this));
 					}
 					this.fillStateTextInput(this.stateImportText, false, false);
 					if (this.stateImportText && this.stateImportText.trim()) {
-						this.importStateText(this.stateImportText, "restore");
-						this.stateImported = true;
+						this.stateImported = this.stateEntries.length > 0;
+						if (!this.stateImported) {
+							this.importStateText(this.stateImportText, "restore");
+							this.stateImported = true;
+						} else {
+							this.importedStates = this.stateEntries.map(function(e) {
+								return { name: e.name, alg: e.alg, moves: e.moves || [], image: e.image || null, customSolvedState: e.customSolvedState || null };
+							});
+							this.renderStateList();
+							this.setImportStatus("已导入 " + this.stateEntries.length + " 个公式");
+						}
+					} else {
+						this.stateEntries = [];
+						this.importedStates = [];
+						this.stateImported = false;
+						if (this.elements && this.elements.stateList) this.elements.stateList.innerHTML = '';
+						if (this.elements && this.elements.stateImportStatus) this.elements.stateImportStatus.textContent = '未导入公式';
 					}
+					this.applyGroupMaskToCube();
+					this.renderSharedGroupSelector();
 					this.setStatus("idle", "未连接");
 					this.log("ready", "页面已就绪");
 					if (!navigator.bluetooth) {
@@ -2843,8 +2936,9 @@
 							formulaTransferText = this.buildSelectedLibraryExportText();
 						}
 					}
-					if (formulaTransferText !== null) {
-						formulaTextAppended = this.appendStateImportText(formulaTransferText);
+					if (formulaTransferText !== null && formulaTransferText.trim()) {
+						this.showFormulaAddGroupDialog(formulaTransferText, sourceMode);
+						formulaTextAppended = false;
 					}
 					if (enteringFormulaMode) {
 						this.clearFormulaModeContent();
@@ -2906,6 +3000,8 @@
 					this.renderMoves();
 					this.renderFormulaList();
 					this.renderFormulaLibraryList();
+					this.renderSharedGroupSelector();
+					this.applyGroupMaskToCube();
 					if (mode === "library") {
 						this.loadFormulaLibraries();
 					}
@@ -2942,8 +3038,12 @@
 					return (inHeader ? '' : '<div class="controls" style="margin-top: 10px;">') + '<button id="seamlessToggleBtn" class="seamlessToggle" type="button" title="切换无缝模式：色块变大无空隙，隐藏色块显示为不透明灰色">' + label + switchHtml + '</button>' + (inHeader ? '' : '</div>');
 				},
 
+				getGroupSelectorHtml: function() {
+					return '<div class="memoryLibraryBar sharedGroupBar" id="sharedGroupBar"><div id="sharedGroupSelector" class="memoryLibrarySelector"><button id="sharedGroupCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="sharedGroupCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="sharedGroupMenu" class="memoryLibraryMenu" role="menu"></div></div><input id="sharedGroupNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="sharedGroupAddBtn" class="memoryLibraryIconBtn" type="button" title="新建组"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名组"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除组"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>';
+				},
+
 				getStateImportHtml: function(showThumbOption, practiceCards) {
-					return '<section class="panelSection stateImport" id="stateImport"><div id="stateDropZone" class="importDropZone">拖入 TXT 公式文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><div class="textImportWrap"><textarea id="stateTextInput" class="stateTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea><div class="textImportActions"><button id="clearStateTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button><button id="copyStateTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div><button id="parseStateTextBtn" class="button small" type="button">导入公式</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showStateThumbs" type="checkbox"><span class="checkVisual"></span><span>显示公式缩略图</span></label></div>' : "") + '<div id="stateImportStatus" class="importStatus">未导入公式</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"></div>' : "") + '<div id="stateList" class="stateList"></div></section>';
+					return '<section class="panelSection stateImport" id="stateImport">' + this.getGroupSelectorHtml() + '<button id="sharedCustomStateBtn" class="button secondary" type="button" style="width:100%;margin-bottom:8px;font-size:13px;">自定义本组复原状态</button><div id="stateDropZone" class="importDropZone">拖入 TXT 公式文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><div class="textImportWrap"><textarea id="stateTextInput" class="stateTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea><div class="textImportActions"><button id="clearStateTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button><button id="copyStateTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div><button id="parseStateTextBtn" class="button small" type="button">导入公式</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showStateThumbs" type="checkbox"><span class="checkVisual"></span><span>显示公式缩略图</span></label></div>' : "") + '<div id="stateImportStatus" class="importStatus">未导入公式</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"></div>' : "") + '<div id="stateList" class="stateList"></div></section>';
 				},
 
 				getDiagnosticsHtml: function(hidden) {
@@ -2959,11 +3059,11 @@
 				},
 
 				getLearnPanelHtml: function() {
-					return '<aside class="panel">' + this.getPanelHeaderHtml("学习模式") + this.getConnectSectionHtml("") + this.getMacHelpHtml() + '<section class="panelSection"><div class="metrics"><div class="metric"><span>设备</span><strong id="deviceName">-</strong></div><div class="metric"><span>转动数</span><strong id="moveCount">0</strong></div></div></section><section class="panelSection customStateSection"><button id="customFinalStateBtn" class="button" type="button">自定义魔方复原状态</button></section>' + this.getManualMovesHtml() + this.getStateImportHtml(true, false) + this.getDiagnosticsHtml(false) + '</aside>';
+					return '<aside class="panel">' + this.getPanelHeaderHtml("学习模式") + this.getConnectSectionHtml("") + this.getMacHelpHtml() + '<section class="panelSection"><div class="metrics"><div class="metric"><span>设备</span><strong id="deviceName">-</strong></div><div class="metric"><span>转动数</span><strong id="moveCount">0</strong></div></div></section><section class="panelSection customStateSection" style="display:none"><button id="customFinalStateBtn" class="button" type="button">自定义魔方复原状态</button></section>' + this.getManualMovesHtml() + this.getStateImportHtml(true, false) + this.getDiagnosticsHtml(false) + '</aside>';
 				},
 
 				getPracticePanelHtml: function() {
-					return '<aside class="panel practicePanel">' + this.getPanelHeaderHtml("训练模式") + '<section class="panelSection"><div class="controls practiceControls"><button id="connectBtn" class="button" type="button">连接魔方</button><div id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><button class="practiceModeCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span class="practiceModeCurrentText">顺序模式</span><span class="practiceModeChevron" aria-hidden="true"></span></button><div class="practiceModeMenu" role="menu"><button class="practiceModeOption" type="button" data-value="sequence" role="menuitem">顺序模式</button><button class="practiceModeOption" type="button" data-value="random" role="menuitem">随机模式</button><button class="practiceModeOption" type="button" data-value="loop" role="menuitem">循环模式</button></div></div></div></section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + this.getStateImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel practicePanel">' + this.getPanelHeaderHtml("训练模式") + '<section class="panelSection"><div class="controls practiceControls"><button id="connectBtn" class="button" type="button">连接魔方</button><div id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><button class="practiceModeCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span class="practiceModeCurrentText">顺序模式</span><span class="practiceModeChevron" aria-hidden="true"></span></button><div class="practiceModeMenu" role="menu"><button class="practiceModeOption" type="button" data-value="sequence" role="menuitem">顺序模式</button><button class="practiceModeOption" type="button" data-value="random" role="menuitem">随机模式</button><button class="practiceModeOption" type="button" data-value="loop" role="menuitem">循环模式</button></div></div></div></section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + '<section class="panelSection customStateSection" style="display:none"><button id="customFinalStateBtn" class="button" type="button">自定义魔方复原状态</button></section>' + this.getStateImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				getLibraryPanelHtml: function() {
@@ -3063,6 +3163,124 @@
 					}
 					if (this.elements.libraryList && !this.elements.libraryList.dataset.smartBound) {
 						this.bindFormulaLibraryList();
+					}
+					if (!this._sharedGroupBound) {
+						this._sharedGroupBound = true;
+						var self = this;
+
+						function exitGroupEdit() {
+							var bar = document.getElementById('sharedGroupBar');
+							if (bar) bar.classList.remove('isEditing', 'isCreating');
+						}
+						function confirmGroupEdit() {
+							var bar = document.getElementById('sharedGroupBar');
+							var nameInput = document.getElementById('sharedGroupNameInput');
+							var newName = nameInput ? nameInput.value.trim() : '';
+							if (bar && bar.classList.contains('isCreating')) {
+								if (newName && typeof self.createFormulaGroup === 'function') {
+									self.createFormulaGroup(newName);
+								}
+							} else if (bar && bar.classList.contains('isEditing')) {
+								if (newName && typeof self.renameFormulaGroup === 'function') {
+									self.renameFormulaGroup(typeof self.getActiveGroupId === 'function' ? self.getActiveGroupId() : null, newName);
+								}
+							}
+							if (bar) bar.classList.remove('isEditing', 'isCreating');
+						}
+
+						document.addEventListener('click', function(e) {
+							var current = e.target.closest('#sharedGroupCurrent');
+							var option = e.target.closest('.memoryLibraryOption[data-group-id]');
+							var addBtn = e.target.closest('#sharedGroupAddBtn');
+							var renameBtn = e.target.closest('#sharedGroupRenameBtn');
+							var deleteBtn = e.target.closest('#sharedGroupDeleteBtn');
+							var customBtn = e.target.closest('#sharedCustomStateBtn');
+							var bar = document.getElementById('sharedGroupBar');
+							var selector = document.getElementById('sharedGroupSelector');
+
+							if (current) {
+								if (selector) selector.classList.toggle('isOpen');
+								return;
+							}
+							if (option) {
+								var gid = option.getAttribute('data-group-id');
+								if (gid && typeof self.setActiveGroupId === 'function') {
+									self.setActiveGroupId(gid);
+								}
+								if (selector) selector.classList.remove('isOpen');
+								exitGroupEdit();
+								return;
+							}
+							if (selector && selector.classList.contains('isOpen') && !selector.contains(e.target)) {
+								selector.classList.remove('isOpen');
+							}
+							if (bar && (bar.classList.contains('isEditing') || bar.classList.contains('isCreating'))) {
+								if (!bar.contains(e.target)) {
+									exitGroupEdit();
+								}
+							}
+							if (addBtn) {
+								if (bar && bar.classList.contains('isCreating')) {
+									confirmGroupEdit();
+								} else {
+									exitGroupEdit();
+									if (bar) bar.classList.add('isCreating');
+									var nameInput = document.getElementById('sharedGroupNameInput');
+									if (nameInput) { nameInput.value = ''; nameInput.focus(); }
+								}
+								return;
+							}
+							if (renameBtn) {
+								if (bar && bar.classList.contains('isEditing')) {
+									confirmGroupEdit();
+								} else {
+									exitGroupEdit();
+									if (bar) bar.classList.add('isEditing');
+									var nameInput = document.getElementById('sharedGroupNameInput');
+									if (nameInput) {
+										nameInput.value = typeof self.getActiveGroupName === 'function' ? self.getActiveGroupName() : '';
+										nameInput.focus();
+										nameInput.select();
+									}
+								}
+								return;
+							}
+							if (deleteBtn) {
+								if (bar && bar.classList.contains('isCreating')) {
+									exitGroupEdit();
+									return;
+								}
+								if (typeof self.deleteFormulaGroup === 'function') {
+									var gname = typeof self.getActiveGroupName === 'function' ? self.getActiveGroupName() : '';
+									if (window.confirm('确定删除组「' + gname + '」？该组的所有公式和记忆数据将被永久删除。')) {
+										self.deleteFormulaGroup(typeof self.getActiveGroupId === 'function' ? self.getActiveGroupId() : null);
+									}
+								}
+								return;
+							}
+							if (customBtn) {
+								var origBtn = document.getElementById('customFinalStateBtn');
+								if (origBtn) {
+									origBtn.click();
+								} else {
+									if (typeof self.openCustomStateDialog === 'function') {
+										self.openCustomStateDialog();
+									}
+								}
+							}
+						});
+						document.addEventListener('keydown', function(e) {
+							var nameInput = document.getElementById('sharedGroupNameInput');
+							if (e.target === nameInput) {
+								if (e.key === 'Enter') {
+									e.preventDefault();
+									confirmGroupEdit();
+								} else if (e.key === 'Escape') {
+									e.preventDefault();
+									exitGroupEdit();
+								}
+							}
+						});
 					}
 				},
 
@@ -3290,6 +3508,9 @@
 					document.getElementById("confirmCustomStateBtn").addEventListener("click", function() {
 						self.hiddenStickerMask = self.cloneStickerMask(self.customCubeDraftMask);
 						self.applyHiddenStickerMask(self.twistyScene, self.hiddenStickerMask);
+						if (typeof self.setActiveGroupCustomMask === 'function') {
+							self.setActiveGroupCustomMask(self.hiddenStickerMask);
+						}
 						self.applyHiddenStickerMaskToThumbnails();
 						closeDialog();
 					});
@@ -3447,54 +3668,41 @@
 				},
 
 				loadPracticeStats: function() {
-					try {
-						var saved = storageManager.getJson(PRACTICE_STATS_KEY, null);
-						if (!saved || typeof saved !== "object") {
-							this.practiceStats = {
-								schemaVersion: PRACTICE_STATS_SCHEMA_VERSION,
-								solveTimes: {},
-								practiceMode: "sequence"
-							};
-							return;
-						}
-						if (saved.schemaVersion !== PRACTICE_STATS_SCHEMA_VERSION) {
-							this.practiceStats = {
-								schemaVersion: PRACTICE_STATS_SCHEMA_VERSION,
-								solveTimes: {},
-								practiceMode: "sequence"
-							};
-							return;
-						}
+					var saved = storageManager.getJson(PRACTICE_STATS_KEY, null);
+					if (!saved) {
+						this.practiceStats = { schemaVersion: 3, groups: {} };
+					} else if (saved.schemaVersion === 3 && saved.groups) {
+						this.practiceStats = saved;
+					} else {
+						var groupId = (typeof this.getActiveGroupId === 'function') ? this.getActiveGroupId() : 'lib_default';
 						this.practiceStats = {
-							schemaVersion: PRACTICE_STATS_SCHEMA_VERSION,
-							solveTimes: saved.solveTimes && typeof saved.solveTimes === "object" ? saved.solveTimes : {},
-							practiceMode: saved.practiceMode || "sequence"
+							schemaVersion: 3,
+							groups: {}
 						};
-						this.stateSolveTimes = this.practiceStats.solveTimes;
-						this.practiceMode = this.practiceStats.practiceMode || "sequence";
-					} catch (error) {
-						this.practiceStats = {
-							schemaVersion: PRACTICE_STATS_SCHEMA_VERSION,
-							solveTimes: {},
-							practiceMode: "sequence"
-						};
+						if (saved.solveTimes) {
+							this.practiceStats.groups[groupId] = { solveTimes: saved.solveTimes };
+						}
+						this.savePracticeStats();
 					}
+					var groupData = this.getCurrentGroupPracticeData();
+					this.stateSolveTimes = groupData.solveTimes;
 				},
 
 				savePracticeStats: function() {
-					if (!this.practiceStats) {
-						this.practiceStats = {
-							schemaVersion: PRACTICE_STATS_SCHEMA_VERSION,
-							solveTimes: {},
-							practiceMode: "sequence"
-						};
-					}
-					this.practiceStats.solveTimes = this.stateSolveTimes || {};
-					this.practiceStats.practiceMode = this.practiceMode || "sequence";
+					this.practiceStats.schemaVersion = 3;
 					storageManager.setJson(PRACTICE_STATS_KEY, this.practiceStats);
 					if (this.markDataDirty) {
 						this.markDataDirty();
 					}
+				},
+
+				getCurrentGroupPracticeData: function() {
+					var gid = (typeof this.getActiveGroupId === 'function') ? this.getActiveGroupId() : 'lib_default';
+					if (!this.practiceStats.groups) this.practiceStats.groups = {};
+					if (!this.practiceStats.groups[gid]) {
+						this.practiceStats.groups[gid] = { solveTimes: {} };
+					}
+					return this.practiceStats.groups[gid];
 				},
 
 				clearFormulaModeContent: function() {
@@ -4550,21 +4758,34 @@
 						this.loadFormulaEntries();
 						this.loadPracticeStats();
 						this.renderFormulaList();
-						this.stateImportText = this.getActiveLibraryPlanText ? this.getActiveLibraryPlanText() : "";
+						if (typeof this.getActiveGroupPlanText === 'function') {
+							this.stateImportText = this.getActiveGroupPlanText();
+						} else {
+							this.stateImportText = this.getActiveLibraryPlanText ? this.getActiveLibraryPlanText() : "";
+						}
+						this.syncSharedGroupToStateEntries();
 						this.fillStateTextInput(this.stateImportText, false, false);
 						if (this.stateImportText && this.stateImportText.trim()) {
-							this.importStateText(this.stateImportText, "restore");
-							this.stateImported = true;
+							this.fillStateTextInput(this.stateImportText, false, false);
+							this.stateImported = this.stateEntries.length > 0;
+							if (!this.stateImported) {
+								this.importStateText(this.stateImportText, "restore");
+								this.stateImported = true;
+							}
 						} else {
 							this.importedStates = [];
-							this.stateSolveTimes = (this.practiceStats && this.practiceStats.solveTimes) || {};
+							var groupData = this.getCurrentGroupPracticeData();
+							groupData.solveTimes = {};
+							this.stateSolveTimes = groupData.solveTimes;
 							this.stateImported = false;
-							this.renderStateList();
-							this.setImportStatus("未导入公式");
+							if (this.elements && this.elements.stateList) this.elements.stateList.innerHTML = '';
+							if (this.elements && this.elements.stateImportStatus) this.elements.stateImportStatus.textContent = '未导入公式';
 							this.updatePracticeAoTimes();
 						}
+						this.applyGroupMaskToCube();
 						this.syncConnectionUi();
 						this.updatePracticeModeSelect();
+						this.renderSharedGroupSelector();
 					} finally {
 						this.cloudApplyingDownload = false;
 						setTimeout(function() { window._siteNavApplyingCloudData = false; }, 0);
@@ -4714,8 +4935,16 @@
 						}
 					});
 					this.elements.parseStateTextBtn.addEventListener("click", function() {
-						self.captureStateTextInput();
-						self.importStateText(self.elements.stateTextInput.value, "text");
+						var text = self.elements.stateTextInput.value;
+						self.stateImportText = text;
+						if (typeof self.setActiveGroupPlanText === 'function') {
+							self.setActiveGroupPlanText(text);
+						} else {
+							self.saveStateImportText();
+							self.importStateText(text, "manual");
+						}
+						self.elements.textImportBox.classList.remove("isVisible");
+						self.elements.toggleTextImportBtn.textContent = "输入文本";
 					});
 				this.elements.stateTextInput.addEventListener("input", function(event) {
 					self.stateImportText = event.target.value;
@@ -4895,35 +5124,122 @@
 			},
 
 			loadStateImportText: function() {
-				var saved = "";
-				if (this.getActiveLibraryPlanText) {
-					saved = this.getActiveLibraryPlanText();
-				}
-				if (!saved) {
-					saved = storageManager.getItem("smartCubeStateImportText", "") || "";
-					if (saved && this.setActiveLibraryPlanText) {
-						this.setActiveLibraryPlanText(saved);
-						storageManager.setItem("smartCubeStateImportText", "");
+				if (typeof this.getActiveGroupPlanText === 'function') {
+					var text = this.getActiveGroupPlanText();
+					if (text) {
+						this.stateImportText = text;
+						return;
 					}
 				}
-				this.stateImportText = saved || "";
-				if (this.elements.stateTextInput) {
-					this.elements.stateTextInput.value = this.stateImportText;
+				var old = storageManager.getItem("smartCubeStateImportText", "");
+				if (old && typeof this.setActiveGroupPlanTextQuiet === 'function') {
+					this.setActiveGroupPlanTextQuiet(old);
+					storageManager.removeItem("smartCubeStateImportText");
+					this.stateImportText = old;
+					return;
 				}
+				this.stateImportText = "";
 			},
 
 			saveStateImportText: function() {
 				var text = this.stateImportText || "";
-				if (this.setActiveLibraryPlanTextQuiet) {
+				if (typeof this.setActiveGroupPlanTextQuiet === 'function') {
+					this.setActiveGroupPlanTextQuiet(text);
+				} else if (typeof this.setActiveLibraryPlanTextQuiet === 'function') {
 					this.setActiveLibraryPlanTextQuiet(text);
-				} else if (this.setActiveLibraryPlanText) {
-					this.setActiveLibraryPlanText(text);
-				} else {
-					storageManager.setItem("smartCubeStateImportText", text);
 				}
 				if (this.markDataDirty) {
 					this.markDataDirty();
 				}
+			},
+
+			syncSharedGroupToStateEntries: function() {
+				if (typeof this.getActiveGroupFormulas !== 'function') return;
+				var formulas = this.getActiveGroupFormulas();
+				this.stateEntries = formulas.map(function(f) {
+					return {
+						id: f.id,
+						name: f.name,
+						alg: f.alg,
+						moves: f.moves || [],
+						selected: true,
+						image: f.image || null,
+						customSolvedState: f.customSolvedState || null
+					};
+				});
+				this.stateImported = this.stateEntries.length > 0;
+			},
+
+			applyGroupMaskToCube: function() {
+				if (typeof this.getActiveGroupCustomMask !== 'function') return;
+				var mask = this.getActiveGroupCustomMask();
+				this.hiddenStickerMask = this.cloneStickerMask(mask || {});
+				if (this.twistyScene && typeof this.applyHiddenStickerMask === 'function') {
+					this.applyHiddenStickerMask(this.twistyScene, this.hiddenStickerMask);
+				}
+			},
+
+			showFormulaAddGroupDialog: function(text, sourceMode) {
+				var self = this;
+				var groups = typeof this.getFormulaGroups === 'function' ? this.getFormulaGroups() : [];
+				var currentGroupName = typeof this.getActiveGroupName === 'function' ? this.getActiveGroupName() : '当前组';
+				var overlay = document.createElement('div');
+				overlay.className = 'formulaAddGroupDialog';
+				var otherGroupOptions = groups.map(function(g) {
+					return '<button class="button secondary formulaGroupOption" type="button" data-group-id="' + self.escapeHtml(g.id) + '">' + self.escapeHtml(g.name) + '</button>';
+				}).join('');
+				overlay.innerHTML = '<div class="formulaAddGroupDialogBox"><div class="formulaAddGroupDialogTitle">添加公式到公式组</div><div class="formulaAddGroupDialogDesc">公式制作中的公式将添加到选定的公式组中</div><div class="formulaAddGroupDialogActions"><button class="button formulaAddCurrent" type="button">添加至当前组：' + self.escapeHtml(currentGroupName) + '</button><button class="button secondary formulaAddOther" type="button">添加至其他组...</button><div class="formulaAddOtherList" style="display:none;flex-direction:column;gap:4px;">' + otherGroupOptions + '</div><button class="button secondary formulaAddCancel" type="button">取消，不导入</button></div></div>';
+				document.body.appendChild(overlay);
+				function cleanup() {
+					if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+				}
+				function addToGroup(groupId) {
+					var gid = groupId || (typeof self.getActiveGroupId === 'function' ? self.getActiveGroupId() : null);
+					if (!gid) { cleanup(); return; }
+					if (typeof self.appendTextToGroup === 'function') {
+						self.appendTextToGroup(gid, text);
+					} else {
+						self.appendStateImportText(text);
+					}
+					self.showToast("公式已添加到组");
+					cleanup();
+				}
+				overlay.querySelector('.formulaAddCurrent').addEventListener('click', function() { addToGroup(null); });
+				overlay.querySelector('.formulaAddOther').addEventListener('click', function() {
+					var list = overlay.querySelector('.formulaAddOtherList');
+					list.style.display = 'flex';
+					this.style.display = 'none';
+				});
+				overlay.querySelectorAll('.formulaGroupOption').forEach(function(btn) {
+					btn.addEventListener('click', function() {
+						addToGroup(btn.getAttribute('data-group-id'));
+					});
+				});
+				overlay.querySelector('.formulaAddCancel').addEventListener('click', cleanup);
+				overlay.addEventListener('click', function(e) {
+					if (e.target === overlay) cleanup();
+				});
+			},
+
+			renderSharedGroupSelector: function() {
+				var textEl = document.getElementById('sharedGroupCurrentText');
+				var menu = document.getElementById('sharedGroupMenu');
+				var bar = document.getElementById('sharedGroupBar');
+				if (!textEl || !menu) return;
+				var groups = typeof this.getFormulaGroups === 'function' ? this.getFormulaGroups() : [];
+				var activeId = typeof this.getActiveGroupId === 'function' ? this.getActiveGroupId() : null;
+				var activeGroup = groups.find(function(g) { return g.id === activeId; });
+				textEl.textContent = activeGroup ? activeGroup.name : '默认组';
+				menu.innerHTML = groups.filter(function(g) { return g.id !== activeId; }).map(function(g) {
+					return '<button class="memoryLibraryOption" type="button" data-group-id="' + this.escapeHtml(g.id) + '" role="menuitem">' + this.escapeHtml(g.name) + '</button>';
+				}.bind(this)).join('');
+				if (bar) {
+					bar.classList.remove('isEditing', 'isCreating');
+				}
+				var nameInput = document.getElementById('sharedGroupNameInput');
+				if (nameInput) nameInput.value = activeGroup ? activeGroup.name : '';
+				var selector = document.getElementById('sharedGroupSelector');
+				if (selector) selector.classList.remove('isOpen');
 			},
 
 				appendStateImportText: function(text) {
@@ -4980,8 +5296,9 @@
 				importStateText: function(text, source) {
 					var result = this.parseStateDefinitions(text || "");
 					var oldStates = this.importedStates || [];
+					var currentGroupData = this.getCurrentGroupPracticeData();
 					var oldSolveTimes = source === "restore"
-						? (this.practiceStats && this.practiceStats.solveTimes ? this.practiceStats.solveTimes : {})
+						? (currentGroupData.solveTimes || {})
 						: (this.stateSolveTimes || {});
 					var newSolveTimes = {};
 					function normalizeAlg(alg) {
@@ -5015,6 +5332,7 @@
 					}
 					this.importedStates = result.states;
 					this.stateSolveTimes = newSolveTimes;
+					currentGroupData.solveTimes = newSolveTimes;
 					this.stateImported = result.states.length > 0;
 					var isUserImport = source !== "restore" && source !== "library";
 					if (isUserImport && this.setActiveLibraryFormulasFromStates) {
@@ -5038,7 +5356,7 @@
 				},
 
 				parseStateDefinitions: function(text) {
-					var entries = String(text).replace(/锛[\?\uFFFD]/g, "：").replace(/[\r\n]+/g, "").split(";");
+					var entries = String(text).replace(/锛[\?\uFFFD]/g, "：").replace(/[；;]/g, "\n").replace(/[\r\n]+/g, "\n").split("\n");
 					var states = [];
 					var skipped = 0;
 					for (var i = 0; i < entries.length; i++) {
