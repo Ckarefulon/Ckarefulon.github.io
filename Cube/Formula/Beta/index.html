@@ -26,6 +26,7 @@
 	<script src="assets/lib/sha256.js?v=0286" defer></script>
 	<script src="assets/lib/isaac.js?v=0286" defer></script>
 	<script src="assets/lib/mathlib.js?v=0286" defer></script>
+	<script src="assets/lib/formula-core.js?v=1168"></script>
 	<script src="assets/lib/pnltri.js?v=0286" defer></script>
 	<script src="assets/lib/threemin.js?v=0286" defer></script>
 
@@ -41,7 +42,7 @@
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
 
 	<link rel="stylesheet" href="assets/memory/memory.css?v=1034">
-	<script src="assets/memory/memory.js?v=1105" defer></script>
+	<script src="assets/memory/memory.js?v=1168" defer></script>
 
 	<title>学习模式</title>
 	<style>
@@ -1234,7 +1235,7 @@
 			font-size: 13px;
 		}
 
-		.stateList {
+		.formulaCardsList {
 			display: grid;
 			gap: 8px;
 			margin-top: 12px;
@@ -1288,7 +1289,7 @@
 			margin: 0 auto;
 		}
 
-		.practicePanel .stateList {
+		.practicePanel .formulaCardsList {
 			grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
 			gap: 10px;
 		}
@@ -2262,31 +2263,31 @@
 			</section>
 
 			<section class="panelSection stateImport" id="stateImport">
-				<div id="stateDropZone" class="importDropZone">拖入 TXT 公式文件</div>
+				<div id="formulaDropZone" class="importDropZone">拖入 TXT 公式文件</div>
 				<div class="controls">
-					<button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button>
+					<button id="chooseFormulaFileBtn" class="button secondary" type="button">选择 TXT</button>
 					<button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button>
 				</div>
-				<input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain">
+				<input id="formulaFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain">
 				<div id="textImportBox" class="textImport">
 					<div class="textImportWrap">
-						<textarea id="stateTextInput" class="stateTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea>
+						<textarea id="formulaTextInput" class="stateTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea>
 						<div class="textImportActions">
-							<button id="clearStateTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
-							<button id="copyStateTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+							<button id="clearFormulaTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+							<button id="copyFormulaTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
 						</div>
 					</div>
-					<button id="parseStateTextBtn" class="button small" type="button">导入公式</button>
+					<button id="importFormulaTextBtn" class="button small" type="button">导入公式</button>
 				</div>
 				<div class="stateOptionRow">
 					<label class="stateOptions smartCheck">
-						<input id="showStateThumbs" type="checkbox">
+						<input id="showFormulaThumbs" type="checkbox">
 						<span class="checkVisual"></span>
 						<span>显示公式缩略图</span>
 					</label>
 				</div>
-				<div id="stateImportStatus" class="importStatus">未导入公式</div>
-				<div id="stateList" class="stateList"></div>
+				<div id="formulaImportStatus" class="importStatus">未导入公式</div>
+				<div id="formulaCardsList" class="formulaCardsList"></div>
 			</section>
 
 			<section class="history">
@@ -2466,10 +2467,10 @@
 				twistyScene: null,
 				virtualCubie: null,
 				moveHistory: [],
-				importedStates: [],
-				stateImportText: "",
-				stateImported: false,
-				stateEntries: [],
+				importedFormulas: [],
+				formulaInputText: "",
+				formulaImported: false,
+				formulaInputEntries: [],
 				formulaEntries: [],
 				formulaExportTextOverride: "",
 				activeFormulaId: null,
@@ -2482,7 +2483,7 @@
 				formulaLibraryLoaded: false,
 				formulaLibraryLoading: false,
 				suppressLibraryTransferOnce: false,
-				showStateThumbs: false,
+				showFormulaThumbs: false,
 				showPracticeFormula: false,
 				practiceStats: {
 					schemaVersion: 3,
@@ -2494,18 +2495,18 @@
 				moveCount: 0,
 				movesSinceState: 0,
 				practiceSolveStartTime: null,
-				stateSolveTimes: {},
+				formulaSolveTimes: {},
 				lastCubePrevMoves: [],
 				lastCubeHistoryStamp: null,
 				pendingCubeMove: null,
 				pendingCubeMoveTimer: null,
 				cubeSliceWindowMs: 90,
-				currentStateIndex: -1,
+				currentFormulaIndex: -1,
 				currentMode: "learn",
 				isPracticeMode: false,
 				practiceMode: "sequence",
 				randomBag: [],
-				recentStateIndices: [],
+				recentFormulaIndices: [],
 				solveSwitchTimer: null,
 				solvedAdvancePending: false,
 				solvedCheckFeedbackActive: false,
@@ -2514,6 +2515,10 @@
 				seenUnsolvedFaceletSinceState: false,
 				seenUnsolvedVirtualSinceState: false,
 				lastFaceletSolved: false,
+				solveDetectionMode: 2,
+				performedProcessMoves: [],
+				processTargetMoves: [],
+				activeRestorationTarget: null,
 				currentFacelet: "",
 				deviceName: "",
 				batteryLevel: null,
@@ -2538,49 +2543,49 @@
 
 				this.loadFormulaEntries();
 				this.loadPracticeStats();
-				this.loadStateImportText();
+				this.loadFormulaInputText();
 				this.initTwisty();
 					this.initTheme();
 					this.initSiteHeader();
 					this.renderModePanel("learn");
 					this.bindUI();
-					this.syncSharedGroupToStateEntries();
+					this.syncSharedGroupToFormulaEntries();
 					var self = this;
 					if (typeof this.onActiveGroupChanged === 'function') {
 						this.onActiveGroupChanged(function() {
 							if (!this.elements) return;
-							this.stateImportText = typeof this.getActiveGroupPlanText === 'function' ? this.getActiveGroupPlanText() : '';
-							this.syncSharedGroupToStateEntries();
-							var textarea = document.getElementById('stateTextInput');
+							this.formulaInputText = typeof this.getActiveGroupPlanText === 'function' ? this.getActiveGroupPlanText() : '';
+							this.syncSharedGroupToFormulaEntries();
+							var textarea = document.getElementById('formulaTextInput');
 							if (textarea && document.activeElement !== textarea) {
-								textarea.value = this.stateImportText;
+								textarea.value = this.formulaInputText;
 							}
 							this.renderSharedGroupSelector();
 							var groupData = this.getCurrentGroupPracticeData();
-							this.stateSolveTimes = groupData.solveTimes;
-							this.fillStateTextInput(this.stateImportText, false, false);
-							if (this.stateImportText && this.stateImportText.trim()) {
-								if (this.stateEntries.length > 0) {
-									this.stateImported = true;
-									this.importedStates = this.stateEntries.map(function(e) {
+							this.formulaSolveTimes = groupData.solveTimes;
+							this.fillFormulaInputText(this.formulaInputText, false, false);
+							if (this.formulaInputText && this.formulaInputText.trim()) {
+								if (this.formulaInputEntries.length > 0) {
+									this.formulaImported = true;
+									this.importedFormulas = this.formulaInputEntries.map(function(e) {
 										return { name: e.name, alg: e.alg, moves: e.moves || [], image: e.image || null, customSolvedState: e.customSolvedState || null };
 									});
-									this.renderStateList();
-									this.setImportStatus("已导入 " + this.stateEntries.length + " 个公式");
+									this.renderFormulaCards();
+									this.setFormulaImportStatus("已导入 " + this.formulaInputEntries.length + " 个公式");
 								} else {
-									this.importStateText(this.stateImportText, "restore");
-									this.stateImported = true;
+									this.importFormulaText(this.formulaInputText, "restore");
+									this.formulaImported = true;
 								}
 							} else {
-								this.stateEntries = [];
-								this.importedStates = [];
-								this.stateImported = false;
-								if (this.elements && this.elements.stateList) this.elements.stateList.innerHTML = '';
-								if (this.elements && this.elements.stateImportStatus) this.elements.stateImportStatus.textContent = '未导入公式';
+								this.formulaInputEntries = [];
+								this.importedFormulas = [];
+								this.formulaImported = false;
+								if (this.elements && this.elements.formulaCardsList) this.elements.formulaCardsList.innerHTML = '';
+								if (this.elements && this.elements.formulaImportStatus) this.elements.formulaImportStatus.textContent = '未导入公式';
 							}
 							this.applyGroupMaskToCube();
 							if (this.isPracticeMode) {
-								this.resetPracticeState();
+								this.resetPracticeFormula();
 							}
 							this.updatePracticeAoTimes();
 						}.bind(this));
@@ -2590,25 +2595,25 @@
 							this.renderSharedGroupSelector();
 						}.bind(this));
 					}
-					this.fillStateTextInput(this.stateImportText, false, false);
-					if (this.stateImportText && this.stateImportText.trim()) {
-						this.stateImported = this.stateEntries.length > 0;
-						if (!this.stateImported) {
-							this.importStateText(this.stateImportText, "restore");
-							this.stateImported = true;
+					this.fillFormulaInputText(this.formulaInputText, false, false);
+					if (this.formulaInputText && this.formulaInputText.trim()) {
+						this.formulaImported = this.formulaInputEntries.length > 0;
+						if (!this.formulaImported) {
+							this.importFormulaText(this.formulaInputText, "restore");
+							this.formulaImported = true;
 						} else {
-							this.importedStates = this.stateEntries.map(function(e) {
+							this.importedFormulas = this.formulaInputEntries.map(function(e) {
 								return { name: e.name, alg: e.alg, moves: e.moves || [], image: e.image || null, customSolvedState: e.customSolvedState || null };
 							});
-							this.renderStateList();
-							this.setImportStatus("已导入 " + this.stateEntries.length + " 个公式");
+							this.renderFormulaCards();
+							this.setFormulaImportStatus("已导入 " + this.formulaInputEntries.length + " 个公式");
 						}
 					} else {
-						this.stateEntries = [];
-						this.importedStates = [];
-						this.stateImported = false;
-						if (this.elements && this.elements.stateList) this.elements.stateList.innerHTML = '';
-						if (this.elements && this.elements.stateImportStatus) this.elements.stateImportStatus.textContent = '未导入公式';
+						this.formulaInputEntries = [];
+						this.importedFormulas = [];
+						this.formulaImported = false;
+						if (this.elements && this.elements.formulaCardsList) this.elements.formulaCardsList.innerHTML = '';
+						if (this.elements && this.elements.formulaImportStatus) this.elements.formulaImportStatus.textContent = '未导入公式';
 					}
 					this.applyGroupMaskToCube();
 					this.renderSharedGroupSelector();
@@ -2647,20 +2652,20 @@
 						lastTs: document.getElementById("lastTs"),
 						manualMoves: document.getElementById("manualMoves"),
 						customFinalStateBtn: document.getElementById("customFinalStateBtn"),
-						stateDropZone: document.getElementById("stateDropZone"),
-						chooseStateFileBtn: document.getElementById("chooseStateFileBtn"),
-						stateFileInput: document.getElementById("stateFileInput"),
+						formulaDropZone: document.getElementById("formulaDropZone"),
+						chooseFormulaFileBtn: document.getElementById("chooseFormulaFileBtn"),
+						formulaFileInput: document.getElementById("formulaFileInput"),
 						toggleTextImportBtn: document.getElementById("toggleTextImportBtn"),
 						textImportBox: document.getElementById("textImportBox"),
-						stateTextInput: document.getElementById("stateTextInput"),
-						parseStateTextBtn: document.getElementById("parseStateTextBtn"),
-						showStateThumbs: document.getElementById("showStateThumbs"),
+						formulaTextInput: document.getElementById("formulaTextInput"),
+						importFormulaTextBtn: document.getElementById("importFormulaTextBtn"),
+						showFormulaThumbs: document.getElementById("showFormulaThumbs"),
 						showPracticeFormula: document.getElementById("showPracticeFormula"),
 						practiceFormulaText: document.getElementById("practiceFormulaText"),
 						practiceFormulaToggle: document.getElementById("practiceFormulaToggle"),
 						practiceAoTimes: document.getElementById("practiceAoTimes"),
-						stateImportStatus: document.getElementById("stateImportStatus"),
-						stateList: document.getElementById("stateList"),
+						formulaImportStatus: document.getElementById("formulaImportStatus"),
+						formulaCardsList: document.getElementById("formulaCardsList"),
 						macHelp: document.getElementById("macHelp"),
 						macHelpReason: document.getElementById("macHelpReason")
 					};
@@ -2918,7 +2923,7 @@
 					var enteringFormulaMode = mode === "formula" && sourceMode !== "formula";
 					var savedViewYaw = this.viewYaw || 0;
 					var savedViewPitch = this.viewPitch || 0;
-					this.captureStateTextInput();
+					this.captureFormulaInputText();
 					var formulaTransferText = null;
 					var formulaTextAppended = false;
 					if (sourceMode === "formula" && mode !== "formula") {
@@ -2945,7 +2950,7 @@
 					}
 					this.renderModePanel(mode);
 					if (formulaTextAppended) {
-						this.importStateText(this.stateImportText, sourceMode === "library" ? "library" : "formula");
+						this.importFormulaText(this.formulaInputText, sourceMode === "library" ? "library" : "formula");
 						var addedCount = 0;
 						if (sourceMode === "formula" && this.formulaEntries) {
 							addedCount = this.formulaEntries.filter(function(f) { return f.selected; }).length;
@@ -2995,8 +3000,8 @@
 					this.refreshElements();
 					this.bindPanelControls();
 					this.syncConnectionUi();
-					this.fillStateTextInput(this.stateImportText, false, false);
-					this.renderStateList();
+					this.fillFormulaInputText(this.formulaInputText, false, false);
+					this.renderFormulaCards();
 					this.renderMoves();
 					this.renderFormulaList();
 					this.renderFormulaLibraryList();
@@ -3042,8 +3047,9 @@
 					return '<div class="memoryLibraryBar sharedGroupBar" id="sharedGroupBar"><div id="sharedGroupSelector" class="memoryLibrarySelector"><button id="sharedGroupCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="sharedGroupCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="sharedGroupMenu" class="memoryLibraryMenu" role="menu"></div></div><input id="sharedGroupNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="sharedGroupAddBtn" class="memoryLibraryIconBtn" type="button" title="新建组"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名组"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除组"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>';
 				},
 
-				getStateImportHtml: function(showThumbOption, practiceCards) {
-					return '<section class="panelSection stateImport" id="stateImport">' + this.getGroupSelectorHtml() + '<button id="sharedCustomStateBtn" class="button secondary" type="button" style="width:100%;margin-bottom:8px;font-size:13px;">自定义本组复原状态</button><div id="stateDropZone" class="importDropZone">拖入 TXT 公式文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseStateFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="stateFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><div class="textImportWrap"><textarea id="stateTextInput" class="stateTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea><div class="textImportActions"><button id="clearStateTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button><button id="copyStateTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div><button id="parseStateTextBtn" class="button small" type="button">导入公式</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showStateThumbs" type="checkbox"><span class="checkVisual"></span><span>显示公式缩略图</span></label></div>' : "") + '<div id="stateImportStatus" class="importStatus">未导入公式</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"></div>' : "") + '<div id="stateList" class="stateList"></div></section>';
+				getFormulaImportHtml: function(showThumbOption, practiceCards, includeGroupControls) {
+					var groupControls = includeGroupControls === false ? "" : this.getGroupSelectorHtml() + '<button id="sharedCustomStateBtn" class="button secondary" type="button" style="width:100%;margin-bottom:8px;font-size:13px;">自定义本组复原状态</button>';
+					return '<section class="panelSection stateImport" id="formulaImport">' + groupControls + '<div id="formulaDropZone" class="importDropZone">拖入 TXT 公式文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseFormulaFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="formulaFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><div class="textImportWrap"><textarea id="formulaTextInput" class="stateTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea><div class="textImportActions"><button id="clearFormulaTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button><button id="copyFormulaTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div><button id="importFormulaTextBtn" class="button small" type="button">导入公式</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showFormulaThumbs" type="checkbox"><span class="checkVisual"></span><span>显示公式缩略图</span></label></div>' : "") + '<div id="formulaImportStatus" class="importStatus">未导入公式</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"></div>' : "") + '<div id="formulaCardsList" class="formulaCardsList"></div></section>';
 				},
 
 				getDiagnosticsHtml: function(hidden) {
@@ -3059,11 +3065,11 @@
 				},
 
 				getLearnPanelHtml: function() {
-					return '<aside class="panel">' + this.getPanelHeaderHtml("学习模式") + this.getConnectSectionHtml("") + this.getMacHelpHtml() + '<section class="panelSection"><div class="metrics"><div class="metric"><span>设备</span><strong id="deviceName">-</strong></div><div class="metric"><span>转动数</span><strong id="moveCount">0</strong></div></div></section><section class="panelSection customStateSection" style="display:none"><button id="customFinalStateBtn" class="button" type="button">自定义魔方复原状态</button></section>' + this.getManualMovesHtml() + this.getStateImportHtml(true, false) + this.getDiagnosticsHtml(false) + '</aside>';
+					return '<aside class="panel">' + this.getPanelHeaderHtml("学习模式") + this.getConnectSectionHtml("") + this.getMacHelpHtml() + '<section class="panelSection"><div class="metrics"><div class="metric"><span>设备</span><strong id="deviceName">-</strong></div><div class="metric"><span>转动数</span><strong id="moveCount">0</strong></div></div></section><section class="panelSection customStateSection" style="display:none"><button id="customFinalStateBtn" class="button" type="button">自定义魔方复原状态</button></section>' + this.getManualMovesHtml() + this.getFormulaImportHtml(true, false) + this.getDiagnosticsHtml(false) + '</aside>';
 				},
 
 				getPracticePanelHtml: function() {
-					return '<aside class="panel practicePanel">' + this.getPanelHeaderHtml("训练模式") + '<section class="panelSection"><div class="controls practiceControls"><button id="connectBtn" class="button" type="button">连接魔方</button><div id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><button class="practiceModeCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span class="practiceModeCurrentText">顺序模式</span><span class="practiceModeChevron" aria-hidden="true"></span></button><div class="practiceModeMenu" role="menu"><button class="practiceModeOption" type="button" data-value="sequence" role="menuitem">顺序模式</button><button class="practiceModeOption" type="button" data-value="random" role="menuitem">随机模式</button><button class="practiceModeOption" type="button" data-value="loop" role="menuitem">循环模式</button></div></div></div></section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + '<section class="panelSection customStateSection" style="display:none"><button id="customFinalStateBtn" class="button" type="button">自定义魔方复原状态</button></section>' + this.getStateImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel practicePanel">' + this.getPanelHeaderHtml("训练模式") + '<section class="panelSection"><div class="controls practiceControls"><button id="connectBtn" class="button" type="button">连接魔方</button><div id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><button class="practiceModeCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span class="practiceModeCurrentText">顺序模式</span><span class="practiceModeChevron" aria-hidden="true"></span></button><div class="practiceModeMenu" role="menu"><button class="practiceModeOption" type="button" data-value="sequence" role="menuitem">顺序模式</button><button class="practiceModeOption" type="button" data-value="random" role="menuitem">随机模式</button><button class="practiceModeOption" type="button" data-value="loop" role="menuitem">循环模式</button></div></div></div></section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + '<section class="panelSection customStateSection" style="display:none"><button id="customFinalStateBtn" class="button" type="button">自定义魔方复原状态</button></section>' + this.getFormulaImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				getLibraryPanelHtml: function() {
@@ -3084,6 +3090,9 @@
 
 				bindPanelControls: function() {
 					var self = this;
+					if (this.isPracticeMode) {
+						this.ensureSolveDetectionControls(document.querySelector(".practicePanel"));
+					}
 					this.bindOnce(this.elements.connectBtn, "smartBound", function(element) {
 						element.addEventListener("click", function() {
 							if (self.connected) {
@@ -3155,8 +3164,8 @@
 							}
 						});
 					});
-					if (this.elements.stateDropZone && !this.elements.stateDropZone.dataset.smartBound) {
-						this.bindStateImport();
+					if (this.elements.formulaDropZone && !this.elements.formulaDropZone.dataset.smartBound) {
+						this.bindFormulaImport();
 					}
 					if (this.elements.formulaList && !this.elements.formulaList.dataset.smartBound) {
 						this.bindFormulaList();
@@ -3670,9 +3679,10 @@
 				loadPracticeStats: function() {
 					var saved = storageManager.getJson(PRACTICE_STATS_KEY, null);
 					if (!saved) {
-						this.practiceStats = { schemaVersion: 3, groups: {} };
+						this.practiceStats = { schemaVersion: 3, groups: {}, solveDetectionMode: 2 };
 					} else if (saved.schemaVersion === 3 && saved.groups) {
 						this.practiceStats = saved;
+						this.practiceStats.solveDetectionMode = Number(saved.solveDetectionMode) === 1 ? 1 : 2;
 					} else {
 						var groupId = (typeof this.getActiveGroupId === 'function') ? this.getActiveGroupId() : 'lib_default';
 						this.practiceStats = {
@@ -3684,8 +3694,9 @@
 						}
 						this.savePracticeStats();
 					}
+					this.solveDetectionMode = Number(this.practiceStats.solveDetectionMode) === 1 ? 1 : 2;
 					var groupData = this.getCurrentGroupPracticeData();
-					this.stateSolveTimes = groupData.solveTimes;
+					this.formulaSolveTimes = groupData.solveTimes;
 				},
 
 				savePracticeStats: function() {
@@ -3773,13 +3784,13 @@
 				},
 
 				buildFormulaLibrary: function(name, raw, index) {
-					var parsed = this.parseStateDefinitions(raw);
+					var parsed = this.parseFormulaDefinitions(raw);
 					var libraryId = "library-" + index;
 					return {
 						id: libraryId,
 						name: name,
 						skipped: parsed.skipped,
-						formulas: parsed.states.map(function(state, stateIndex) {
+						formulas: parsed.formulas.map(function(state, stateIndex) {
 							return {
 								id: libraryId + "-formula-" + stateIndex,
 								name: state.name,
@@ -3990,10 +4001,10 @@
 						return;
 					}
 					var selectedCount = Object.keys(this.formulaLibrarySelections || {}).filter(function(k) { return this.formulaLibrarySelections[k]; }.bind(this)).length;
-					this.appendStateImportText(text);
+					this.appendFormulaInputText(text);
 					this.switchMode("learn");
-					this.fillStateTextInput(this.stateImportText, false, false);
-					this.importStateText(this.stateImportText, "library");
+					this.fillFormulaInputText(this.formulaInputText, false, false);
+					this.importFormulaText(this.formulaInputText, "library");
 					if (selectedCount > 0) {
 						this.showToast("已添加 " + selectedCount + " 个公式到状态列表");
 					}
@@ -4013,10 +4024,10 @@
 						onSave: function(editedText) {
 							this.suppressLibraryTransferOnce = true;
 							this.switchMode("learn");
-							var appended = this.appendStateImportText(editedText);
-							this.fillStateTextInput(this.stateImportText, false, false);
+							var appended = this.appendFormulaInputText(editedText);
+							this.fillFormulaInputText(this.formulaInputText, false, false);
 							if (appended) {
-								this.importStateText(this.stateImportText, "library");
+								this.importFormulaText(this.formulaInputText, "library");
 								var selectedCount = Object.keys(this.formulaLibrarySelections || {}).filter(function(k) { return this.formulaLibrarySelections[k]; }.bind(this)).length;
 								if (selectedCount > 0) {
 									this.showToast("已添加 " + selectedCount + " 个公式到状态列表");
@@ -4121,11 +4132,14 @@
 						if (movesInput) {
 							var moveEntry = self.getFormulaEntry(movesInput.getAttribute("data-formula-moves"));
 							if (moveEntry) {
-								self.formulaExportTextOverride = "";
 								var parsedMoves = self.parseEditableFormulaInput(movesInput.value);
-								moveEntry.alg = parsedMoves.alg;
-								moveEntry.moves = parsedMoves.moves;
-								self.saveFormulaEntries();
+								movesInput.setCustomValidity(parsedMoves.valid === false ? parsedMoves.error : "");
+								if (parsedMoves.valid !== false) {
+									self.formulaExportTextOverride = "";
+									moveEntry.alg = parsedMoves.alg;
+									moveEntry.moves = parsedMoves.moves;
+									self.saveFormulaEntries();
+								}
 							}
 						}
 					});
@@ -4149,6 +4163,11 @@
 							if (entry) {
 								self.formulaExportTextOverride = "";
 								var parsedMoves = self.parseEditableFormulaInput(movesInput.value);
+								if (parsedMoves.valid === false) {
+									movesInput.setCustomValidity(parsedMoves.error);
+									movesInput.reportValidity();
+									return;
+								}
 								entry.alg = parsedMoves.alg;
 								entry.moves = parsedMoves.moves;
 								entry.editingMoves = false;
@@ -4413,8 +4432,10 @@
 					if (move.type !== "face") {
 						return "";
 					}
-					var face = move.fromCube ? move.face : this.standardFaceFromWorldFace(move.face);
-					return this.formatMoveText(this.unmapUiFace(face), move.pow);
+					if (!move.fromCube) {
+						return move.text || this.formatMoveText(move.face, move.pow);
+					}
+					return this.formatMoveText(this.unmapUiFace(move.face), move.pow);
 				},
 
 				unmapUiFace: function(face) {
@@ -4442,43 +4463,29 @@
 
 				parseEditableFormulaInput: function(text) {
 					try {
-						var display = this.compressFormulaDisplayText(this.formatMoveSequenceDisplayText(text || ""));
+						var ast = FormulaCore.parseAlgorithm(text || "");
+						var display = FormulaCore.formatNodes(ast);
 						return {
 							alg: display,
-							moves: this.parseMoveSequence(display)
+							moves: this.parseMoveSequence(display),
+							valid: true
 						};
 					} catch (error) {
-						var fallback = [];
-						var display = [];
-						var tokens = String(text || "").replace(/\s+/g, "").match(/[URFDLBXYZ][2']?|[MES]'?/gi) || [];
-						for (var i = 0; i < tokens.length; i++) {
-							var token = this.formatMoveTokenDisplayText(tokens[i]);
-							if (!token) {
-								continue;
-							}
-							display.push(token);
-							var expanded = this.expandSliceMoveToken(token);
-							if (expanded) {
-								fallback = fallback.concat(expanded);
-							} else {
-								fallback.push(token);
-							}
-						}
-						var compressed = this.compressDisplayTokens(display).join("");
-						return {
-							alg: compressed,
-							moves: compressed ? this.parseMoveSequence(compressed) : fallback
-						};
+						return { alg: "", moves: [], valid: false, error: error.message || "公式格式无效" };
 					}
 				},
 
 				appendFormulaDisplayToken: function(alg, token) {
 					var tokens = this.tokenizeMoveSequenceDisplayText(String(alg || "") + String(token || ""));
-					return this.compressDisplayTokens(tokens).join("");
+					return this.compressDisplayTokens(tokens).join(" ");
 				},
 
 				compressFormulaDisplayText: function(alg) {
-					return this.compressDisplayTokens(this.tokenizeMoveSequenceDisplayText(alg)).join("");
+					try {
+						return FormulaCore.formatNodes(FormulaCore.parseAlgorithm(alg));
+					} catch (error) {
+						return "";
+					}
 				},
 
 				compressDisplayTokens: function(tokens) {
@@ -4515,12 +4522,17 @@
 						return entry.name && entry.moves && entry.moves.length;
 					}).map(function(entry) {
 						var name = self.sanitizeFormulaName(entry.name);
-						var alg = self.invertFormulaDisplayText(self.getFormulaDisplayText(entry), entry.moves);
-						return name + ":" + alg + ";";
+						var alg = self.getFormulaDisplayText(entry);
+						return name + ": " + alg + ";";
 					}).join("\n");
 				},
 
 				invertFormulaDisplayText: function(alg, fallbackMoves) {
+					try {
+						return FormulaCore.invertAlgorithm(alg);
+					} catch (coreError) {
+						// 仅为兼容早期已保存的 moves 数据保留旧回退。
+					}
 					try {
 						var tokens = this.tokenizeMoveSequenceDisplayText(alg);
 						if (tokens.length > 0) {
@@ -4571,9 +4583,9 @@
 
 				applyFormulaExportText: function(text) {
 					text = String(text || "").trim();
-					var parsed = this.parseStateDefinitions(text);
+					var parsed = this.parseFormulaDefinitions(text);
 					var self = this;
-					this.formulaEntries = parsed.states.map(function(state, index) {
+					this.formulaEntries = parsed.formulas.map(function(state, index) {
 						var alg = self.compressFormulaDisplayText(state.alg);
 						return {
 							id: String(Date.now()) + "-" + index + "-" + Math.floor(Math.random() * 100000),
@@ -4759,27 +4771,27 @@
 						this.loadPracticeStats();
 						this.renderFormulaList();
 						if (typeof this.getActiveGroupPlanText === 'function') {
-							this.stateImportText = this.getActiveGroupPlanText();
+							this.formulaInputText = this.getActiveGroupPlanText();
 						} else {
-							this.stateImportText = this.getActiveLibraryPlanText ? this.getActiveLibraryPlanText() : "";
+							this.formulaInputText = this.getActiveLibraryPlanText ? this.getActiveLibraryPlanText() : "";
 						}
-						this.syncSharedGroupToStateEntries();
-						this.fillStateTextInput(this.stateImportText, false, false);
-						if (this.stateImportText && this.stateImportText.trim()) {
-							this.fillStateTextInput(this.stateImportText, false, false);
-							this.stateImported = this.stateEntries.length > 0;
-							if (!this.stateImported) {
-								this.importStateText(this.stateImportText, "restore");
-								this.stateImported = true;
+						this.syncSharedGroupToFormulaEntries();
+						this.fillFormulaInputText(this.formulaInputText, false, false);
+						if (this.formulaInputText && this.formulaInputText.trim()) {
+							this.fillFormulaInputText(this.formulaInputText, false, false);
+							this.formulaImported = this.formulaInputEntries.length > 0;
+							if (!this.formulaImported) {
+								this.importFormulaText(this.formulaInputText, "restore");
+								this.formulaImported = true;
 							}
 						} else {
-							this.importedStates = [];
+							this.importedFormulas = [];
 							var groupData = this.getCurrentGroupPracticeData();
 							groupData.solveTimes = {};
-							this.stateSolveTimes = groupData.solveTimes;
-							this.stateImported = false;
-							if (this.elements && this.elements.stateList) this.elements.stateList.innerHTML = '';
-							if (this.elements && this.elements.stateImportStatus) this.elements.stateImportStatus.textContent = '未导入公式';
+							this.formulaSolveTimes = groupData.solveTimes;
+							this.formulaImported = false;
+							if (this.elements && this.elements.formulaCardsList) this.elements.formulaCardsList.innerHTML = '';
+							if (this.elements && this.elements.formulaImportStatus) this.elements.formulaImportStatus.textContent = '未导入公式';
 							this.updatePracticeAoTimes();
 						}
 						this.applyGroupMaskToCube();
@@ -4913,16 +4925,16 @@
 					self.markDataClean();
 				},
 
-				bindStateImport: function() {
+				bindFormulaImport: function() {
 					var self = this;
-					if (!this.elements.stateDropZone || this.elements.stateDropZone.dataset.smartBound) {
+					if (!this.elements.formulaDropZone || this.elements.formulaDropZone.dataset.smartBound) {
 						return;
 					}
-					this.elements.stateDropZone.dataset.smartBound = "1";
-					this.elements.chooseStateFileBtn.addEventListener("click", function() {
-						self.elements.stateFileInput.click();
+					this.elements.formulaDropZone.dataset.smartBound = "1";
+					this.elements.chooseFormulaFileBtn.addEventListener("click", function() {
+						self.elements.formulaFileInput.click();
 					});
-					this.elements.stateFileInput.addEventListener("change", function(event) {
+					this.elements.formulaFileInput.addEventListener("change", function(event) {
 						self.importFiles(event.target.files);
 						event.target.value = "";
 					});
@@ -4931,42 +4943,42 @@
 						var isVisible = self.elements.textImportBox.classList.contains("isVisible");
 						self.elements.toggleTextImportBtn.textContent = isVisible ? "收起文本框" : "输入文本";
 						if (isVisible) {
-							self.elements.stateTextInput.focus();
+							self.elements.formulaTextInput.focus();
 						}
 					});
-					this.elements.parseStateTextBtn.addEventListener("click", function() {
-						var text = self.elements.stateTextInput.value;
-						self.stateImportText = text;
+					this.elements.importFormulaTextBtn.addEventListener("click", function() {
+						var text = self.elements.formulaTextInput.value;
+						self.formulaInputText = text;
 						if (typeof self.setActiveGroupPlanText === 'function') {
 							self.setActiveGroupPlanText(text);
 						} else {
-							self.saveStateImportText();
-							self.importStateText(text, "manual");
+							self.saveFormulaInputText();
+							self.importFormulaText(text, "manual");
 						}
 						self.elements.textImportBox.classList.remove("isVisible");
 						self.elements.toggleTextImportBtn.textContent = "输入文本";
 					});
-				this.elements.stateTextInput.addEventListener("input", function(event) {
-					self.stateImportText = event.target.value;
-					self.saveStateImportText();
+				this.elements.formulaTextInput.addEventListener("input", function(event) {
+					self.formulaInputText = event.target.value;
+					self.saveFormulaInputText();
 				});
-				var clearBtn = document.getElementById("clearStateTextBtn");
+				var clearBtn = document.getElementById("clearFormulaTextBtn");
 				if (clearBtn && !clearBtn.dataset.smartBound) {
 					clearBtn.dataset.smartBound = "1";
 					clearBtn.addEventListener("click", function() {
-						if (self.elements.stateTextInput) {
-							self.elements.stateTextInput.value = "";
-							self.stateImportText = "";
-							self.saveStateImportText();
+						if (self.elements.formulaTextInput) {
+							self.elements.formulaTextInput.value = "";
+							self.formulaInputText = "";
+							self.saveFormulaInputText();
 							self.showToast("已清空");
 						}
 					});
 				}
-				var copyBtn = document.getElementById("copyStateTextBtn");
+				var copyBtn = document.getElementById("copyFormulaTextBtn");
 				if (copyBtn && !copyBtn.dataset.smartBound) {
 					copyBtn.dataset.smartBound = "1";
 					copyBtn.addEventListener("click", function() {
-						var text = self.elements.stateTextInput ? self.elements.stateTextInput.value : (self.stateImportText || "");
+						var text = self.elements.formulaTextInput ? self.elements.formulaTextInput.value : (self.formulaInputText || "");
 						if (navigator.clipboard && navigator.clipboard.writeText) {
 							navigator.clipboard.writeText(text).then(function() {
 								self.showToast("已复制到剪贴板");
@@ -4993,11 +5005,11 @@
 						selfRef.showToast("复制失败");
 					}
 				}
-					if (this.elements.showStateThumbs) {
-						this.elements.showStateThumbs.checked = this.showStateThumbs;
-						this.elements.showStateThumbs.addEventListener("change", function(event) {
-							self.showStateThumbs = event.target.checked;
-							self.renderStateList();
+					if (this.elements.showFormulaThumbs) {
+						this.elements.showFormulaThumbs.checked = this.showFormulaThumbs;
+						this.elements.showFormulaThumbs.addEventListener("change", function(event) {
+							self.showFormulaThumbs = event.target.checked;
+							self.renderFormulaCards();
 						});
 					}
 					if (this.elements.showPracticeFormula) {
@@ -5008,23 +5020,23 @@
 						});
 					}
 					this.updatePracticeFormulaToggle();
-					this.elements.stateList.addEventListener("click", function(event) {
+					this.elements.formulaCardsList.addEventListener("click", function(event) {
 						var button = event.target.closest("[data-state-index]");
 						if (button) {
-							self.applyImportedState(Number(button.getAttribute("data-state-index")));
+							self.applyImportedFormula(Number(button.getAttribute("data-state-index")));
 						}
 					});
 					this.bindThumbnailDrag();
-					this.elements.stateDropZone.addEventListener("dragover", function(event) {
+					this.elements.formulaDropZone.addEventListener("dragover", function(event) {
 						event.preventDefault();
-						self.elements.stateDropZone.classList.add("isDragging");
+						self.elements.formulaDropZone.classList.add("isDragging");
 					});
-					this.elements.stateDropZone.addEventListener("dragleave", function() {
-						self.elements.stateDropZone.classList.remove("isDragging");
+					this.elements.formulaDropZone.addEventListener("dragleave", function() {
+						self.elements.formulaDropZone.classList.remove("isDragging");
 					});
-					this.elements.stateDropZone.addEventListener("drop", function(event) {
+					this.elements.formulaDropZone.addEventListener("drop", function(event) {
 						event.preventDefault();
-						self.elements.stateDropZone.classList.remove("isDragging");
+						self.elements.formulaDropZone.classList.remove("isDragging");
 						self.importFiles(event.dataTransfer && event.dataTransfer.files);
 					});
 				},
@@ -5039,7 +5051,7 @@
 						yaw: 0,
 						pitch: 0
 					};
-					this.elements.stateList.addEventListener("pointerdown", function(event) {
+					this.elements.formulaCardsList.addEventListener("pointerdown", function(event) {
 						var preview = event.target.closest(".statePreview");
 						if (!preview || event.button !== 0) {
 							return;
@@ -5054,7 +5066,7 @@
 						preview.setPointerCapture(event.pointerId);
 						event.preventDefault();
 					});
-					this.elements.stateList.addEventListener("pointermove", function(event) {
+					this.elements.formulaCardsList.addEventListener("pointermove", function(event) {
 						if (!drag.active) {
 							return;
 						}
@@ -5066,7 +5078,7 @@
 						event.preventDefault();
 					});
 					["pointerup", "pointercancel", "pointerleave"].forEach(function(type) {
-						self.elements.stateList.addEventListener(type, function(event) {
+						self.elements.formulaCardsList.addEventListener(type, function(event) {
 							if (!drag.active) {
 								return;
 							}
@@ -5094,17 +5106,17 @@
 				}
 			},
 
-			fillStateTextInput: function(text, reveal, focus) {
+			fillFormulaInputText: function(text, reveal, focus) {
 				var newText = text || "";
-				var changed = newText !== (this.stateImportText || "");
-				this.stateImportText = newText;
+				var changed = newText !== (this.formulaInputText || "");
+				this.formulaInputText = newText;
 				if (changed) {
-					this.saveStateImportText();
+					this.saveFormulaInputText();
 				}
-				if (!this.elements.stateTextInput) {
+				if (!this.elements.formulaTextInput) {
 					return;
 				}
-				this.elements.stateTextInput.value = newText;
+				this.elements.formulaTextInput.value = newText;
 				if (reveal && this.elements.textImportBox) {
 					this.elements.textImportBox.classList.add("isVisible");
 					if (this.elements.toggleTextImportBtn) {
@@ -5112,22 +5124,22 @@
 					}
 				}
 				if (focus) {
-					this.elements.stateTextInput.focus();
+					this.elements.formulaTextInput.focus();
 				}
 			},
 
-			captureStateTextInput: function() {
-				if (this.elements.stateTextInput) {
-					this.stateImportText = this.elements.stateTextInput.value;
-					this.saveStateImportText();
+			captureFormulaInputText: function() {
+				if (this.elements.formulaTextInput) {
+					this.formulaInputText = this.elements.formulaTextInput.value;
+					this.saveFormulaInputText();
 				}
 			},
 
-			loadStateImportText: function() {
+			loadFormulaInputText: function() {
 				if (typeof this.getActiveGroupPlanText === 'function') {
 					var text = this.getActiveGroupPlanText();
 					if (text) {
-						this.stateImportText = text;
+						this.formulaInputText = text;
 						return;
 					}
 				}
@@ -5135,14 +5147,14 @@
 				if (old && typeof this.setActiveGroupPlanTextQuiet === 'function') {
 					this.setActiveGroupPlanTextQuiet(old);
 					storageManager.removeItem("smartCubeStateImportText");
-					this.stateImportText = old;
+					this.formulaInputText = old;
 					return;
 				}
-				this.stateImportText = "";
+				this.formulaInputText = "";
 			},
 
-			saveStateImportText: function() {
-				var text = this.stateImportText || "";
+			saveFormulaInputText: function() {
+				var text = this.formulaInputText || "";
 				if (typeof this.setActiveGroupPlanTextQuiet === 'function') {
 					this.setActiveGroupPlanTextQuiet(text);
 				} else if (typeof this.setActiveLibraryPlanTextQuiet === 'function') {
@@ -5153,10 +5165,10 @@
 				}
 			},
 
-			syncSharedGroupToStateEntries: function() {
+			syncSharedGroupToFormulaEntries: function() {
 				if (typeof this.getActiveGroupFormulas !== 'function') return;
 				var formulas = this.getActiveGroupFormulas();
-				this.stateEntries = formulas.map(function(f) {
+				this.formulaInputEntries = formulas.map(function(f) {
 					return {
 						id: f.id,
 						name: f.name,
@@ -5167,7 +5179,7 @@
 						customSolvedState: f.customSolvedState || null
 					};
 				});
-				this.stateImported = this.stateEntries.length > 0;
+				this.formulaImported = this.formulaInputEntries.length > 0;
 			},
 
 			applyGroupMaskToCube: function() {
@@ -5199,7 +5211,7 @@
 					if (typeof self.appendTextToGroup === 'function') {
 						self.appendTextToGroup(gid, text);
 					} else {
-						self.appendStateImportText(text);
+						self.appendFormulaInputText(text);
 					}
 					self.showToast("公式已添加到组");
 					cleanup();
@@ -5242,21 +5254,21 @@
 				if (selector) selector.classList.remove('isOpen');
 			},
 
-				appendStateImportText: function(text) {
+				appendFormulaInputText: function(text) {
 					text = String(text || "").trim();
 					if (!text) {
 						return false;
 					}
-					var current = String(this.stateImportText || "").replace(/\s+$/g, "");
-					if (this.isStateImportTextEndingWith(current, text)) {
+					var current = String(this.formulaInputText || "").replace(/\s+$/g, "");
+					if (this.isFormulaInputTextEndingWith(current, text)) {
 						return false;
 					}
-					this.stateImportText = current ? current + "\n" + text : text;
-					this.saveStateImportText();
+					this.formulaInputText = current ? current + "\n" + text : text;
+					this.saveFormulaInputText();
 					return true;
 				},
 
-				isStateImportTextEndingWith: function(current, text) {
+				isFormulaInputTextEndingWith: function(current, text) {
 					current = String(current || "").trim();
 					text = String(text || "").trim();
 					if (!current || !text) {
@@ -5271,13 +5283,13 @@
 					if (!file) {
 						return;
 					}
-					this.setImportStatus("正在读取 " + file.name);
+					this.setFormulaImportStatus("正在读取 " + file.name);
 					file.arrayBuffer().then(function(buffer) {
 						var text = self.decodeTextBuffer(buffer);
-						self.fillStateTextInput(text, false, false);
-						self.importStateText(text, file.name);
+						self.fillFormulaInputText(text, false, false);
+						self.importFormulaText(text, file.name);
 					}).catch(function(error) {
-						self.setImportStatus("读取失败: " + String(error && error.message || error));
+						self.setFormulaImportStatus("读取失败: " + String(error && error.message || error));
 					});
 				},
 
@@ -5293,13 +5305,13 @@
 					}
 				},
 
-				importStateText: function(text, source) {
-					var result = this.parseStateDefinitions(text || "");
-					var oldStates = this.importedStates || [];
+				importFormulaText: function(text, source) {
+					var result = this.parseFormulaDefinitions(text || "");
+					var oldStates = this.importedFormulas || [];
 					var currentGroupData = this.getCurrentGroupPracticeData();
 					var oldSolveTimes = source === "restore"
 						? (currentGroupData.solveTimes || {})
-						: (this.stateSolveTimes || {});
+						: (this.formulaSolveTimes || {});
 					var newSolveTimes = {};
 					function normalizeAlg(alg) {
 						return String(alg || "").replace(/\s+/g, "").toUpperCase();
@@ -5320,8 +5332,8 @@
 						if (byNameKey && byNameKey.length) return byNameKey;
 						return null;
 					}
-					for (var si = 0; si < result.states.length; si++) {
-						var state = result.states[si];
+					for (var si = 0; si < result.formulas.length; si++) {
+						var state = result.formulas[si];
 						var key = state.name || String(si);
 						var migrated = findMatchingTimes(state);
 						if (migrated) {
@@ -5330,72 +5342,41 @@
 							newSolveTimes[key] = oldSolveTimes[key].slice();
 						}
 					}
-					this.importedStates = result.states;
-					this.stateSolveTimes = newSolveTimes;
+					this.importedFormulas = result.formulas;
+					this.formulaSolveTimes = newSolveTimes;
 					currentGroupData.solveTimes = newSolveTimes;
-					this.stateImported = result.states.length > 0;
+					this.formulaImported = result.formulas.length > 0;
 					var isUserImport = source !== "restore" && source !== "library";
-					if (isUserImport && this.setActiveLibraryFormulasFromStates) {
-						this.setActiveLibraryFormulasFromStates(result.states);
+					if (isUserImport && this.setActiveLibraryFormulas) {
+						this.setActiveLibraryFormulas(result.formulas);
 					}
 					if (isUserImport) {
-						this.stateImportText = text || "";
-						this.saveStateImportText();
+						this.formulaInputText = text || "";
+						this.saveFormulaInputText();
 					}
-					this.renderStateList();
-					this.setImportStatus("已导入 " + result.states.length + " 个公式" + (result.skipped ? "，跳过 " + result.skipped + " 条" : ""));
+					this.renderFormulaCards();
+					this.setFormulaImportStatus("已导入 " + result.formulas.length + " 个公式" + (result.skipped ? "，跳过 " + result.skipped + " 条" : ""));
 					this.updatePracticeFormulaToggle();
 					this.updatePracticeAoTimes();
-					this.log("state", "import " + result.states.length + " from " + (source || "text"));
-					if (this.isPracticeMode && result.states.length > 0 && source !== "restore" && source !== "library") {
-						this.applyImportedState(0);
+					this.log("state", "import " + result.formulas.length + " from " + (source || "text"));
+					if (this.isPracticeMode && result.formulas.length > 0 && source !== "restore" && source !== "library") {
+						this.applyImportedFormula(0);
 					}
 					if (isUserImport) {
 						this.savePracticeStats();
 					}
 				},
 
-				parseStateDefinitions: function(text) {
-					var entries = String(text).replace(/锛[\?\uFFFD]/g, "：").replace(/[；;]/g, "\n").replace(/[\r\n]+/g, "\n").split("\n");
-					var states = [];
-					var skipped = 0;
-					for (var i = 0; i < entries.length; i++) {
-						var entry = entries[i].trim();
-						if (!entry) {
-							continue;
-						}
-						if (entry.indexOf("##") === 0) {
-							continue;
-						}
-						var colon = this.findStateDelimiter(entry);
-						if (colon < 0) {
-							skipped++;
-							continue;
-						}
-						var name = entry.slice(0, colon).trim();
-						var alg = entry.slice(colon + 1).trim();
-						try {
-							var moves = this.parseMoveSequence(alg);
-							if (!name || moves.length === 0) {
-								skipped++;
-								continue;
-							}
-							states.push({
-								name: name,
-								alg: this.formatMoveSequenceDisplayText(alg),
-								moves: moves
-							});
-						} catch (error) {
-							skipped++;
-						}
-					}
-					return {
-						states: states,
-						skipped: skipped
-					};
+				parseFormulaDefinitions: function(text) {
+					var result = FormulaCore.parseDefinitions(text);
+					var self = this;
+					result.formulas.forEach(function(state) {
+						state.moves = self.parseMoveSequence(state.alg);
+					});
+					return result;
 				},
 
-				findStateDelimiter: function(entry) {
+				findFormulaDelimiter: function(entry) {
 					var english = entry.indexOf(":");
 					var chinese = entry.indexOf("：");
 					if (english < 0) {
@@ -5408,78 +5389,58 @@
 				},
 
 				parseMoveSequence: function(alg) {
-					var source = String(alg).replace(/[‘’`´鈥欌€榒]/g, "'").replace(/\s+/g, "");
+					var logical = FormulaCore.expandLogical(FormulaCore.parseAlgorithm(alg), false, []);
 					var moves = [];
-					var index = 0;
-					while (index < source.length) {
-						var face = source.charAt(index);
-						if (!/[URFDLBXYZMES]/i.test(face)) {
-							throw new Error("bad move");
-						}
-						var token = face;
-						index++;
-						if (source.charAt(index) === "2") {
-							token += "2";
-							index++;
-						}
-						if (source.charAt(index) === "'") {
-							token += "'";
-							index++;
-						}
-						var expanded = this.expandSliceMoveToken(token);
+					for (var i = 0; i < logical.length; i++) {
+						var expanded = this.expandSliceMoveToken(logical[i]);
 						if (expanded) {
 							moves = moves.concat(expanded);
 							continue;
 						}
-						var move = this.normalizeMove(token);
-						if (!move) {
-							throw new Error("bad move");
-						}
+						var move = this.normalizeMove(logical[i]);
+						if (!move) throw new Error("bad move");
 						moves.push(move.text);
 					}
 					return moves;
 				},
 
+				getInitialStateMoves: function(state) {
+					if (!state || !state.alg) return [];
+					return this.parseMoveSequence(this.invertFormulaDisplayText(state.alg, state.moves || []));
+				},
+
 				formatMoveSequenceDisplayText: function(alg) {
-					return this.tokenizeMoveSequenceDisplayText(alg).join("");
+					return FormulaCore.formatNodes(FormulaCore.parseAlgorithm(alg));
 				},
 
 				tokenizeMoveSequenceDisplayText: function(alg) {
-					var source = String(alg).replace(/[‘’`´鈥欌€榒]/g, "'").replace(/\s+/g, "");
-					var tokens = [];
-					var index = 0;
-					while (index < source.length) {
-						var face = source.charAt(index);
-						if (!/[URFDLBXYZMES]/i.test(face)) {
-							throw new Error("bad move");
-						}
-						var token = face;
-						index++;
-						if (source.charAt(index) === "2") {
-							token += "2";
-							index++;
-						}
-						if (source.charAt(index) === "'") {
-							token += "'";
-							index++;
-						}
-						var normalized = this.formatMoveTokenDisplayText(token);
-						if (!normalized) {
-							throw new Error("bad move");
-						}
-						tokens.push(normalized);
-					}
-					return tokens;
+					return FormulaCore.expandLogical(FormulaCore.parseAlgorithm(alg), false, []);
 				},
 
 				formatMoveTokenDisplayText: function(token) {
-					var match = /^([URFDLBXYZMES])([2']?)$/i.exec(String(token || "").replace(/[‘’`´鈥欌€榒]/g, "'"));
-					if (!match) {
+					try {
+						return FormulaCore.formatNodes(FormulaCore.parseAlgorithm(token));
+					} catch (error) {
 						return "";
 					}
-					var upper = match[1].toUpperCase();
-					var suffix = match[2] || "";
-					return (/[XYZ]/.test(upper) ? upper.toLowerCase() : upper) + suffix;
+				},
+
+				canonicalizeFormulaProcessMoves: function(tokens) {
+					var reducedLogical = FormulaCore.reduceMoves(tokens || []);
+					var expanded = [];
+					for (var i = 0; i < reducedLogical.length; i++) {
+						var sliceParts = this.expandSliceMoveToken(reducedLogical[i]);
+						if (sliceParts) expanded = expanded.concat(sliceParts);
+						else expanded.push(reducedLogical[i]);
+					}
+					return FormulaCore.reduceMoves(expanded);
+				},
+
+				isFormulaProcessMatch: function(actual, target) {
+					return FormulaCore.sameProcess(
+						this.canonicalizeFormulaProcessMoves(actual),
+						this.canonicalizeFormulaProcessMoves(target)
+					);
 				},
 
 				expandSliceMoveToken: function(token) {
@@ -5505,30 +5466,30 @@
 					return expansions[baseKey].slice();
 				},
 
-				setImportStatus: function(text) {
-					if (!this.elements.stateImportStatus) {
+				setFormulaImportStatus: function(text) {
+					if (!this.elements.formulaImportStatus) {
 						return;
 					}
-					this.elements.stateImportStatus.textContent = text;
+					this.elements.formulaImportStatus.textContent = text;
 				},
 
-				renderStateList: function() {
-					if (!this.elements.stateList) {
+				renderFormulaCards: function() {
+					if (!this.elements.formulaCardsList) {
 						return;
 					}
 					var self = this;
 					this.thumbnailScenes = [];
-					this.elements.stateList.innerHTML = "";
+					this.elements.formulaCardsList.innerHTML = "";
 					var frag = document.createDocumentFragment();
 					var pendingPreviews = [];
-					this.importedStates.forEach(function(state, index) {
+					this.importedFormulas.forEach(function(state, index) {
 						if (self.isPracticeMode) {
 							var practiceCard = document.createElement("div");
 							practiceCard.className = "stateCard";
 							practiceCard.setAttribute("role", "button");
 							practiceCard.setAttribute("tabindex", "0");
 							practiceCard.setAttribute("data-state-index", String(index));
-							if (index === self.currentStateIndex) {
+							if (index === self.currentFormulaIndex) {
 								practiceCard.classList.add("isActive");
 							}
 							var practicePreview = document.createElement("div");
@@ -5549,7 +5510,7 @@
 						var name = document.createElement("strong");
 						name.textContent = state.name;
 						var alg = document.createElement("small");
-						alg.textContent = self.getStateDisplayAlg(state);
+						alg.textContent = self.getImportedFormulaDisplayAlg(state);
 						info.appendChild(name);
 						info.appendChild(alg);
 
@@ -5561,7 +5522,7 @@
 
 						card.appendChild(info);
 						card.appendChild(apply);
-						if (self.showStateThumbs) {
+						if (self.showFormulaThumbs) {
 							var preview = document.createElement("div");
 							preview.className = "statePreview";
 							card.appendChild(preview);
@@ -5569,12 +5530,12 @@
 						}
 						frag.appendChild(card);
 					});
-					this.elements.stateList.appendChild(frag);
+					this.elements.formulaCardsList.appendChild(frag);
 				// Defer preview rendering until the containers are attached to the
 				// live DOM so that TwistyScene.resize() can compute a non-zero size
 				// from the styled container.
 				pendingPreviews.forEach(function(entry) {
-					self.renderStatePreview(entry.container, entry.state);
+					self.renderFormulaPreview(entry.container, entry.state);
 				});
 				// 新渲染的缩略图仅应用了无缝贴片缩放，隐藏贴片材质需要在此同步，
 				// 否则切换模式后缩略图要重开无缝模式才会刷新隐藏贴片外观。
@@ -5583,21 +5544,21 @@
 				}
 			},
 
-				getStateDisplayAlg: function(state) {
-					return this.invertFormulaDisplayText(state.alg || "", state.moves || []);
+				getImportedFormulaDisplayAlg: function(state) {
+					return state && state.alg ? state.alg : "";
 				},
 
 				updatePracticeFormulaToggle: function() {
 					if (!this.elements.practiceFormulaToggle || !this.elements.practiceFormulaText) {
 						return;
 					}
-					var state = this.importedStates[this.currentStateIndex];
+					var state = this.importedFormulas[this.currentFormulaIndex];
 					if (this.elements.showPracticeFormula) {
 						this.elements.showPracticeFormula.checked = this.showPracticeFormula;
 					}
 					if (this.showPracticeFormula && state) {
 						this.elements.practiceFormulaToggle.classList.add("isFormula");
-						this.elements.practiceFormulaText.textContent = this.invertFormulaDisplayText(state.alg || "", state.moves || []);
+						this.elements.practiceFormulaText.textContent = this.getImportedFormulaDisplayAlg(state);
 					} else {
 						this.elements.practiceFormulaToggle.classList.remove("isFormula");
 						this.elements.practiceFormulaText.textContent = "显示公式";
@@ -5608,9 +5569,9 @@
 				if (!this.elements.practiceAoTimes) {
 					return;
 				}
-				var state = this.importedStates[this.currentStateIndex];
-				var key = state ? state.name : String(this.currentStateIndex);
-				var times = this.stateSolveTimes[key] || [];
+				var state = this.importedFormulas[this.currentFormulaIndex];
+				var key = state ? state.name : String(this.currentFormulaIndex);
+				var times = this.formulaSolveTimes[key] || [];
 				var self = this;
 				// 训练模式下始终展示 AO 区块；数据不足时以 "--" 占位。
 				var latest = times.length ? this.formatPracticeDuration(times[times.length - 1]) : "--";
@@ -5647,7 +5608,7 @@
 					return middle.reduce(function(sum, value) { return sum + value; }, 0) / middle.length;
 				},
 
-				renderStatePreview: function(container, state) {
+				renderFormulaPreview: function(container, state) {
 					var previewScene = new twistyjs.TwistyScene();
 					container.appendChild(previewScene.getDomElement());
 				previewScene.initializeTwisty({
@@ -5663,7 +5624,7 @@
 					previewScene.setViewDragClamped(false);
 				}
 				this.prepareStickerScene(previewScene);
-					var moves = this.buildTwistyMoves(state.moves, false);
+					var moves = this.buildTwistyMoves(this.getInitialStateMoves(state), false);
 					if (moves.length) {
 						previewScene.applyMoves(moves);
 					}
@@ -5678,8 +5639,8 @@
 					}
 				},
 
-				applyImportedState: function(index) {
-					var state = this.importedStates[index];
+				applyImportedFormula: function(index) {
+					var state = this.importedFormulas[index];
 					if (!state) {
 						return;
 					}
@@ -5690,22 +5651,23 @@
 					this.moveCount = 0;
 					if (this.isPracticeMode) {
 						this.cancelSolvedAdvance();
-						this.currentStateIndex = index;
+						this.currentFormulaIndex = index;
 						this.movesSinceState = 0;
 						this.seenUnsolvedSinceState = false;
 						this.practiceSolveStartTime = null;
 						this.seenUnsolvedFaceletSinceState = false;
 						this.seenUnsolvedVirtualSinceState = false;
 						this.lastFaceletSolved = false;
-						this.recordStateVisit(index);
-						this.setActiveStateCard(index);
+						this.resetSolveDetectionContext(state);
+						this.recordFormulaVisit(index);
+						this.setActiveFormulaCard(index);
 					}
 					this.initTwisty();
 					this.setViewDrag(savedViewYaw, savedViewPitch);
 					if (this.isPracticeMode) {
 						this.resetVirtualState();
 					}
-					var moves = this.buildTwistyMoves(state.moves, true, this.isPracticeMode);
+					var moves = this.buildTwistyMoves(this.getInitialStateMoves(state), true, this.isPracticeMode);
 					if (moves.length) {
 						this.twistyScene.applyMoves(moves);
 					}
@@ -5716,32 +5678,32 @@
 					this.renderMoves();
 					this.elements.moveCount.textContent = "0";
 					this.elements.lastTs.textContent = this.formatTime(Date.now());
-					this.setImportStatus((this.isPracticeMode ? "当前状态：" : "已应用：") + state.name);
+					this.setFormulaImportStatus((this.isPracticeMode ? "当前状态：" : "已应用：") + state.name);
 					this.updatePracticeFormulaToggle();
 					this.updatePracticeAoTimes();
 					this.log("state", "applied " + state.name);
 				},
 
-				setActiveStateCard: function(index) {
-					if (!this.elements.stateList) {
+				setActiveFormulaCard: function(index) {
+					if (!this.elements.formulaCardsList) {
 						return;
 					}
-					var cards = this.elements.stateList.querySelectorAll("[data-state-index]");
+					var cards = this.elements.formulaCardsList.querySelectorAll("[data-state-index]");
 					for (var i = 0; i < cards.length; i++) {
 						cards[i].classList.toggle("isActive", Number(cards[i].getAttribute("data-state-index")) === index);
 					}
 				},
 
-				recordStateVisit: function(index) {
+				recordFormulaVisit: function(index) {
 					var recent = [];
-					for (var i = 0; i < this.recentStateIndices.length; i++) {
-						if (this.recentStateIndices[i] !== index) {
-							recent.push(this.recentStateIndices[i]);
+					for (var i = 0; i < this.recentFormulaIndices.length; i++) {
+						if (this.recentFormulaIndices[i] !== index) {
+							recent.push(this.recentFormulaIndices[i]);
 						}
 					}
 					recent.unshift(index);
-					recent.length = Math.min(recent.length, Math.max(1, Math.min(4, this.importedStates.length)));
-					this.recentStateIndices = recent;
+					recent.length = Math.min(recent.length, Math.max(1, Math.min(4, this.importedFormulas.length)));
+					this.recentFormulaIndices = recent;
 					this.randomBag = this.randomBag.filter(function(item) {
 						return item !== index;
 					});
@@ -5774,25 +5736,25 @@
 				},
 
 				scheduleSolvedAdvance: function() {
-					if (this.solvedAdvancePending || this.importedStates.length === 0 || !this.isPracticeMode) {
+					if (this.solvedAdvancePending || this.importedFormulas.length === 0 || !this.isPracticeMode) {
 						return;
 					}
 					this.solvedAdvancePending = true;
 					if (this.practiceSolveStartTime !== null) {
 						var solveTime = performance.now() - this.practiceSolveStartTime;
-						var state = this.importedStates[this.currentStateIndex];
-						var key = state ? state.name : String(this.currentStateIndex);
-						if (!this.stateSolveTimes[key]) {
-							this.stateSolveTimes[key] = [];
+						var state = this.importedFormulas[this.currentFormulaIndex];
+						var key = state ? state.name : String(this.currentFormulaIndex);
+						if (!this.formulaSolveTimes[key]) {
+							this.formulaSolveTimes[key] = [];
 						}
-						this.stateSolveTimes[key].push(solveTime);
-						if (this.stateSolveTimes[key].length > 200) {
-							this.stateSolveTimes[key] = this.stateSolveTimes[key].slice(-200);
+						this.formulaSolveTimes[key].push(solveTime);
+						if (this.formulaSolveTimes[key].length > 200) {
+							this.formulaSolveTimes[key] = this.formulaSolveTimes[key].slice(-200);
 						}
 						this.updatePracticeAoTimes();
 						this.savePracticeStats();
 					}
-					this.setImportStatus(this.practiceMode === "loop" ? "已还原，正在循环" : "已还原，正在切换");
+					this.setFormulaImportStatus(this.practiceMode === "loop" ? "已还原，正在循环" : "已还原，正在切换");
 					this.showPracticeSolvedCheck();
 					var self = this;
 					// 打勾仅作为视觉反馈，不阻塞流程：检测到完成立即切换到下一个训练状态。
@@ -5801,9 +5763,9 @@
 						self.solveSwitchTimer = null;
 						self.solvedAdvancePending = false;
 						if (self.practiceMode === "loop") {
-							self.applyImportedState(self.currentStateIndex);
+							self.applyImportedFormula(self.currentFormulaIndex);
 						} else {
-							self.advancePracticeState();
+							self.advancePracticeFormula();
 						}
 					}, 0);
 			// 反馈窗口结束后再隐藏打勾图标（独立于状态切换，不阻塞切换）。
@@ -5816,26 +5778,26 @@
 				}, 700);
 				},
 
-				advancePracticeState: function() {
-					if (!this.importedStates.length) {
+				advancePracticeFormula: function() {
+					if (!this.importedFormulas.length) {
 						return;
 					}
-					var nextIndex = this.practiceMode === "random" ? this.pickRandomStateIndex() : this.pickSequentialStateIndex();
-					this.applyImportedState(nextIndex);
+					var nextIndex = this.practiceMode === "random" ? this.pickRandomFormulaIndex() : this.pickSequentialFormulaIndex();
+					this.applyImportedFormula(nextIndex);
 				},
 
-				pickSequentialStateIndex: function() {
-					if (!this.importedStates.length) {
+				pickSequentialFormulaIndex: function() {
+					if (!this.importedFormulas.length) {
 						return -1;
 					}
-					if (this.currentStateIndex < 0) {
+					if (this.currentFormulaIndex < 0) {
 						return 0;
 					}
-					return (this.currentStateIndex + 1) % this.importedStates.length;
+					return (this.currentFormulaIndex + 1) % this.importedFormulas.length;
 				},
 
-				pickRandomStateIndex: function() {
-					var count = this.importedStates.length;
+				pickRandomFormulaIndex: function() {
+					var count = this.importedFormulas.length;
 					if (count <= 1) {
 						return 0;
 					}
@@ -5843,15 +5805,15 @@
 						this.refillRandomBag();
 					}
 					if (!this.randomBag.length) {
-						return this.pickSequentialStateIndex();
+						return this.pickSequentialFormulaIndex();
 					}
 					return this.randomBag.shift();
 				},
 
 				refillRandomBag: function() {
-					var count = this.importedStates.length;
+					var count = this.importedFormulas.length;
 					var recentLimit = Math.min(3, Math.max(1, count - 1));
-					var recent = this.recentStateIndices.slice(0, recentLimit);
+					var recent = this.recentFormulaIndices.slice(0, recentLimit);
 					var preferred = [];
 					var delayed = [];
 					for (var i = 0; i < count; i++) {
@@ -5877,30 +5839,26 @@
 				},
 
 				updateSolveDetection: function(facelet, hadCubeMove) {
-					if (!this.isPracticeMode || !this.importedStates.length || this.currentStateIndex < 0) {
+					if (!this.isPracticeMode || !this.importedFormulas.length || this.currentFormulaIndex < 0) {
 						return;
 					}
-					var normalizedFacelet = String(facelet || "").toUpperCase().replace(/[^URFDLB]/g, "");
-					var hasFacelet = normalizedFacelet.length === 54;
-					var faceletSolved = hasFacelet && this.isFaceletSolved(normalizedFacelet);
-					var hasVirtual = !!this.virtualCubie;
-					var virtualSolved = hasVirtual && this.isVirtualStateSolved();
-					var canAdvanceByFacelet = !hasVirtual && faceletSolved && this.seenUnsolvedFaceletSinceState && hadCubeMove && this.movesSinceState > 0;
-					var canAdvanceByVirtual = hasVirtual && virtualSolved && this.seenUnsolvedVirtualSinceState && this.movesSinceState > 0;
-					if (canAdvanceByFacelet || canAdvanceByVirtual) {
+					if (!this.performedProcessMoves.length) return;
+					var completed = false;
+					if (this.solveDetectionMode === 1) {
+						var targetReduced = this.canonicalizeFormulaProcessMoves(this.processTargetMoves);
+						completed = this.isFormulaProcessMatch(this.performedProcessMoves, this.processTargetMoves);
+						if (completed && targetReduced.length === 0) {
+							completed = this.performedProcessMoves.join(" ") === this.processTargetMoves.join(" ");
+						}
+					} else if (this.virtualCubie) {
+						completed = this.isVirtualStateMatchingTarget(this.activeRestorationTarget);
+					} else {
+						completed = this.isFaceletMatchingTarget(facelet, this.activeRestorationTarget);
+					}
+					if (completed) {
 						this.lastFaceletSolved = true;
 						this.scheduleSolvedAdvance();
-						return;
-					}
-					if (hasFacelet && !faceletSolved) {
-						this.seenUnsolvedFaceletSinceState = true;
-						this.seenUnsolvedSinceState = true;
-					}
-					if (hasVirtual && !virtualSolved) {
-						this.seenUnsolvedVirtualSinceState = true;
-						this.seenUnsolvedSinceState = true;
-					}
-					if (!hasVirtual && hasFacelet && !faceletSolved || hasVirtual && !virtualSolved) {
+					} else {
 						this.cancelSolvedAdvance();
 					}
 				},
@@ -5999,6 +5957,112 @@
 						if (!this.hiddenStickerMask[stickerIdentity] && stickerIdentity !== position) {
 							return false;
 						}
+					}
+					return true;
+				},
+
+				resetSolveDetectionContext: function(state) {
+					this.performedProcessMoves = [];
+					this.processTargetMoves = [];
+					this.activeRestorationTarget = state && state.customSolvedState || null;
+					if (state && state.alg) {
+						try { this.processTargetMoves = FormulaCore.processTarget(state.alg); } catch (error) {}
+					}
+				},
+
+				setSolveDetectionMode: function(mode) {
+					this.solveDetectionMode = Number(mode) === 1 ? 1 : 2;
+					if (this.practiceStats && this.isPracticeMode) {
+						this.practiceStats.solveDetectionMode = this.solveDetectionMode;
+						this.savePracticeStats();
+					}
+					this.updateSolveDetection(this.currentFacelet, false);
+					this.renderSolveDetectionModeControls();
+				},
+
+				ensureSolveDetectionControls: function(root) {
+					if (!root || root.querySelector("[data-solve-detection-controls]")) return;
+					var host = root.querySelector(".panelSection");
+					if (!host) return;
+					var controls = document.createElement("div");
+					controls.className = "controls";
+					controls.setAttribute("data-solve-detection-controls", "1");
+					controls.setAttribute("aria-label", "完成检测模式");
+					controls.innerHTML = '<label><input type="radio" name="solveDetectionMode" value="1" data-solve-detection-mode="1"> 模式1·公式过程</label><label><input type="radio" name="solveDetectionMode" value="2" data-solve-detection-mode="2"> 模式2·最终状态</label>';
+					var self = this;
+					controls.addEventListener("change", function(event) {
+						var input = event.target.closest("[data-solve-detection-mode]");
+						if (input) self.setSolveDetectionMode(input.value);
+					});
+					host.appendChild(controls);
+					this.renderSolveDetectionModeControls();
+				},
+
+				renderSolveDetectionModeControls: function() {
+					var inputs = document.querySelectorAll("[data-solve-detection-mode]");
+					for (var i = 0; i < inputs.length; i++) {
+						inputs[i].checked = Number(inputs[i].value) === this.solveDetectionMode;
+					}
+				},
+
+				isFourTurnReset: function(moves) {
+					if (!moves || moves.length < 4) return false;
+					var last = moves.slice(-4);
+					return /^([URFDLB])('?)$/.test(last[0]) && last.every(function(token) { return token === last[0]; });
+				},
+
+				recordSolveMove: function(move, source, options) {
+					options = options || {};
+					if (!move || options.silent || options.noCount) return;
+					var token = "";
+					if (move.type === "slice" || move.type === "orientation") {
+						token = move.text;
+					} else if (move.type === "face") {
+						var logicalMove = move;
+						if (options.fromCube && move.rawText) logicalMove = this.normalizeMove(move.rawText);
+						if (logicalMove) {
+							logicalMove = Object.assign({}, logicalMove, { fromCube: !!options.fromCube });
+							token = this.moveToStandardText(logicalMove);
+						}
+					}
+					if (!token) return;
+					this.performedProcessMoves.push(token);
+					if (this.isPracticeMode && this.isFourTurnReset(this.performedProcessMoves)) {
+						this.applyImportedFormula(this.currentFormulaIndex);
+						return;
+					}
+					if (typeof this.onLogicalSolveMove === "function") this.onLogicalSolveMove(token, move, source, options);
+					if (this.isPracticeMode) this.updateSolveDetection(this.currentFacelet, !!options.fromCube);
+				},
+
+				buildRestorationTargetCubie: function(facelet) {
+					if (!window.mathlib || !mathlib.CubieCube) return null;
+					var target = new mathlib.CubieCube();
+					var normalized = String(facelet || mathlib.SOLVED_FACELET || "").toUpperCase().replace(/[^URFDLB]/g, "");
+					if (normalized.length !== 54 || target.fromFacelet(normalized) === -1) return new mathlib.CubieCube();
+					return target;
+				},
+
+				isVirtualStateMatchingTarget: function(facelet) {
+					if (!this.virtualCubie) return false;
+					var target = this.buildRestorationTargetCubie(facelet);
+					if (!target) return false;
+					var mask = this.hiddenStickerMask || {};
+					if (!Object.keys(mask).length || !this.virtualCubie.toPerm || !target.toPerm) return this.virtualCubie.isEqual(target);
+					var currentPerm = this.virtualCubie.toPerm();
+					var targetPerm = target.toPerm();
+					for (var position = 0; position < targetPerm.length; position++) {
+						if (!mask[targetPerm[position]] && currentPerm[position] !== targetPerm[position]) return false;
+					}
+					return true;
+				},
+
+				isFaceletMatchingTarget: function(facelet, targetFacelet) {
+					var current = String(facelet || "").toUpperCase().replace(/[^URFDLB]/g, "");
+					var target = String(targetFacelet || window.mathlib && mathlib.SOLVED_FACELET || "").toUpperCase().replace(/[^URFDLB]/g, "");
+					if (current.length !== 54 || target.length !== 54) return false;
+					for (var i = 0; i < 54; i++) {
+						if (!(this.hiddenStickerMask || {})[i] && current.charAt(i) !== target.charAt(i)) return false;
 					}
 					return true;
 				},
@@ -6455,7 +6519,6 @@
 					}
 					if (!options.fromCube) {
 						move = this.mapManualMove(move);
-						formulaMove = move;
 					}
 					if (move.type === "orientation") {
 						this.applyOrientationMove(move, options);
@@ -6489,6 +6552,7 @@
 						this.pushHistory(move.text, source, timestamp);
 						this.log("move", move.text + (source ? " · " + source : ""));
 					}
+					this.recordSolveMove(move, source, options);
 					return move;
 				},
 
@@ -6535,6 +6599,7 @@
 						this.pushHistory(move.text, source, timestamp);
 						this.log("move", move.text + (source ? " · " + source : ""));
 					}
+					this.recordSolveMove(move, source, options);
 					return move;
 				},
 

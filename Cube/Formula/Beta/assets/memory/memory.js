@@ -29,6 +29,7 @@
 		retried: false,
 		repeatedMove: false,
 		attemptMoves: [],
+		answerMoves: [],
 		selectedRating: 0,
 		manualSelection: false,
 		answerReason: "",
@@ -53,7 +54,7 @@
 			formulas: [],
 			allFormulas: [],
 			progress: {},
-			settings: { dailyCount: 10 },
+			settings: { dailyCount: 10, solveDetectionMode: 2 },
 			day: { studyDate: "", learnedIds: [] },
 			queue: [],
 			todayQueue: [],
@@ -113,7 +114,7 @@
 			migrated.formulas = Array.isArray(value.formulas) ? value.formulas : [];
 			migrated.allFormulas = Array.isArray(value.allFormulas) ? value.allFormulas : [];
 			migrated.progress = value.progress || {};
-			migrated.settings = Object.assign({ dailyCount: 10 }, value.settings || {});
+			migrated.settings = Object.assign({ dailyCount: 10, solveDetectionMode: 2 }, value.settings || {});
 			migrated.day = Object.assign({ studyDate: "", learnedIds: [] }, value.day || {});
 			migrated.day.learnedIds = Array.isArray(migrated.day.learnedIds) ? migrated.day.learnedIds : [];
 			migrated.queue = Array.isArray(value.queue) ? value.queue : [];
@@ -144,7 +145,7 @@
 			dest.formulas = Array.isArray(src.formulas) ? src.formulas : [];
 			dest.allFormulas = Array.isArray(src.allFormulas) ? src.allFormulas : [];
 			dest.progress = src.progress || {};
-			dest.settings = Object.assign({ dailyCount: 10 }, src.settings || {});
+			dest.settings = Object.assign({ dailyCount: 10, solveDetectionMode: 2 }, src.settings || {});
 			dest.day = Object.assign({ studyDate: "", learnedIds: [] }, src.day || {});
 			dest.day.learnedIds = Array.isArray(dest.day.learnedIds) ? dest.day.learnedIds : [];
 			dest.queue = Array.isArray(src.queue) ? src.queue : [];
@@ -359,7 +360,8 @@
 				attempts: [],
 				aoTimes: [],
 				dayHistory: [],
-				firstLearnStudyDate: ""
+				firstLearnStudyDate: "",
+				sameDay: null
 			};
 		}
 		var progress = l.progress[id];
@@ -368,6 +370,27 @@
 		progress.aoTimes = Array.isArray(progress.aoTimes) ? progress.aoTimes : [];
 		progress.dayHistory = Array.isArray(progress.dayHistory) ? progress.dayHistory : [];
 		return progress;
+	}
+
+	var SAME_DAY_ANCHORS = [100, 70, 35, 0];
+	var SAME_DAY_INCREMENTS = [60, 40, 20, 0];
+	var SAME_DAY_INTERVALS = [4, 3, 2, 1];
+
+	function getSameDayState(progress, today) {
+		if (!progress.sameDay || progress.sameDay.studyDate !== today) {
+			progress.sameDay = { studyDate: today, progress: 0, ratings: 0, intervalItems: 0 };
+		}
+		return progress.sameDay;
+	}
+
+	function applySameDayRating(progress, today, ratingIndex, now) {
+		var state = getSameDayState(progress, today);
+		if (state.ratings === 0) state.progress = SAME_DAY_ANCHORS[ratingIndex];
+		else state.progress = Math.min(100, Number(state.progress || 0) + SAME_DAY_INCREMENTS[ratingIndex]);
+		state.ratings += 1;
+		state.lastRatingIndex = ratingIndex;
+		state.intervalItems = SAME_DAY_INTERVALS[ratingIndex];
+		return state;
 	}
 
 	function findFormula(id) {
@@ -451,8 +474,9 @@
 	function getMemoryPanelHtml() {
 		var seamlessActive = app.seamlessMode ? " isActive" : "";
 		var groupBarHtml = (typeof app.getGroupSelectorHtml === 'function') ? app.getGroupSelectorHtml() : '';
+		var formulaInputHtml = (typeof app.getFormulaImportHtml === 'function') ? app.getFormulaImportHtml(false, false, false) : '';
 		return '<aside class="panel memoryPanel"><header class="panelHeader"><h1>记忆模式</h1><button id="memorySeamlessBtn" class="seamlessToggle' + seamlessActive + '" type="button" aria-pressed="' + (app.seamlessMode ? "true" : "false") + '"><span class="toggleSwitch"></span><span class="toggleLabel">无缝</span></button></header>' +
-			'<section class="panelSection">' + groupBarHtml + '<button id="sharedCustomStateBtn" class="button secondary" type="button" style="width:100%;margin-bottom:8px;font-size:13px;">自定义本组复原状态</button><div class="controls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="customFinalStateBtn" class="button secondary" type="button">复原状态</button></div><button id="memoryPlanBtn" class="button" type="button">规划学习</button><div class="controls"><button id="memoryImportBtn" class="button secondary" type="button">导入数据</button><button id="memoryExportBtn" class="button secondary" type="button">导出数据</button></div><input id="memoryImportFile" class="hiddenFileInput" type="file" accept=".json,application/json"></section>' +
+			'<section class="panelSection">' + groupBarHtml + '<button id="sharedCustomStateBtn" class="button secondary" type="button" style="width:100%;margin-bottom:8px;font-size:13px;">自定义本组复原状态</button><div class="controls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="customFinalStateBtn" class="button secondary" type="button">复原状态</button></div><button id="memoryPlanBtn" class="button" type="button">规划学习</button><div class="controls"><button id="memoryImportBtn" class="button secondary" type="button">导入数据</button><button id="memoryExportBtn" class="button secondary" type="button">导出数据</button></div><input id="memoryImportFile" class="hiddenFileInput" type="file" accept=".json,application/json"></section>' + formulaInputHtml +
 			'<section class="memoryArea"><div id="memoryCurrent" class="memoryCurrent"><button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">请开始还原…<br>点击此处显示答案。</button></div><div id="memoryHistory" class="memoryHistory"></div></section>' +
 			app.getDiagnosticsHtml(true) + '</aside>';
 	}
@@ -474,6 +498,8 @@
 	function startMemoryMode() {
 		ensureStudyDay();
 		loadLibraryMask();
+		app.solveDetectionMode = Number((lib() && lib().settings.solveDetectionMode)) === 1 ? 1 : 2;
+		app.renderSolveDetectionModeControls();
 		memory.promptedContinue = false;
 		updatePlanCounter();
 		showHistoryPanel();
@@ -510,6 +536,7 @@
 		memory.retried = false;
 		memory.repeatedMove = false;
 		memory.attemptMoves = [];
+		memory.answerMoves = [];
 		memory.manualSelection = false;
 		memory.lastAnswerMove = null;
 		memory.lastChoiceShown = null;
@@ -535,7 +562,8 @@
 		app.initTwisty();
 		app.setViewDrag(yaw, pitch);
 		app.resetVirtualState();
-		var moves = app.buildTwistyMoves(memory.currentFormula.moves || [], true, true);
+		app.resetSolveDetectionContext(memory.currentFormula);
+		var moves = app.buildTwistyMoves(app.getInitialStateMoves(memory.currentFormula), true, true);
 		if (moves.length) {
 			app.twistyScene.applyMoves(moves);
 		}
@@ -781,6 +809,7 @@
 		var stats = [5, 10, 50].map(function(count) {
 			return formatDuration(averageOf(previewTimes, count));
 		});
+		var sameDay = getSameDayState(progress, (lib() || {}).day.studyDate || studyDate(Date.now()));
 		var labels = optionLabels();
 		var lastRating = (typeof memory.lastChoiceShown === "number") ? memory.lastChoiceShown : null;
 		var options = labels.map(function(label, index) {
@@ -793,7 +822,7 @@
 			}
 			return '<button class="' + cls + '" style="--memoryColor:' + RATING_COLORS[index] + '" type="button" data-memory-rating="' + index + '">' + app.escapeHtml(label) + '</button>';
 		}).join("");
-		current.innerHTML = '<button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><div class="memoryAnswer"><strong class="memoryAnswerName">' + app.escapeHtml(memory.currentFormula.name) + '</strong><div class="memoryAnswerFormula">' + app.escapeHtml(memory.currentFormula.answer || memory.currentFormula.alg || "") + '</div></div>' +
+		current.innerHTML = '<button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><div class="memoryAnswer"><strong class="memoryAnswerName">' + app.escapeHtml(memory.currentFormula.name) + '</strong><div class="memoryAnswerFormula">' + app.escapeHtml(memory.currentFormula.alg || memory.currentFormula.formula || "") + '</div><div class="memorySameDayProgress">今日进度 ' + Math.round(Number(sameDay.progress) || 0) + '%</div></div>' +
 			'<div class="memoryTimes"><div class="memoryTime"><span>反应</span><strong>' + formatDuration(memory.reactionTime) + '</strong></div><div class="memoryTime"><span>AO5</span><strong>' + stats[0] + '</strong></div><div class="memoryTime"><span>AO10</span><strong>' + stats[1] + '</strong></div><div class="memoryTime"><span>AO50</span><strong>' + stats[2] + '</strong></div></div>' +
 			'<p class="memoryControlHint">(R R\') 确认；D 右移；D\' 左移。</p><div class="memoryOptions">' + options + '</div>';
 	}
@@ -858,8 +887,8 @@
 	/* ---------- Move handling ---------- */
 
 	function areAdjacentInverse(a, b) {
-		var first = /^([URFDLB])('?)$/.exec(a || "");
-		var second = /^([URFDLB])('?)$/.exec(b || "");
+		var first = /^([URFDLBMES]|[xyz])('?)$/i.exec(a || "");
+		var second = /^([URFDLBMES]|[xyz])('?)$/i.exec(b || "");
 		return !!(first && second && first[1] === second[1] && first[2] !== second[2]);
 	}
 
@@ -880,34 +909,26 @@
 		return app.formatMoveText(face, move.pow);
 	}
 
-	function handleMemorySmartMove(playedMove) {
-		if (app.currentMode !== "memory" || !memory.currentFormula) {
-			return;
-		}
-		var normalized = playedMove && playedMove.type ? playedMove : app.normalizeMove(playedMove);
-		if (!normalized || normalized.type !== "face") {
-			return;
-		}
-		var text = memoryControlTextFromMove(normalized);
-		if (!text) {
-			return;
-		}
+	function handleMemoryLogicalMove(text, playedMove) {
+		if (app.currentMode !== "memory" || !memory.currentFormula || !text) return;
 		if (memory.state === "answer") {
-			handleAnswerMove(text);
+			memory.answerMoves.push(text);
+			if (isFullTurn(memory.answerMoves)) {
+				applyMemoryFormula();
+				memory.answerMoves = [];
+				memory.state = "answer";
+				renderAnswerMemory();
+				return;
+			}
+			if (playedMove && playedMove.type === "face") handleAnswerMove(text);
 			return;
 		}
 		var now = performance.now();
-		if (memory.state === "hidden") {
-			beginSolve(now);
-		}
-		if (memory.state !== "solving") {
-			return;
-		}
+		if (memory.state === "hidden") beginSolve(now);
+		if (memory.state !== "solving") return;
 		var previous = memory.attemptMoves[memory.attemptMoves.length - 1];
 		memory.attemptMoves.push(text);
-		if (areAdjacentInverse(previous, text)) {
-			memory.repeatedMove = true;
-		}
+		if (areAdjacentInverse(previous, text)) memory.repeatedMove = true;
 		if (isFullTurn(memory.attemptMoves)) {
 			memory.repeatedMove = true;
 			retryCurrentFormula();
@@ -1022,30 +1043,20 @@
 	}
 
 	function updateMemorySolveDetection(facelet, hadCubeMove) {
-		if (app.currentMode !== "memory" || !memory.currentFormula || memory.state === "answer") {
-			return;
+		if (app.currentMode !== "memory" || !memory.currentFormula || memory.state === "answer") return;
+		if (memory.skipNextDetection) { memory.skipNextDetection = false; return; }
+		if (memory.state !== "solving" || !memory.attemptMoves.length) return;
+		var completed = false;
+		if (app.solveDetectionMode === 1) {
+			var targetReduced = app.canonicalizeFormulaProcessMoves(app.processTargetMoves);
+			completed = app.isFormulaProcessMatch(memory.attemptMoves, app.processTargetMoves);
+			if (completed && targetReduced.length === 0) completed = memory.attemptMoves.join(" ") === app.processTargetMoves.join(" ");
+		} else if (app.virtualCubie) {
+			completed = app.isVirtualStateMatchingTarget(memory.currentFormula.customSolvedState || null);
+		} else {
+			completed = app.isFaceletMatchingTarget(facelet, memory.currentFormula.customSolvedState || null);
 		}
-		if (memory.skipNextDetection) {
-			memory.skipNextDetection = false;
-			return;
-		}
-		var normalized = String(facelet || "").toUpperCase().replace(/[^URFDLB]/g, "");
-		var hasFacelet = normalized.length === 54;
-		var faceletSolved = hasFacelet && app.isFaceletSolved(normalized);
-		var hasVirtual = !!app.virtualCubie;
-		var virtualSolved = hasVirtual && app.isVirtualStateSolved();
-		var canSolveFacelet = !hasVirtual && faceletSolved && memory.sawUnsolvedFacelet && hadCubeMove && memory.attemptMoves.length > 0;
-		var canSolveVirtual = hasVirtual && virtualSolved && memory.sawUnsolvedVirtual && memory.attemptMoves.length > 0;
-		if (memory.state === "solving" && (canSolveFacelet || canSolveVirtual)) {
-			solvedCurrentFormula();
-			return;
-		}
-		if (hasFacelet && !faceletSolved) {
-			memory.sawUnsolvedFacelet = true;
-		}
-		if (hasVirtual && !virtualSolved) {
-			memory.sawUnsolvedVirtual = true;
-		}
+		if (completed) solvedCurrentFormula();
 	}
 
 	function selectRating(index, manual) {
@@ -1104,12 +1115,15 @@
 			var item = memory.currentItem;
 			var progress = getProgress(formula.id);
 			var wasNew = isNewFormula(formula.id);
+			var l = lib();
+			var today = l.day.studyDate;
+			var sameDayBefore = getSameDayState(progress, today);
+			var isFirstRatingToday = sameDayBefore.ratings === 0;
 			var ratings = [module.Rating.Easy, module.Rating.Good, module.Rating.Hard, module.Rating.Again];
 			var scheduled = null;
-			if (!item.reinforcement) {
+			if (isFirstRatingToday) {
 				scheduled = scheduleResult(module, progress, ratings[memory.selectedRating]);
 			}
-			var l = lib();
 			var undoEntry = { formulaId: formula.id, checkpoint: makeCheckpoint() };
 			l.undoStack.push(undoEntry);
 			if (l.undoStack.length > 20) {
@@ -1135,29 +1149,28 @@
 					progress.aoTimes = progress.aoTimes.slice(-200);
 				}
 			}
-			var today = l.day.studyDate;
+			var sameDay = applySameDayRating(progress, today, memory.selectedRating, Date.now());
 			if (wasNew && !progress.firstLearnStudyDate) {
 				progress.firstLearnStudyDate = today;
 			}
 			var dayNumber = daysBetween(progress.firstLearnStudyDate || today, today) + 1;
 			var existingDay = progress.dayHistory.find(function(record) { return record.studyDate === today; });
 			var confirmedLabels = ["清晰", "犹豫", "模糊", wasNew ? "不会" : "遗忘"];
-			var dayRecord = { studyDate: today, dayNumber: dayNumber, ratingIndex: memory.selectedRating, label: confirmedLabels[memory.selectedRating] };
+			var dayRecord = { studyDate: today, dayNumber: dayNumber, ratingIndex: memory.selectedRating, label: confirmedLabels[memory.selectedRating], sameDayProgress: sameDay.progress };
 			if (existingDay) {
 				Object.assign(existingDay, dayRecord);
 			} else {
 				progress.dayHistory.push(dayRecord);
 			}
-			if (l.day.learnedIds.indexOf(formula.id) < 0) {
-				l.day.learnedIds.push(formula.id);
-			}
+			if (sameDay.progress >= 100 && l.day.learnedIds.indexOf(formula.id) < 0) l.day.learnedIds.push(formula.id);
 			l.queue.shift();
-			if (item.reinforcement) {
-				l.todayQueue = l.todayQueue.filter(function(entry) { return entry.id !== formula.id; });
-			} else if (memory.selectedRating >= 2 && !l.todayQueue.some(function(entry) { return entry.id === formula.id; })) {
-				var repeat = { id: formula.id, reinforcement: true };
+			l.todayQueue = l.todayQueue.filter(function(entry) { return entry.id !== formula.id; });
+			l.queue = l.queue.filter(function(entry) { return entry.id !== formula.id; });
+			if (sameDay.progress < 100) {
+				var repeat = { id: formula.id, reinforcement: true, intervalItems: sameDay.intervalItems };
+				var insertAt = Math.min(Math.max(0, repeat.intervalItems), l.queue.length);
 				l.todayQueue.push(repeat);
-				l.queue.push(repeat);
+				l.queue.splice(insertAt, 0, repeat);
 			}
 			saveData();
 			memory.confirming = false;
@@ -1211,11 +1224,11 @@
 
 	function collectModeTransferText(sourceMode) {
 		var pieces = [];
-		var textarea = document.getElementById("stateTextInput");
+		var textarea = document.getElementById("formulaTextInput");
 		if (textarea && textarea.value.trim()) {
 			pieces.push(textarea.value.trim());
-		} else if (app.stateImportText && String(app.stateImportText).trim()) {
-			pieces.push(String(app.stateImportText).trim());
+		} else if (app.formulaInputText && String(app.formulaInputText).trim()) {
+			pieces.push(String(app.formulaInputText).trim());
 		}
 		if (sourceMode === "formula" && app.buildFormulaExportText) {
 			var made = app.buildFormulaExportText();
@@ -1239,8 +1252,8 @@
 	}
 
 	function commitPlanText(text) {
-		var parsed = app.parseStateDefinitions(text || "");
-		if (!parsed.states.length && String(text || "").trim()) {
+		var parsed = app.parseFormulaDefinitions(text || "");
+		if (!parsed.formulas.length && String(text || "").trim()) {
 			showToast("未读取到有效公式，请使用\u201c名称：公式;\u201d格式");
 			return false;
 		}
@@ -1260,7 +1273,7 @@
 			}
 			return null;
 		}
-		var formulas = parsed.states.map(function(state, index) {
+		var formulas = parsed.formulas.map(function(state, index) {
 			var same = previous[index] && previous[index].name === state.name && previous[index].alg === state.alg ? previous[index] : null;
 			var id = same ? same.id : "memory_formula_" + Date.now() + "_" + l.idSeed++;
 			var existing = same || previous.find(function(p) { return p.name === state.name && p.alg === state.alg; });
@@ -1271,7 +1284,7 @@
 				name: state.name,
 				alg: state.alg,
 				formula: state.alg,
-				answer: app.invertFormulaDisplayText(state.alg || "", state.moves || []),
+				answer: state.alg,
 				moves: state.moves.slice(),
 				customSolvedState: customSolvedState
 			};
@@ -1790,6 +1803,7 @@
 			return;
 		}
 		root.dataset.memoryBound = "1";
+		app.ensureSolveDetectionControls(root);
 		root.addEventListener("click", function(event) {
 			var rating = event.target.closest("[data-memory-rating]");
 			if (rating) {
@@ -1921,13 +1935,18 @@
 		}
 	};
 
-	var originalPlayMove = app.playMove;
-	app.playMove = function(rawMove, source, timestamp, options) {
-		var result = originalPlayMove.call(this, rawMove, source, timestamp, options);
-		if (result && options && options.fromCube && !options.noCount) {
-			handleMemorySmartMove(result);
+	var originalLogicalSolveMove = app.onLogicalSolveMove;
+	app.onLogicalSolveMove = function(text, move, source, options) {
+		if (typeof originalLogicalSolveMove === "function") originalLogicalSolveMove.apply(this, arguments);
+		handleMemoryLogicalMove(text, move);
+	};
+	var originalSetSolveDetectionMode = app.setSolveDetectionMode;
+	app.setSolveDetectionMode = function(mode) {
+		originalSetSolveDetectionMode.call(this, mode);
+		if (this.currentMode === "memory" && lib()) {
+			lib().settings.solveDetectionMode = this.solveDetectionMode;
+			saveData();
 		}
-		return result;
 	};
 
 	var originalUpdateSolveDetection = app.updateSolveDetection;
@@ -2081,9 +2100,15 @@
 		var l = lib();
 		if (!l) return;
 		var newText = String(text || "");
-		if (newText === String(l.planText || "")) return;
 		l.planText = newText;
-		app._parseAndUpdateFormulas(l, newText);
+		if (!newText.trim()) {
+			l.formulas = [];
+			l.allFormulas = [];
+			l.queue = [];
+			l.todayQueue = [];
+		} else {
+			app._parseAndUpdateFormulas(l, newText);
+		}
 		saveData();
 		app._notifyActiveGroupChanged();
 	};
@@ -2100,10 +2125,10 @@
 		return l ? (l.formulas || []) : [];
 	};
 
-	app.setActiveGroupFormulasFromStates = function(parsedStates, silent) {
+	app.setActiveGroupFormulas = function(parsedFormulas, silent) {
 		var l = lib();
 		if (!l) return;
-		app._replaceFormulasFromStates(l, parsedStates);
+		app._replaceFormulas(l, parsedFormulas);
 		saveData();
 		if (!silent) app._notifyActiveGroupChanged();
 	};
@@ -2182,13 +2207,13 @@
 			g.todayQueue = [];
 			return;
 		}
-		if (typeof app.parseStateDefinitions !== "function") return;
-		var parsed = app.parseStateDefinitions(newText);
-		if (!parsed.states.length) return;
-		app._replaceFormulasFromStates(g, parsed.states);
+		if (typeof app.parseFormulaDefinitions !== "function") return;
+		var parsed = app.parseFormulaDefinitions(newText);
+		if (!parsed.formulas.length) return;
+		app._replaceFormulas(g, parsed.formulas);
 	};
 
-	app._replaceFormulasFromStates = function(g, parsedStates) {
+	app._replaceFormulas = function(g, parsedFormulas) {
 		var previous = (g.allFormulas || g.formulas || []).slice();
 		function findPreviousCustomState(state) {
 			var normalized = String(state.alg || "").replace(/\s+/g, "").toUpperCase();
@@ -2201,7 +2226,7 @@
 			}
 			return null;
 		}
-		var formulas = parsedStates.map(function(state, index) {
+		var formulas = parsedFormulas.map(function(state, index) {
 			var same = previous[index] && previous[index].name === state.name && previous[index].alg === state.alg ? previous[index] : null;
 			var id = same ? same.id : "memory_formula_" + Date.now() + "_" + g.idSeed++;
 			var existing = same || previous.find(function(p) { return p.name === state.name && p.alg === state.alg; });
@@ -2212,7 +2237,7 @@
 				name: state.name,
 				alg: state.alg,
 				formula: state.alg,
-				answer: app.invertFormulaDisplayText ? app.invertFormulaDisplayText(state.alg || "", state.moves || []) : state.alg,
+				answer: state.alg,
 				moves: state.moves.slice(),
 				customSolvedState: customSolvedState
 			};
@@ -2234,7 +2259,7 @@
 	app.setActiveLibraryPlanText = function(text) { app.setActiveGroupPlanText(text); };
 	app.setActiveLibraryPlanTextQuiet = function(text) { app.setActiveGroupPlanTextQuiet(text); };
 	app.getActiveLibraryFormulas = function() { return app.getActiveGroupFormulas(); };
-	app.setActiveLibraryFormulasFromStates = function(states, silent) { app.setActiveGroupFormulasFromStates(states, silent); };
+	app.setActiveLibraryFormulas = function(states, silent) { app.setActiveGroupFormulas(states, silent); };
 	app.findMemoryFormulaByAlg = function(alg) { return app.findGroupFormulaByAlg(alg); };
 
 	var _activeGroupChangeListeners = [];
@@ -2257,6 +2282,10 @@
 			try { _activeGroupChangeListeners[i](); } catch(e) {}
 		}
 	};
+	app.onActiveGroupChanged(function() {
+		if (app.currentMode === "memory") startMemoryMode();
+	});
+
 	app._notifyGroupListChanged = function() {
 		for (var i = 0; i < _groupListChangeListeners.length; i++) {
 			try { _groupListChangeListeners[i](); } catch(e) {}
