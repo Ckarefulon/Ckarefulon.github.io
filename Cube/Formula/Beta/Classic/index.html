@@ -42,31 +42,2129 @@
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
 
 	<link rel="stylesheet" href="assets/memory/memory.css?v=1034">
-	<script src="assets/ui-shell.js?v=1277" defer></script>
-	<script src="assets/memory/memory.js?v=1277" defer></script>
+	<script src="assets/memory/memory.js?v=1168" defer></script>
 
-	<title>魔方训练</title>
-	<link rel="stylesheet" href="assets/app.css?v=1277">
+	<title>学习模式</title>
+	<style>
+		:root {
+			color-scheme: light;
+			--bg: #f6f7fb;
+			--surface: rgba(255, 255, 255, 0.9);
+			--surfaceSolid: #ffffff;
+			--ink: #242436;
+			--muted: #575a6d;
+			--line: #d5d8e5;
+			--panel: rgba(255, 255, 255, 0.88);
+			--accent: #5d4ea8;
+			--accentSoft: rgba(93, 78, 168, 0.12);
+			--cyan: #24f0ea;
+			--cyanSoft: rgba(36, 240, 234, 0.12);
+			--good: #178b82;
+			--red: #e85d6a;
+			--primaryBg: #5d4ea8;
+			--primaryHoverBg: #514598;
+			--primaryText: #ffffff;
+			--primaryBorder: #5d4ea8;
+			--controlBg: #ffffff;
+			--controlText: #242436;
+			--controlBorder: #cfd3e3;
+			--controlHoverBg: rgba(93, 78, 168, 0.10);
+			--rotationBg: rgba(93, 78, 168, 0.12);
+			--rotationText: #45388e;
+			--chipBg: #5d4ea8;
+			--chipText: #ffffff;
+			--logBg: rgba(93, 78, 168, 0.09);
+			--dropBg: rgba(93, 78, 168, 0.10);
+			--dropText: #4d3f96;
+			--pageBg: radial-gradient(circle at 16% 8%, rgba(93, 78, 168, 0.16), transparent 34%), radial-gradient(circle at 86% 12%, rgba(36, 240, 234, 0.10), transparent 30%), linear-gradient(135deg, #fafaff, #f4f6fb 58%, #ffffff);
+			--stageBg: radial-gradient(circle at 50% 52%, rgba(255, 255, 255, 0.98), transparent 60%), linear-gradient(145deg, rgba(36, 240, 234, 0.07), transparent 46%), linear-gradient(320deg, rgba(93, 78, 168, 0.11), transparent 52%), #ffffff;
+			--shadow: 0 18px 50px rgba(36, 36, 54, 0.12);
+		}
+
+		:root[data-theme="dark"] {
+			color-scheme: dark;
+			--bg: #0f0f16;
+			--surface: rgba(27, 27, 38, 0.94);
+			--surfaceSolid: #1c1c28;
+			--ink: #f4f4fb;
+			--muted: #c0c2d0;
+			--line: #414157;
+			--panel: rgba(27, 27, 38, 0.92);
+			--accentSoft: rgba(93, 78, 168, 0.26);
+			--cyanSoft: rgba(36, 240, 234, 0.08);
+			--good: #24f0ea;
+			--red: #e85d6a;
+			--primaryBg: #6b5dc2;
+			--primaryHoverBg: #786bd0;
+			--primaryText: #ffffff;
+			--primaryBorder: #8174d6;
+			--controlBg: #252536;
+			--controlText: #f6f7ff;
+			--controlBorder: #595c72;
+			--controlHoverBg: #303046;
+			--rotationBg: #32304a;
+			--rotationText: #ffffff;
+			--chipBg: #eceeff;
+			--chipText: #161621;
+			--logBg: rgba(255, 255, 255, 0.07);
+			--dropBg: #242437;
+			--dropText: #f6f7ff;
+			--pageBg: radial-gradient(circle at 18% 10%, rgba(93, 78, 168, 0.34), transparent 34%), radial-gradient(circle at 88% 0%, rgba(93, 78, 168, 0.16), transparent 32%), linear-gradient(180deg, #161620, #0d0d14);
+			--stageBg: radial-gradient(circle at 50% 52%, rgba(255, 255, 255, 0.07), transparent 58%), linear-gradient(150deg, rgba(93, 78, 168, 0.16), transparent 50%), linear-gradient(180deg, #1c1c29, #13131d);
+			--shadow: 0 18px 58px rgba(0, 0, 0, 0.32);
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		html,
+		body {
+			height: 100%;
+			margin: 0;
+		}
+
+		body {
+			background: var(--pageBg);
+			color: var(--ink);
+			font: 15px/1.45 Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+			overflow: hidden;
+			transition: background 0.22s ease, color 0.22s ease;
+		}
+
+		button,
+		input {
+			font: inherit;
+		}
+
+		.app {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) 340px;
+			grid-template-rows: 1fr;
+			gap: 18px;
+			height: calc(100dvh - var(--site-nav-height));
+			padding: 12px 18px 18px;
+			min-height: 0;
+		}
+
+		.stage {
+			position: relative;
+			min-width: 0;
+			min-height: 420px;
+			height: 100%;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: var(--stageBg);
+			box-shadow: var(--shadow);
+			overflow: hidden;
+			transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+		}
+
+		#cubeStage {
+			position: absolute;
+			inset: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 5%;
+			cursor: grab;
+			touch-action: none;
+			-webkit-user-select: none;
+			user-select: none;
+			width: 100%;
+			height: 100%;
+		}
+
+		#cubeStage.isDragging {
+			cursor: grabbing;
+		}
+
+		#cubeStage > div {
+			width: 100%;
+			height: 100%;
+		}
+
+		#cubeStage canvas {
+			display: block;
+			margin: auto;
+		}
+
+	.practiceSolvedCheck {
+		position: absolute;
+		left: 5%;
+		bottom: 5%;
+		width: clamp(48px, 12vw, 120px);
+		height: clamp(48px, 12vw, 120px);
+		border-radius: 50%;
+		background: #5d4ea8;
+		box-shadow: 0 0 18px rgba(36, 240, 234, 0.5), 0 6px 18px rgba(0, 0, 0, 0.18);
+		pointer-events: none;
+		opacity: 0;
+		transform: scale(0.85);
+		transition: opacity 0.22s ease, transform 0.22s ease;
+		z-index: 5;
+		/* 贯穿透明对勾：实心圆挖空对勾，透出后面的魔方 */
+		-webkit-mask:
+			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23fff'/%3E%3C/svg%3E") center / contain no-repeat,
+			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M30 52 L44 67 L74 33' fill='none' stroke='%23fff' stroke-width='13' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+		-webkit-mask-composite: source-out;
+		mask:
+			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23fff'/%3E%3C/svg%3E") center / contain no-repeat,
+			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M30 52 L44 67 L74 33' fill='none' stroke='%23fff' stroke-width='13' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+		mask-composite: subtract;
+	}
+
+	:root[data-theme="dark"] .practiceSolvedCheck {
+		background: #24f0ea;
+	}
+
+	.practiceSolvedCheck.isVisible {
+		opacity: 1;
+		transform: scale(1);
+	}
+
+		.touchcube {
+			position: absolute;
+			inset: 0;
+			width: 100%;
+			height: 100%;
+			border-collapse: collapse;
+			color: transparent;
+			opacity: 0;
+			pointer-events: none;
+		}
+
+		.topbar {
+			position: absolute;
+			top: 18px;
+			left: 18px;
+			right: 18px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			z-index: 2;
+			pointer-events: none;
+		}
+
+		.brand {
+			position: relative;
+			display: block;
+			width: 188px;
+			min-width: 188px;
+			padding: 0;
+			border: 1px solid rgba(93, 78, 168, 0.45);
+			border-radius: 8px;
+			background: var(--panel);
+			color: var(--ink);
+			-webkit-backdrop-filter: blur(14px);
+			backdrop-filter: blur(14px);
+			pointer-events: auto;
+			cursor: pointer;
+			box-shadow: 0 10px 30px rgba(93, 78, 168, 0.12);
+			transition: transform 0.16s ease, border-color 0.16s ease, background 0.22s ease, box-shadow 0.16s ease;
+		}
+
+		.brand:hover,
+		.brand.isOpen {
+			border-color: rgba(93, 78, 168, 0.45);
+			background: var(--surfaceSolid);
+		}
+
+		.brand.isOpen {
+			border-bottom-color: transparent;
+			border-radius: 8px 8px 0 0;
+		}
+
+		.logo,
+		.modeIcon {
+			width: 30px;
+			height: 30px;
+			position: relative;
+			display: block;
+			padding: 0;
+			border-radius: 6px;
+			background: linear-gradient(135deg, var(--accent), var(--cyan));
+			flex: 0 0 auto;
+			box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+			overflow: hidden;
+		}
+
+		.trainIcon,
+		.formulaModeIcon,
+		.libraryIcon,
+		.memoryIcon {
+			background: var(--controlBg);
+			box-shadow: inset 0 0 0 1px var(--controlBorder);
+		}
+
+		.logo::before,
+		.logo::after {
+			content: "";
+			position: absolute;
+		}
+
+		.logo::before,
+		.logo::after {
+			background: rgba(255, 255, 255, 0.64);
+		}
+
+		.logo::before {
+			left: 9px;
+			top: 3px;
+			width: 2px;
+			height: 24px;
+			box-shadow: 9px 0 0 rgba(255, 255, 255, 0.64);
+		}
+
+		.logo::after {
+			left: 3px;
+			top: 9px;
+			width: 24px;
+			height: 2px;
+			box-shadow: 0 9px 0 rgba(255, 255, 255, 0.64);
+		}
+
+		.logo span,
+		.modeIcon span {
+			display: none;
+		}
+
+		.learnIcon {
+			background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='16' y='16' width='32' height='32' rx='6' stroke='%235d4ea8' stroke-width='4'/%3E%3Cpath d='M32 16V48' stroke='%235d4ea8' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M16 32H48' stroke='%235d4ea8' stroke-width='4' stroke-linecap='round'/%3E%3Ccircle cx='48' cy='16' r='5' fill='%2324f0ea'/%3E%3C/svg%3E");
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-position: center;
+		}
+
+		.trainIcon {
+			background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='32' cy='32' r='20' stroke='%235d4ea8' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='10' stroke='%235d4ea8' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='3' fill='%235d4ea8'/%3E%3Cpath d='M14 50L32 32' stroke='%2324f0ea' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M32 32L29 42' stroke='%2324f0ea' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M32 32L22 35' stroke='%2324f0ea' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E");
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-position: center;
+		}
+
+		.formulaModeIcon {
+			background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M17 37L36 18L43 11Q48 6 53 11Q58 16 53 21L46 28L27 47L17 37Z' fill='%235d4ea8'/%3E%3Cpath d='M13 51L17 37L27 47L13 51Z' fill='%2324f0ea'/%3E%3Cpath d='M15 39L25 49' stroke='%235d4ea8' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-position: center;
+		}
+
+		.libraryIcon {
+			background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cmask id='cardMask'%3E%3Crect width='64' height='64' fill='white'/%3E%3Crect x='12' y='22' width='32' height='32' rx='6' fill='black'/%3E%3C/mask%3E%3C/defs%3E%3Crect x='20' y='14' width='32' height='32' rx='6' stroke='%2324f0ea' stroke-width='4' mask='url(%23cardMask)'/%3E%3Crect x='12' y='22' width='32' height='32' rx='6' stroke='%235d4ea8' stroke-width='4'/%3E%3C/svg%3E");
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-position: center;
+		}
+
+		.memoryIcon {
+			background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 1024 1024' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M572 835.3c17.7 0 32 14.3 32 32s-14.3 32-32 32H452c-17.7 0-32-14.3-32-32s14.3-32 32-32h120zM510 124c164.6 0 298 133.4 298 298 0 111.6-61.4 208.9-152.1 259.9v29.3c0 39.8-32.2 72-72 72H436c-39.8 0-72-32.2-72-72v-29.4c-90.7-51.1-152-148.3-152-259.9C212 257.4 345.4 124 510 124zm0 64c-129.3 0-234 104.8-234 234 0 92.6 53.8 172.7 132 210.7 6.3 3 11.8 7.9 16 14.3 4.2 6.4 6.4 13.9 6.4 21.7v47.3c0 4.4 3.6 8 8 8h148c4.4 0 8-3.6 8-8v-48c0-10.3 4.8-19.4 12.3-25.2a32 32 0 0 1 7.8-5.3c78.2-38 132-118.1 132-210.7 0-129.2-104.8-234-234-234z' fill='%235d4ea8'/%3E%3Cpath d='M469 321.6c13.2-40 69.4-40.3 83.3-0.9l0.3 0.9 18.5 56.2 56.2 18.5c40.3 13.3 40.3 70.3 0 83.6l-56.2 18.5-18.5 56.2c-13.3 40.3-70.3 40.3-83.6 0l-18.5-56.2-56.2-18.5c-40.3-13.3-40.3-70.3 0-83.6l56.2-18.5 18.5-56.2zm39.1 85.8a44 44 0 0 1-28 28l-8.1 2.7 8.1 2.7a44 44 0 0 1 28 28l2.7 8.1 2.7-8.1 0.2-0.6a44 44 0 0 1 27.8-27.4l8.1-2.7-8.1-2.7a44 44 0 0 1-28-28l-2.7-8.1-2.7 8.1z' fill='%2324f0ea'/%3E%3C/svg%3E");
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-position: center;
+		}
+
+		.modeOption {
+			width: 100%;
+			min-height: 50px;
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 10px 12px;
+			border: 0;
+			border-radius: 7px;
+			background: transparent;
+			color: var(--ink);
+			text-align: left;
+			text-decoration: none;
+			cursor: pointer;
+			font: inherit;
+			font-weight: 700;
+			transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
+		}
+
+		.modeOption:hover,
+		.modeOption:focus-visible {
+			background: var(--controlHoverBg);
+			color: var(--controlText);
+			box-shadow: inset 2px 0 0 var(--cyan);
+		}
+
+		.modeCurrent {
+			border-radius: 7px;
+		}
+
+		.brand.isOpen .modeCurrent {
+			border-radius: 7px 7px 0 0;
+		}
+
+		.modeText {
+			white-space: nowrap;
+			font-size: 15px;
+			letter-spacing: 0;
+		}
+
+		.modeChevron {
+			width: 8px;
+			height: 8px;
+			margin-left: auto;
+			border-right: 2px solid currentColor;
+			border-bottom: 2px solid currentColor;
+			transform: rotate(45deg) translateY(-2px);
+			transition: transform 0.14s ease;
+		}
+
+		.brand.isOpen .modeChevron {
+			transform: rotate(-135deg) translateY(-1px);
+		}
+
+		.modeMenu {
+			position: absolute;
+			top: calc(100% - 1px);
+			left: -1px;
+			right: -1px;
+			width: auto;
+			display: grid;
+			gap: 0;
+			padding: 0;
+			border: 1px solid rgba(93, 78, 168, 0.45);
+			border-top: 0;
+			border-radius: 0 0 8px 8px;
+			background: var(--surfaceSolid);
+			box-shadow: 0 18px 34px rgba(36, 36, 54, 0.16);
+			opacity: 0;
+			visibility: hidden;
+			transform: translateY(-5px);
+			pointer-events: none;
+			transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
+		}
+
+		.brand.isOpen .modeMenu {
+			opacity: 1;
+			visibility: visible;
+			transform: translateY(0);
+			pointer-events: auto;
+		}
+
+		.modeMenu .modeOption {
+			min-height: 50px;
+			border-top: 1px solid rgba(93, 78, 168, 0.45);
+			border-radius: 0;
+		}
+
+		.modeMenu .modeOption:last-child {
+			border-radius: 0 0 7px 7px;
+		}
+
+		.practiceIcon,
+		.formulaIcon {
+			width: 30px;
+			height: 30px;
+			position: relative;
+			flex: 0 0 auto;
+			border-radius: 6px;
+			background: var(--controlBg);
+			box-shadow: inset 0 0 0 1px var(--controlBorder);
+		}
+
+		.practiceIcon::before,
+		.practiceIcon::after,
+		.formulaIcon::before,
+		.formulaIcon::after {
+			content: "";
+			position: absolute;
+		}
+
+		.practiceIcon::before {
+			left: 7px;
+			top: 8px;
+			width: 16px;
+			height: 10px;
+			border: 2px solid var(--cyan);
+			border-radius: 999px;
+		}
+
+		.practiceIcon::after {
+			left: 13px;
+			top: 14px;
+			width: 4px;
+			height: 4px;
+			border-radius: 50%;
+			background: var(--accent);
+			box-shadow: -7px 0 0 var(--accent), 7px 0 0 var(--accent);
+		}
+
+		.formulaIcon::before {
+			left: 7px;
+			top: 8px;
+			width: 16px;
+			height: 14px;
+			border-left: 2px solid var(--accent);
+			border-right: 2px solid var(--accent);
+		}
+
+		.formulaIcon::after {
+			left: 8px;
+			top: 9px;
+			width: 14px;
+			height: 12px;
+			background:
+				linear-gradient(var(--cyan), var(--cyan)) 0 0 / 14px 2px no-repeat,
+				linear-gradient(var(--cyan), var(--cyan)) 0 5px / 10px 2px no-repeat,
+				linear-gradient(var(--cyan), var(--cyan)) 0 10px / 14px 2px no-repeat;
+		}
+
+		.topActions {
+			display: flex;
+			align-items: center;
+			justify-content: flex-end;
+			gap: 10px;
+			min-width: 0;
+			pointer-events: auto;
+		}
+
+		.statusPill {
+			max-width: 42vw;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			padding: 9px 12px;
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			background: var(--panel);
+			color: var(--muted);
+			-webkit-backdrop-filter: blur(14px);
+			backdrop-filter: blur(14px);
+		}
+
+		.statusPill[data-state="connected"] {
+			color: var(--good);
+			border-color: rgba(36, 240, 234, 0.46);
+			box-shadow: inset 0 0 0 1px rgba(36, 240, 234, 0.10);
+		}
+
+		.statusPill[data-state="error"] {
+			color: var(--red);
+			border-color: rgba(232, 93, 106, 0.28);
+		}
+
+		:root[data-theme="dark"] .modeMenu a:hover {
+			background: var(--controlHoverBg);
+			color: var(--controlText);
+		}
+
+		:root[data-theme="dark"] .panelHeader h1,
+		:root[data-theme="dark"] .historyTitle span:first-child,
+		:root[data-theme="dark"] .metric span {
+			color: var(--cyan);
+		}
+
+		button:focus-visible,
+		.brand:focus-visible,
+		.modeMenu a:focus-visible,
+		.stateTextarea:focus-visible {
+			outline: 2px solid var(--cyan);
+			outline-offset: 2px;
+		}
+
+		.panel {
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+			max-height: calc(100dvh - 36px);
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: var(--surface);
+			box-shadow: var(--shadow);
+			overflow-x: hidden;
+			overflow-y: scroll;
+			transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+		}
+
+		.panelHeader,
+		.panelSection {
+			flex: 0 0 auto;
+			padding: 16px;
+			border-bottom: 1px solid var(--line);
+		}
+
+		.panelHeader {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+		}
+
+		.panelHeaderContent {
+			min-width: 0;
+			flex: 1;
+		}
+
+		.panelHeader h1 {
+			margin: 0;
+			font-size: 20px;
+			line-height: 1.15;
+			letter-spacing: 0;
+		}
+
+		.panelHeader p {
+			margin: 8px 0 0;
+			color: var(--muted);
+			font-size: 13px;
+		}
+
+		.panelHeader .seamlessToggle {
+			min-height: 32px;
+			padding: 0 12px;
+			gap: 0;
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			background: var(--panel);
+			color: var(--ink);
+			font-weight: 700;
+			font-size: 13px;
+			cursor: pointer;
+			-webkit-backdrop-filter: blur(14px);
+			backdrop-filter: blur(14px);
+			transition: border-color 0.16s ease, color 0.16s ease, background 0.22s ease, transform 0.16s ease;
+		}
+
+		.panelHeader .seamlessToggle:hover {
+			border-color: rgba(36, 240, 234, 0.58);
+			color: var(--accent);
+			transform: translateY(-1px);
+			background: var(--panel);
+			box-shadow: none;
+		}
+
+		.panelHeader .seamlessToggle.isActive {
+			border-color: rgba(36, 240, 234, 0.58);
+			background: var(--panel);
+			color: var(--cyan);
+		}
+
+		.panelHeader .seamlessToggle.isActive:hover {
+			color: var(--controlText);
+		}
+
+		.panelHeader .seamlessToggle .toggleSwitch,
+		.panelHeader .seamlessToggle .toggleLabel {
+			display: none;
+		}
+
+		.panelHeader .seamlessToggle::after {
+			content: "无缝";
+		}
+
+		:root[data-theme="dark"] .panelHeader .seamlessToggle:hover {
+			color: var(--controlText);
+		}
+
+		.macHelp {
+			display: none;
+			background: #20211e;
+			color: #fff;
+		}
+
+		.macHelp.isVisible {
+			display: block;
+		}
+
+		.macHelp strong {
+			display: block;
+			margin-bottom: 8px;
+			font-size: 14px;
+		}
+
+		.macHelp p {
+			margin: 0;
+			color: #f2f3ea;
+			font-size: 13px;
+		}
+
+		.macHelp code {
+			color: #ffffff;
+			font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+			font-size: 12px;
+		}
+
+		.macHelpReason {
+			margin-top: 9px;
+			color: #e6b84a;
+			font-size: 13px;
+		}
+
+		.controls {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+		}
+
+		.practicePanel {
+			gap: 0;
+		}
+
+		.practiceControls {
+			grid-template-columns: minmax(0, 1fr) 144px;
+			align-items: stretch;
+		}
+
+		.practiceModeSelect {
+			position: relative;
+			width: 144px;
+			min-height: 50px;
+			padding: 0;
+			border: 0;
+			border-radius: 8px;
+			background: transparent;
+			cursor: pointer;
+			transition: transform 0.16s ease, border-color 0.16s ease, background 0.22s ease, box-shadow 0.16s ease;
+		}
+
+		.practiceModeSelect:hover,
+		.practiceModeSelect.isOpen {
+			border-color: rgba(93, 78, 168, 0.45);
+			background: var(--surfaceSolid);
+		}
+
+		.practiceModeSelect.isOpen {
+			border-bottom-color: transparent;
+			border-radius: 8px 8px 0 0;
+		}
+
+		.practiceModeCurrent {
+			width: 100%;
+			min-height: 50px;
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 10px 12px;
+			border: 1px solid rgba(93, 78, 168, 0.45);
+			border-radius: 8px;
+			background: var(--panel);
+			color: var(--ink);
+			font: inherit;
+			font-weight: 700;
+			text-align: left;
+			cursor: pointer;
+			-webkit-backdrop-filter: blur(14px);
+			backdrop-filter: blur(14px);
+			box-shadow: 0 10px 30px rgba(93, 78, 168, 0.12);
+			transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
+		}
+
+		.practiceModeCurrent:hover,
+		.practiceModeCurrent:focus-visible {
+			background: var(--controlHoverBg);
+			color: var(--controlText);
+			box-shadow: inset 2px 0 0 var(--cyan);
+			outline: none;
+		}
+
+		.practiceModeSelect.isOpen .practiceModeCurrent {
+			border-bottom-color: transparent;
+			border-radius: 8px 8px 0 0;
+			background: var(--surfaceSolid);
+		}
+
+		.practiceModeCurrentText {
+			white-space: nowrap;
+			font-size: 15px;
+			letter-spacing: 0;
+		}
+
+		.practiceModeChevron {
+			width: 8px;
+			height: 8px;
+			margin-left: auto;
+			border-right: 2px solid currentColor;
+			border-bottom: 2px solid currentColor;
+			transform: rotate(45deg) translateY(-2px);
+			transition: transform 0.14s ease;
+		}
+
+		.practiceModeSelect.isOpen .practiceModeChevron {
+			transform: rotate(-135deg) translateY(-1px);
+		}
+
+		.practiceModeMenu {
+			position: absolute;
+			top: calc(100% - 1px);
+			left: 0;
+			right: 0;
+			display: grid;
+			gap: 0;
+			padding: 0;
+			border: 1px solid rgba(93, 78, 168, 0.45);
+			border-top: 0;
+			border-radius: 0 0 8px 8px;
+			background: var(--surfaceSolid);
+			box-shadow: 0 18px 34px rgba(36, 36, 54, 0.16);
+			opacity: 0;
+			visibility: hidden;
+			transform: translateY(-5px);
+			pointer-events: none;
+			transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
+			z-index: 5;
+		}
+
+		.practiceModeSelect.isOpen .practiceModeMenu {
+			opacity: 1;
+			visibility: visible;
+			transform: translateY(0);
+			pointer-events: auto;
+		}
+
+		.practiceModeOption {
+			width: 100%;
+			min-height: 50px;
+			display: flex;
+			align-items: center;
+			padding: 10px 12px;
+			border: 0;
+			border-top: 1px solid rgba(93, 78, 168, 0.45);
+			border-radius: 0;
+			background: transparent;
+			color: var(--ink);
+			font: inherit;
+			font-weight: 700;
+			text-align: left;
+			cursor: pointer;
+			transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
+		}
+
+		.practiceModeOption:last-child {
+			border-radius: 0 0 7px 7px;
+		}
+
+		.practiceModeOption:hover,
+		.practiceModeOption:focus-visible {
+			background: var(--controlHoverBg);
+			color: var(--controlText);
+			box-shadow: inset 2px 0 0 var(--cyan);
+			outline: none;
+		}
+
+		.importButtons {
+			grid-template-columns: 1fr 1fr;
+		}
+
+		.button {
+			min-height: 42px;
+			border: 1px solid var(--primaryBorder);
+			border-radius: 8px;
+			background: var(--primaryBg);
+			color: var(--primaryText);
+			cursor: pointer;
+			transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+			font-weight: 700;
+		}
+
+		.button:hover {
+			transform: translateY(-1px);
+			border-color: var(--cyan);
+			background: var(--primaryHoverBg);
+			box-shadow: 0 0 0 3px rgba(36, 240, 234, 0.10);
+		}
+
+		.button:disabled {
+			cursor: progress;
+			opacity: 0.68;
+			transform: none;
+		}
+
+		.button.secondary {
+			background: var(--controlBg);
+			color: var(--controlText);
+			border-color: var(--controlBorder);
+		}
+
+		.button.secondary:hover {
+			border-color: var(--cyan);
+			background: var(--controlHoverBg);
+			box-shadow: inset 0 0 0 1px rgba(36, 240, 234, 0.08);
+		}
+
+		.button.small {
+			min-height: 34px;
+			padding: 0 10px;
+			font-size: 13px;
+		}
+
+		.seamlessToggle {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			min-height: 42px;
+			padding: 0 4px;
+			border: 1px solid var(--controlBorder);
+			border-radius: 8px;
+			background: var(--controlBg);
+			color: var(--controlText);
+			cursor: pointer;
+			font-weight: 700;
+			transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+			-webkit-user-select: none;
+			user-select: none;
+		}
+
+		.seamlessToggle:hover {
+			border-color: var(--cyan);
+			background: var(--controlHoverBg);
+			transform: translateY(-1px);
+			box-shadow: 0 0 0 3px rgba(36, 240, 234, 0.10);
+		}
+
+		.seamlessToggle.isActive {
+			border-color: var(--primaryBorder);
+			background: var(--primaryBg);
+			color: var(--primaryText);
+		}
+
+		.seamlessToggle.isActive:hover {
+			background: var(--primaryHoverBg);
+			border-color: var(--cyan);
+		}
+
+		.seamlessToggle .toggleLabel {
+			flex: 1;
+			text-align: left;
+			white-space: nowrap;
+		}
+
+		.seamlessToggle .toggleSwitch {
+			width: 42px;
+			height: 24px;
+			border-radius: 12px;
+			background: var(--controlBorder);
+			position: relative;
+			transition: background 0.18s ease;
+			flex-shrink: 0;
+		}
+
+		.seamlessToggle .toggleSwitch::after {
+			content: "";
+			position: absolute;
+			top: 3px;
+			left: 3px;
+			width: 18px;
+			height: 18px;
+			border-radius: 50%;
+			background: #ffffff;
+			box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+			transition: transform 0.18s ease;
+		}
+
+		.seamlessToggle.isActive .toggleSwitch {
+			background: var(--cyan);
+		}
+
+		.seamlessToggle.isActive .toggleSwitch::after {
+			transform: translateX(18px);
+		}
+
+		.hiddenFileInput {
+			display: none;
+		}
+
+		.importDropZone {
+			min-height: 58px;
+			display: grid;
+			place-items: center;
+			margin-bottom: 10px;
+			padding: 12px;
+			border: 1px dashed var(--controlBorder);
+			border-radius: 8px;
+			background: var(--dropBg);
+			color: var(--dropText);
+			text-align: center;
+			font-weight: 700;
+		}
+
+		.importDropZone.isDragging {
+			border-color: var(--cyan);
+			background: var(--cyanSoft);
+		}
+
+		.textImport {
+			display: none;
+			margin-top: 10px;
+		}
+
+		.textImport.isVisible {
+			display: grid;
+			gap: 8px;
+		}
+
+		.textImportWrap {
+			position: relative;
+		}
+		.textImportActions {
+			position: absolute;
+			top: 6px;
+			right: 22px;
+			display: flex;
+			gap: 3px;
+			z-index: 2;
+		}
+		.textImportActionBtn {
+			width: 26px;
+			height: 26px;
+			border: 1px solid var(--controlBorder);
+			background: var(--controlBg);
+			border-radius: 6px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			color: var(--controlText);
+			padding: 0;
+			transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+			-webkit-user-select: none;
+			user-select: none;
+		}
+		.textImportActionBtn svg {
+			display: block;
+			transition: transform 0.2s ease;
+		}
+		.textImportActionBtn:hover {
+			border-color: var(--cyan);
+			background: var(--controlHoverBg);
+			color: var(--cyan);
+		}
+		.textImportActionBtn:hover svg {
+			transform: scale(1.08);
+		}
+		.toastNotify {
+			position: fixed;
+			bottom: 80px;
+			left: 50%;
+			transform: translateX(-50%) translateY(20px);
+			background: var(--panel, #333);
+			color: var(--text, #fff);
+			padding: 10px 20px;
+			border-radius: 8px;
+			box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+			font-size: 14px;
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity 0.25s, transform 0.25s;
+			z-index: 9999;
+		}
+		.toastNotify.isVisible {
+			opacity: 1;
+			transform: translateX(-50%) translateY(0);
+		}
+
+		.stateTextarea {
+			width: 100%;
+			min-height: 92px;
+			resize: vertical;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			padding: 10px;
+			padding-right: 70px;
+			background: var(--controlBg);
+			color: var(--controlText);
+			font: 13px/1.45 "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+		}
+
+		.stateOptions {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin-top: 12px;
+			color: var(--muted);
+			font-size: 13px;
+		}
+
+		.stateOptionRow {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 8px 14px;
+			margin-top: 12px;
+		}
+
+		.stateOptionRow .stateOptions {
+			margin-top: 0;
+		}
+
+		.practiceFormulaToggle {
+			display: inline-flex;
+			width: 100%;
+			margin-top: 8px;
+			color: var(--muted);
+			font-size: 13px;
+		}
+
+		.practiceFormulaToggle.isFormula {
+			align-items: flex-start;
+		}
+
+		.practiceFormulaToggle.isFormula #practiceFormulaText {
+			color: var(--ink);
+			font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+			font-weight: 700;
+			overflow-wrap: anywhere;
+		}
+
+	.practiceAoTimes {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 6px;
+		margin-top: 8px;
+	}
+
+	.practiceAoTime {
+			padding: 6px 3px;
+			border: 1px solid var(--line);
+			border-radius: 6px;
+			text-align: center;
+		}
+
+		.practiceAoTime span,
+		.practiceAoTime strong {
+			display: block;
+		}
+
+		.practiceAoTime span {
+			color: var(--muted);
+			font-size: 10px;
+		}
+
+		.practiceAoTime strong {
+			font-size: 13px;
+		}
+
+		.smartCheck {
+			position: relative;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 8px;
+			min-width: 18px;
+			min-height: 18px;
+			color: var(--muted);
+			cursor: pointer;
+			-webkit-user-select: none;
+			user-select: none;
+		}
+
+		.smartCheck input {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			opacity: 0;
+			pointer-events: none;
+		}
+
+		.checkVisual {
+			position: relative;
+			display: block;
+			width: 18px;
+			height: 18px;
+			flex: 0 0 auto;
+			border: 1px solid var(--controlBorder);
+			border-radius: 5px;
+			background: var(--controlBg);
+			transition: background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+		}
+
+		.smartCheck:hover .checkVisual,
+		.smartCheck input:focus-visible + .checkVisual {
+			border-color: var(--cyan);
+			box-shadow: 0 0 0 3px rgba(36, 240, 234, 0.10);
+		}
+
+		.smartCheck input:checked + .checkVisual,
+		.smartCheck input:indeterminate + .checkVisual {
+			border-color: var(--accent);
+			background: var(--accent);
+		}
+
+		.smartCheck input[type="radio"] + .checkVisual {
+			border-radius: 50%;
+		}
+
+		.smartCheck input[type="radio"]:checked + .checkVisual {
+			border-color: var(--accent);
+			background: var(--controlBg);
+		}
+
+		.smartCheck input:checked + .checkVisual::after {
+			content: "";
+			position: absolute;
+			left: 5px;
+			top: 2px;
+			width: 5px;
+			height: 10px;
+			border: solid #fff;
+			border-width: 0 2px 2px 0;
+			transform: rotate(45deg);
+		}
+
+		.smartCheck input[type="radio"]:checked + .checkVisual::after {
+			content: "";
+			position: absolute;
+			left: 4px;
+			top: 4px;
+			width: 8px;
+			height: 8px;
+			border: 0;
+			border-radius: 50%;
+			background: var(--accent);
+			transform: none;
+		}
+
+		.smartCheck input:indeterminate + .checkVisual::after {
+			content: "";
+			position: absolute;
+			left: 4px;
+			right: 4px;
+			top: 8px;
+			height: 2px;
+			border-radius: 999px;
+			background: #fff;
+		}
+
+		.importStatus {
+			margin-top: 10px;
+			color: var(--muted);
+			font-size: 13px;
+		}
+
+		.formulaCardsList {
+			display: grid;
+			gap: 8px;
+			margin-top: 12px;
+		}
+
+		.stateCard {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			gap: 10px;
+			align-items: center;
+			padding: 10px;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: var(--controlBg);
+		}
+
+		.stateCard strong {
+			display: block;
+			overflow-wrap: anywhere;
+			font-size: 14px;
+		}
+
+		.stateCard small {
+			display: block;
+			margin-top: 4px;
+			color: var(--muted);
+			font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+			font-size: 11px;
+			overflow-wrap: anywhere;
+		}
+
+		.statePreview {
+			grid-column: 1 / -1;
+			width: 100%;
+			height: 116px;
+			border-top: 1px solid var(--line);
+			padding-top: 8px;
+			cursor: grab;
+			touch-action: none;
+			-webkit-user-select: none;
+			user-select: none;
+		}
+
+		.statePreview.isDragging {
+			cursor: grabbing;
+		}
+
+		.statePreview > div {
+			width: 108px;
+			height: 108px;
+			margin: 0 auto;
+		}
+
+		.practicePanel .formulaCardsList {
+			grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+			gap: 10px;
+		}
+
+		.practicePanel .stateCard {
+			grid-template-columns: 1fr;
+			grid-template-rows: 124px auto;
+			gap: 8px;
+			justify-items: center;
+			min-height: 174px;
+			text-align: center;
+			cursor: pointer;
+			transition: transform 0.14s ease, border-color 0.14s ease, background 0.22s ease, box-shadow 0.14s ease;
+		}
+
+		.practicePanel .stateCard:hover,
+		.practicePanel .stateCard:focus-visible {
+			border-color: rgba(36, 240, 234, 0.68);
+			background: var(--controlHoverBg);
+			box-shadow: inset 0 0 0 1px rgba(36, 240, 234, 0.08);
+			outline: none;
+			transform: translateY(-1px);
+		}
+
+		.practicePanel .stateCard.isActive {
+			border-color: rgba(93, 78, 168, 0.68);
+			box-shadow: inset 0 0 0 1px rgba(93, 78, 168, 0.20), 0 0 0 3px var(--accentSoft);
+		}
+
+		.practicePanel .statePreview {
+			width: 100%;
+			height: 124px;
+			border-top: 0;
+			padding-top: 0;
+		}
+
+		.practicePanel .statePreview > div {
+			width: 116px;
+			height: 116px;
+		}
+
+		.stateName {
+			width: 100%;
+			color: var(--ink);
+			overflow-wrap: anywhere;
+		}
+
+		.practiceDiagnostics {
+			display: none;
+		}
+
+		.formulaPanel .moves {
+			margin-top: 0;
+		}
+
+		.formulaList {
+			display: grid;
+			gap: 10px;
+		}
+
+		.formulaListActions {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.formulaOrganizeButton {
+			position: relative;
+			width: 42px;
+			min-width: 42px;
+			padding: 0;
+		}
+
+		.formulaRow {
+			display: grid;
+			grid-template-columns: 76px minmax(0, 1fr);
+			gap: 10px;
+			align-items: stretch;
+			position: relative;
+		}
+
+		.formulaRow.isOrganizing {
+			grid-template-columns: 34px 76px minmax(0, 1fr) 34px;
+		}
+
+		.formulaRow.isDragging {
+			opacity: 0.48;
+		}
+
+		.formulaRow.dropBefore::before,
+		.formulaRow.dropAfter::after {
+			content: "";
+			position: absolute;
+			left: 0;
+			right: 0;
+			height: 2px;
+			border-radius: 999px;
+			background: var(--cyan);
+			box-shadow: 0 0 10px rgba(36, 240, 234, 0.36);
+		}
+
+		.formulaRow.dropBefore::before {
+			top: -6px;
+		}
+
+		.formulaRow.dropAfter::after {
+			bottom: -6px;
+		}
+
+		.formulaNameInput,
+		.formulaTrack,
+		.formulaAlgInput {
+			min-height: 42px;
+			border: 1px solid var(--controlBorder);
+			border-radius: 8px;
+			background: var(--controlBg);
+			color: var(--controlText);
+		}
+
+		.formulaNameInput,
+		.formulaAlgInput {
+			width: 100%;
+			padding: 0 10px;
+			font: inherit;
+			font-weight: 700;
+		}
+
+		.formulaNameInput:focus-visible,
+		.formulaAlgInput:focus-visible {
+			outline: 2px solid var(--cyan);
+			outline-offset: 2px;
+		}
+
+		.formulaTrack {
+			display: grid;
+			grid-template-columns: 42px minmax(0, 1fr);
+			align-items: center;
+			overflow: hidden;
+		}
+
+		.formulaTrackText {
+			padding: 0 12px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			color: var(--muted);
+			font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+			font-size: 13px;
+		}
+
+		.formulaTrackText.hasMoves {
+			color: var(--ink);
+			font-weight: 700;
+		}
+
+		.formulaIconButton,
+		.formulaAddButton,
+		.formulaDragHandle,
+		.formulaDeleteButton {
+			width: 42px;
+			min-height: 42px;
+			border: 1px solid var(--controlBorder);
+			border-radius: 8px;
+			background: var(--controlBg);
+			color: var(--controlText);
+			cursor: pointer;
+			position: relative;
+			transition: border-color 0.14s ease, background 0.16s ease, transform 0.12s ease, box-shadow 0.14s ease;
+		}
+
+		.formulaIconButton {
+			border-width: 0 1px 0 0;
+			border-radius: 8px 0 0 8px;
+			background: transparent;
+		}
+
+		.formulaIconButton:hover,
+		.formulaAddButton:hover,
+		.formulaDragHandle:hover,
+		.formulaDeleteButton:hover {
+			border-color: var(--cyan);
+			background: var(--controlHoverBg);
+			box-shadow: inset 0 0 0 1px rgba(36, 240, 234, 0.08);
+			transform: translateY(-1px);
+		}
+
+		.formulaIconButton:disabled {
+			cursor: default;
+			opacity: 0.45;
+			transform: none;
+		}
+
+		.formulaAddButton:disabled,
+		.formulaOrganizeButton:disabled {
+			cursor: default;
+			opacity: 0.45;
+			transform: none;
+			box-shadow: none;
+		}
+
+		.formulaOrganizeButton::before {
+			content: "";
+			position: absolute;
+			left: 12px;
+			top: 13px;
+			width: 16px;
+			height: 2px;
+			border-radius: 999px;
+			background: var(--accent);
+			box-shadow: 0 7px 0 var(--accent), 0 14px 0 var(--accent);
+		}
+
+		.formulaOrganizeButton.isActive {
+			border-color: var(--cyan);
+			box-shadow: inset 0 0 0 1px rgba(36, 240, 234, 0.12), 0 0 0 3px rgba(36, 240, 234, 0.08);
+		}
+
+		.formulaOrganizeButton.isActive::before {
+			background: var(--cyan);
+			box-shadow: 0 7px 0 var(--cyan), 0 14px 0 var(--cyan);
+		}
+
+		.formulaDragHandle,
+		.formulaDeleteButton {
+			width: 34px;
+			padding: 0;
+		}
+
+		.formulaDragHandle {
+			cursor: grab;
+		}
+
+		.formulaDragHandle:active {
+			cursor: grabbing;
+		}
+
+		.formulaDragHandle::before,
+		.formulaDragHandle::after {
+			content: "";
+			position: absolute;
+			top: 12px;
+			width: 4px;
+			height: 4px;
+			border-radius: 50%;
+			background: var(--muted);
+			box-shadow: 0 8px 0 var(--muted), 0 16px 0 var(--muted);
+		}
+
+		.formulaDragHandle::before {
+			left: 11px;
+		}
+
+		.formulaDragHandle::after {
+			left: 19px;
+		}
+
+		.formulaDeleteButton::before,
+		.formulaDeleteButton::after {
+			content: "";
+			position: absolute;
+			left: 9px;
+			top: 20px;
+			width: 16px;
+			height: 2px;
+			border-radius: 999px;
+			background: var(--red);
+		}
+
+		.formulaDeleteButton::before {
+			transform: rotate(45deg);
+		}
+
+		.formulaDeleteButton::after {
+			transform: rotate(-45deg);
+		}
+
+		.formulaAddButton::before,
+		.formulaAddButton::after {
+			content: "";
+			position: absolute;
+			left: 13px;
+			top: 20px;
+			width: 16px;
+			height: 2px;
+			background: var(--accent);
+			border-radius: 999px;
+		}
+
+		.formulaAddButton::after {
+			transform: rotate(90deg);
+		}
+
+		.libraryControls {
+			grid-template-columns: 1fr 1fr;
+		}
+
+		.libraryList {
+			display: grid;
+			gap: 8px;
+			margin-top: 10px;
+		}
+
+		.libraryItem {
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: var(--controlBg);
+			overflow: hidden;
+		}
+
+		.libraryHeader {
+			display: grid;
+			grid-template-columns: 28px minmax(0, 1fr) 28px;
+			align-items: center;
+			gap: 8px;
+			min-height: 46px;
+			padding: 8px 10px;
+			cursor: pointer;
+		}
+
+		.libraryHeader .smartCheck {
+			justify-self: end;
+		}
+
+		.libraryHeader:hover {
+			background: var(--controlHoverBg);
+		}
+
+		.libraryToggle {
+			position: relative;
+			width: 22px;
+			height: 22px;
+			border-radius: 6px;
+			color: var(--muted);
+		}
+
+		.libraryToggle::before {
+			content: "";
+			position: absolute;
+			left: 7px;
+			top: 5px;
+			width: 7px;
+			height: 7px;
+			border-right: 2px solid currentColor;
+			border-bottom: 2px solid currentColor;
+			transform: rotate(-45deg);
+			transition: transform 0.14s ease, top 0.14s ease;
+		}
+
+		.libraryItem.isExpanded .libraryToggle::before {
+			top: 4px;
+			transform: rotate(45deg);
+		}
+
+		.libraryTitle {
+			min-width: 0;
+		}
+
+		.libraryTitle strong,
+		.libraryFormulaName {
+			display: block;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			color: var(--ink);
+			font-weight: 800;
+		}
+
+		.libraryTitle small,
+		.libraryFormulaAlg {
+			display: block;
+			margin-top: 2px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			color: var(--muted);
+			font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+			font-size: 11px;
+		}
+
+		.libraryFormulas {
+			display: none;
+			border-top: 1px solid var(--line);
+			background: color-mix(in srgb, var(--controlBg) 88%, var(--accentSoft));
+		}
+
+		.libraryItem.isExpanded .libraryFormulas {
+			display: grid;
+		}
+
+		.libraryFormulaRow {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) 28px;
+			align-items: center;
+			gap: 8px;
+			min-height: 42px;
+			padding: 8px 10px 8px 46px;
+			border-top: 1px solid var(--line);
+			cursor: pointer;
+		}
+
+		.libraryFormulaRow .smartCheck {
+			justify-self: end;
+		}
+
+		.libraryFormulaRow:first-child {
+			border-top: 0;
+		}
+
+		.libraryFormulaRow:hover {
+			background: var(--controlHoverBg);
+		}
+
+		.libraryEmpty {
+			margin-top: 10px;
+			color: var(--muted);
+			font-size: 13px;
+		}
+
+		.formulaIconButton[data-formula-action="record"]::before {
+			content: "";
+			position: absolute;
+			left: 15px;
+			top: 12px;
+			border-left: 14px solid var(--accent);
+			border-top: 9px solid transparent;
+			border-bottom: 9px solid transparent;
+		}
+
+		.formulaIconButton[data-formula-action="stop"]::before {
+			content: "";
+			position: absolute;
+			left: 14px;
+			top: 14px;
+			width: 14px;
+			height: 14px;
+			border-radius: 2px;
+			background: var(--accent);
+		}
+
+		.formulaIconButton[data-formula-action="edit"] {
+			background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M17 37L36 18L43 11Q48 6 53 11Q58 16 53 21L46 28L27 47L17 37Z' fill='%235d4ea8'/%3E%3Cpath d='M13 51L17 37L27 47L13 51Z' fill='%2324f0ea'/%3E%3Cpath d='M15 39L25 49' stroke='%235d4ea8' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-position: center;
+		}
+
+		.sharedGroupBar {
+			margin-bottom: 8px;
+		}
+		.formulaAddGroupDialog {
+			position: fixed;
+			inset: 0;
+			z-index: 50;
+			background: rgba(0,0,0,0.5);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+		.formulaAddGroupDialogBox {
+			background: var(--bg-primary, #1a1a2e);
+			border: 1px solid rgba(255,255,255,0.15);
+			border-radius: 12px;
+			padding: 20px;
+			max-width: 360px;
+			width: calc(100% - 32px);
+		}
+		.formulaAddGroupDialogTitle {
+			font-size: 16px;
+			font-weight: 600;
+			margin-bottom: 6px;
+		}
+		.formulaAddGroupDialogDesc {
+			font-size: 13px;
+			opacity: 0.7;
+			margin-bottom: 14px;
+		}
+		.formulaAddGroupDialogActions {
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+		}
+		.formulaAddGroupDialogActions .button {
+			width: 100%;
+			justify-content: center;
+		}
+		.formulaAddOtherList {
+			display: none;
+			flex-direction: column;
+			gap: 4px;
+			margin-top: 4px;
+		}
+
+		.formulaExportOverlay {
+			position: fixed;
+			inset: 0;
+			z-index: 20;
+			display: grid;
+			place-items: center;
+			padding: 18px;
+			background: rgba(10, 10, 18, 0.42);
+			-webkit-backdrop-filter: blur(8px);
+			backdrop-filter: blur(8px);
+			opacity: 0;
+			transition: opacity 0.22s ease;
+		}
+
+		.formulaExportOverlay.isOpen {
+			opacity: 1;
+		}
+
+		.customStateSection .button {
+			width: 100%;
+		}
+
+		.customStateOverlay {
+			position: fixed;
+			inset: 0;
+			z-index: 30;
+			display: grid;
+			place-items: center;
+			padding: 18px;
+			background: rgba(10, 10, 18, 0.48);
+			-webkit-backdrop-filter: blur(8px);
+			backdrop-filter: blur(8px);
+			opacity: 0;
+			transition: opacity 0.2s ease;
+		}
+
+		.customStateOverlay.isOpen {
+			opacity: 1;
+		}
+
+		.customStateDialog {
+			width: min(620px, 100%);
+			max-height: calc(100dvh - 36px);
+			display: grid;
+			grid-template-rows: auto minmax(320px, 58vh) auto auto;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: var(--surfaceSolid);
+			box-shadow: var(--shadow);
+			overflow: hidden;
+			transform: scale(0.96) translateY(10px);
+			transition: transform 0.2s ease;
+		}
+
+		.customStateOverlay.isOpen .customStateDialog {
+			transform: scale(1) translateY(0);
+		}
+
+		.customStateHeader,
+		.customStateActions {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			padding: 14px;
+		}
+
+		.customStateHeader {
+			border-bottom: 1px solid var(--line);
+		}
+
+		.customStateActions {
+			border-top: 1px solid var(--line);
+		}
+
+		.customStateActionRight {
+			display: flex;
+			gap: 8px;
+		}
+
+		.customCubeStage {
+			position: relative;
+			min-height: 320px;
+			background: var(--stageBg);
+			cursor: grab;
+			touch-action: none;
+			-webkit-user-select: none;
+			user-select: none;
+			overflow: hidden;
+		}
+
+		.customCubeStage.isDragging {
+			cursor: grabbing;
+		}
+
+		.customCubeStage > div {
+			width: 100%;
+			height: 100%;
+		}
+
+		.customStateHint {
+			margin: 0;
+			padding: 10px 14px;
+			border-top: 1px solid var(--line);
+			color: var(--muted);
+			font-size: 12px;
+			text-align: center;
+		}
+
+		.formulaExportDialog {
+			width: min(720px, 100%);
+			max-height: min(680px, calc(100dvh - 36px));
+			display: grid;
+			grid-template-rows: auto minmax(220px, 1fr) auto;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: var(--surfaceSolid);
+			box-shadow: var(--shadow);
+			overflow: hidden;
+			opacity: 0;
+			transform: scale(0.94) translateY(12px);
+			transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+		}
+
+		.formulaExportOverlay.isOpen .formulaExportDialog {
+			opacity: 1;
+			transform: scale(1) translateY(0);
+		}
+
+		.formulaExportHeader,
+		.formulaExportActions {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			padding: 14px;
+			border-bottom: 1px solid var(--line);
+		}
+
+		.formulaExportActions {
+			justify-content: space-between;
+			border-top: 1px solid var(--line);
+			border-bottom: 0;
+		}
+
+		.formulaExportActionsRight {
+			display: flex;
+			align-items: center;
+			justify-content: flex-end;
+			gap: 10px;
+		}
+
+		.formulaExportHeader strong {
+			font-size: 16px;
+		}
+
+		.formulaExportText {
+			width: 100%;
+			height: 100%;
+			min-height: 260px;
+			resize: vertical;
+			border: 0;
+			padding: 14px;
+			background: var(--controlBg);
+			color: var(--controlText);
+			font: 13px/1.55 "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+		}
+
+		@media (max-width: 520px) {
+			.formulaRow {
+				grid-template-columns: 76px minmax(0, 1fr);
+			}
+
+			.formulaRow.isOrganizing {
+				grid-template-columns: 34px 76px minmax(0, 1fr) 34px;
+			}
+
+			.formulaRow.isOrganizing .formulaTrack {
+				grid-column: auto;
+			}
+		}
+
+		.metrics {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+		}
+
+		.metric {
+			min-height: 68px;
+			padding: 10px;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: var(--controlBg);
+			transition: background 0.22s ease, border-color 0.22s ease;
+		}
+
+		.metric span {
+			display: block;
+			color: var(--muted);
+			font-size: 12px;
+		}
+
+		.metric strong {
+			display: block;
+			margin-top: 6px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			font-size: 18px;
+			letter-spacing: 0;
+		}
+
+		.moves {
+			display: grid;
+			grid-template-columns: repeat(6, minmax(0, 1fr));
+			gap: 7px;
+		}
+
+		.moveButton {
+			aspect-ratio: 1;
+			min-height: 40px;
+			border: 1px solid var(--controlBorder);
+			border-radius: 8px;
+			background: var(--controlBg);
+			color: var(--controlText);
+			cursor: pointer;
+			font-weight: 700;
+			transition: transform 0.12s ease, border-color 0.14s ease, color 0.14s ease, background 0.22s ease;
+		}
+
+		.moveButton:hover {
+			border-color: rgba(36, 240, 234, 0.7);
+			color: var(--controlText);
+			background: var(--controlHoverBg);
+			transform: translateY(-1px);
+			box-shadow: inset 0 0 0 1px rgba(36, 240, 234, 0.08);
+		}
+
+		.moveButton.rotation {
+			background: var(--rotationBg);
+			color: var(--rotationText);
+			border-color: rgba(93, 78, 168, 0.42);
+		}
+
+		.history {
+			flex: 0 0 auto;
+			min-height: 0;
+			display: flex;
+			flex-direction: column;
+		}
+
+		.historyTitle {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 12px 16px;
+			border-bottom: 1px solid var(--line);
+			color: var(--muted);
+			font-size: 13px;
+		}
+
+		.moveList {
+			min-height: 68px;
+			padding: 14px 16px 10px;
+			display: flex;
+			flex-wrap: wrap;
+			align-content: flex-start;
+			gap: 8px;
+		}
+
+		.moveChip {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-width: 34px;
+			height: 30px;
+			padding: 0 9px;
+			border-radius: 8px;
+			background: var(--chipBg);
+			color: var(--chipText);
+			font-weight: 700;
+		}
+
+		.log {
+			min-height: 130px;
+			max-height: 230px;
+			overflow: auto;
+			padding: 12px 16px 16px;
+			border-top: 1px solid var(--line);
+			background: var(--logBg);
+			color: var(--ink);
+			font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+			font-size: 12px;
+			white-space: pre-wrap;
+		}
+
+	@media (max-width: 900px) {
+		body {
+			overflow: auto;
+			background: transparent;
+		}
+
+		/* 移动端背景固定并占满一屏：用 fixed 全屏层承载渐变，避免随内容滚动。 */
+		body::before {
+			content: "";
+			position: fixed;
+			inset: 0;
+			z-index: -1;
+			background: var(--pageBg);
+			transition: background 0.22s ease;
+		}
+
+		.app {
+			grid-template-columns: 1fr;
+			height: auto;
+			min-height: 100%;
+		}
+
+		.stage {
+			min-height: 62vh;
+		}
+
+		.panel {
+			min-height: 460px;
+			max-height: none;
+		}
+
+		/* 移动端训练模式控件 1/2 平分，并在过窄时自动换行（与其它模式按钮换行逻辑一致）。 */
+		.practicePanel .practiceControls {
+			display: flex;
+			flex-wrap: wrap;
+		}
+
+		.practicePanel .practiceControls > * {
+			flex: 1 1 50%;
+			min-width: 140px;
+		}
+
+		.practicePanel .practiceModeSelect {
+			width: auto;
+		}
+	}
+
+		@media (max-width: 520px) {
+			.app {
+				padding: 10px 10px 10px;
+				gap: 10px;
+			}
+
+			.topbar {
+				top: 10px;
+				left: 10px;
+				right: 10px;
+				align-items: stretch;
+				flex-direction: column;
+			}
+
+			.statusPill {
+				max-width: none;
+				border-radius: 8px;
+			}
+
+			.controls,
+			.metrics {
+				grid-template-columns: 1fr;
+			}
+		}
+
+	</style>
 </head>
 <body>
 	<main class="app">
-		<nav id="mobileNav" class="mobileNav bottomNav" aria-label="模式导航">
-			<button class="mobileNavButton isActive" type="button" data-mode="practice" aria-current="page"><span class="modeIcon trainIcon" aria-hidden="true"></span><span class="navLabel">训练</span></button>
-			<button class="mobileNavButton" type="button" data-mode="memory"><span class="modeIcon memoryIcon" aria-hidden="true"></span><span class="navLabel">记忆</span></button>
-			<button class="mobileNavButton operationNavButton" type="button" title="展开操作面板" aria-label="展开操作面板" data-action-panel-toggle aria-controls="actionPanelOverlay" aria-expanded="false"><span class="operationChevron" aria-hidden="true">《</span><span class="navLabel">操作</span></button>
-			<button class="mobileNavButton" type="button" data-mode="formula"><span class="modeIcon formulaModeIcon" aria-hidden="true"></span><span class="navLabel">制作</span></button>
-			<button class="mobileNavButton" type="button" data-mode="library"><span class="modeIcon libraryIcon" aria-hidden="true"></span><span class="navLabel">公式库</span></button>
-		</nav>
 		<section class="stage" aria-label="虚拟魔方">
 			<div class="topbar">
 				<div id="modeSwitcher" class="brand">
 					<button id="modeCurrent" class="modeOption modeCurrent" type="button" aria-haspopup="true" aria-expanded="false">
-						<span id="modeIcon" class="modeIcon trainIcon" aria-hidden="true">
+						<span id="modeIcon" class="modeIcon learnIcon" aria-hidden="true">
 						<span></span><span></span><span></span>
 						<span></span><span></span><span></span>
 						<span></span><span></span><span></span>
 						</span>
-						<span id="modeLabel" class="modeText">训练模式</span>
+						<span id="modeLabel" class="modeText">学习模式</span>
 						<span class="modeChevron" aria-hidden="true"></span>
 					</button>
 					<div id="modeMenu" class="modeMenu" role="menu">
@@ -84,39 +2182,124 @@
 						</button>
 					</div>
 				</div>
-				<div class="topActions"></div>
+				<div class="topActions">
+					<div id="statusPill" class="statusPill" data-state="idle">未连接</div>
+				</div>
 			</div>
 			<div id="cubeStage"></div>
 			<div id="practiceSolvedCheck" class="practiceSolvedCheck" aria-hidden="true"></div>
 		</section>
 
-		<aside class="panel" aria-live="polite"></aside>
+		<aside class="panel">
+			<header class="panelHeader">
+				<div class="panelHeaderContent">
+					<h1>蓝牙魔方同步</h1>
+					<p>当前版本默认从复原态开始显示，后续可以接入自定义初始状态。</p>
+				</div>
+				<button id="seamlessToggleBtn" class="seamlessToggle" type="button" title="切换无缝模式：色块变大无空隙，隐藏色块显示为不透明灰色"></button>
+			</header>
 
-		<aside id="sideRail" class="sideRail" aria-label="左侧导航" aria-hidden="true">
-			<button class="sideRailButton isActive" type="button" title="训练" aria-label="训练" data-mode="practice" aria-current="page"><span class="modeIcon trainIcon" aria-hidden="true"></span><span class="navLabel">训练</span></button>
-			<button class="sideRailButton" type="button" title="记忆" aria-label="记忆" data-mode="memory"><span class="modeIcon memoryIcon" aria-hidden="true"></span><span class="navLabel">记忆</span></button>
-			<button class="sideRailButton operationNavButton" type="button" title="展开操作面板" aria-label="展开操作面板" data-action-panel-toggle aria-controls="actionPanelOverlay" aria-expanded="false"><span class="operationChevron" aria-hidden="true">《</span><span class="navLabel">操作</span></button>
-			<button class="sideRailButton" type="button" title="公式制作" aria-label="公式制作" data-mode="formula"><span class="modeIcon formulaModeIcon" aria-hidden="true"></span><span class="navLabel">制作</span></button>
-			<button class="sideRailButton" type="button" title="公式库" aria-label="公式库" data-mode="library"><span class="modeIcon libraryIcon" aria-hidden="true"></span><span class="navLabel">公式库</span></button>
+			<section class="panelSection">
+				<div class="controls">
+					<button id="connectBtn" class="button" type="button">连接魔方</button>
+					<button id="resetBtn" class="button secondary" type="button">重置视图</button>
+				</div>
+			</section>
+
+			<section id="macHelp" class="panelSection macHelp" aria-live="polite">
+				<strong>MAC 地址提示</strong>
+				<p>
+					请输入智能硬件的MAC地址（xx:xx:xx:xx:xx:xx），你可以通过这个链接
+					<code>chrome://bluetooth-internals/#devices</code>
+					找到MAC地址，或者修改以下配置让csTimer自动获取蓝牙地址：<br>
+					Chrome：在浏览器设置里打开
+					<code>chrome://flags/#enable-experimental-web-platform-features</code><br>
+					Bluefy：在浏览器设置里开启
+					<code>Enable BLE Advertisements</code>
+				</p>
+				<div id="macHelpReason" class="macHelpReason"></div>
+			</section>
+
+			<section class="panelSection">
+				<div class="metrics">
+					<div class="metric">
+						<span>设备</span>
+						<strong id="deviceName">-</strong>
+					</div>
+					<div class="metric">
+						<span>转动数</span>
+						<strong id="moveCount">0</strong>
+					</div>
+				</div>
+			</section>
+
+			<section class="panelSection">
+				<div class="moves" id="manualMoves" aria-label="手动测试转动">
+					<button class="moveButton" type="button" data-move="U">U</button>
+					<button class="moveButton" type="button" data-move="R">R</button>
+					<button class="moveButton" type="button" data-move="F">F</button>
+					<button class="moveButton" type="button" data-move="D">D</button>
+					<button class="moveButton" type="button" data-move="L">L</button>
+					<button class="moveButton" type="button" data-move="B">B</button>
+					<button class="moveButton" type="button" data-move="U'">U'</button>
+					<button class="moveButton" type="button" data-move="R'">R'</button>
+					<button class="moveButton" type="button" data-move="F'">F'</button>
+					<button class="moveButton" type="button" data-move="D'">D'</button>
+					<button class="moveButton" type="button" data-move="L'">L'</button>
+					<button class="moveButton" type="button" data-move="B'">B'</button>
+					<button class="moveButton" type="button" data-move="M">M</button>
+					<button class="moveButton" type="button" data-move="E">E</button>
+					<button class="moveButton" type="button" data-move="S">S</button>
+					<button class="moveButton" type="button" data-move="M'">M'</button>
+					<button class="moveButton" type="button" data-move="E'">E'</button>
+					<button class="moveButton" type="button" data-move="S'">S'</button>
+					<button class="moveButton rotation" type="button" data-move="x">x</button>
+					<button class="moveButton rotation" type="button" data-move="y">y</button>
+					<button class="moveButton rotation" type="button" data-move="z">z</button>
+					<button class="moveButton rotation" type="button" data-move="x'">x'</button>
+					<button class="moveButton rotation" type="button" data-move="y'">y'</button>
+					<button class="moveButton rotation" type="button" data-move="z'">z'</button>
+				</div>
+			</section>
+
+			<section class="panelSection stateImport" id="stateImport">
+				<div id="formulaDropZone" class="importDropZone">拖入 TXT 公式文件</div>
+				<div class="controls">
+					<button id="chooseFormulaFileBtn" class="button secondary" type="button">选择 TXT</button>
+					<button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button>
+				</div>
+				<input id="formulaFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain">
+				<div id="textImportBox" class="textImport">
+					<div class="textImportWrap">
+						<textarea id="formulaTextInput" class="stateTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea>
+						<div class="textImportActions">
+							<button id="clearFormulaTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+							<button id="copyFormulaTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+						</div>
+					</div>
+					<button id="importFormulaTextBtn" class="button small" type="button">导入公式</button>
+				</div>
+				<div class="stateOptionRow">
+					<label class="stateOptions smartCheck">
+						<input id="showFormulaThumbs" type="checkbox">
+						<span class="checkVisual"></span>
+						<span>显示公式缩略图</span>
+					</label>
+				</div>
+				<div id="formulaImportStatus" class="importStatus">未导入公式</div>
+				<div id="formulaCardsList" class="formulaCardsList"></div>
+			</section>
+
+			<section class="history">
+				<div class="historyTitle">
+					<span>最近转动</span>
+					<span id="lastTs">--:--</span>
+				</div>
+				<div id="moveList" class="moveList"></div>
+				<div id="log" class="log"></div>
+			</section>
 		</aside>
 	</main>
-	<div id="sideRailScrim" class="sideRailScrim" aria-hidden="true"></div>
-	<div id="actionPanelOverlay" class="actionPanelOverlay" aria-hidden="true">
-		<section class="actionDrawer" role="dialog" aria-modal="true" aria-label="操作面板">
-			<button id="actionDrawerHandle" class="actionDrawerHandle" type="button" aria-label="关闭操作面板" title="拖动或点击关闭操作面板"></button>
-			<header class="actionDrawerHeader">
-				<button id="seamlessToggleBtn" class="seamlessToggle" type="button" title="切换无缝模式：色块变大无空隙，隐藏色块显示为不透明灰色"></button>
-				<button id="connectBtn" class="connectPill" type="button" title="点击连接或断开魔方"><span class="connectLabel">连接魔方</span></button><span id="statusPill" class="visuallyHidden" data-state="idle"></span>
-			</header>
-			<div class="actionDrawerContent">
-				<section class="actionGlobalControls"><div class="globalControlGrid">
-					<button id="resetBtn" class="button secondary" type="button">重置视图</button>
-					<button id="customFinalStateBtn" class="button secondary" type="button">自定义状态</button>
-				</div></section>
-				<section class="actionModeControls"><div id="actionDrawerBody" class="actionDrawerBody"></div></section>
-			</div>
-		</section>
-	</div>
 
 	<script>
 		// Polyfills for APIs removed in jQuery 4.0
@@ -319,7 +2502,7 @@
 				pendingCubeMoveTimer: null,
 				cubeSliceWindowMs: 90,
 				currentFormulaIndex: -1,
-				currentMode: "practice",
+				currentMode: "learn",
 				isPracticeMode: false,
 				practiceMode: "sequence",
 				randomBag: [],
@@ -364,7 +2547,7 @@
 				this.initTwisty();
 					this.initTheme();
 					this.initSiteHeader();
-					this.renderModePanel("practice");
+					this.renderModePanel("learn");
 					this.bindUI();
 					this.syncSharedGroupToFormulaEntries();
 					var self = this;
@@ -515,74 +2698,18 @@
 					this.resizeTwisty();
 				},
 
-				resizeSceneToStage: function(scene, stage) {
-					if (!scene || !stage) return;
-					var rect = stage.getBoundingClientRect();
-					var child = stage.firstElementChild;
-					if (child) {
-						child.style.width = rect.width + "px";
-						child.style.height = rect.height + "px";
+				resizeTwisty: function() {
+					if (this.twistyScene) {
+						var stage = this.elements.cubeStage;
+						var rect = stage.getBoundingClientRect();
+						var child = stage.firstElementChild;
+						if (child) {
+							child.style.width = rect.width + 'px';
+							child.style.height = rect.height + 'px';
+						}
+						this.twistyScene.resize();
 					}
-					if (scene.resize) scene.resize();
 				},
-
-			resizeTwisty: function() {
-				this.resizeSceneToStage(this.twistyScene, this.elements.cubeStage);
-				this.resizeSceneToStage(this.customCubeScene, document.getElementById("customCubeStage"));
-				// 训练模式缩略图随卡片尺寸变化重新适配（窗口缩放/旋转/侧栏展开等）。
-				if (this.thumbnailScenes) {
-					for (var i = 0; i < this.thumbnailScenes.length; i++) {
-						if (this.thumbnailScenes[i] && this.thumbnailScenes[i].resize) {
-							this.thumbnailScenes[i].resize();
-						}
-					}
-				}
-			},
-
-			// 依容器宽度推导训练卡片布局：空间→列数→卡片宽→魔方缩略图大小（文字决定高度）。
-			layoutPracticeCards: function() {
-				if (!this.isPracticeMode) return;
-				var list = this.elements.formulaCardsList;
-				if (!list) return;
-				var w = list.clientWidth;
-				if (!w) return;
-				// 同宽只算一次，避免 ResizeObserver 因高度变化反复触发。
-				if (this._lastPracticeWidth === w) return;
-				this._lastPracticeWidth = w;
-				var gap = 10;
-				var ideal = 132; // 目标卡片宽
-				var cols = Math.round((w + gap) / (ideal + gap));
-				if (cols < 2) cols = 2;
-				if (cols > 7) cols = 7;
-				var cardW = (w - gap * (cols - 1)) / cols;
-				// 列数决定卡片宽；魔方缩略图横向匹配卡片内容区宽度（不封顶），
-				// 立方体为正方形→横向即决定纵向；卡片高由 flex 自动 = 魔方高 + 文字高。
-				list.style.gridTemplateColumns = "repeat(" + cols + ", minmax(0, 1fr))";
-				list.style.setProperty("--cols", String(cols));
-				var previews = list.querySelectorAll(".statePreview");
-				for (var i = 0; i < previews.length; i++) {
-					var pv = previews[i];
-					pv.style.width = "100%";
-					pv.style.height = "auto";
-					var pw = pv.clientWidth;
-					if (!pw) continue;
-					list.style.setProperty("--thumb", pw + "px");
-					var inner = pv.querySelector("div");
-					if (inner) {
-						inner.style.width = pw + "px";
-						inner.style.height = pw + "px";
-					}
-				}
-				var self = this;
-				requestAnimationFrame(function() {
-					if (!self.thumbnailScenes) return;
-					for (var j = 0; j < self.thumbnailScenes.length; j++) {
-						if (self.thumbnailScenes[j] && self.thumbnailScenes[j].resize) {
-							self.thumbnailScenes[j].resize();
-						}
-					}
-				});
-			},
 
 				toggleSeamlessMode: function() {
 					this.seamlessMode = !this.seamlessMode;
@@ -660,46 +2787,6 @@
 
 				bindUI: function() {
 					var self = this;
-					document.querySelectorAll("#mobileNav, #sideRail").forEach(function(navigation) {
-						navigation.addEventListener("click", function(event) {
-							var option = event.target.closest("[data-mode]");
-							if (option) {
-								self.switchMode(option.getAttribute("data-mode"));
-								if (navigation.id === "sideRail" && window.matchMedia("(orientation: portrait)").matches) self.closeRightRail();
-							}
-						});
-					});
-					var actionClose = document.getElementById("actionPanelClose");
-					var actionHandle = document.getElementById("actionDrawerHandle");
-					var actionOverlay = document.getElementById("actionPanelOverlay");
-					document.querySelectorAll("[data-action-panel-toggle]").forEach(function(toggle) {
-						toggle.addEventListener("click", function() { self.toggleActionPanel(); });
-					});
-					if (actionClose) actionClose.addEventListener("click", function() { self.closeActionPanel(); });
-					if (actionHandle) {
-						actionHandle.addEventListener("click", function() { self.closeActionPanel(); });
-						this.bindActionDrawerHandle(actionHandle);
-					}
-					if (actionOverlay) actionOverlay.addEventListener("click", function(event) {
-						if (event.target === actionOverlay) self.closeActionPanel();
-					});
-					var layoutMenu = document.getElementById("layoutMenuToggle");
-					var railScrim = document.getElementById("sideRailScrim");
-					if (layoutMenu) layoutMenu.addEventListener("click", function() { self.toggleRightRail(); });
-					if (railScrim) railScrim.addEventListener("click", function() { self.closeRightRail(); });
-					window.addEventListener("orientationchange", function() { self.syncRightRail(); });
-					this.syncRightRail();
-					var fullscreenToggle = document.getElementById("fullscreenToggle");
-					if (fullscreenToggle) fullscreenToggle.addEventListener("click", function() { self.toggleFullscreen(); });
-					document.addEventListener("fullscreenchange", function() {
-						self.syncFullscreenUi();
-						requestAnimationFrame(function() { self.resizeTwisty(); });
-					});
-					document.addEventListener("webkitfullscreenchange", function() {
-						self.syncFullscreenUi();
-						requestAnimationFrame(function() { self.resizeTwisty(); });
-					});
-					this.syncFullscreenUi();
 					this.elements.modeSwitcher.addEventListener("click", function(event) {
 						var option = event.target.closest("[data-mode]");
 						if (option) {
@@ -721,40 +2808,21 @@
 							event.preventDefault();
 						}
 					});
-				window.addEventListener("resize", function() {
-					self.resizeTwisty();
-					self.layoutPracticeCards();
-				});
-				if (window.ResizeObserver) {
-					new ResizeObserver(function() {
+					this.bindPanelControls();
+					window.addEventListener("resize", function() {
 						self.resizeTwisty();
-					}).observe(self.elements.cubeStage);
-					// 训练模式卡片随列表宽度变化实时重算列数与缩略图尺寸。
-					this.thumbnailResizeObserver = new ResizeObserver(function() {
-						self.layoutPracticeCards();
 					});
-					if (this.elements.formulaCardsList) {
-						this.thumbnailResizeObserver.observe(this.elements.formulaCardsList);
+					if (window.ResizeObserver) {
+						new ResizeObserver(function() {
+							self.resizeTwisty();
+						}).observe(self.elements.cubeStage);
 					}
-				}
 					this.bindViewDrag();
 					document.addEventListener("keydown", function(event) {
 						if (document.getElementById("customStateOverlay")) {
 							return;
 						}
-						var actionOverlay = document.getElementById("actionPanelOverlay");
-						if (event.key === "Tab" && actionOverlay && actionOverlay.classList.contains("isOpen")) {
-							var focusable = Array.from(actionOverlay.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter(function(node) { return node.offsetParent !== null; });
-							if (focusable.length) {
-								var first = focusable[0];
-								var last = focusable[focusable.length - 1];
-								if (event.shiftKey && document.activeElement === first) { last.focus(); event.preventDefault(); }
-								else if (!event.shiftKey && document.activeElement === last) { first.focus(); event.preventDefault(); }
-							}
-						}
 						if (event.key === "Escape") {
-							self.closeActionPanel();
-							self.closeRightRail();
 							self.closeModeMenu();
 							return;
 						}
@@ -788,137 +2856,6 @@
 						self.closeModeMenu();
 						self.closePracticeModeMenu();
 					});
-				},
-
-				isPortraitLayout: function() {
-					return window.matchMedia("(orientation: portrait)").matches;
-				},
-
-				toggleRightRail: function() {
-					if (this.isPortraitLayout()) {
-						document.body.classList.toggle("railOpen");
-					} else {
-						document.body.classList.toggle("railExpanded");
-					}
-					this.syncRightRail();
-				},
-
-				closeRightRail: function() {
-					document.body.classList.remove("railOpen", "railExpanded");
-					this.syncRightRail();
-				},
-
-				syncRightRail: function() {
-					var portrait = this.isPortraitLayout();
-					var rail = document.getElementById("sideRail");
-					var scrim = document.getElementById("sideRailScrim");
-					var menu = document.getElementById("layoutMenuToggle");
-					if (portrait) document.body.classList.remove("railExpanded");
-					else document.body.classList.remove("railOpen");
-					var expanded = portrait ? document.body.classList.contains("railOpen") : document.body.classList.contains("railExpanded");
-					if (rail) rail.setAttribute("aria-hidden", portrait && !expanded ? "true" : "false");
-					if (scrim) scrim.setAttribute("aria-hidden", portrait && expanded ? "false" : "true");
-					if (menu) {
-						menu.setAttribute("aria-expanded", expanded ? "true" : "false");
-						menu.setAttribute("aria-label", expanded ? "收起左侧栏" : "展开左侧栏");
-						menu.title = expanded ? "收起左侧栏" : "展开左侧栏";
-					}
-				},
-
-				organizeActionPanel: function() {
-					var body = document.getElementById("actionDrawerBody");
-					var panel = document.querySelector("aside.panel");
-					if (!body || !panel || !window.MobileUI) return;
-					this.closeActionPanel();
-					window.MobileUI.organizeActionPanel({
-						body: body,
-						panel: panel,
-						mode: this.currentMode
-					});
-				},
-
-				toggleActionPanel: function() {
-					var overlay = document.getElementById("actionPanelOverlay");
-					if (overlay && overlay.classList.contains("isOpen")) this.closeActionPanel();
-					else this.openActionPanel();
-				},
-
-				bindActionDrawerHandle: function(handle) {
-					var self = this;
-					var drawer = handle.closest(".actionDrawer");
-					var start = 0, delta = 0, dragging = false;
-					handle.addEventListener("pointerdown", function(event) {
-						dragging = true; delta = 0;
-						start = self.isPortraitLayout() ? event.clientY : event.clientX;
-						handle.setPointerCapture(event.pointerId);
-						drawer.style.transition = "none";
-					});
-					handle.addEventListener("pointermove", function(event) {
-						if (!dragging) return;
-						var current = self.isPortraitLayout() ? event.clientY : event.clientX;
-						delta = current - start;
-						delta = self.isPortraitLayout() ? Math.max(0,delta) : Math.min(0,delta);
-						drawer.style.transform = self.isPortraitLayout() ? "translateY("+delta+"px)" : "translateX("+delta+"px)";
-					});
-					function finishDrag() {
-						if (!dragging) return;
-						dragging = false;
-						drawer.style.transition = "";
-						drawer.style.transform = "";
-						if (Math.abs(delta)>64) self.closeActionPanel();
-					}
-					handle.addEventListener("pointerup",finishDrag);
-					handle.addEventListener("pointercancel",finishDrag);
-				},
-				openActionPanel: function() {
-					var overlay = document.getElementById("actionPanelOverlay");
-					var toggles = document.querySelectorAll("[data-action-panel-toggle]");
-					if (!overlay) return;
-					this._actionPanelReturnFocus = document.activeElement;
-					if (this.isPortraitLayout()) this.closeRightRail();
-					overlay.classList.add("isOpen");
-					overlay.setAttribute("aria-hidden", "false");
-					toggles.forEach(function(toggle) { toggle.setAttribute("aria-expanded", "true"); toggle.setAttribute("aria-label", "关闭操作面板"); toggle.title = "关闭操作面板"; });
-					var primary = document.getElementById("connectBtn");
-					if (primary) requestAnimationFrame(function() { primary.focus(); });
-				},
-
-				closeActionPanel: function() {
-					var overlay = document.getElementById("actionPanelOverlay");
-					var toggles = document.querySelectorAll("[data-action-panel-toggle]");
-					var wasOpen = overlay && overlay.classList.contains("isOpen");
-					if (overlay) {
-						overlay.classList.remove("isOpen");
-						overlay.setAttribute("aria-hidden", "true");
-					}
-					toggles.forEach(function(toggle) { toggle.setAttribute("aria-expanded", "false"); toggle.setAttribute("aria-label", "展开操作面板"); toggle.title = "展开操作面板"; });
-					if (wasOpen && this._actionPanelReturnFocus && this._actionPanelReturnFocus.focus) {
-						this._actionPanelReturnFocus.focus();
-					}
-				},
-
-				toggleFullscreen: function() {
-					var self = this;
-					var active = document.fullscreenElement || document.webkitFullscreenElement;
-					var owner = active ? document : document.documentElement;
-					var method = active ? (document.exitFullscreen || document.webkitExitFullscreen) :
-						(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
-					if (!method) {
-						self.showToast("当前浏览器不支持全屏");
-						return;
-					}
-					var action = method.call(owner);
-					if (action && action.catch) {
-						action.catch(function() { self.showToast("当前环境无法切换全屏"); });
-					}
-				},
-
-				syncFullscreenUi: function() {
-					var active = !!(document.fullscreenElement || document.webkitFullscreenElement);
-					var label = document.getElementById("fullscreenLabel");
-					var button = document.getElementById("fullscreenToggle");
-					if (label) label.textContent = active ? "退出" : "全屏";
-					if (button) { button.setAttribute("aria-label", active ? "退出全屏" : "进入全屏"); button.setAttribute("aria-pressed", active ? "true" : "false"); button.title = active ? "退出全屏" : "进入全屏"; }
 				},
 
 				toggleModeMenu: function() {
@@ -967,7 +2904,9 @@
 				},
 
 				getModeMeta: function(mode) {
-					return {						practice: { label: "训练模式", icon: "trainIcon", title: "训练模式" },
+					return {
+						learn: { label: "学习模式", icon: "learnIcon", title: "学习模式" },
+						practice: { label: "训练模式", icon: "trainIcon", title: "训练模式" },
 						formula: { label: "公式制作", icon: "formulaModeIcon", title: "公式制作" },
 						library: { label: "公式库", icon: "libraryIcon", title: "公式库" }
 					}[mode] || null;
@@ -995,7 +2934,7 @@
 						this.dragFormulaId = null;
 						formulaTransferText = this.buildFormulaExportText();
 					}
-					if (sourceMode === "library" && mode === "practice") {
+					if (sourceMode === "library" && (mode === "learn" || mode === "practice")) {
 						if (this.suppressLibraryTransferOnce) {
 							this.suppressLibraryTransferOnce = false;
 						} else {
@@ -1029,7 +2968,7 @@
 
 				setModeChrome: function(mode) {
 					var meta = this.getModeMeta(mode);
-					var order = ["practice", "formula", "library"].filter(function(item) {
+					var order = ["learn", "practice", "formula", "library"].filter(function(item) {
 						return item !== mode;
 					});
 					document.title = meta.title;
@@ -1037,18 +2976,13 @@
 					this.elements.modeIcon.className = "modeIcon " + meta.icon;
 					this.elements.modeMenu.innerHTML = order.map(function(item) {
 						var itemMeta = {
+							learn: { label: "学习模式", icon: "learnIcon" },
 							practice: { label: "训练模式", icon: "trainIcon" },
 							formula: { label: "公式制作", icon: "formulaModeIcon" },
 							library: { label: "公式库", icon: "libraryIcon" }
 						}[item];
 						return '<button class="modeOption" type="button" data-mode="' + item + '" role="menuitem"><span class="modeIcon ' + itemMeta.icon + '" aria-hidden="true"></span><span class="modeText">' + itemMeta.label + '</span></button>';
 					}).join("");
-					document.querySelectorAll(".mobileNavButton[data-mode], .sideRailButton[data-mode]").forEach(function(button) {
-						var selected = button.getAttribute("data-mode") === mode;
-						button.classList.toggle("isActive", selected);
-						if (selected) button.setAttribute("aria-current", "page");
-						else button.removeAttribute("aria-current");
-					});
 				},
 
 				renderModePanel: function(mode) {
@@ -1076,7 +3010,6 @@
 					if (mode === "library") {
 						this.loadFormulaLibraries();
 					}
-					this.organizeActionPanel();
 				},
 
 				getPanelHtml: function(mode) {
@@ -1089,15 +3022,19 @@
 					if (mode === "formula") {
 						return this.getFormulaPanelHtml();
 					}
-					return this.getPracticePanelHtml();
+					return this.getLearnPanelHtml();
 				},
 
 				getMacHelpHtml: function() {
 					return '<section id="macHelp" class="panelSection macHelp" aria-live="polite"><strong>MAC 地址提示</strong><p>请输入智能硬件的MAC地址（xx:xx:xx:xx:xx:xx），你可以通过 <code>chrome://bluetooth-internals/#devices</code> 找到MAC地址，或者修改以下配置让csTimer自动获取蓝牙地址：<br>Chrome：在浏览器设置里打开 <code>chrome://flags/#enable-experimental-web-platform-features</code><br>Bluefy：在浏览器设置里开启 <code>Enable BLE Advertisements</code></p><div id="macHelpReason" class="macHelpReason"></div></section>';
 				},
 
+				getConnectSectionHtml: function(extraClass) {
+					return '<section class="panelSection"><div class="controls ' + (extraClass || "") + '"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="resetBtn" class="button secondary" type="button">重置视图</button></div></section>';
+				},
+
 				getPanelHeaderHtml: function(title) {
-					return '<header class="panelHeader"><div class="panelHeaderContent"><h1>' + title + '</h1></div></header>';
+					return '<header class="panelHeader"><div class="panelHeaderContent"><h1>' + title + '</h1></div>' + this.getSeamlessToggleHtml(true) + '</header>';
 				},
 
 				getSeamlessToggleHtml: function(inHeader) {
@@ -1111,8 +3048,8 @@
 				},
 
 				getFormulaImportHtml: function(showThumbOption, practiceCards, includeGroupControls) {
-					var groupControls = includeGroupControls === false ? "" : this.getGroupSelectorHtml();
-					return '<section class="panelSection stateImport" id="formulaImport">' + groupControls + '<div id="formulaDropZone" class="importDropZone">拖入 TXT 公式文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseFormulaFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="formulaFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><div class="textImportWrap"><textarea id="formulaTextInput" class="stateTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea><div class="textImportActions"><button id="clearFormulaTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button><button id="copyFormulaTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div><button id="importFormulaTextBtn" class="button small" type="button">导入公式</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showFormulaThumbs" type="checkbox"><span class="checkVisual"></span><span>显示公式缩略图</span></label></div>' : "") + '<div id="formulaImportStatus" class="importStatus">未导入公式</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"><div class="practiceAoTime"><span>本次</span><strong>--</strong></div><div class="practiceAoTime"><span>AO5</span><strong>--</strong></div><div class="practiceAoTime"><span>AO10</span><strong>--</strong></div><div class="practiceAoTime"><span>AO50</span><strong>--</strong></div></div>' : "") + '<div id="formulaCardsList" class="formulaCardsList"></div></section>';
+					var groupControls = includeGroupControls === false ? "" : this.getGroupSelectorHtml() + '<button id="sharedCustomStateBtn" class="button secondary" type="button" style="width:100%;margin-bottom:8px;font-size:13px;">自定义本组复原状态</button>';
+					return '<section class="panelSection stateImport" id="formulaImport">' + groupControls + '<div id="formulaDropZone" class="importDropZone">拖入 TXT 公式文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseFormulaFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="formulaFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><div class="textImportWrap"><textarea id="formulaTextInput" class="stateTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea><div class="textImportActions"><button id="clearFormulaTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button><button id="copyFormulaTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div><button id="importFormulaTextBtn" class="button small" type="button">导入公式</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showFormulaThumbs" type="checkbox"><span class="checkVisual"></span><span>显示公式缩略图</span></label></div>' : "") + '<div id="formulaImportStatus" class="importStatus">未导入公式</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"></div>' : "") + '<div id="formulaCardsList" class="formulaCardsList"></div></section>';
 				},
 
 				getDiagnosticsHtml: function(hidden) {
@@ -1127,16 +3064,20 @@
 					return '<section class="panelSection"><div class="moves" id="manualMoves" aria-label="手动测试转动"><button class="moveButton" type="button" data-move="U">U</button><button class="moveButton" type="button" data-move="R">R</button><button class="moveButton" type="button" data-move="F">F</button><button class="moveButton" type="button" data-move="D">D</button><button class="moveButton" type="button" data-move="L">L</button><button class="moveButton" type="button" data-move="B">B</button><button class="moveButton" type="button" data-move="U&#39;">U&#39;</button><button class="moveButton" type="button" data-move="R&#39;">R&#39;</button><button class="moveButton" type="button" data-move="F&#39;">F&#39;</button><button class="moveButton" type="button" data-move="D&#39;">D&#39;</button><button class="moveButton" type="button" data-move="L&#39;">L&#39;</button><button class="moveButton" type="button" data-move="B&#39;">B&#39;</button><button class="moveButton" type="button" data-move="M">M</button><button class="moveButton" type="button" data-move="E">E</button><button class="moveButton" type="button" data-move="S">S</button><button class="moveButton" type="button" data-move="M&#39;">M&#39;</button><button class="moveButton" type="button" data-move="E&#39;">E&#39;</button><button class="moveButton" type="button" data-move="S&#39;">S&#39;</button><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>';
 				},
 
+				getLearnPanelHtml: function() {
+					return '<aside class="panel">' + this.getPanelHeaderHtml("学习模式") + this.getConnectSectionHtml("") + this.getMacHelpHtml() + '<section class="panelSection"><div class="metrics"><div class="metric"><span>设备</span><strong id="deviceName">-</strong></div><div class="metric"><span>转动数</span><strong id="moveCount">0</strong></div></div></section><section class="panelSection customStateSection" style="display:none"><button id="customFinalStateBtn" class="button" type="button">自定义魔方复原状态</button></section>' + this.getManualMovesHtml() + this.getFormulaImportHtml(true, false) + this.getDiagnosticsHtml(false) + '</aside>';
+				},
+
 				getPracticePanelHtml: function() {
-					return '<aside class="panel practicePanel">' + this.getPanelHeaderHtml("训练模式") + '<section class="panelSection"><div class="controls practiceControls"><div id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><button class="practiceModeCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span class="practiceModeCurrentText">顺序模式</span><span class="practiceModeChevron" aria-hidden="true"></span></button><div class="practiceModeMenu" role="menu"><button class="practiceModeOption" type="button" data-value="sequence" role="menuitem">顺序模式</button><button class="practiceModeOption" type="button" data-value="random" role="menuitem">随机模式</button><button class="practiceModeOption" type="button" data-value="loop" role="menuitem">循环模式</button></div></div></div></section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + '' + this.getFormulaImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel practicePanel">' + this.getPanelHeaderHtml("训练模式") + '<section class="panelSection"><div class="controls practiceControls"><button id="connectBtn" class="button" type="button">连接魔方</button><div id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><button class="practiceModeCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span class="practiceModeCurrentText">顺序模式</span><span class="practiceModeChevron" aria-hidden="true"></span></button><div class="practiceModeMenu" role="menu"><button class="practiceModeOption" type="button" data-value="sequence" role="menuitem">顺序模式</button><button class="practiceModeOption" type="button" data-value="random" role="menuitem">随机模式</button><button class="practiceModeOption" type="button" data-value="loop" role="menuitem">循环模式</button></div></div></div></section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + '<section class="panelSection customStateSection" style="display:none"><button id="customFinalStateBtn" class="button" type="button">自定义魔方复原状态</button></section>' + this.getFormulaImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				getLibraryPanelHtml: function() {
-					return '<aside class="panel libraryPanel">' + this.getPanelHeaderHtml("公式库") + '<section class="panelSection"><div class="controls libraryControls"><button id="confirmLibraryImportBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + '<section class="panelSection"><div id="libraryStatus" class="importStatus">正在读取公式库</div><div id="libraryList" class="libraryList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel libraryPanel">' + this.getPanelHeaderHtml("公式库") + '<section class="panelSection"><div class="controls libraryControls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="confirmLibraryImportBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + '<section class="panelSection"><div id="libraryStatus" class="importStatus">正在读取公式库</div><div id="libraryList" class="libraryList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				getFormulaPanelHtml: function() {
-					return '<aside class="panel formulaPanel">' + this.getPanelHeaderHtml("公式制作") + '<section class="panelSection"><div class="controls formulaControls"><button id="exportFormulaBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + this.getManualMovesHtml() + '<section class="panelSection"><div id="formulaList" class="formulaList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel formulaPanel">' + this.getPanelHeaderHtml("公式制作") + '<section class="panelSection"><div class="controls formulaControls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="exportFormulaBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + this.getManualMovesHtml() + '<section class="panelSection"><div id="formulaList" class="formulaList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				bindOnce: function(element, key, handler) {
@@ -1626,7 +3567,6 @@
 							self.applySeamlessMode(self.customCubeScene, true);
 						}
 						self.bindCustomCubeDrag(stage);
-						self.resizeTwisty();
 						self.updateCustomStateHint();
 					});
 				},
@@ -1696,13 +3636,7 @@
 
 				syncConnectionUi: function() {
 					if (this.elements.connectBtn) {
-						if (this.connected) {
-							this.setConnectLabel(this.deviceName ? this.deviceName : "已连接");
-							this.elements.connectBtn.classList.add("isActive");
-						} else {
-							this.setConnectLabel("连接魔方");
-							this.elements.connectBtn.classList.remove("isActive");
-						}
+						this.elements.connectBtn.textContent = this.connected ? "断开连接" : "连接魔方";
 					}
 					if (this.elements.deviceName) {
 						this.setDevice(this.deviceName, this.batteryLevel);
@@ -2805,43 +4739,6 @@
 					}
 				},
 
-				installHeaderControls: function() {
-					var left = document.querySelector(".siteHeaderLeft");
-					var right = document.querySelector(".siteHeaderRight");
-					if (left && !document.getElementById("layoutMenuToggle")) {
-						var menu = document.createElement("button");
-						menu.id = "layoutMenuToggle";
-						menu.className = "siteHeaderBtn siteHeaderMenuBtn";
-						menu.type = "button";
-						menu.title = "展开左侧栏";
-						menu.setAttribute("aria-label", "展开左侧栏");
-						menu.setAttribute("aria-controls", "sideRail");
-						menu.setAttribute("aria-expanded", "false");
-						menu.innerHTML = "<span></span><span></span><span></span>";
-						left.prepend(menu);
-					}
-					if (right && !document.getElementById("fullscreenToggle")) {
-						var fullscreen = document.createElement("button");
-						fullscreen.id = "fullscreenToggle";
-						fullscreen.className = "siteHeaderBtn siteHeaderFullscreenBtn";
-						fullscreen.type = "button";
-						fullscreen.textContent = "⛶";
-						fullscreen.title = "进入全屏";
-						fullscreen.setAttribute("aria-label", "进入全屏");
-						fullscreen.setAttribute("aria-pressed", "false");
-						var theme = document.getElementById("siteThemeToggle");
-						var donate = document.getElementById("donateEntry");
-						if (theme && donate) {
-							right.insertBefore(donate, theme);
-							right.insertBefore(fullscreen, theme);
-						} else if (theme) {
-							right.insertBefore(fullscreen, theme);
-						} else {
-							right.prepend(fullscreen);
-						}
-					}
-				},
-
 				initSiteHeader: function() {
 					var self = this;
 					this.cloudDataDirty = false;
@@ -2933,7 +4830,6 @@
 					if (window.siteNav && typeof window.siteNav.init === "function") {
 						window.siteNav.init(this);
 					}
-					this.installHeaderControls();
 
 					window._siteNavQuickUpload = function() {
 						if (!window.cloudSyncManager || !window.cloudSyncManager.isReady()) {
@@ -3305,15 +5201,9 @@
 					return '<button class="button secondary formulaGroupOption" type="button" data-group-id="' + self.escapeHtml(g.id) + '">' + self.escapeHtml(g.name) + '</button>';
 				}).join('');
 				overlay.innerHTML = '<div class="formulaAddGroupDialogBox"><div class="formulaAddGroupDialogTitle">添加公式到公式组</div><div class="formulaAddGroupDialogDesc">公式制作中的公式将添加到选定的公式组中</div><div class="formulaAddGroupDialogActions"><button class="button formulaAddCurrent" type="button">添加至当前组：' + self.escapeHtml(currentGroupName) + '</button><button class="button secondary formulaAddOther" type="button">添加至其他组...</button><div class="formulaAddOtherList" style="display:none;flex-direction:column;gap:4px;">' + otherGroupOptions + '</div><button class="button secondary formulaAddCancel" type="button">取消，不导入</button></div></div>';
-				var cleanup;
-				if (window.MobileUI) {
-					cleanup = window.MobileUI.mountOverlay(overlay, {
-						closeSelector: ".formulaAddCancel",
-						duration: 180
-					});
-				} else {
-					document.body.appendChild(overlay);
-					cleanup = function() { if (overlay.parentNode) overlay.remove(); };
+				document.body.appendChild(overlay);
+				function cleanup() {
+					if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
 				}
 				function addToGroup(groupId) {
 					var gid = groupId || (typeof self.getActiveGroupId === 'function' ? self.getActiveGroupId() : null);
@@ -3647,14 +5537,12 @@
 				pendingPreviews.forEach(function(entry) {
 					self.renderFormulaPreview(entry.container, entry.state);
 				});
-			// 新渲染的缩略图仅应用了无缝贴片缩放，隐藏贴片材质需要在此同步，
-			// 否则切换模式后缩略图要重开无缝模式才会刷新隐藏贴片外观。
-			if (this.seamlessMode) {
-				this.updateHiddenStickerAppearance();
-			}
-			// 卡片已挂载到 DOM，按容器宽度推导列数/缩略图尺寸。
-			this.layoutPracticeCards();
-		},
+				// 新渲染的缩略图仅应用了无缝贴片缩放，隐藏贴片材质需要在此同步，
+				// 否则切换模式后缩略图要重开无缝模式才会刷新隐藏贴片外观。
+				if (this.seamlessMode) {
+					this.updateHiddenStickerAppearance();
+				}
+			},
 
 				getImportedFormulaDisplayAlg: function(state) {
 					return state && state.alg ? state.alg : "";
@@ -4097,23 +5985,23 @@
 					var host = root.querySelector(".panelSection");
 					if (!host) return;
 					var controls = document.createElement("div");
-					controls.className = "controls strictDetectionControls";
+					controls.className = "controls";
 					controls.setAttribute("data-solve-detection-controls", "1");
-					controls.setAttribute("aria-label", "严格检测");
-					controls.innerHTML = '<label class="smartCheck strictDetectionToggle"><input type="checkbox" data-strict-detection><span class="checkVisual"></span><span>严格检测</span></label>';
+					controls.setAttribute("aria-label", "完成检测模式");
+					controls.innerHTML = '<label><input type="radio" name="solveDetectionMode" value="1" data-solve-detection-mode="1"> 模式1·公式过程</label><label><input type="radio" name="solveDetectionMode" value="2" data-solve-detection-mode="2"> 模式2·最终状态</label>';
 					var self = this;
 					controls.addEventListener("change", function(event) {
-						var input = event.target.closest("[data-strict-detection]");
-						if (input) self.setSolveDetectionMode(input.checked ? 1 : 2);
+						var input = event.target.closest("[data-solve-detection-mode]");
+						if (input) self.setSolveDetectionMode(input.value);
 					});
 					host.appendChild(controls);
 					this.renderSolveDetectionModeControls();
 				},
 
 				renderSolveDetectionModeControls: function() {
-					var inputs = document.querySelectorAll("[data-strict-detection]");
+					var inputs = document.querySelectorAll("[data-solve-detection-mode]");
 					for (var i = 0; i < inputs.length; i++) {
-						inputs[i].checked = this.solveDetectionMode === 1;
+						inputs[i].checked = Number(inputs[i].value) === this.solveDetectionMode;
 					}
 				},
 
@@ -4299,8 +6187,7 @@
 							self.lastCubePrevMoves = [];
 							self.lastCubeHistoryStamp = null;
 							self.clearPendingCubeMove(false);
-							self.setConnectLabel("连接魔方");
-							self.elements.connectBtn.classList.remove("isActive");
+							self.elements.connectBtn.textContent = "连接魔方";
 							self.setStatus("idle", "已断开");
 							self.log("bluetooth", "设备连接已断开");
 						}
@@ -4308,8 +6195,7 @@
 					GiikerCube.init().then(function() {
 						self.ignoreMoves = false;
 						self.connected = true;
-						self.setConnectLabel(self.deviceName ? self.deviceName : "已连接");
-						self.elements.connectBtn.classList.add("isActive");
+						self.elements.connectBtn.textContent = "断开连接";
 						self.hideMacHelp();
 						self.setStatus("connected", "已连接" + (self.deviceName ? " · " + self.deviceName : ""));
 						self.log("bluetooth", "连接成功");
@@ -4333,20 +6219,13 @@
 						self.lastCubePrevMoves = [];
 						self.lastCubeHistoryStamp = null;
 						self.clearPendingCubeMove(false);
-						self.setConnectLabel("连接魔方");
-						self.elements.connectBtn.classList.remove("isActive");
+						self.elements.connectBtn.textContent = "连接魔方";
 						self.elements.connectBtn.disabled = false;
 						self.setStatus("idle", "未连接");
 					});
 				},
 
-				setConnectLabel: function(text) {
-				var btn = this.elements.connectBtn;
-				if (!btn) return;
-				var label = btn.querySelector(".connectLabel");
-				if (label) { label.textContent = text; } else { btn.textContent = text; }
-			},
-			resetView: function() {
+				resetView: function() {
 					this.moveHistory = [];
 					this.moveCount = 0;
 					this.hideMacHelp();
@@ -5011,14 +6890,6 @@
 						frag.appendChild(chip);
 					});
 					this.elements.moveList.appendChild(frag);
-					this.syncMobileMetrics();
-				},
-
-				syncMobileMetrics: function() {
-					var device = document.getElementById("mobileDeviceName");
-					var count = document.getElementById("mobileMoveCount");
-					if (device) device.textContent = this.deviceName || "-";
-					if (count) count.textContent = String(this.moveCount || 0);
 				},
 
 				setDevice: function(name, battery) {
@@ -5033,12 +6904,6 @@
 						label += " · " + this.batteryLevel + "%";
 					}
 					this.elements.deviceName.textContent = label;
-					var mobileDevice = document.getElementById("mobileDeviceName");
-					if (mobileDevice) mobileDevice.textContent = label;
-					if (this.connected && this.elements.connectBtn) {
-						this.setConnectLabel(label);
-						this.elements.connectBtn.classList.add("isActive");
-					}
 					if (this.connected) {
 						this.setStatus("connected", "已连接" + (this.deviceName ? " · " + this.deviceName : ""));
 					}
@@ -5047,40 +6912,6 @@
 				setStatus: function(state, text) {
 					this.elements.statusPill.dataset.state = state;
 					this.elements.statusPill.textContent = text;
-					var effectiveState = state;
-					if (this.elements.connectBtn) {
-						this.elements.connectBtn.dataset.state = state;
-						if (state === "error") {
-							var label = this.simplifyError(text);
-							if (label === "cancel") {
-								effectiveState = "idle";
-								this.elements.connectBtn.dataset.state = "idle";
-								this.setConnectLabel("连接魔方");
-								this.elements.connectBtn.classList.remove("isActive");
-							} else {
-								this.setConnectLabel(label);
-								this.elements.connectBtn.title = text;
-								this.elements.connectBtn.classList.remove("isActive");
-							}
-						} else if (state === "idle") {
-							this.setConnectLabel("连接魔方");
-							this.elements.connectBtn.classList.remove("isActive");
-						}
-					}
-					document.querySelectorAll("[data-action-panel-toggle]").forEach(function(operation) {
-						operation.dataset.state = effectiveState;
-						operation.title = text;
-					});
-				},
-
-				simplifyError: function(text) {
-					var t = String(text || "");
-					if (/cancel|chooser|用户取消/i.test(t)) return "cancel";
-					if (/格式不正确|格式错误|格式非法/.test(t)) return "MAC格式错";
-					if (/浏览器不支持|web bluetooth|不支持蓝牙/.test(t)) return "不支持蓝牙";
-					if (/蓝牙适配层|适配层未加载/.test(t)) return "蓝牙未就绪";
-					if (/mac 地址错误|可能是 mac|解密|校验|verify error|invalid magic|invalid data|invalid axis|crc|wrong key|decrypt/i.test(t)) return "MAC解密错";
-					return "连接失败";
 				},
 
 				showConnectionError: function(error) {

@@ -472,12 +472,15 @@
 	/* ---------- Panel HTML ---------- */
 
 	function getMemoryPanelHtml() {
+		var seamlessActive = app.seamlessMode ? " isActive" : "";
 		var groupBarHtml = (typeof app.getGroupSelectorHtml === 'function') ? app.getGroupSelectorHtml() : '';
-		return '<aside class="panel memoryPanel"><header class="panelHeader"><h1>记忆模式</h1></header>' +
-			'<section class="panelSection memoryManageSection">' + groupBarHtml + '<button id="memoryPlanBtn" class="button" type="button">规划记忆</button><div class="controls"><button id="memoryImportBtn" class="button secondary" type="button">导入记忆数据</button><button id="memoryExportBtn" class="button secondary" type="button">导出记忆数据</button></div><input id="memoryImportFile" class="hiddenFileInput" type="file" accept=".json,application/json"></section>' +
+		var formulaInputHtml = (typeof app.getFormulaImportHtml === 'function') ? app.getFormulaImportHtml(false, false, false) : '';
+		return '<aside class="panel memoryPanel"><header class="panelHeader"><h1>记忆模式</h1><button id="memorySeamlessBtn" class="seamlessToggle' + seamlessActive + '" type="button" aria-pressed="' + (app.seamlessMode ? "true" : "false") + '"><span class="toggleSwitch"></span><span class="toggleLabel">无缝</span></button></header>' +
+			'<section class="panelSection">' + groupBarHtml + '<button id="sharedCustomStateBtn" class="button secondary" type="button" style="width:100%;margin-bottom:8px;font-size:13px;">自定义本组复原状态</button><div class="controls"><button id="connectBtn" class="button" type="button">连接魔方</button><button id="customFinalStateBtn" class="button secondary" type="button">复原状态</button></div><button id="memoryPlanBtn" class="button" type="button">规划学习</button><div class="controls"><button id="memoryImportBtn" class="button secondary" type="button">导入数据</button><button id="memoryExportBtn" class="button secondary" type="button">导出数据</button></div><input id="memoryImportFile" class="hiddenFileInput" type="file" accept=".json,application/json"></section>' + formulaInputHtml +
 			'<section class="memoryArea"><div id="memoryCurrent" class="memoryCurrent"><button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">请开始还原…<br>点击此处显示答案。</button></div><div id="memoryHistory" class="memoryHistory"></div></section>' +
 			app.getDiagnosticsHtml(true) + '</aside>';
 	}
+
 	function updatePlanCounter() {
 		var element = document.getElementById("memoryPlanCount");
 		var l = lib();
@@ -596,7 +599,7 @@
 			return;
 		}
 		if (planDone && hasDue) {
-			renderCompletionCheck(current, "已完成今日记忆任务！<br/>但仍有公式今日到期。", "继续记忆", function() {
+			renderCompletionCheck(current, "已完成规划学习任务！<br/>但仍有公式今日到期。", "继续学习", function() {
 				renderDueContinuationPanel(current, due);
 			}, "直接签到", function() {
 				renderCompletionCalendar(current);
@@ -614,7 +617,7 @@
 		current.innerHTML = '<button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">请开始还原…<br>点击此处显示答案。</button>';
 		var history = document.getElementById("memoryHistory");
 		if (history) {
-			history.innerHTML = '<div class="memoryEmptyHistory">' + (l.formulas.length ? "今日没有待记忆公式" : "请先规划记忆公式") + '</div>';
+			history.innerHTML = '<div class="memoryEmptyHistory">' + (l.formulas.length ? "今日没有待学习公式" : "请先规划学习公式") + '</div>';
 		}
 	}
 
@@ -1209,7 +1212,7 @@
 		var due = remainingDueItems();
 		if (l.day.learnedIds.length >= l.settings.dailyCount && due.length) {
 			memory.promptedContinue = true;
-			openConfirmDialog("今日计划已完成", "仍有 " + due.length + " 个到期公式，是否继续记忆？继续后只安排到期复习，不加入新公式。", "继续复习", function() {
+			openConfirmDialog("今日计划已完成", "仍有 " + due.length + " 个到期公式，是否继续学习？继续后只安排到期复习，不加入新公式。", "继续复习", function() {
 				buildDailyQueue(true);
 				saveData();
 				startNextFormula();
@@ -1388,7 +1391,7 @@
 		if (selector) selector.classList.remove("isOpen");
 	}
 
-		var overlay = createOverlay('<div class="memoryDialog memoryPlanDialog" role="dialog" aria-modal="true"><div class="memoryDialogHeader"><strong>规划记忆</strong><button class="button secondary small" type="button" data-memory-close>关闭</button></div><div class="memoryLibraryBar"><div id="memoryLibrarySelector" class="memoryLibrarySelector"><button id="memoryLibraryCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="memoryLibraryCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="memoryLibraryMenu" class="memoryLibraryMenu"></div></div><input id="memoryLibraryNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="memoryLibraryAddBtn" class="memoryLibraryIconBtn" type="button" title="新建公式库"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="memoryLibraryRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名当前库"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="memoryLibraryDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除当前库"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><div class="memoryFormulaListWrap"><div class="memoryFormulaList"></div><button id="memoryEditPlanBtn" class="memoryEditPlanBtn" type="button" title="编辑公式文本" aria-label="编辑公式文本"></button></div><div class="memoryDialogBottom"><label class="memoryDailyLabel">每日公式数 <input id="memoryDailyCount" class="memoryDailyInput" type="number" min="1" max="999" value="' + (l.settings.dailyCount || 10) + '"></label><span id="memoryPlanCount" class="memoryPlanCount">[0]/[' + (l.settings.dailyCount || 10) + ']</span></div><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-close>取消</button><button id="memorySavePlanBtn" class="button" type="button">保存计划</button></div></div>');
+		var overlay = createOverlay('<div class="memoryDialog memoryPlanDialog" role="dialog" aria-modal="true"><div class="memoryDialogHeader"><strong>规划学习</strong><button class="button secondary small" type="button" data-memory-close>关闭</button></div><div class="memoryLibraryBar"><div id="memoryLibrarySelector" class="memoryLibrarySelector"><button id="memoryLibraryCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="memoryLibraryCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="memoryLibraryMenu" class="memoryLibraryMenu"></div></div><input id="memoryLibraryNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="memoryLibraryAddBtn" class="memoryLibraryIconBtn" type="button" title="新建公式库"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="memoryLibraryRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名当前库"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="memoryLibraryDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除当前库"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><div class="memoryFormulaListWrap"><div class="memoryFormulaList"></div><button id="memoryEditPlanBtn" class="memoryEditPlanBtn" type="button" title="编辑公式文本" aria-label="编辑公式文本"></button></div><div class="memoryDialogBottom"><label class="memoryDailyLabel">每日公式数 <input id="memoryDailyCount" class="memoryDailyInput" type="number" min="1" max="999" value="' + (l.settings.dailyCount || 10) + '"></label><span id="memoryPlanCount" class="memoryPlanCount">[0]/[' + (l.settings.dailyCount || 10) + ']</span></div><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-close>取消</button><button id="memorySavePlanBtn" class="button" type="button">保存计划</button></div></div>');
 
 		var listContainer = overlay.querySelector('.memoryFormulaList');
 		renderFormulaList(listContainer);
@@ -1686,25 +1689,25 @@
 		var overlay = document.createElement("div");
 		overlay.className = "memoryOverlay";
 		overlay.innerHTML = html;
-		if (window.MobileUI) {
-			overlay.mobileClose = window.MobileUI.mountOverlay(overlay, {
-				closeSelector: "[data-memory-close]",
-				duration: 180
-			});
-		} else {
-			document.body.appendChild(overlay);
-			overlay.querySelectorAll("[data-memory-close]").forEach(function(button) {
-				button.addEventListener("click", function() { closeOverlay(overlay); });
-			});
-			requestAnimationFrame(function() { overlay.classList.add("isOpen"); });
-		}
+		document.body.appendChild(overlay);
+		overlay.querySelectorAll("[data-memory-close]").forEach(function(button) {
+			button.addEventListener("click", function() { closeOverlay(overlay); });
+		});
+		var pressedInsideDialog = false;
+		overlay.addEventListener("mousedown", function(event) {
+			pressedInsideDialog = event.target !== overlay;
+		});
+		overlay.addEventListener("mouseup", function(event) {
+			if (event.target === overlay && !pressedInsideDialog) {
+				closeOverlay(overlay);
+			}
+		});
+		requestAnimationFrame(function() { overlay.classList.add("isOpen"); });
 		return overlay;
 	}
 
 	function closeOverlay(overlay) {
-		if (!overlay) return;
-		if (typeof overlay.mobileClose === "function") {
-			overlay.mobileClose();
+		if (!overlay) {
 			return;
 		}
 		overlay.classList.remove("isOpen");
@@ -1824,7 +1827,7 @@
 			}
 			if (event.target.closest("#memoryPrompt")) {
 				if (!memory.currentFormula) {
-					showToast("请先规划记忆公式");
+					showToast("请先规划学习公式");
 				} else if (memory.state === "solving") {
 					retryCurrentFormula();
 				} else {
@@ -1843,10 +1846,10 @@
 				}
 			});
 		}
-		document.querySelector("#memoryPlanBtn").addEventListener("click", openPlanDialog);
-		document.querySelector("#memoryExportBtn").addEventListener("click", exportData);
-		var importButton = document.querySelector("#memoryImportBtn");
-		var importInput = document.querySelector("#memoryImportFile");
+		root.querySelector("#memoryPlanBtn").addEventListener("click", openPlanDialog);
+		root.querySelector("#memoryExportBtn").addEventListener("click", exportData);
+		var importButton = root.querySelector("#memoryImportBtn");
+		var importInput = root.querySelector("#memoryImportFile");
 		importButton.addEventListener("click", function() { importInput.click(); });
 		importInput.addEventListener("change", function() {
 			importFile(importInput.files && importInput.files[0]);
@@ -1896,6 +1899,7 @@
 	app.setModeChrome = function(mode) {
 		var meta = this.getModeMeta(mode);
 		var modes = {
+			learn: { label: "学习模式", icon: "learnIcon" },
 			practice: { label: "训练模式", icon: "trainIcon" },
 			memory: { label: "记忆模式", icon: "memoryIcon" },
 			formula: { label: "公式制作", icon: "formulaModeIcon" },
@@ -1904,15 +1908,9 @@
 		document.title = meta.title;
 		this.elements.modeLabel.textContent = meta.label;
 		this.elements.modeIcon.className = "modeIcon " + meta.icon;
-		this.elements.modeMenu.innerHTML = ["practice", "memory", "formula", "library"].filter(function(item) { return item !== mode; }).map(function(item) {
+		this.elements.modeMenu.innerHTML = ["learn", "practice", "memory", "formula", "library"].filter(function(item) { return item !== mode; }).map(function(item) {
 			return '<button class="modeOption" type="button" data-mode="' + item + '" role="menuitem"><span class="modeIcon ' + modes[item].icon + '" aria-hidden="true"></span><span class="modeText">' + modes[item].label + '</span></button>';
 		}).join("");
-		document.querySelectorAll(".mobileNavButton[data-mode], .sideRailButton[data-mode]").forEach(function(button) {
-			var selected = button.getAttribute("data-mode") === mode;
-			button.classList.toggle("isActive", selected);
-			if (selected) button.setAttribute("aria-current", "page");
-			else button.removeAttribute("aria-current");
-		});
 	};
 
 	var originalSwitchMode = app.switchMode;

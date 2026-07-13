@@ -1,0 +1,1031 @@
+.memoryPanel {
+	overflow: hidden;
+}
+
+.memoryPanel .panelSection {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.memoryPanel .panelSection > .button {
+	width: 100%;
+}
+
+.memoryPlanMeta {
+	display: none;
+}
+
+.memoryLibraryBar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	position: relative;
+	z-index: 10;
+}
+
+.memoryLibrarySelector {
+	position: relative;
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: 0;
+	border: 1px solid rgba(93, 78, 168, 0.45);
+	border-radius: 8px;
+	background: var(--panel);
+	-webkit-backdrop-filter: blur(14px);
+	backdrop-filter: blur(14px);
+	box-shadow: 0 10px 30px rgba(93, 78, 168, 0.12);
+	cursor: pointer;
+	transition: transform 0.16s ease, border-color 0.16s ease, background 0.22s ease, box-shadow 0.16s ease;
+}
+
+.memoryLibrarySelector:hover,
+.memoryLibrarySelector.isOpen {
+	border-color: rgba(93, 78, 168, 0.45);
+	background: var(--surfaceSolid);
+}
+
+.memoryLibrarySelector.isOpen {
+	border-bottom-color: transparent;
+	border-radius: 8px 8px 0 0;
+}
+
+.memoryLibraryCurrent {
+	width: 100%;
+	min-height: 36px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 12px;
+	border: 0;
+	border-radius: 7px;
+	background: transparent;
+	color: var(--ink);
+	font: inherit;
+	font-size: 13px;
+	font-weight: 700;
+	text-align: left;
+	cursor: pointer;
+	transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
+}
+
+.memoryLibraryCurrent:hover,
+.memoryLibraryCurrent:focus-visible {
+	background: var(--controlHoverBg);
+	color: var(--controlText);
+	box-shadow: inset 2px 0 0 var(--cyan);
+	outline: none;
+}
+
+.memoryLibrarySelector.isOpen .memoryLibraryCurrent {
+	border-radius: 7px 7px 0 0;
+}
+
+.memoryLibraryCurrentText {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.memoryLibraryChevron {
+	width: 8px;
+	height: 8px;
+	flex: 0 0 auto;
+	border-right: 2px solid currentColor;
+	border-bottom: 2px solid currentColor;
+	transform: rotate(45deg) translateY(-2px);
+	transition: transform 0.14s ease;
+}
+
+.memoryLibrarySelector.isOpen .memoryLibraryChevron {
+	transform: rotate(-135deg) translateY(-1px);
+}
+
+.memoryLibraryMenu {
+	position: absolute;
+	top: calc(100% - 1px);
+	left: -1px;
+	right: -1px;
+	display: grid;
+	gap: 0;
+	padding: 0;
+	border: 1px solid rgba(93, 78, 168, 0.45);
+	border-top: 0;
+	border-radius: 0 0 8px 8px;
+	background: var(--surfaceSolid);
+	box-shadow: 0 18px 34px rgba(36, 36, 54, 0.16);
+	opacity: 0;
+	visibility: hidden;
+	transform: translateY(-5px);
+	pointer-events: none;
+	transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
+	z-index: 5;
+}
+
+.memoryLibrarySelector.isOpen .memoryLibraryMenu {
+	opacity: 1;
+	visibility: visible;
+	transform: translateY(0);
+	pointer-events: auto;
+}
+
+.memoryLibraryOption {
+	width: 100%;
+	min-height: 38px;
+	display: flex;
+	align-items: center;
+	padding: 8px 12px;
+	border: 0;
+	border-top: 1px solid rgba(93, 78, 168, 0.45);
+	border-radius: 0;
+	background: transparent;
+	color: var(--ink);
+	font: inherit;
+	font-size: 13px;
+	font-weight: 700;
+	text-align: left;
+	cursor: pointer;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
+}
+
+.memoryLibraryOption:last-child {
+	border-radius: 0 0 7px 7px;
+}
+
+.memoryLibraryOption:hover,
+.memoryLibraryOption:focus-visible {
+	background: var(--controlHoverBg);
+	color: var(--controlText);
+	box-shadow: inset 2px 0 0 var(--cyan);
+	outline: none;
+}
+
+.memoryLibraryOption:disabled {
+	color: var(--muted);
+	cursor: default;
+	background: transparent;
+	box-shadow: none;
+}
+
+/* Inline name input */
+.memoryLibraryNameInput {
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 36px;
+	padding: 0 10px;
+	border: 1px solid var(--cyan);
+	border-radius: 8px;
+	background: var(--panel);
+	color: var(--ink);
+	font: inherit;
+	font-size: 13px;
+	font-weight: 700;
+	display: none;
+}
+
+.memoryLibraryNameInput:focus-visible {
+	outline: 2px solid var(--cyan);
+	outline-offset: 2px;
+}
+
+.memoryLibraryBar.isEditing .memoryLibraryNameInput,
+.memoryLibraryBar.isCreating .memoryLibraryNameInput {
+	display: block;
+}
+
+.memoryLibraryBar.isEditing .memoryLibrarySelector,
+.memoryLibraryBar.isCreating .memoryLibrarySelector {
+	display: none;
+}
+
+.memoryLibraryBar.isEditing .memoryIconPencil {
+	display: none;
+}
+
+.memoryLibraryBar.isEditing .memoryIconCheck {
+	display: block !important;
+}
+
+.memoryLibraryBar.isCreating .memoryIconPlus {
+	display: none;
+}
+
+.memoryLibraryBar.isCreating .memoryIconAddCheck {
+	display: block !important;
+}
+
+.memoryLibraryBar.isCreating .memoryIconTrash {
+	display: none;
+}
+
+.memoryLibraryBar.isCreating .memoryIconClose {
+	display: block !important;
+}
+
+.memoryLibraryIconBtn {
+	flex: 0 0 auto;
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 15px;
+	transition: border-color 0.15s ease;
+}
+
+.memoryLibraryIconBtn:hover {
+	border-color: var(--cyan);
+}
+
+.memoryDailyInput {
+	width: 68px;
+	min-height: 32px;
+	padding: 4px 8px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	text-align: center;
+}
+
+.memoryArea {
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) minmax(108px, 28%);
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+.memoryCurrent {
+	position: relative;
+	display: flex;
+	min-height: 0;
+	flex-direction: column;
+	align-items: stretch;
+	justify-content: center;
+	gap: 12px;
+	padding: 34px 16px 16px;
+	overflow: hidden;
+}
+
+.memoryBack {
+	position: absolute;
+	top: 8px;
+	left: 10px;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--controlBorder);
+	border-radius: 50%;
+	background: var(--controlBg);
+	color: var(--controlText);
+	cursor: pointer;
+}
+
+.memoryBack:hover {
+	border-color: #24f0ea;
+}
+
+.memoryBackChevron {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-left: 2px solid currentColor;
+	border-bottom: 2px solid currentColor;
+	transform: rotate(45deg) translateX(2px);
+}
+
+.memoryFullscreen {
+	position: absolute;
+	top: 8px;
+	right: 10px;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--controlBorder);
+	border-radius: 50%;
+	background: var(--controlBg);
+	color: var(--controlText);
+	cursor: pointer;
+}
+
+.memoryFullscreen:hover {
+	border-color: #24f0ea;
+}
+
+.memoryFullscreenIcon {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	background: currentColor;
+	mask-size: contain;
+	mask-repeat: no-repeat;
+	mask-position: center;
+	-webkit-mask-size: contain;
+	-webkit-mask-repeat: no-repeat;
+	-webkit-mask-position: center;
+}
+
+/* Outward arrows (↗ ↙) */
+.memoryFullscreenIcon {
+	mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 8L13 3M13 3L10 3M13 3L13 6M8 8L3 13M3 13L6 13M3 13L3 10' stroke='%23000' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 8L13 3M13 3L10 3M13 3L13 6M8 8L3 13M3 13L6 13M3 13L3 10' stroke='%23000' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* Inward arrows when fullscreen */
+.memoryFullscreen.isFullscreen .memoryFullscreenIcon {
+	mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M13 3L9 7M9 7L11 7M9 7L9 5M3 13L7 9M7 9L5 9M7 9L7 11' stroke='%23000' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M13 3L9 7M9 7L11 7M9 7L9 5M3 13L7 9M7 9L5 9M7 9L7 11' stroke='%23000' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.memoryPrompt {
+	display: flex;
+	min-height: 116px;
+	align-items: center;
+	justify-content: center;
+	padding: 18px;
+	border: 1px dashed var(--controlBorder);
+	border-radius: 8px;
+	background: transparent;
+	color: var(--ink);
+	cursor: pointer;
+	text-align: center;
+	font: inherit;
+	font-size: 17px;
+	font-weight: 700;
+	line-height: 1.7;
+}
+
+.memoryPrompt:hover,
+.memoryPrompt:focus-visible {
+	border-color: #24f0ea;
+}
+
+.memoryAnswer {
+	display: grid;
+	gap: 8px;
+	text-align: center;
+}
+
+.memoryAnswerName {
+	font-size: 18px;
+}
+
+.memoryAnswerFormula {
+	min-height: 28px;
+	color: var(--ink);
+	font-size: 20px;
+	font-weight: 800;
+	letter-spacing: 0.04em;
+	word-break: break-word;
+}
+
+.memoryTimes {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 6px;
+}
+
+.memoryTime {
+	padding: 6px 3px;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	text-align: center;
+}
+
+.memoryTime span,
+.memoryTime strong {
+	display: block;
+}
+
+.memoryTime span {
+	color: var(--muted);
+	font-size: 10px;
+}
+
+.memoryTime strong {
+	font-size: 13px;
+}
+
+.memoryControlHint {
+	margin: 0;
+	color: var(--muted);
+	text-align: center;
+	font-size: 12px;
+}
+
+.memoryOptions {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 6px;
+}
+
+.memoryOption {
+	position: relative;
+	min-width: 0;
+	min-height: 42px;
+	padding: 5px 2px;
+	border: 1px solid var(--memoryColor);
+	border-radius: 6px;
+	background: transparent;
+	color: var(--memoryColor);
+	cursor: pointer;
+	font-size: 12px;
+}
+
+.memoryOption.isSelected {
+	border-width: 3px;
+	font-weight: 900;
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--memoryColor) 28%, transparent);
+}
+
+.memoryOption.isLastChoice::after {
+	content: "上次选择";
+	position: absolute;
+	top: 2px;
+	right: 3px;
+	padding: 0 4px;
+	border-radius: 999px;
+	background: #5d4ea8;
+	color: #fff;
+	font-size: 9px;
+	font-weight: 700;
+	line-height: 14px;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+.memoryHistory {
+	min-height: 0;
+	padding: 10px 12px;
+	border-top: 1px solid var(--line);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.memoryHistory.isHidden {
+	display: none;
+}
+
+.memoryArea:has(.memoryHistory.isHidden) {
+	grid-template-rows: minmax(0, 1fr);
+}
+
+.memoryHistoryTitle {
+	position: sticky;
+	top: -10px;
+	z-index: 1;
+	margin: -2px 0 8px;
+	padding: 2px 0 5px;
+	background: var(--surfaceSolid);
+	color: var(--muted);
+	font-size: 11px;
+	font-weight: 700;
+}
+
+.memoryDayList {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.memoryDay {
+	display: inline-flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 6px 9px;
+	border: 1px solid var(--dayColor, var(--line));
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--dayColor, var(--line)) 8%, transparent);
+	color: var(--dayColor, var(--ink));
+	font-size: 12px;
+	white-space: nowrap;
+}
+
+.memoryDay.isStatus {
+	--dayColor: var(--line);
+	color: var(--muted);
+}
+
+.memoryDay.isOverdue {
+	--dayColor: #e85d6a;
+	background: #e85d6a;
+	color: #fff;
+	border-color: #e85d6a;
+	font-weight: 800;
+}
+
+.memoryEmptyHistory {
+	color: var(--muted);
+	font-size: 12px;
+	text-align: center;
+}
+
+.memoryOverlay {
+	position: fixed;
+	inset: 0;
+	z-index: 80;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	background: rgba(12, 12, 20, 0.58);
+	opacity: 0;
+	transition: opacity 0.16s ease;
+}
+
+.memoryOverlay.isOpen {
+	opacity: 1;
+}
+
+.memoryDialog {
+	width: min(560px, 100%);
+	max-height: min(760px, calc(100dvh - 40px));
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	padding: 18px;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: var(--surfaceSolid);
+	box-shadow: var(--shadow);
+}
+
+.memoryDialogHeader,
+.memoryDialogActions {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.memoryDialogBottom {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 10px 0;
+	border-top: 1px solid var(--line);
+	border-bottom: 1px solid var(--line);
+}
+
+.memoryDailyLabel {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--muted);
+	font-size: 13px;
+}
+
+.memoryPlanCount {
+	color: var(--muted);
+	font-size: 12px;
+}
+
+.memoryDialog p {
+	margin: 0;
+	color: var(--muted);
+}
+
+.memoryPlanTextarea {
+	width: 100%;
+	min-height: 280px;
+	resize: vertical;
+	padding: 10px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	font: 13px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+/* Formula list in plan dialog */
+.memoryFormulaListWrap {
+	flex: 1 1 auto;
+	min-height: 200px;
+	max-height: 420px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--controlBg);
+	position: relative;
+	display: flex;
+	flex-direction: column;
+}
+
+.memoryFormulaList {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	padding-bottom: 44px;
+}
+
+.memoryFormulaRow {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 12px;
+	cursor: default;
+	border-bottom: 1px solid var(--line);
+	transition: background 0.12s ease;
+}
+
+.memoryFormulaRow:last-child {
+	border-bottom: none;
+}
+
+.memoryFormulaRow:hover {
+	background: rgba(36, 240, 234, 0.06);
+}
+
+.memoryFormulaCheck {
+	flex: 0 0 auto;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	border: 2px solid var(--muted);
+	background: transparent;
+	cursor: pointer;
+	position: relative;
+	transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.memoryFormulaCheck:hover {
+	border-color: #24f0ea;
+}
+
+/* Checked + learned: cyan filled */
+.memoryFormulaCheck.isLearned {
+	border-color: #24f0ea;
+	background: #24f0ea;
+}
+
+.memoryFormulaCheck.isLearned::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 10px;
+	height: 6px;
+	border-left: 2px solid #0a0a14;
+	border-bottom: 2px solid #0a0a14;
+	transform: translate(-50%, -65%) rotate(-45deg);
+}
+
+/* Checked + not learned: checkmark */
+.memoryFormulaCheck.isSelected {
+	border-color: #24f0ea;
+	background: transparent;
+}
+
+.memoryFormulaCheck.isSelected::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 10px;
+	height: 6px;
+	border-left: 2px solid #24f0ea;
+	border-bottom: 2px solid #24f0ea;
+	transform: translate(-50%, -65%) rotate(-45deg);
+}
+
+.memoryFormulaLabel {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	color: var(--controlText);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.memoryFormulaLabel strong {
+	color: var(--ink);
+}
+
+.memoryFormulaListWrap .memoryEditPlanBtn {
+	position: absolute;
+	bottom: 8px;
+	right: 24px;
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--surfaceSolid);
+	background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M17 37L36 18L43 11Q48 6 53 11Q58 16 53 21L46 28L27 47L17 37Z' fill='%235d4ea8'/%3E%3Cpath d='M13 51L17 37L27 47L13 51Z' fill='%2324f0ea'/%3E%3Cpath d='M15 39L25 49' stroke='%235d4ea8' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+	background-size: 20px 20px;
+	background-repeat: no-repeat;
+	background-position: center;
+	cursor: pointer;
+	transition: border-color 0.15s ease;
+	z-index: 2;
+}
+
+.memoryFormulaListWrap .memoryEditPlanBtn:hover {
+	border-color: #24f0ea;
+}
+
+.memoryToast {
+	position: fixed;
+	right: 20px;
+	bottom: 20px;
+	z-index: 100;
+	max-width: 320px;
+	padding: 10px 14px;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: var(--surfaceSolid);
+	box-shadow: var(--shadow);
+	color: var(--ink);
+}
+
+.memoryDropActive {
+	border-color: #24f0ea !important;
+	box-shadow: inset 0 0 0 2px rgba(36, 240, 234, 0.25);
+}
+
+.memoryCompletion {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 20px 16px;
+}
+
+.memoryCompletion .button {
+	width: 50%;
+}
+
+.memoryCompletion h2 {
+	margin: 0;
+	font-size: 18px;
+	color: #24f0ea;
+}
+
+.memoryCompletionSub {
+	margin: 0;
+	font-size: 13px;
+	color: var(--muted);
+}
+
+.memoryCompletionCheck {
+	width: 64px;
+	height: 64px;
+	border-radius: 50%;
+	background: #24f0ea;
+	position: relative;
+	margin-bottom: 8px;
+	flex-shrink: 0;
+}
+
+.memoryCompletionCheck::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 28px;
+	height: 14px;
+	border-left: 5px solid #0a0a14;
+	border-bottom: 5px solid #0a0a14;
+	transform: translate(-50%, -65%) rotate(-45deg);
+}
+
+.memoryCompletionText {
+	margin: 0;
+	font-size: 15px;
+	color: var(--controlText);
+	text-align: center;
+	line-height: 1.6;
+}
+
+#memoryCompletionBtn {
+	margin-top: 8px;
+}
+
+#memoryCompletionSecondaryBtn {
+	margin-top: 4px;
+}
+
+.memoryDuePanel {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 18px;
+	padding: 24px 20px;
+}
+
+.memoryDueGrid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+	width: 100%;
+	max-width: none;
+}
+
+.memoryDueBtn {
+	width: 100%;
+	padding: 16px 12px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 10px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	font-size: 16px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: border-color 0.15s ease, background 0.15s ease;
+	text-align: center;
+}
+
+.memoryDueBtnAll {
+	width: 100%;
+	grid-column: span 2;
+}
+
+.memoryDueCustomRow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	width: 100%;
+	max-width: none;
+}
+
+.memoryDueTitle {
+	margin: 0;
+	font-size: 14px;
+	color: var(--muted);
+}
+
+.memoryDueBtn:hover {
+	border-color: #24f0ea;
+	background: rgba(36, 240, 234, 0.08);
+}
+
+.memoryDueCustom {
+	flex: 1 1 auto;
+	width: 100%;
+	padding: 16px 12px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 10px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	font-size: 16px;
+	font-weight: 600;
+	text-align: center;
+	outline: none;
+	transition: border-color 0.15s ease;
+}
+
+.memoryDueCustom:focus {
+	border-color: #24f0ea;
+}
+
+.memoryDueSubmit {
+	flex: 0 0 auto;
+	width: 48px;
+	height: 48px;
+	border: none;
+	border-radius: 10px;
+	background: #24f0ea;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: opacity 0.15s ease;
+}
+
+.memoryDueSubmit:hover {
+	opacity: 0.85;
+}
+
+.memoryDueCheckIcon {
+	display: block;
+	width: 22px;
+	height: 13px;
+	border-left: 3px solid #0a0a14;
+	border-bottom: 3px solid #0a0a14;
+	transform: rotate(-45deg) translate(1px, -1px);
+}
+
+.memoryCalendar {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin-top: 8px;
+}
+
+.memoryCalendarNav {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+}
+
+.memoryCalendarNavBtn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border: none;
+	background: none;
+	cursor: pointer;
+	padding: 0;
+	border-radius: 4px;
+	transition: background 0.15s ease;
+}
+
+.memoryCalendarNavBtn:hover {
+	background: rgba(36, 240, 234, 0.12);
+}
+
+.memoryCalendarTitle {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--ink);
+	margin: 0 12px;
+	min-width: 80px;
+	text-align: center;
+}
+
+.memoryCalendarGrid {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 2px;
+}
+
+.memoryCalendarDow {
+	font-size: 11px;
+	color: var(--muted);
+	text-align: center;
+	padding: 2px 0;
+}
+
+.memoryCalendarDay {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	aspect-ratio: 1;
+	font-size: 12px;
+	border-radius: 6px;
+	color: var(--muted);
+}
+
+.memoryCalendarDay.isPlaceholder {
+	visibility: hidden;
+}
+
+.memoryCalendarDay.isDone {
+	background: #24f0ea;
+	color: #0a0a14;
+	font-weight: 700;
+}
+
+@media (max-width: 520px) {
+	.memoryArea {
+		grid-template-rows: minmax(360px, 1fr) 130px;
+	}
+
+	.memoryTimes,
+	.memoryOptions {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+.memoryFullscreenMode .topbar,
+.memoryFullscreenMode .panelSection,
+.memoryFullscreenMode .panelHeader,
+.memoryFullscreenMode .panelFooter,
+.memoryFullscreenMode .diagnostics {
+	display: none !important;
+}
+
+.memoryFullscreenMode .memoryPanel {
+	flex: 1;
+	max-width: 100%;
+}
+
+.memoryFullscreenMode .memoryArea {
+	grid-template-rows: 1fr auto;
+}
