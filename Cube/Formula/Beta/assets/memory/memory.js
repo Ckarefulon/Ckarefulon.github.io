@@ -474,7 +474,7 @@
 	function getMemoryPanelHtml() {
 		var groupBarHtml = (typeof app.getGroupSelectorHtml === 'function') ? app.getGroupSelectorHtml() : '';
 		return '<aside class="panel memoryPanel"><header class="panelHeader"><h1>记忆模式</h1></header>' +
-			'<section class="panelSection memoryManageSection">' + groupBarHtml + '<button id="memoryPlanBtn" class="button" type="button">规划记忆</button><div class="controls"><button id="memoryImportBtn" class="button secondary" type="button">导入记忆数据</button><button id="memoryExportBtn" class="button secondary" type="button">导出记忆数据</button></div><input id="memoryImportFile" class="hiddenFileInput" type="file" accept=".json,application/json"></section>' +
+			'<section class="panelSection memoryManageSection">' + groupBarHtml + '<button id="memoryPlanBtn" class="button" type="button" aria-expanded="false">规划记忆</button><div id="memoryPlanInlineHost" class="memoryPlanInlineHost"></div><div class="controls"><button id="memoryImportBtn" class="button secondary" type="button">导入记忆数据</button><button id="memoryExportBtn" class="button secondary" type="button">导出记忆数据</button></div><input id="memoryImportFile" class="hiddenFileInput" type="file" accept=".json,application/json"></section>' +
 			'<section class="memoryArea"><div id="memoryCurrent" class="memoryCurrent"><button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">请开始还原…<br>点击此处显示答案。</button></div><div id="memoryHistory" class="memoryHistory"></div></section>' +
 			app.getDiagnosticsHtml(true) + '</aside>';
 	}
@@ -1388,7 +1388,8 @@
 		if (selector) selector.classList.remove("isOpen");
 	}
 
-		var overlay = createOverlay('<div class="memoryDialog memoryPlanDialog" role="dialog" aria-modal="true"><div class="memoryDialogHeader"><strong>规划记忆</strong><button class="button secondary small" type="button" data-memory-close>关闭</button></div><div class="memoryLibraryBar"><div id="memoryLibrarySelector" class="memoryLibrarySelector"><button id="memoryLibraryCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="memoryLibraryCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="memoryLibraryMenu" class="memoryLibraryMenu"></div></div><input id="memoryLibraryNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="memoryLibraryAddBtn" class="memoryLibraryIconBtn" type="button" title="新建公式库"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="memoryLibraryRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名当前库"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="memoryLibraryDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除当前库"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><div class="memoryFormulaListWrap"><div class="memoryFormulaList"></div><button id="memoryEditPlanBtn" class="memoryEditPlanBtn" type="button" title="编辑公式文本" aria-label="编辑公式文本"></button></div><div class="memoryDialogBottom"><label class="memoryDailyLabel">每日公式数 <input id="memoryDailyCount" class="memoryDailyInput" type="number" min="1" max="999" value="' + (l.settings.dailyCount || 10) + '"></label><span id="memoryPlanCount" class="memoryPlanCount">[0]/[' + (l.settings.dailyCount || 10) + ']</span></div><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-close>取消</button><button id="memorySavePlanBtn" class="button" type="button">保存计划</button></div></div>');
+		var overlay = createPanelExpansion('<div class="memoryDialog memoryPlanDialog panelInlineCard" role="group"><div class="memoryDialogHeader"><strong>规划记忆</strong><button class="button secondary small" type="button" data-memory-close>关闭</button></div><div class="memoryLibraryBar"><div id="memoryLibrarySelector" class="memoryLibrarySelector"><button id="memoryLibraryCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="memoryLibraryCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="memoryLibraryMenu" class="memoryLibraryMenu"></div></div><input id="memoryLibraryNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="memoryLibraryAddBtn" class="memoryLibraryIconBtn" type="button" title="新建公式库"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="memoryLibraryRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名当前库"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="memoryLibraryDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除当前库"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><div class="memoryFormulaListWrap"><div class="memoryFormulaList"></div><button id="memoryEditPlanBtn" class="memoryEditPlanBtn" type="button" title="编辑公式文本" aria-label="编辑公式文本"></button></div><div id="memoryPlanEditHost" class="memoryPlanEditHost"></div><div class="memoryDialogBottom"><label class="memoryDailyLabel">每日公式数 <input id="memoryDailyCount" class="memoryDailyInput" type="number" min="1" max="999" value="' + (l.settings.dailyCount || 10) + '"></label><span id="memoryPlanCount" class="memoryPlanCount">[0]/[' + (l.settings.dailyCount || 10) + ']</span></div><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-close>取消</button><button id="memorySavePlanBtn" class="button" type="button">保存计划</button></div></div>');
+		if (!overlay) { return; }
 
 		var listContainer = overlay.querySelector('.memoryFormulaList');
 		renderFormulaList(listContainer);
@@ -1667,21 +1668,57 @@
 	}
 
 	function openPlanEditDialog(formulas, selectedIds, onSaved) {
+		var host = document.getElementById("memoryPlanEditHost");
+		if (!host) { return; }
+		var existing = host.querySelector(".memoryPlanEditExpansion");
+		if (existing) {
+			closeOverlay(existing);
+			return;
+		}
 		var currentText = formulasToPlanText(formulas);
-		var editOverlay = createOverlay('<div class="memoryDialog" role="dialog" aria-modal="true"><div class="memoryDialogHeader"><strong>编辑公式</strong><button class="button secondary small" type="button" data-memory-close>关闭</button></div><p>每行或连续文本均可，沿用 TXT 的"名称: 公式;"格式；重复公式会原样保留。</p><textarea id="memoryPlanEditTextarea" class="memoryPlanTextarea" spellcheck="false"></textarea><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-close>取消</button><button id="memoryEditSaveBtn" class="button" type="button">保存</button></div></div>');
-		var textarea = editOverlay.querySelector("#memoryPlanEditTextarea");
+		var editExpansion = document.createElement("section");
+		editExpansion.className = "panelInlineExpansion memoryPlanEditExpansion";
+		editExpansion.innerHTML = '<div class="memoryPlanEditCard"><div class="memoryDialogHeader"><strong>编辑公式</strong><button class="button secondary small" type="button" data-memory-edit-close>收起</button></div><p>每行或连续文本均可，沿用 TXT 的"名称: 公式;"格式；重复公式会原样保留。</p><textarea id="memoryPlanEditTextarea" class="memoryPlanTextarea" spellcheck="false"></textarea><div class="memoryDialogActions"><button class="button secondary" type="button" data-memory-edit-close>取消</button><button id="memoryEditSaveBtn" class="button" type="button">保存</button></div></div>';
+		host.appendChild(editExpansion);
+		var textarea = editExpansion.querySelector("#memoryPlanEditTextarea");
 		textarea.value = currentText;
-		editOverlay.querySelector("#memoryEditSaveBtn").addEventListener("click", function() {
+		editExpansion.querySelectorAll("[data-memory-edit-close]").forEach(function(button) {
+			button.addEventListener("click", function() { closeOverlay(editExpansion); });
+		});
+		editExpansion.querySelector("#memoryEditSaveBtn").addEventListener("click", function() {
 			if (commitPlanText(textarea.value)) {
-				closeOverlay(editOverlay);
+				closeOverlay(editExpansion);
 				if (onSaved) onSaved();
 			}
 		});
-		requestAnimationFrame(function() { textarea.focus(); });
+		requestAnimationFrame(function() {
+			editExpansion.classList.add("isOpen");
+			textarea.focus();
+		});
 	}
-
 	/* ---------- Overlay utilities ---------- */
 
+	function createPanelExpansion(html) {
+		var host = document.getElementById("memoryPlanInlineHost");
+		var trigger = document.getElementById("memoryPlanBtn");
+		if (!host) { return null; }
+		var existing = document.getElementById("memoryPlanInline");
+		if (existing) {
+			closeOverlay(existing);
+			return null;
+		}
+		var expansion = document.createElement("section");
+		expansion.id = "memoryPlanInline";
+		expansion.className = "panelInlineExpansion memoryPlanInline";
+		expansion.innerHTML = html;
+		host.appendChild(expansion);
+		if (trigger) { trigger.setAttribute("aria-expanded", "true"); }
+		expansion.querySelectorAll("[data-memory-close]").forEach(function(button) {
+			button.addEventListener("click", function() { closeOverlay(expansion); });
+		});
+		requestAnimationFrame(function() { expansion.classList.add("isOpen"); });
+		return expansion;
+	}
 	function createOverlay(html) {
 		var overlay = document.createElement("div");
 		overlay.className = "memoryOverlay";
@@ -1703,6 +1740,13 @@
 
 	function closeOverlay(overlay) {
 		if (!overlay) return;
+		if (overlay.classList.contains("panelInlineExpansion")) {
+			overlay.classList.remove("isOpen");
+			var trigger = document.getElementById("memoryPlanBtn");
+			if (overlay.id === "memoryPlanInline" && trigger) { trigger.setAttribute("aria-expanded", "false"); }
+			setTimeout(function() { if (overlay.parentNode) overlay.remove(); }, 260);
+			return;
+		}
 		if (typeof overlay.mobileClose === "function") {
 			overlay.mobileClose();
 			return;
@@ -1712,17 +1756,19 @@
 	}
 
 	function openConfirmDialog(title, message, confirmText, onConfirm, onCancel) {
-		var overlay = createOverlay('<div class="memoryDialog" role="dialog" aria-modal="true"><div class="memoryDialogHeader"><strong>' + app.escapeHtml(title) + '</strong></div><p>' + app.escapeHtml(message) + '</p><div class="memoryDialogActions"><button id="memoryDialogCancel" class="button secondary" type="button">取消</button><button id="memoryDialogConfirm" class="button" type="button">' + app.escapeHtml(confirmText || "确认") + '</button></div></div>');
-		overlay.querySelector("#memoryDialogCancel").addEventListener("click", function() {
-			closeOverlay(overlay);
-			if (onCancel) onCancel();
-		});
-		overlay.querySelector("#memoryDialogConfirm").addEventListener("click", function() {
-			closeOverlay(overlay);
-			if (onConfirm) onConfirm();
-		});
+		if (typeof app.openNoticePrompt === "function") {
+			app.openNoticePrompt({
+				title: title,
+				message: message,
+				confirmText: confirmText || "确认",
+				warning: /删除|替换|覆盖|重置|永久/.test(String(title) + " " + String(message)),
+				onConfirm: onConfirm,
+				onCancel: onCancel
+			});
+			return;
+		}
+		if (onCancel) { onCancel(); }
 	}
-
 	function showToast(message) {
 		var old = document.querySelector(".memoryToast");
 		if (old) old.remove();

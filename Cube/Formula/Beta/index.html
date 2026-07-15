@@ -43,10 +43,10 @@
 
 	<link rel="stylesheet" href="assets/memory/memory.css?v=1034">
 	<script src="assets/ui-shell.js?v=1277" defer></script>
-	<script src="assets/memory/memory.js?v=1277" defer></script>
+	<script src="assets/memory/memory.js?v=1321" defer></script>
 
 	<title>魔方训练</title>
-	<link rel="stylesheet" href="assets/app.css?v=1277">
+	<link rel="stylesheet" href="assets/app.css?v=1321">
 </head>
 <body>
 	<main class="app">
@@ -104,16 +104,18 @@
 	<div id="actionPanelOverlay" class="actionPanelOverlay" aria-hidden="true">
 		<section class="actionDrawer" role="dialog" aria-modal="true" aria-label="操作面板">
 			<button id="actionDrawerHandle" class="actionDrawerHandle" type="button" aria-label="关闭操作面板" title="拖动或点击关闭操作面板"></button>
+			<div class="actionDrawerMain">
 			<header class="actionDrawerHeader">
 				<button id="seamlessToggleBtn" class="seamlessToggle" type="button" title="切换无缝模式：色块变大无空隙，隐藏色块显示为不透明灰色"></button>
 				<button id="connectBtn" class="connectPill" type="button" title="点击连接或断开魔方"><span class="connectLabel">连接魔方</span></button><span id="statusPill" class="visuallyHidden" data-state="idle"></span>
 			</header>
 			<div class="actionDrawerContent">
-				<section class="actionGlobalControls"><div class="globalControlGrid">
+				<section class="actionControlsBody"><div class="globalControlGrid">
 					<button id="resetBtn" class="button secondary" type="button">重置视图</button>
 					<button id="customFinalStateBtn" class="button secondary" type="button">自定义状态</button>
 				</div></section>
 				<section class="actionModeControls"><div id="actionDrawerBody" class="actionDrawerBody"></div></section>
+			</div>
 			</div>
 		</section>
 	</div>
@@ -388,7 +390,7 @@
 										return { name: e.name, alg: e.alg, moves: e.moves || [], image: e.image || null, customSolvedState: e.customSolvedState || null };
 									});
 									this.renderFormulaCards();
-									this.setFormulaImportStatus("已导入 " + this.formulaInputEntries.length + " 个公式");
+									this.updatePracticeFormulaToggle();
 								} else {
 									this.importFormulaText(this.formulaInputText, "restore");
 									this.formulaImported = true;
@@ -398,7 +400,7 @@
 								this.importedFormulas = [];
 								this.formulaImported = false;
 								if (this.elements && this.elements.formulaCardsList) this.elements.formulaCardsList.innerHTML = '';
-								if (this.elements && this.elements.formulaImportStatus) this.elements.formulaImportStatus.textContent = '未导入公式';
+								this.updatePracticeFormulaToggle();
 							}
 							this.applyGroupMaskToCube();
 							if (this.isPracticeMode) {
@@ -423,14 +425,14 @@
 								return { name: e.name, alg: e.alg, moves: e.moves || [], image: e.image || null, customSolvedState: e.customSolvedState || null };
 							});
 							this.renderFormulaCards();
-							this.setFormulaImportStatus("已导入 " + this.formulaInputEntries.length + " 个公式");
+							this.updatePracticeFormulaToggle();
 						}
 					} else {
 						this.formulaInputEntries = [];
 						this.importedFormulas = [];
 						this.formulaImported = false;
 						if (this.elements && this.elements.formulaCardsList) this.elements.formulaCardsList.innerHTML = '';
-						if (this.elements && this.elements.formulaImportStatus) this.elements.formulaImportStatus.textContent = '未导入公式';
+						this.updatePracticeFormulaToggle();
 					}
 					this.applyGroupMaskToCube();
 					this.renderSharedGroupSelector();
@@ -481,7 +483,8 @@
 						practiceFormulaText: document.getElementById("practiceFormulaText"),
 						practiceFormulaToggle: document.getElementById("practiceFormulaToggle"),
 						practiceAoTimes: document.getElementById("practiceAoTimes"),
-						formulaImportStatus: document.getElementById("formulaImportStatus"),
+						practiceFormulaCount: document.getElementById("practiceFormulaCount"),
+						practiceFormulaName: document.getElementById("practiceFormulaName"),
 						formulaCardsList: document.getElementById("formulaCardsList"),
 						macHelp: document.getElementById("macHelp"),
 						macHelpReason: document.getElementById("macHelpReason")
@@ -739,9 +742,6 @@
 				}
 					this.bindViewDrag();
 					document.addEventListener("keydown", function(event) {
-						if (document.getElementById("customStateOverlay")) {
-							return;
-						}
 						var actionOverlay = document.getElementById("actionPanelOverlay");
 						if (event.key === "Tab" && actionOverlay && actionOverlay.classList.contains("isOpen")) {
 							var focusable = Array.from(actionOverlay.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter(function(node) { return node.offsetParent !== null; });
@@ -1112,7 +1112,7 @@
 
 				getFormulaImportHtml: function(showThumbOption, practiceCards, includeGroupControls) {
 					var groupControls = includeGroupControls === false ? "" : this.getGroupSelectorHtml();
-					return '<section class="panelSection stateImport" id="formulaImport">' + groupControls + '<div id="formulaDropZone" class="importDropZone">拖入 TXT 公式文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseFormulaFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="formulaFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><div class="textImportWrap"><textarea id="formulaTextInput" class="stateTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea><div class="textImportActions"><button id="clearFormulaTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button><button id="copyFormulaTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div><button id="importFormulaTextBtn" class="button small" type="button">导入公式</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showFormulaThumbs" type="checkbox"><span class="checkVisual"></span><span>显示公式缩略图</span></label></div>' : "") + '<div id="formulaImportStatus" class="importStatus">未导入公式</div>' + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"><div class="practiceAoTime"><span>本次</span><strong>--</strong></div><div class="practiceAoTime"><span>AO5</span><strong>--</strong></div><div class="practiceAoTime"><span>AO10</span><strong>--</strong></div><div class="practiceAoTime"><span>AO50</span><strong>--</strong></div></div>' : "") + '<div id="formulaCardsList" class="formulaCardsList"></div></section>';
+					return '<section class="panelSection stateImport" id="formulaImport">' + groupControls + '<div id="formulaDropZone" class="importDropZone">拖入 TXT 公式文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseFormulaFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="formulaFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><div class="textImportWrap"><textarea id="formulaTextInput" class="stateTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea><div class="textImportActions"><button id="clearFormulaTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button><button id="copyFormulaTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div><button id="importFormulaTextBtn" class="button small" type="button">导入公式</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showFormulaThumbs" type="checkbox"><span class="checkVisual"></span><span>显示公式缩略图</span></label></div>' : "") + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><span id="practiceFormulaCount" class="practiceFormulaCount">共0个</span><span id="practiceFormulaName" class="practiceFormulaName"></span><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"><div class="practiceAoTime"><span>本次</span><strong>--</strong></div><div class="practiceAoTime"><span>AO5</span><strong>--</strong></div><div class="practiceAoTime"><span>AO10</span><strong>--</strong></div><div class="practiceAoTime"><span>AO50</span><strong>--</strong></div></div>' : "") + '<div id="formulaCardsList" class="formulaCardsList"></div></section>';
 				},
 
 				getDiagnosticsHtml: function(hidden) {
@@ -1176,17 +1176,17 @@
 					});
 					this.bindOnce(this.elements.customFinalStateBtn, "smartBound", function(element) {
 						element.addEventListener("click", function() {
-							self.openCustomStateDialog();
+							self.openCustomStateDialog(element);
 						});
 					});
 					this.bindOnce(this.elements.exportFormulaBtn, "smartBound", function(element) {
 						element.addEventListener("click", function() {
-							self.openFormulaExportDialog();
+							self.openFormulaExportDialog({ anchor: element });
 						});
 					});
 					this.bindOnce(this.elements.confirmLibraryImportBtn, "smartBound", function(element) {
 						element.addEventListener("click", function() {
-							self.openLibraryExportDialog();
+							self.openLibraryExportDialog(element);
 						});
 					});
 					this.bindOnce(this.elements.practiceModeSelect, "smartBound", function(element) {
@@ -1320,9 +1320,15 @@
 								}
 								if (typeof self.deleteFormulaGroup === 'function') {
 									var gname = typeof self.getActiveGroupName === 'function' ? self.getActiveGroupName() : '';
-									if (window.confirm('确定删除组「' + gname + '」？该组的所有公式和记忆数据将被永久删除。')) {
-										self.deleteFormulaGroup(typeof self.getActiveGroupId === 'function' ? self.getActiveGroupId() : null);
-									}
+									self.openNoticePrompt({
+										title: "删除公式组",
+										message: '确定删除组「' + gname + '」？该组的所有公式和记忆数据将被永久删除。',
+										confirmText: "删除",
+										warning: true,
+										onConfirm: function() {
+											self.deleteFormulaGroup(typeof self.getActiveGroupId === 'function' ? self.getActiveGroupId() : null);
+										}
+									});
 								}
 								return;
 							}
@@ -1534,65 +1540,59 @@
 					}
 				},
 
-				openCustomStateDialog: function() {
+				openCustomStateDialog: function(anchor) {
 					var self = this;
-					if (document.getElementById("customStateOverlay")) {
+					var existing = document.getElementById("customStateInline");
+					if (existing) {
+						this.closeInlineExpansion(existing, anchor || this.elements.customFinalStateBtn);
 						return;
 					}
+					anchor = anchor || this.elements.customFinalStateBtn;
+					var host = anchor && anchor.closest(".actionControlsBody");
+					if (!host) { return; }
 					this.customCubeDraftMask = this.cloneStickerMask(this.hiddenStickerMask);
-					var overlay = document.createElement("div");
-					overlay.id = "customStateOverlay";
-					overlay.className = "customStateOverlay";
-					overlay.innerHTML = '<div class="customStateDialog" role="dialog" aria-modal="true" aria-labelledby="customStateTitle"><div class="customStateHeader"><strong id="customStateTitle">自定义魔方复原状态</strong><button id="closeCustomStateBtn" class="button secondary small" type="button">关闭</button></div><div id="customCubeStage" class="customCubeStage"></div><p id="customStateHint" class="customStateHint"></p><div class="customStateActions"><button id="showAllStickersBtn" class="button secondary" type="button">显示全部</button><div class="customStateActionRight"><button id="cancelCustomStateBtn" class="button secondary" type="button">取消</button><button id="confirmCustomStateBtn" class="button" type="button">确认</button></div></div></div>';
-					document.body.appendChild(overlay);
-					var stage = document.getElementById("customCubeStage");
-					var closeDialog = function() {
+					var expansion = document.createElement("section");
+					expansion.id = "customStateInline";
+					expansion.className = "panelInlineExpansion customStateInline";
+					expansion.setAttribute("aria-labelledby", "customStateTitle");
+					expansion.innerHTML = '<div class="panelInlineCard"><div class="customStateHeader"><strong id="customStateTitle">自定义魔方复原状态</strong><button id="closeCustomStateBtn" class="button secondary small" type="button">收起</button></div><div id="customCubeStage" class="customCubeStage"></div><p id="customStateHint" class="customStateHint"></p><div class="customStateActions"><button id="showAllStickersBtn" class="button secondary" type="button">显示全部</button><div class="customStateActionRight"><button id="cancelCustomStateBtn" class="button secondary" type="button">取消</button><button id="confirmCustomStateBtn" class="button" type="button">确认</button></div></div></div>';
+					host.appendChild(expansion);
+					anchor.setAttribute("aria-expanded", "true");
+					var stage = expansion.querySelector("#customCubeStage");
+					var closePanel = function() {
 						document.removeEventListener("keydown", onKeyDown, true);
-						overlay.classList.remove("isOpen");
-						self.customCubeScene = null;
-						self.customCubeDraftMask = null;
-						self.customStickerGroups = null;
-						setTimeout(function() {
-							if (overlay.parentNode) {
-								overlay.remove();
-							}
-						}, 220);
+						self.closeInlineExpansion(expansion, anchor, function() {
+							self.customCubeScene = null;
+							self.customCubeDraftMask = null;
+							self.customStickerGroups = null;
+						});
 					};
 					var onKeyDown = function(event) {
 						if (event.key === "Escape") {
 							event.preventDefault();
 							event.stopPropagation();
-							closeDialog();
+							closePanel();
 						}
 					};
 					document.addEventListener("keydown", onKeyDown, true);
-					document.getElementById("closeCustomStateBtn").addEventListener("click", closeDialog);
-					document.getElementById("cancelCustomStateBtn").addEventListener("click", closeDialog);
-					document.getElementById("showAllStickersBtn").addEventListener("click", function() {
+					expansion.querySelector("#closeCustomStateBtn").addEventListener("click", closePanel);
+					expansion.querySelector("#cancelCustomStateBtn").addEventListener("click", closePanel);
+					expansion.querySelector("#showAllStickersBtn").addEventListener("click", function() {
 						self.customCubeDraftMask = {};
 						self.applyHiddenStickerMask(self.customCubeScene, self.customCubeDraftMask);
 						self.updateCustomStateHint();
 					});
-					document.getElementById("confirmCustomStateBtn").addEventListener("click", function() {
+					expansion.querySelector("#confirmCustomStateBtn").addEventListener("click", function() {
 						self.hiddenStickerMask = self.cloneStickerMask(self.customCubeDraftMask);
 						self.applyHiddenStickerMask(self.twistyScene, self.hiddenStickerMask);
-						if (typeof self.setActiveGroupCustomMask === 'function') {
+						if (typeof self.setActiveGroupCustomMask === "function") {
 							self.setActiveGroupCustomMask(self.hiddenStickerMask);
 						}
 						self.applyHiddenStickerMaskToThumbnails();
-						closeDialog();
-					});
-					var pressedInsideDialog = false;
-					overlay.addEventListener("mousedown", function(event) {
-						pressedInsideDialog = event.target !== overlay;
-					});
-					overlay.addEventListener("mouseup", function(event) {
-						if (event.target === overlay && !pressedInsideDialog) {
-							closeDialog();
-						}
+						closePanel();
 					});
 					requestAnimationFrame(function() {
-						overlay.classList.add("isOpen");
+						expansion.classList.add("isOpen");
 						self.customCubeScene = new twistyjs.TwistyScene();
 						stage.appendChild(self.customCubeScene.getDomElement());
 						self.customCubeScene.initializeTwisty({
@@ -1630,7 +1630,6 @@
 						self.updateCustomStateHint();
 					});
 				},
-
 				bindCustomCubeDrag: function(stage) {
 					var self = this;
 					var drag = { active: false, moved: false, x: 0, y: 0, yaw: this.viewYaw, pitch: this.viewPitch, currentYaw: this.viewYaw, currentPitch: this.viewPitch };
@@ -2076,7 +2075,7 @@
 					}
 				},
 
-				openLibraryExportDialog: function() {
+				openLibraryExportDialog: function(anchor) {
 					var text = this.buildSelectedLibraryExportText();
 					if (!text) {
 						if (this.elements.libraryStatus) {
@@ -2087,6 +2086,7 @@
 					this.openFormulaExportDialog({
 						text: text,
 						title: "导出公式",
+						anchor: anchor,
 						onSave: function(editedText) {
 							this.suppressLibraryTransferOnce = true;
 							this.switchMode("learn");
@@ -2672,42 +2672,27 @@
 				openFormulaExportDialog: function(options) {
 					options = options || {};
 					var self = this;
-					var text = options.text != null ? String(options.text) : this.buildFormulaExportText();
-					var old = document.getElementById("formulaExportOverlay");
+					var anchor = options.anchor || this.elements.exportFormulaBtn;
+					var old = document.getElementById("formulaExportInline");
 					if (old) {
-						old.remove();
+						this.closeInlineExpansion(old, anchor);
+						return;
 					}
-					var overlay = document.createElement("div");
-					overlay.id = "formulaExportOverlay";
-					overlay.className = "formulaExportOverlay";
-					overlay.innerHTML = '<div class="formulaExportDialog" role="dialog" aria-modal="true"><div class="formulaExportHeader"><strong>' + this.escapeHtml(options.title || "导出公式") + '</strong><button id="closeFormulaExportBtn" class="button secondary small" type="button">关闭</button></div><textarea id="formulaExportText" class="formulaExportText" spellcheck="false"></textarea><div class="formulaExportActions"><button id="saveFormulaTextBtn" class="button" type="button">保存</button><div class="formulaExportActionsRight"><button id="copyFormulaTextBtn" class="button secondary" type="button">复制文本</button><button id="downloadFormulaTxtBtn" class="button" type="button">下载 TXT</button></div></div></div>';
-					document.body.appendChild(overlay);
-					var textarea = document.getElementById("formulaExportText");
-					var copyButton = document.getElementById("copyFormulaTextBtn");
-					var saveButton = document.getElementById("saveFormulaTextBtn");
+					var host = anchor && anchor.closest(".panelSection");
+					if (!host) { return; }
+					var text = options.text != null ? String(options.text) : this.buildFormulaExportText();
+					var expansion = document.createElement("section");
+					expansion.id = "formulaExportInline";
+					expansion.className = "panelInlineExpansion formulaExportInline";
+					expansion.innerHTML = '<div class="panelInlineCard"><div class="formulaExportHeader"><strong>' + this.escapeHtml(options.title || "导出公式") + '</strong><button id="closeFormulaExportBtn" class="button secondary small" type="button">收起</button></div><textarea id="formulaExportText" class="formulaExportText" spellcheck="false"></textarea><div class="formulaExportActions"><button id="saveFormulaTextBtn" class="button" type="button">保存</button><div class="formulaExportActionsRight"><button id="copyFormulaTextBtn" class="button secondary" type="button">复制文本</button><button id="downloadFormulaTxtBtn" class="button" type="button">下载 TXT</button></div></div></div>';
+					host.appendChild(expansion);
+					anchor.setAttribute("aria-expanded", "true");
+					var textarea = expansion.querySelector("#formulaExportText");
+					var copyButton = expansion.querySelector("#copyFormulaTextBtn");
+					var saveButton = expansion.querySelector("#saveFormulaTextBtn");
 					textarea.value = text;
-					requestAnimationFrame(function() {
-						overlay.classList.add("isOpen");
-					});
-					textarea.focus();
-					var closeOverlay = function() {
-						overlay.classList.remove("isOpen");
-						var onTransitionEnd = function(event) {
-							if (event.target === overlay) {
-								overlay.removeEventListener("transitionend", onTransitionEnd);
-								overlay.remove();
-							}
-						};
-						overlay.addEventListener("transitionend", onTransitionEnd);
-						setTimeout(function() {
-							if (overlay.parentNode) {
-								overlay.remove();
-							}
-						}, 280);
-					};
-					document.getElementById("closeFormulaExportBtn").addEventListener("click", function() {
-						closeOverlay();
-					});
+					var closePanel = function() { self.closeInlineExpansion(expansion, anchor); };
+					expansion.querySelector("#closeFormulaExportBtn").addEventListener("click", closePanel);
 					saveButton.addEventListener("click", function() {
 						var editedText = textarea.value;
 						if (typeof options.onSave === "function") {
@@ -2715,15 +2700,13 @@
 						} else {
 							self.applyFormulaExportText(editedText);
 						}
-						closeOverlay();
+						closePanel();
 					});
 					copyButton.addEventListener("click", function() {
 						var originalText = copyButton.textContent;
 						var markCopied = function() {
 							copyButton.textContent = "已复制";
-							setTimeout(function() {
-								copyButton.textContent = originalText;
-							}, 1200);
+							setTimeout(function() { copyButton.textContent = originalText; }, 1200);
 						};
 						var fallbackCopy = function() {
 							textarea.focus();
@@ -2737,35 +2720,20 @@
 							fallbackCopy();
 						}
 					});
-					document.getElementById("downloadFormulaTxtBtn").addEventListener("click", function() {
+					expansion.querySelector("#downloadFormulaTxtBtn").addEventListener("click", function() {
 						var blob = new Blob([textarea.value], { type: "text/plain;charset=utf-8" });
 						var url = URL.createObjectURL(blob);
 						var link = document.createElement("a");
 						link.href = url;
 						link.download = "formulas.txt";
 						link.click();
-						setTimeout(function() {
-							URL.revokeObjectURL(url);
-						}, 1000);
+						setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
 					});
-					var pressedInsideDialog = false;
-					overlay.addEventListener("mousedown", function(event) {
-						pressedInsideDialog = event.target !== overlay;
+					requestAnimationFrame(function() {
+						expansion.classList.add("isOpen");
+						textarea.focus();
 					});
-					overlay.addEventListener("mouseup", function(event) {
-						if (event.target === overlay && !pressedInsideDialog) {
-							closeOverlay();
-						}
-					});
-					var onKeyDown = function(event) {
-						if (event.key === "Escape") {
-							closeOverlay();
-							document.removeEventListener("keydown", onKeyDown);
-						}
-					};
-					document.addEventListener("keydown", onKeyDown);
 				},
-
 				escapeHtml: function(value) {
 					return String(value == null ? "" : value).replace(/[&<>"']/g, function(ch) {
 						return {
@@ -2894,7 +2862,7 @@
 							this.formulaSolveTimes = groupData.solveTimes;
 							this.formulaImported = false;
 							if (this.elements && this.elements.formulaCardsList) this.elements.formulaCardsList.innerHTML = '';
-							if (this.elements && this.elements.formulaImportStatus) this.elements.formulaImportStatus.textContent = '未导入公式';
+							this.updatePracticeFormulaToggle();
 							this.updatePracticeAoTimes();
 						}
 						this.applyGroupMaskToCube();
@@ -3299,12 +3267,13 @@
 				var self = this;
 				var groups = typeof this.getFormulaGroups === 'function' ? this.getFormulaGroups() : [];
 				var currentGroupName = typeof this.getActiveGroupName === 'function' ? this.getActiveGroupName() : '当前组';
+				var currentGroupId = typeof this.getActiveGroupId === 'function' ? this.getActiveGroupId() : null;
 				var overlay = document.createElement('div');
 				overlay.className = 'formulaAddGroupDialog';
-				var otherGroupOptions = groups.map(function(g) {
+				var otherGroupOptions = groups.filter(function(g) { return g.id !== currentGroupId; }).map(function(g) {
 					return '<button class="button secondary formulaGroupOption" type="button" data-group-id="' + self.escapeHtml(g.id) + '">' + self.escapeHtml(g.name) + '</button>';
 				}).join('');
-				overlay.innerHTML = '<div class="formulaAddGroupDialogBox"><div class="formulaAddGroupDialogTitle">添加公式到公式组</div><div class="formulaAddGroupDialogDesc">公式制作中的公式将添加到选定的公式组中</div><div class="formulaAddGroupDialogActions"><button class="button formulaAddCurrent" type="button">添加至当前组：' + self.escapeHtml(currentGroupName) + '</button><button class="button secondary formulaAddOther" type="button">添加至其他组...</button><div class="formulaAddOtherList" style="display:none;flex-direction:column;gap:4px;">' + otherGroupOptions + '</div><button class="button secondary formulaAddCancel" type="button">取消，不导入</button></div></div>';
+				overlay.innerHTML = '<section class="formulaAddGroupDialogBox appPromptCard" role="dialog" aria-modal="true" aria-labelledby="formulaAddGroupTitle"><div class="formulaAddGroupDialogLead"><span class="formulaAddGroupDialogIcon" aria-hidden="true"></span><div><div id="formulaAddGroupTitle" class="formulaAddGroupDialogTitle">添加公式到公式组</div><div class="formulaAddGroupDialogDesc">选择这组公式的保存位置</div></div></div><div class="formulaAddGroupDialogActions"><button class="button formulaAddCurrent" type="button"><span>添加至当前组</span><strong>' + self.escapeHtml(currentGroupName) + '</strong></button>' + (otherGroupOptions ? '<button class="button secondary formulaAddOther" type="button" aria-expanded="false">选择其他公式组</button><div class="formulaAddOtherList" aria-hidden="true">' + otherGroupOptions + '</div>' : '') + '<button class="button ghost formulaAddCancel" type="button">取消，不导入</button></div></section>';
 				var cleanup;
 				if (window.MobileUI) {
 					cleanup = window.MobileUI.mountOverlay(overlay, {
@@ -3327,11 +3296,16 @@
 					cleanup();
 				}
 				overlay.querySelector('.formulaAddCurrent').addEventListener('click', function() { addToGroup(null); });
-				overlay.querySelector('.formulaAddOther').addEventListener('click', function() {
-					var list = overlay.querySelector('.formulaAddOtherList');
-					list.style.display = 'flex';
-					this.style.display = 'none';
-				});
+				var otherButton = overlay.querySelector('.formulaAddOther');
+				if (otherButton) {
+					otherButton.addEventListener('click', function() {
+						var list = overlay.querySelector('.formulaAddOtherList');
+						var open = !list.classList.contains('isOpen');
+						list.classList.toggle('isOpen', open);
+						list.setAttribute('aria-hidden', open ? 'false' : 'true');
+						this.setAttribute('aria-expanded', open ? 'true' : 'false');
+					});
+				}
 				overlay.querySelectorAll('.formulaGroupOption').forEach(function(btn) {
 					btn.addEventListener('click', function() {
 						addToGroup(btn.getAttribute('data-group-id'));
@@ -3393,13 +3367,13 @@
 					if (!file) {
 						return;
 					}
-					this.setFormulaImportStatus("正在读取 " + file.name);
+					this.updatePracticeFormulaToggle();
 					file.arrayBuffer().then(function(buffer) {
 						var text = self.decodeTextBuffer(buffer);
 						self.fillFormulaInputText(text, false, false);
 						self.importFormulaText(text, file.name);
 					}).catch(function(error) {
-						self.setFormulaImportStatus("读取失败: " + String(error && error.message || error));
+						self.updatePracticeFormulaToggle();
 					});
 				},
 
@@ -3465,7 +3439,7 @@
 						this.saveFormulaInputText();
 					}
 					this.renderFormulaCards();
-					this.setFormulaImportStatus("已导入 " + result.formulas.length + " 个公式" + (result.skipped ? "，跳过 " + result.skipped + " 条" : ""));
+
 					this.updatePracticeFormulaToggle();
 					this.updatePracticeAoTimes();
 					this.log("state", "import " + result.formulas.length + " from " + (source || "text"));
@@ -3576,13 +3550,6 @@
 					return expansions[baseKey].slice();
 				},
 
-				setFormulaImportStatus: function(text) {
-					if (!this.elements.formulaImportStatus) {
-						return;
-					}
-					this.elements.formulaImportStatus.textContent = text;
-				},
-
 				renderFormulaCards: function() {
 					if (!this.elements.formulaCardsList) {
 						return;
@@ -3665,6 +3632,13 @@
 						return;
 					}
 					var state = this.importedFormulas[this.currentFormulaIndex];
+					var total = this.importedFormulas.length;
+					if (this.elements.practiceFormulaCount) {
+						this.elements.practiceFormulaCount.textContent = "共" + total + "个";
+					}
+					if (this.elements.practiceFormulaName) {
+						this.elements.practiceFormulaName.textContent = state && state.name ? "[" + state.name + "]" : "";
+					}
 					if (this.elements.showPracticeFormula) {
 						this.elements.showPracticeFormula.checked = this.showPracticeFormula;
 					}
@@ -3790,7 +3764,7 @@
 					this.renderMoves();
 					this.elements.moveCount.textContent = "0";
 					this.elements.lastTs.textContent = this.formatTime(Date.now());
-					this.setFormulaImportStatus((this.isPracticeMode ? "当前状态：" : "已应用：") + state.name);
+
 					this.updatePracticeFormulaToggle();
 					this.updatePracticeAoTimes();
 					this.log("state", "applied " + state.name);
@@ -3866,7 +3840,7 @@
 						this.updatePracticeAoTimes();
 						this.savePracticeStats();
 					}
-					this.setFormulaImportStatus(this.practiceMode === "loop" ? "已还原，正在循环" : "已还原，正在切换");
+
 					this.showPracticeSolvedCheck();
 					var self = this;
 					// 打勾仅作为视觉反馈，不阻塞流程：检测到完成立即切换到下一个训练状态。
@@ -5152,6 +5126,50 @@
 					});
 				},
 
+				closeInlineExpansion: function(expansion, anchor, onClosed) {
+					if (!expansion) { return; }
+					expansion.classList.remove("isOpen");
+					if (anchor) { anchor.setAttribute("aria-expanded", "false"); }
+					setTimeout(function() {
+						if (expansion.parentNode) { expansion.remove(); }
+						if (typeof onClosed === "function") { onClosed(); }
+					}, 260);
+				},
+
+				openNoticePrompt: function(options) {
+					options = options || {};
+					var old = document.querySelector(".appNoticeOverlay");
+					if (old) { old.remove(); }
+					var overlay = document.createElement("div");
+					overlay.className = "appNoticeOverlay";
+					overlay.innerHTML = '<section class="appNoticeCard' + (options.warning ? ' isWarning' : '') + '" role="alertdialog" aria-modal="true"><div class="appNoticeIcon" aria-hidden="true"></div><div class="appNoticeContent"><strong class="appNoticeTitle">' + this.escapeHtml(options.title || "请确认") + '</strong><p class="appNoticeMessage">' + this.escapeHtml(options.message || "") + '</p><div class="appNoticeActions"><button class="button secondary appNoticeCancel" type="button">' + this.escapeHtml(options.cancelText || "取消") + '</button><button class="button appNoticeConfirm" type="button">' + this.escapeHtml(options.confirmText || "确认") + '</button></div></div></section>';
+					document.body.appendChild(overlay);
+					var closed = false;
+					var close = function(callback) {
+						if (closed) { return; }
+						closed = true;
+						document.removeEventListener("keydown", onKeyDown, true);
+						overlay.classList.remove("isOpen");
+						setTimeout(function() {
+							if (overlay.parentNode) { overlay.remove(); }
+							if (typeof callback === "function") { callback(); }
+						}, 180);
+					};
+					var onKeyDown = function(event) {
+						if (event.key === "Escape") { close(options.onCancel); }
+					};
+					overlay.querySelector(".appNoticeCancel").addEventListener("click", function() { close(options.onCancel); });
+					overlay.querySelector(".appNoticeConfirm").addEventListener("click", function() { close(options.onConfirm); });
+					overlay.addEventListener("click", function(event) {
+						if (event.target === overlay) { close(options.onCancel); }
+					});
+					document.addEventListener("keydown", onKeyDown, true);
+					requestAnimationFrame(function() {
+						overlay.classList.add("isOpen");
+						overlay.querySelector(".appNoticeConfirm").focus();
+					});
+					return close;
+				},
 				showToast: function(message, duration) {
 					var el = document.getElementById("toastNotify");
 					if (!el) {
