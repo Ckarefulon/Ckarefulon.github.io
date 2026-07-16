@@ -90,6 +90,7 @@
 		}
 
 		.app {
+			position: relative;
 			display: grid;
 			grid-template-columns: minmax(0, 1fr) 340px;
 			grid-template-rows: 1fr;
@@ -3715,6 +3716,7 @@
 }
 
 @media (orientation: landscape) {
+	.keyboardDrawer { --keyboard-key-size: min(60px, calc((100dvh - 55px) / 6)); }
 	.formulaExportOverlay,
 	.customStateOverlay,
 	.formulaAddGroupDialog,
@@ -4032,4 +4034,204 @@
 	.appNoticeCard,
 	.formulaAddGroupDialog,
 	.formulaAddGroupDialogBox { transition-duration: .01ms !important; }
+}
+
+/* Manual keyboard: fixed corner trigger plus responsive drawer. */
+.keyboardDrawerToggle {
+	position: absolute;
+	z-index: 32;
+	display: grid;
+	width: 40px;
+	height: 40px;
+	place-items: center;
+	padding: 0;
+	border: 1px solid color-mix(in srgb, var(--controlBorder) 88%, transparent);
+	border-radius: 50%;
+	background: var(--surfaceSolid);
+	color: var(--controlText);
+	box-shadow: 0 8px 24px rgba(20, 20, 36, .14);
+	cursor: pointer;
+	transition: color .18s ease, border-color .18s ease, background .18s ease, transform .22s ease;
+}
+.keyboardDrawerToggle:hover,
+.keyboardDrawerToggle[aria-expanded="true"] {
+	border-color: color-mix(in srgb, var(--accent) 72%, var(--controlBorder));
+	background: var(--controlHoverBg);
+	color: var(--accent);
+}
+.keyboardDrawerToggle:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+.keyboardDrawerToggle svg {
+	width: 23px;
+	height: 23px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.7;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.keyboardDrawer {
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 1100;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	min-width: 0;
+	min-height: 0;
+	border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+	border-radius: 18px 18px 0 0;
+	background: var(--surfaceSolid);
+	box-shadow: 0 18px 44px rgba(20, 20, 36, .18);
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transform: translateY(100%);
+	transition: width .28s cubic-bezier(.2,.8,.2,1), height .28s cubic-bezier(.2,.8,.2,1), transform .24s cubic-bezier(.2,.8,.2,1), opacity .18s ease, visibility .18s ease;
+}
+.keyboardDrawer.isOpen {
+	opacity: 1;
+	visibility: visible;
+	pointer-events: auto;
+	transform: translateY(0);
+}
+.keyboardDrawer.isDragging { transition: transform .24s cubic-bezier(.2,.8,.2,1), opacity .18s ease, visibility .18s ease; }
+
+.keyboardDrawerHandle {
+	--drawer-handle-width: 100%;
+	--drawer-handle-height: 26px;
+	--drawer-grip-width: 44px;
+	--drawer-grip-height: 5px;
+	--drawer-grip-hover-width: 54px;
+	--drawer-grip-hover-height: 5px;
+	position: relative;
+	display: grid;
+	flex: 0 0 auto;
+	width: var(--drawer-handle-width);
+	height: var(--drawer-handle-height);
+	place-items: center;
+	padding: 0;
+	border: 0;
+	background: var(--surfaceSolid);
+	cursor: grab;
+	touch-action: none;
+}
+.keyboardDrawerHandle:active { cursor: grabbing; }
+.keyboardDrawerHandle::before {
+	content: "";
+	width: var(--drawer-grip-width);
+	height: var(--drawer-grip-height);
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--muted) 45%, transparent);
+	transition: width .18s ease, height .18s ease, background .18s ease;
+}
+.keyboardDrawerHandle:hover::before,
+.keyboardDrawerHandle:focus-visible::before {
+	width: var(--drawer-grip-hover-width);
+	height: var(--drawer-grip-hover-height);
+	background: var(--accent);
+}
+
+.keyboardDrawerBody {
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+	overscroll-behavior: contain;
+	scrollbar-width: none;
+}
+.keyboardDrawerBody::-webkit-scrollbar { display: none; }
+.keyboardDrawerBody > .panelSection { flex: 0 0 auto; margin: 0; padding: 8px 10px 10px; border: 0; background: transparent; box-shadow: none; }
+.keyboardDrawer .moves { display: flex; width: min(100%, 720px); margin: 0 auto; flex-direction: column; gap: 7px; }
+.keyboardExtraMoves,
+.keyboardRotationMoves { display: grid; gap: 7px; }
+.keyboardDrawer:not(.isLarge) .keyboardExtraMoves { display: none; }
+.keyboardDrawer.isPreviewLarge .keyboardExtraMoves { display: grid; }
+.keyboardExtraMoves,
+.keyboardRotationMoves { align-items: stretch; }
+.keyboardExtraMoves { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.keyboardRotationMoves { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.keyboardDrawer .moveButton {
+	width: 100%;
+	min-width: 0;
+	min-height: 0;
+	height: auto;
+	aspect-ratio: 1;
+	box-sizing: border-box;
+}
+.keyboardDrawer .moveButton.rotation {
+	background: var(--rotationBg);
+	color: var(--rotationText);
+	border-color: rgba(93, 78, 168, 0.42);
+}
+
+@media (orientation: portrait) {
+	.keyboardDrawerToggle { grid-column: 1; grid-row: 2; top: 0; right: auto; bottom: auto; left: 6px; margin: 0; transform: translateY(calc(-100% - 10px)); }
+	.keyboardDrawerToggle:hover,
+	.keyboardDrawerToggle:focus-visible,
+	.keyboardDrawerToggle[aria-expanded="true"] { transform: translateY(calc(-100% - 10px)) scale(1.04); }
+	.keyboardDrawerHandle { --drawer-handle-height: 32px; }
+	.keyboardDrawer { height: auto; }
+	.keyboardDrawerBody { flex: 0 0 auto; }
+	.keyboardDrawer.isDragging .keyboardDrawerBody { flex: 1 1 auto; }
+}
+
+@media (orientation: landscape) {
+	.keyboardDrawerToggle { grid-column: 3; grid-row: 1; top: auto; right: auto; bottom: 16px; left: 0; margin: 0; transform: translateX(calc(-100% - 10px)); }
+	.keyboardDrawerToggle:hover,
+	.keyboardDrawerToggle:focus-visible,
+	.keyboardDrawerToggle[aria-expanded="true"] { transform: translateX(calc(-100% - 10px)) scale(1.04); }
+	.keyboardDrawer {
+		left: auto;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		width: max-content;
+		height: 100%;
+		flex-direction: row;
+		border-radius: 18px 0 0 18px;
+		transform: translateX(100%);
+	}
+	.keyboardDrawer.isOpen { transform: translateX(0); }
+	.keyboardDrawerHandle {
+		--drawer-handle-width: 32px;
+		--drawer-handle-height: 100%;
+		--drawer-grip-width: 5px;
+		--drawer-grip-height: 44px;
+		--drawer-grip-hover-width: 5px;
+		--drawer-grip-hover-height: 54px;
+	}
+	.keyboardDrawerBody { flex-direction: row; align-items: stretch; }
+	.keyboardDrawerBody > .panelSection { display: flex; width: 100%; padding: 10px; justify-content: flex-end; }
+	.keyboardDrawer .moves { width: max-content; min-width: max-content; height: 100%; margin: 0; flex-direction: row; align-items: stretch; }
+	.keyboardExtraMoves,
+	.keyboardRotationMoves { grid-template-rows: repeat(6, var(--keyboard-key-size)); grid-auto-flow: column; grid-auto-rows: var(--keyboard-key-size); }
+	.keyboardExtraMoves {
+		width: calc(3 * var(--keyboard-key-size) + 14px);
+		grid-template-columns: repeat(3, var(--keyboard-key-size));
+		grid-auto-columns: var(--keyboard-key-size);
+		flex: 0 0 calc(3 * var(--keyboard-key-size) + 14px);
+	}
+	.keyboardRotationMoves { width: var(--keyboard-key-size); flex: 0 0 var(--keyboard-key-size); }
+	.keyboardRotationMoves .moveButton.rotation {
+		width: var(--keyboard-key-size);
+		height: var(--keyboard-key-size);
+		min-width: var(--keyboard-key-size);
+		min-height: var(--keyboard-key-size);
+		border-radius: 8px;
+		font-size: 14px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.keyboardDrawer,
+	.keyboardDrawerToggle { transition-duration: .01ms !important; }
 }

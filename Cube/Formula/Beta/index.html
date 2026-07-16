@@ -46,7 +46,7 @@
 	<script src="assets/memory/memory.js?v=1321" defer></script>
 
 	<title>魔方训练</title>
-	<link rel="stylesheet" href="assets/app.css?v=1321">
+	<link rel="stylesheet" href="assets/app.css?v=1334">
 </head>
 <body>
 	<main class="app">
@@ -87,8 +87,15 @@
 				<div class="topActions"></div>
 			</div>
 			<div id="cubeStage"></div>
+			<section id="keyboardDrawer" class="keyboardDrawer" aria-label="手动操作键盘" aria-hidden="true">
+				<button id="keyboardDrawerHandle" class="keyboardDrawerHandle" type="button" aria-label="关闭键盘" title="拖动切换大小，点击关闭键盘"></button>
+				<div id="keyboardDrawerBody" class="keyboardDrawerBody"></div>
+			</section>
 			<div id="practiceSolvedCheck" class="practiceSolvedCheck" aria-hidden="true"></div>
 		</section>
+		<button id="keyboardDrawerToggle" class="keyboardDrawerToggle" type="button" aria-label="打开键盘" title="打开键盘" aria-controls="keyboardDrawer" aria-expanded="false">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"></rect><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M10 13h.01M14 13h.01M18 13h.01M7 16h10"></path></svg>
+		</button>
 
 		<aside class="panel" aria-live="polite"></aside>
 
@@ -359,6 +366,7 @@
 
 			init: function() {
 				this.refreshElements();
+				this.renderKeyboardDrawer();
 
 				this.loadFormulaEntries();
 				this.loadPracticeStats();
@@ -447,6 +455,10 @@
 				refreshElements: function() {
 					this.elements = {
 						cubeStage: document.getElementById("cubeStage"),
+						keyboardDrawerToggle: document.getElementById("keyboardDrawerToggle"),
+						keyboardDrawer: document.getElementById("keyboardDrawer"),
+						keyboardDrawerHandle: document.getElementById("keyboardDrawerHandle"),
+						keyboardDrawerBody: document.getElementById("keyboardDrawerBody"),
 						practiceSolvedCheck: document.getElementById("practiceSolvedCheck"),
 						modeSwitcher: document.getElementById("modeSwitcher"),
 						modeCurrent: document.getElementById("modeCurrent"),
@@ -675,6 +687,8 @@
 					var actionClose = document.getElementById("actionPanelClose");
 					var actionHandle = document.getElementById("actionDrawerHandle");
 					var actionOverlay = document.getElementById("actionPanelOverlay");
+					var keyboardToggle = document.getElementById("keyboardDrawerToggle");
+					var keyboardHandle = document.getElementById("keyboardDrawerHandle");
 					document.querySelectorAll("[data-action-panel-toggle]").forEach(function(toggle) {
 						toggle.addEventListener("click", function() { self.toggleActionPanel(); });
 					});
@@ -686,6 +700,19 @@
 					if (actionOverlay) actionOverlay.addEventListener("click", function(event) {
 						if (event.target === actionOverlay) self.closeActionPanel();
 					});
+					if (keyboardToggle) keyboardToggle.addEventListener("click", function() { self.toggleKeyboardDrawer(); });
+					if (keyboardHandle) {
+						keyboardHandle.addEventListener("click", function(event) {
+							if (self._keyboardDrawerHandleDragged) {
+								self._keyboardDrawerHandleDragged = false;
+								event.preventDefault();
+								return;
+							}
+							self.closeKeyboardDrawer();
+						});
+						this.bindKeyboardDrawerHandle(keyboardHandle);
+					}
+					this.bindKeyboardDrawerDismiss();
 					var layoutMenu = document.getElementById("layoutMenuToggle");
 					var railScrim = document.getElementById("sideRailScrim");
 					if (layoutMenu) layoutMenu.addEventListener("click", function() { self.toggleRightRail(); });
@@ -727,6 +754,7 @@
 				window.addEventListener("resize", function() {
 					self.resizeTwisty();
 					self.layoutPracticeCards();
+					self.syncKeyboardDrawerSize();
 				});
 				if (window.ResizeObserver) {
 					new ResizeObserver(function() {
@@ -753,6 +781,7 @@
 							}
 						}
 						if (event.key === "Escape") {
+							self.closeKeyboardDrawer();
 							self.closeActionPanel();
 							self.closeRightRail();
 							self.closeModeMenu();
@@ -792,6 +821,165 @@
 
 				isPortraitLayout: function() {
 					return window.matchMedia("(orientation: portrait)").matches;
+				},
+
+				renderKeyboardDrawer: function() {
+					var body = document.getElementById("keyboardDrawerBody");
+					if (body && !body.firstElementChild) body.innerHTML = this.getManualMovesHtml();
+				},
+
+				getKeyboardDrawerBounds: function() {
+					var drawer = document.getElementById("keyboardDrawer");
+					if (!drawer) return this.isPortraitLayout() ? { small: 112, large: 318 } : { small: 96, large: 297 };
+					var portrait = this.isPortraitLayout();
+					var wasLarge = drawer.classList.contains("isLarge");
+					var inlineSize = portrait ? drawer.style.height : drawer.style.width;
+					if (portrait) drawer.style.height = "";
+					else drawer.style.width = "";
+					drawer.classList.remove("isLarge");
+					var small = portrait ? drawer.getBoundingClientRect().height : drawer.getBoundingClientRect().width;
+					drawer.classList.add("isLarge");
+					var large = portrait ? drawer.getBoundingClientRect().height : drawer.getBoundingClientRect().width;
+					drawer.classList.toggle("isLarge", wasLarge);
+					if (portrait) drawer.style.height = inlineSize;
+					else drawer.style.width = inlineSize;
+					return { small: small, large: large };
+				},
+
+				applyKeyboardDrawerSize: function(large) {
+					var drawer = document.getElementById("keyboardDrawer");
+					if (!drawer) return;
+					var bounds = this.getKeyboardDrawerBounds();
+					drawer.classList.toggle("isLarge", !!large);
+					drawer.classList.remove("isPreviewLarge");
+					var size = large ? bounds.large : bounds.small;
+					if (this.isPortraitLayout()) {
+						drawer.style.width = "";
+						drawer.style.height = "";
+					} else {
+						drawer.style.height = "";
+						drawer.style.width = "";
+					}
+					document.documentElement.style.setProperty("--keyboard-drawer-height", size + "px");
+				},
+
+				syncKeyboardDrawerMode: function(mode) {
+					this.applyKeyboardDrawerSize(mode === "formula");
+				},
+
+				syncKeyboardDrawerSize: function() {
+					var drawer = document.getElementById("keyboardDrawer");
+					if (drawer) this.applyKeyboardDrawerSize(drawer.classList.contains("isLarge"));
+				},
+
+				toggleKeyboardDrawer: function() {
+					var drawer = document.getElementById("keyboardDrawer");
+					if (drawer && drawer.classList.contains("isOpen")) this.closeKeyboardDrawer();
+					else this.openKeyboardDrawer();
+				},
+
+				openKeyboardDrawer: function() {
+					var drawer = document.getElementById("keyboardDrawer");
+					var toggle = document.getElementById("keyboardDrawerToggle");
+					if (!drawer) return;
+					drawer.classList.add("isOpen");
+					drawer.setAttribute("aria-hidden", "false");
+					if (toggle) {
+						toggle.setAttribute("aria-expanded", "true");
+						toggle.setAttribute("aria-label", "关闭键盘");
+						toggle.title = "关闭键盘";
+					}
+				},
+
+				closeKeyboardDrawer: function() {
+					var drawer = document.getElementById("keyboardDrawer");
+					var toggle = document.getElementById("keyboardDrawerToggle");
+					if (drawer) {
+						var keepLarge = drawer.classList.contains("isLarge");
+						drawer.classList.remove("isOpen", "isDragging", "isPreviewLarge");
+						drawer.setAttribute("aria-hidden", "true");
+						this.applyKeyboardDrawerSize(keepLarge);
+					}
+					if (toggle) {
+						toggle.setAttribute("aria-expanded", "false");
+						toggle.setAttribute("aria-label", "打开键盘");
+						toggle.title = "打开键盘";
+						if (document.activeElement === toggle) toggle.blur();
+					}
+				},
+
+				bindKeyboardDrawerDismiss: function() {
+					if (this._keyboardDrawerDismissBound) return;
+					this._keyboardDrawerDismissBound = true;
+					var self = this;
+					function isInsideKeyboard(target, event) {
+						var drawer = document.getElementById("keyboardDrawer");
+						var toggle = document.getElementById("keyboardDrawerToggle");
+						var path = event && typeof event.composedPath === "function" ? event.composedPath() : [];
+						return !!(target && ((drawer && (drawer.contains(target) || path.indexOf(drawer) >= 0)) || (toggle && (toggle.contains(target) || path.indexOf(toggle) >= 0))));
+					}
+					document.addEventListener("focusin", function(event) {
+						var drawer = document.getElementById("keyboardDrawer");
+						if (drawer && drawer.classList.contains("isOpen") && !isInsideKeyboard(event.target, event)) self.closeKeyboardDrawer();
+					});
+					document.addEventListener("pointerdown", function(event) {
+						var drawer = document.getElementById("keyboardDrawer");
+						if (drawer && drawer.classList.contains("isOpen") && !isInsideKeyboard(event.target, event)) self.closeKeyboardDrawer();
+					}, true);
+					window.addEventListener("blur", function() { self.closeKeyboardDrawer(); });
+				},
+
+				bindKeyboardDrawerHandle: function(handle) {
+					var self = this;
+					var drawer = handle.closest(".keyboardDrawer");
+					var start = 0, startSize = 0, currentSize = 0, delta = 0, dragging = false, dragBounds = null;
+					handle.addEventListener("pointerdown", function(event) {
+						dragging = true;
+						delta = 0;
+						self._keyboardDrawerHandleDragged = false;
+						var portrait = self.isPortraitLayout();
+						dragBounds = self.getKeyboardDrawerBounds();
+						start = portrait ? event.clientY : event.clientX;
+						startSize = portrait ? drawer.getBoundingClientRect().height : drawer.getBoundingClientRect().width;
+						currentSize = startSize;
+						drawer.classList.add("isDragging");
+						handle.setPointerCapture(event.pointerId);
+						event.preventDefault();
+					});
+					handle.addEventListener("pointermove", function(event) {
+						if (!dragging) return;
+						var current = self.isPortraitLayout() ? event.clientY : event.clientX;
+						delta = current - start;
+						var bounds = dragBounds || self.getKeyboardDrawerBounds();
+						currentSize = Math.max(0, Math.min(bounds.large, startSize - delta));
+						drawer.classList.toggle("isPreviewLarge", !drawer.classList.contains("isLarge") && currentSize > bounds.small + 1);
+						if (self.isPortraitLayout()) drawer.style.height = currentSize + "px";
+						else drawer.style.width = currentSize + "px";
+						document.documentElement.style.setProperty("--keyboard-drawer-height", currentSize + "px");
+						if (Math.abs(delta) >= 6) self._keyboardDrawerHandleDragged = true;
+						event.preventDefault();
+					});
+					function finishDrag(event) {
+						if (!dragging) return;
+						dragging = false;
+						var bounds = dragBounds || self.getKeyboardDrawerBounds();
+						if (currentSize < bounds.small * 0.58) {
+							self.closeKeyboardDrawer();
+							if (event && handle.hasPointerCapture && handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+							return;
+						}
+						if (Math.abs(delta) < 6) {
+							drawer.classList.remove("isDragging", "isPreviewLarge");
+							if (event && handle.hasPointerCapture && handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+							return;
+						}
+						var large = currentSize >= (bounds.small + bounds.large) / 2;
+						drawer.classList.remove("isDragging", "isPreviewLarge");
+						self.applyKeyboardDrawerSize(large);
+						if (event && handle.hasPointerCapture && handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+					}
+					handle.addEventListener("pointerup", finishDrag);
+					handle.addEventListener("pointercancel", finishDrag);
 				},
 
 				toggleRightRail: function() {
@@ -1073,6 +1261,7 @@
 					this.renderFormulaLibraryList();
 					this.renderSharedGroupSelector();
 					this.applyGroupMaskToCube();
+					this.syncKeyboardDrawerMode(mode);
 					if (mode === "library") {
 						this.loadFormulaLibraries();
 					}
@@ -1124,11 +1313,11 @@
 				},
 
 				getManualMovesHtml: function() {
-					return '<section class="panelSection"><div class="moves" id="manualMoves" aria-label="手动测试转动"><button class="moveButton" type="button" data-move="U">U</button><button class="moveButton" type="button" data-move="R">R</button><button class="moveButton" type="button" data-move="F">F</button><button class="moveButton" type="button" data-move="D">D</button><button class="moveButton" type="button" data-move="L">L</button><button class="moveButton" type="button" data-move="B">B</button><button class="moveButton" type="button" data-move="U&#39;">U&#39;</button><button class="moveButton" type="button" data-move="R&#39;">R&#39;</button><button class="moveButton" type="button" data-move="F&#39;">F&#39;</button><button class="moveButton" type="button" data-move="D&#39;">D&#39;</button><button class="moveButton" type="button" data-move="L&#39;">L&#39;</button><button class="moveButton" type="button" data-move="B&#39;">B&#39;</button><button class="moveButton" type="button" data-move="M">M</button><button class="moveButton" type="button" data-move="E">E</button><button class="moveButton" type="button" data-move="S">S</button><button class="moveButton" type="button" data-move="M&#39;">M&#39;</button><button class="moveButton" type="button" data-move="E&#39;">E&#39;</button><button class="moveButton" type="button" data-move="S&#39;">S&#39;</button><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>';
+					return '<section class="panelSection"><div class="moves" id="manualMoves" aria-label="手动测试转动"><div class="keyboardExtraMoves"><button class="moveButton" type="button" data-move="U">U</button><button class="moveButton" type="button" data-move="R">R</button><button class="moveButton" type="button" data-move="F">F</button><button class="moveButton" type="button" data-move="D">D</button><button class="moveButton" type="button" data-move="L">L</button><button class="moveButton" type="button" data-move="B">B</button><button class="moveButton" type="button" data-move="U&#39;">U&#39;</button><button class="moveButton" type="button" data-move="R&#39;">R&#39;</button><button class="moveButton" type="button" data-move="F&#39;">F&#39;</button><button class="moveButton" type="button" data-move="D&#39;">D&#39;</button><button class="moveButton" type="button" data-move="L&#39;">L&#39;</button><button class="moveButton" type="button" data-move="B&#39;">B&#39;</button><button class="moveButton" type="button" data-move="M">M</button><button class="moveButton" type="button" data-move="E">E</button><button class="moveButton" type="button" data-move="S">S</button><button class="moveButton" type="button" data-move="M&#39;">M&#39;</button><button class="moveButton" type="button" data-move="E&#39;">E&#39;</button><button class="moveButton" type="button" data-move="S&#39;">S&#39;</button></div><div class="keyboardRotationMoves"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></div></section>';
 				},
 
 				getPracticePanelHtml: function() {
-					return '<aside class="panel practicePanel">' + this.getPanelHeaderHtml("训练模式") + '<section class="panelSection"><div class="controls practiceControls"><div id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><button class="practiceModeCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span class="practiceModeCurrentText">顺序模式</span><span class="practiceModeChevron" aria-hidden="true"></span></button><div class="practiceModeMenu" role="menu"><button class="practiceModeOption" type="button" data-value="sequence" role="menuitem">顺序模式</button><button class="practiceModeOption" type="button" data-value="random" role="menuitem">随机模式</button><button class="practiceModeOption" type="button" data-value="loop" role="menuitem">循环模式</button></div></div></div></section><section class="panelSection"><div class="moves" id="orientationMoves" aria-label="整体旋转"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></section>' + this.getMacHelpHtml() + '' + this.getFormulaImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel practicePanel">' + this.getPanelHeaderHtml("训练模式") + '<section class="panelSection"><div class="controls practiceControls"><div id="practiceModeSelect" class="practiceModeSelect" aria-label="练习切换模式"><button class="practiceModeCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span class="practiceModeCurrentText">顺序模式</span><span class="practiceModeChevron" aria-hidden="true"></span></button><div class="practiceModeMenu" role="menu"><button class="practiceModeOption" type="button" data-value="sequence" role="menuitem">顺序模式</button><button class="practiceModeOption" type="button" data-value="random" role="menuitem">随机模式</button><button class="practiceModeOption" type="button" data-value="loop" role="menuitem">循环模式</button></div></div></div></section>' + this.getMacHelpHtml() + '' + this.getFormulaImportHtml(false, true) + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				getLibraryPanelHtml: function() {
@@ -1136,7 +1325,7 @@
 				},
 
 				getFormulaPanelHtml: function() {
-					return '<aside class="panel formulaPanel">' + this.getPanelHeaderHtml("公式制作") + '<section class="panelSection"><div class="controls formulaControls"><button id="exportFormulaBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + this.getManualMovesHtml() + '<section class="panelSection"><div id="formulaList" class="formulaList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="panel formulaPanel">' + this.getPanelHeaderHtml("公式制作") + '<section class="panelSection"><div class="controls formulaControls"><button id="exportFormulaBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + '<section class="panelSection"><div id="formulaList" class="formulaList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				bindOnce: function(element, key, handler) {
