@@ -1,4 +1,4 @@
-		:root {
+﻿		:root[data-theme="light"] {
 			color-scheme: light;
 			--bg: #f6f7fb;
 			--surface: rgba(255, 255, 255, 0.9);
@@ -33,7 +33,7 @@
 			--shadow: 0 18px 50px rgba(36, 36, 54, 0.12);
 		}
 
-		:root[data-theme="dark"] {
+		:root {
 			color-scheme: dark;
 			--bg: #0f0f16;
 			--surface: rgba(27, 27, 38, 0.94);
@@ -42,7 +42,9 @@
 			--muted: #c0c2d0;
 			--line: #414157;
 			--panel: rgba(27, 27, 38, 0.92);
+			--accent: #5d4ea8;
 			--accentSoft: rgba(93, 78, 168, 0.26);
+			--cyan: #24f0ea;
 			--cyanSoft: rgba(36, 240, 234, 0.08);
 			--good: #24f0ea;
 			--red: #e85d6a;
@@ -89,7 +91,7 @@
 			font: inherit;
 		}
 
-		.app {
+		.appShell {
 			position: relative;
 			display: grid;
 			grid-template-columns: minmax(0, 1fr) 340px;
@@ -100,7 +102,7 @@
 			min-height: 0;
 		}
 
-		.stage {
+		.cubeArea {
 			position: relative;
 			min-width: 0;
 			min-height: 420px;
@@ -181,7 +183,7 @@
 			pointer-events: none;
 		}
 
-		.topbar {
+		.topBar {
 			position: absolute;
 			top: 18px;
 			left: 18px;
@@ -495,7 +497,7 @@
 			color: var(--controlText);
 		}
 
-		:root[data-theme="dark"] .panelHeader h1,
+		:root[data-theme="dark"] .viewHead h1,
 		:root[data-theme="dark"] .historyTitle span:first-child,
 		:root[data-theme="dark"] .metric span {
 			color: var(--cyan);
@@ -509,7 +511,7 @@
 			outline-offset: 2px;
 		}
 
-		.panel {
+		.modeView {
 			display: flex;
 			flex-direction: column;
 			min-height: 0;
@@ -523,39 +525,39 @@
 			transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
 		}
 
-		.panelHeader,
-		.panelSection {
+		.viewHead,
+		.viewSec {
 			flex: 0 0 auto;
 			padding: 16px;
 			border-bottom: 1px solid var(--line);
 		}
 
-		.panelHeader {
+		.viewHead {
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
 			gap: 12px;
 		}
 
-		.panelHeaderContent {
+		.viewHeadContent {
 			min-width: 0;
 			flex: 1;
 		}
 
-		.panelHeader h1 {
+		.viewHead h1 {
 			margin: 0;
 			font-size: 20px;
 			line-height: 1.15;
 			letter-spacing: 0;
 		}
 
-		.panelHeader p {
+		.viewHead p {
 			margin: 8px 0 0;
 			color: var(--muted);
 			font-size: 13px;
 		}
 
-		.panelHeader .seamlessToggle {
+		.viewHead .seamlessToggle {
 			min-height: 32px;
 			padding: 0 12px;
 			gap: 0;
@@ -571,7 +573,7 @@
 			transition: border-color 0.16s ease, color 0.16s ease, background 0.22s ease, transform 0.16s ease;
 		}
 
-		.panelHeader .seamlessToggle:hover {
+		.viewHead .seamlessToggle:hover {
 			border-color: rgba(36, 240, 234, 0.58);
 			color: var(--accent);
 			transform: translateY(-1px);
@@ -579,26 +581,26 @@
 			box-shadow: none;
 		}
 
-		.panelHeader .seamlessToggle.isActive {
+		.viewHead .seamlessToggle.isActive {
 			border-color: rgba(36, 240, 234, 0.58);
 			background: var(--panel);
 			color: var(--cyan);
 		}
 
-		.panelHeader .seamlessToggle.isActive:hover {
+		.viewHead .seamlessToggle.isActive:hover {
 			color: var(--controlText);
 		}
 
-		.panelHeader .seamlessToggle .toggleSwitch,
-		.panelHeader .seamlessToggle .toggleLabel {
+		.viewHead .seamlessToggle .toggleSwitch,
+		.viewHead .seamlessToggle .toggleLabel {
 			display: none;
 		}
 
-		.panelHeader .seamlessToggle::after {
+		.viewHead .seamlessToggle::after {
 			content: "无缝";
 		}
 
-		:root[data-theme="dark"] .panelHeader .seamlessToggle:hover {
+		:root[data-theme="dark"] .viewHead .seamlessToggle:hover {
 			color: var(--controlText);
 		}
 
@@ -642,7 +644,7 @@
 			gap: 10px;
 		}
 
-		.practicePanel {
+		.practiceView {
 			gap: 0;
 		}
 
@@ -1189,7 +1191,7 @@
 			font-size: 13px;
 		}
 
-		.formulaCardsList {
+		.practiceGrid {
 			display: grid;
 			gap: 8px;
 			margin-top: 12px;
@@ -1244,12 +1246,12 @@
 		}
 
 		/* ѵ��ģʽ��Ƭ������ JS �����������Ƶ����ռ����������Ƭ��������ͼ�����ֶ��� */
-		.practicePanel .formulaCardsList {
+		.practiceView .practiceGrid {
 			grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
 			gap: 10px;
 		}
 
-		.practicePanel .stateCard {
+		.practiceView .stateCard {
 			grid-template-columns: 1fr;
 			grid-template-rows: auto auto;
 			grid-auto-rows: auto;
@@ -1262,8 +1264,8 @@
 			transition: transform 0.14s ease, border-color 0.14s ease, background 0.22s ease, box-shadow 0.14s ease;
 		}
 
-		.practicePanel .stateCard:hover,
-		.practicePanel .stateCard:focus-visible {
+		.practiceView .stateCard:hover,
+		.practiceView .stateCard:focus-visible {
 			border-color: rgba(36, 240, 234, 0.68);
 			background: var(--controlHoverBg);
 			box-shadow: inset 0 0 0 1px rgba(36, 240, 234, 0.08);
@@ -1271,12 +1273,12 @@
 			transform: translateY(-1px);
 		}
 
-		.practicePanel .stateCard.isActive {
+		.practiceView .stateCard.isActive {
 			border-color: rgba(93, 78, 168, 0.68);
 			box-shadow: inset 0 0 0 1px rgba(93, 78, 168, 0.20), 0 0 0 3px var(--accentSoft);
 		}
 
-		.practicePanel .statePreview {
+		.practiceView .statePreview {
 			width: 100%;
 			height: auto;
 			max-width: 100%;
@@ -1284,7 +1286,7 @@
 			padding-top: 0;
 		}
 
-		.practicePanel .statePreview > div {
+		.practiceView .statePreview > div {
 			width: 100%;
 			height: 100%;
 			aspect-ratio: 1 / 1;
@@ -1300,16 +1302,16 @@
 			display: none;
 		}
 
-		.formulaPanel .moves {
+		.makerView .moves {
 			margin-top: 0;
 		}
 
-		.formulaList {
+		.draftList {
 			display: grid;
 			gap: 10px;
 		}
 
-		.formulaListActions {
+		.draftListActions {
 			display: flex;
 			align-items: center;
 			gap: 8px;
@@ -1698,7 +1700,7 @@
 		.sharedGroupBar {
 			margin-bottom: 8px;
 		}
-		.formulaAddGroupDialog {
+		.groupPicker {
 			position: fixed;
 			inset: 0;
 			z-index: 50;
@@ -1707,7 +1709,7 @@
 			align-items: center;
 			justify-content: center;
 		}
-		.formulaAddGroupDialogBox {
+		.groupPickerBox {
 			background: var(--bg-primary, #1a1a2e);
 			border: 1px solid rgba(255,255,255,0.15);
 			border-radius: 12px;
@@ -1715,22 +1717,22 @@
 			max-width: 360px;
 			width: calc(100% - 32px);
 		}
-		.formulaAddGroupDialogTitle {
+		.groupPickerTitle {
 			font-size: 16px;
 			font-weight: 600;
 			margin-bottom: 6px;
 		}
-		.formulaAddGroupDialogDesc {
+		.groupPickerDesc {
 			font-size: 13px;
 			opacity: 0.7;
 			margin-bottom: 14px;
 		}
-		.formulaAddGroupDialogActions {
+		.groupPickerActions {
 			display: flex;
 			flex-direction: column;
 			gap: 6px;
 		}
-		.formulaAddGroupDialogActions .button {
+		.groupPickerActions .button {
 			width: 100%;
 			justify-content: center;
 		}
@@ -1759,7 +1761,7 @@
 			opacity: 1;
 		}
 
-		.customStateSection .button {
+		.stateBox .button {
 			width: 100%;
 		}
 
@@ -2054,44 +2056,44 @@
 			transition: background 0.22s ease;
 		}
 
-		.app {
+		.appShell {
 			grid-template-columns: 1fr;
 			height: auto;
 			min-height: 100%;
 		}
 
-		.stage {
+		.cubeArea {
 			min-height: 62vh;
 		}
 
-		.panel {
+		.modeView {
 			min-height: 460px;
 			max-height: none;
 		}
 
 		/* 移动端训练模式控�? 1/2 平分，并在过窄时自动换行（与其它模式按钮换行逻辑一致）�? */
-		.practicePanel .practiceControls {
+		.practiceView .practiceControls {
 			display: flex;
 			flex-wrap: wrap;
 		}
 
-		.practicePanel .practiceControls > * {
+		.practiceView .practiceControls > * {
 			flex: 1 1 50%;
 			min-width: 140px;
 		}
 
-		.practicePanel .practiceModeSelect {
+		.practiceView .practiceModeSelect {
 			width: auto;
 		}
 	}
 
 		@media (max-width: 520px) {
-			.app {
+			.appShell {
 				padding: 10px 10px 10px;
 				gap: 10px;
 			}
 
-			.topbar {
+			.topBar {
 				top: 10px;
 				left: 10px;
 				right: 10px;
@@ -2114,15 +2116,15 @@
 		:root { --mobile-nav-size: 70px; --mobile-gap: 10px; }
 		html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
 		body { overflow: hidden !important; }
-		.app {
+		.appShell {
 			height: calc(100dvh - var(--site-nav-height, 0px));
 			min-height: 0;
 			padding: var(--mobile-gap);
 			gap: var(--mobile-gap);
 			overflow: hidden;
 		}
-		.topbar { display: none; }
-		.mobileNav {
+		.topBar { display: none; }
+		.modeNav {
 			z-index: 20;
 			display: grid;
 			background: var(--surface);
@@ -2131,15 +2133,15 @@
 			-webkit-backdrop-filter: blur(14px);
 			backdrop-filter: blur(14px);
 		}
-		.mobileNavButton {
+		.modeNavBtn {
 			min-width: 0; min-height: 48px; padding: 7px 5px; border: 0;
 			background: transparent; color: var(--muted); font-size: 11px;
 			font-weight: 700; cursor: pointer; display: flex; align-items: center;
 			justify-content: center; flex-direction: column; gap: 3px;
 			transition: color .16s ease, background .16s ease;
 		}
-		.mobileNavButton .modeIcon { width: 27px; height: 27px; }
-		.mobileNavButton.isActive {
+		.modeNavBtn .modeIcon { width: 27px; height: 27px; }
+		.modeNavBtn.isActive {
 			color: var(--accent); background: var(--accentSoft);
 			box-shadow: inset 0 3px 0 var(--cyan);
 		}
@@ -2148,99 +2150,99 @@
 			border: 1px solid var(--controlBorder); border-radius: 7px;
 			background: var(--controlBg); font-size: 16px; line-height: 1;
 		}
-		.stage {
+		.cubeArea {
 			min-width: 0; min-height: 0; width: var(--cube-size); height: var(--cube-size);
 			aspect-ratio: 1; justify-self: center;
 		}
-		.panel {
+		.modeView {
 			min-width: 0; min-height: 0; max-height: none; height: 100%;
 			overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
 			-webkit-overflow-scrolling: touch;
 		}
-		.panelHeader { position: sticky; top: 0; z-index: 3; background: var(--surfaceSolid); }
+		.viewHead { position: sticky; top: 0; z-index: 3; background: var(--surfaceSolid); }
 		.history, .practiceDiagnostics { display: none !important; }
-		.actionPanelOverlay {
+		.panelOverlay {
 			position: fixed; inset: var(--site-nav-height, 0px) 0 0; z-index: 1000;
 			display: flex; background: rgba(12, 12, 20, .46); opacity: 0;
 			visibility: hidden; pointer-events: none;
 			transition: opacity .2s ease, visibility .2s ease;
 		}
-		.actionPanelOverlay.isOpen { opacity: 1; visibility: visible; pointer-events: auto; }
-		.actionDrawer {
+		.panelOverlay.isOpen { opacity: 1; visibility: visible; pointer-events: auto; }
+		.panelDrawer {
 			display: flex; flex-direction: column; min-height: 0;
 			background: var(--surfaceSolid); border: 1px solid var(--line);
 			box-shadow: var(--shadow); transition: transform .24s cubic-bezier(.16, 1, .3, 1);
 		}
-		.actionDrawerHeader {
+		.panelHead {
 			display: flex; align-items: center; gap: 10px; padding: 12px 14px;
 		}
 		/* ͷ�����޷찴ť�̶����������������ֿ�ѹ������ʡ�Ժ���β��������ѹ�޷졢������ */
-		.actionDrawerHeader .seamlessToggle { flex: 0 0 auto; }
-		.actionDrawerHeader .connectPill { flex: 1 1 auto; min-width: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-		.actionDrawerHeader .connectPill .connectLabel { display: block; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-		.actionDrawerHeader strong { font-size: 17px; }
-		.actionDrawerHeader .statusPill {
+		.panelHead .seamlessToggle { flex: 0 0 auto; }
+		.panelHead .connectPill { flex: 1 1 auto; min-width: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+		.panelHead .connectPill .connectLabel { display: block; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.panelHead strong { font-size: 17px; }
+		.panelHead .statusPill {
 			margin-left: auto; max-width: 42%; padding: 6px 9px; font-size: 12px;
 		}
-		.actionDrawerBody {
+		.modeOpsBody {
 			min-height: 0; overflow-y: auto; overscroll-behavior: contain;
 			padding-bottom: max(12px, env(safe-area-inset-bottom));
 		}
-		.actionDrawerBody > .panelSection,
-		.actionDrawerBody > .seamlessToggle,
-		.actionDrawerBody > [data-action-block] { width: auto; margin: 12px 14px 0; }
-		.actionDrawerBody > .panelSection,
-		.actionDrawerBody > .seamlessToggle { display: block; }
-		.actionDrawerBody > .panelSection {
+		.modeOpsBody > .viewSec,
+		.modeOpsBody > .seamlessToggle,
+		.modeOpsBody > [data-action-block] { width: auto; margin: 12px 14px 0; }
+		.modeOpsBody > .viewSec,
+		.modeOpsBody > .seamlessToggle { display: block; }
+		.modeOpsBody > .viewSec {
 			padding: 12px;
 		}
-		.actionDrawerBody > .seamlessToggle { width: calc(100% - 28px); min-height: 44px; }
-		.actionDrawerBody .macHelp.isVisible { display: block; }
+		.modeOpsBody > .seamlessToggle { width: calc(100% - 28px); min-height: 44px; }
+		.modeOpsBody .macHelp.isVisible { display: block; }
 		@media (orientation: portrait) {
-			.app {
+			.appShell {
 				--cube-size: min(calc(100vw - 2 * var(--mobile-gap)), 46dvh);
 				grid-template-columns: minmax(0, 1fr);
 				grid-template-rows: var(--cube-size) minmax(0, 1fr) auto;
 			}
-			.stage { grid-row: 1; }
-			.panel { grid-row: 2; }
-			.mobileNav {
+			.cubeArea { grid-row: 1; }
+			.modeView { grid-row: 2; }
+			.modeNav {
 				grid-row: 3; grid-template-columns: repeat(6, minmax(0, 1fr));
 				border-radius: 10px; padding-bottom: env(safe-area-inset-bottom);
 			}
-			.actionPanelOverlay { align-items: flex-end; }
-			.actionDrawer {
+			.panelOverlay { align-items: flex-end; }
+			.panelDrawer {
 				width: 100%; max-height: min(78dvh, 720px); border-radius: 14px 14px 0 0;
 				transform: translateY(100%);
 			}
-			.actionPanelOverlay.isOpen .actionDrawer { transform: translateY(0); }
+			.panelOverlay.isOpen .panelDrawer { transform: translateY(0); }
 		}
 		@media (orientation: landscape) {
-			.app {
+			.appShell {
 				--cube-size: min(calc(100dvh - var(--site-nav-height, 0px) - 2 * var(--mobile-gap)), 44vw);
 				grid-template-columns: var(--mobile-nav-size) var(--cube-size) minmax(0, 1fr);
 				grid-template-rows: minmax(0, 1fr);
 			}
-			.mobileNav {
+			.modeNav {
 				grid-column: 1; grid-template-rows: repeat(6, minmax(0, 1fr));
 				border-radius: 10px; overflow: hidden;
 			}
-			.mobileNavButton.isActive { box-shadow: inset 3px 0 0 var(--cyan); }
-			.stage { grid-column: 2; align-self: center; }
-			.panel { grid-column: 3; }
-			.actionPanelOverlay { justify-content: flex-end; }
-			.actionDrawer { width: min(430px, 72vw); height: 100%; transform: translateX(100%); }
-			.actionPanelOverlay.isOpen .actionDrawer { transform: translateX(0); }
+			.modeNavBtn.isActive { box-shadow: inset 3px 0 0 var(--cyan); }
+			.cubeArea { grid-column: 2; align-self: center; }
+			.modeView { grid-column: 3; }
+			.panelOverlay { justify-content: flex-end; }
+			.panelDrawer { width: min(430px, 72vw); height: 100%; transform: translateX(100%); }
+			.panelOverlay.isOpen .panelDrawer { transform: translateX(0); }
 		}
 		/* Product polish: clearer hierarchy, safer touch targets and calmer surfaces. */
-		.app {
+		.appShell {
 			padding-top: var(--mobile-gap);
 			padding-right: max(var(--mobile-gap), env(safe-area-inset-right));
 			padding-bottom: max(var(--mobile-gap), env(safe-area-inset-bottom));
 			padding-left: max(var(--mobile-gap), env(safe-area-inset-left));
 		}
-		.stage { border-radius: 14px; }
-		.panel {
+		.cubeArea { border-radius: 14px; }
+		.modeView {
 			gap: 10px;
 			padding: 0 2px 12px;
 			border: 0;
@@ -2249,37 +2251,37 @@
 			box-shadow: none;
 			scrollbar-gutter: stable;
 		}
-		.panelHeader,
-		.panel > .panelSection,
-		.panel > .memoryArea {
+		.viewHead,
+		.modeView > .viewSec,
+		.modeView > .reviewArea {
 			border: 1px solid var(--line);
 			border-radius: 12px;
 			background: var(--surface);
 			box-shadow: 0 8px 24px rgba(36, 36, 54, .07);
 		}
-		.panelHeader {
+		.viewHead {
 			margin: 0 2px;
 			padding: 14px 16px;
 			border-bottom: 1px solid var(--line);
 			-webkit-backdrop-filter: blur(16px);
 			backdrop-filter: blur(16px);
 		}
-		.panelHeader h1 { font-size: 19px; }
+		.viewHead h1 { font-size: 19px; }
 		.panelContext {
 			margin: 5px 0 0;
 			color: var(--muted);
 			font-size: 12px;
 			line-height: 1.4;
 		}
-		.panel > .panelSection,
-		.panel > .memoryArea {
+		.modeView > .viewSec,
+		.modeView > .reviewArea {
 			margin: 0 2px;
 			padding: 14px;
 			border-bottom: 1px solid var(--line);
 		}
-		.mobileNav { overflow: hidden; }
-		.mobileNavButton { position: relative; isolation: isolate; }
-		.mobileNavButton::after {
+		.modeNav { overflow: hidden; }
+		.modeNavBtn { position: relative; isolation: isolate; }
+		.modeNavBtn::after {
 			content: "";
 			position: absolute;
 			top: 8px;
@@ -2295,35 +2297,35 @@
 			box-shadow: 0 0 0 3px var(--cyanSoft);
 		}
 		#actionPanelToggle[data-state="error"]::after { background: var(--red); }
-		.actionDrawer { border-color: color-mix(in srgb, var(--line) 82%, transparent); }
-		.actionDrawerHeader { min-height: 62px; }
-		.actionDrawerBody { padding: 4px 0 max(18px, env(safe-area-inset-bottom)); }
-		.actionGroup {
+		.panelDrawer { border-color: color-mix(in srgb, var(--line) 82%, transparent); }
+		.panelHead { min-height: 62px; }
+		.modeOpsBody { padding: 4px 0 max(18px, env(safe-area-inset-bottom)); }
+		.opGroup {
 			margin: 12px 14px 0;
 			overflow: visible;
 		}
-		.actionGroupTitle {
+		.opGroupTitle {
 			display: none;
 		}
-		.actionGroupBody { padding: 0 12px 12px; }
-		.actionGroupBody > * { margin-top: 10px; }
-		.actionGroupBody > :first-child { margin-top: 0; }
+		.opGroupBody { padding: 0 12px 12px; }
+		.opGroupBody > * { margin-top: 10px; }
+		.opGroupBody > :first-child { margin-top: 0; }
 		.actionSubTitle { margin: 0 0 8px; color: var(--ink); font-size: 13px; font-weight: 800; }
-		.actionGroupBody > .panelSection {
+		.opGroupBody > .viewSec {
 			padding: 0;
 			border: 0;
 			background: transparent;
 		}
-		.actionGroupBody > .seamlessToggle { width: 100%; min-height: 46px; }
-		.actionGroupBody > .seamlessToggle::after { content: "无缝模式"; }
-		.actionGroupBody .button,
-		.actionGroupBody .practiceModeCurrent { min-height: 46px; }
-		.actionGroupBody .macHelp {
+		.opGroupBody > .seamlessToggle { width: 100%; min-height: 46px; }
+		.opGroupBody > .seamlessToggle::after { content: "无缝模式"; }
+		.opGroupBody .button,
+		.opGroupBody .practiceModeCurrent { min-height: 46px; }
+		.opGroupBody .macHelp {
 			margin: 0;
 			padding: 12px;
 			border-radius: 9px;
 		}
-		.actionDrawerBody:empty::after {
+		.modeOpsBody:empty::after {
 			content: "当前模式没有额外操作";
 			display: block;
 			padding: 36px 20px;
@@ -2331,7 +2333,7 @@
 			text-align: center;
 		}
 		@media (orientation: portrait) {
-			.actionDrawer::before {
+			.panelDrawer::before {
 				content: "";
 				width: 38px;
 				height: 4px;
@@ -2340,17 +2342,17 @@
 				background: var(--line);
 				flex: 0 0 auto;
 			}
-			.actionDrawerHeader { padding-top: 8px; }
+			.panelHead { padding-top: 8px; }
 		}
 		@media (orientation: landscape) and (max-height: 430px) {
-			.mobileNavButton { min-height: 0; padding: 4px 3px; font-size: 10px; }
-			.mobileNavButton .modeIcon { width: 24px; height: 24px; }
+			.modeNavBtn { min-height: 0; padding: 4px 3px; font-size: 10px; }
+			.modeNavBtn .modeIcon { width: 24px; height: 24px; }
 			.navUtilityIcon { width: 23px; height: 23px; }
-			.panelHeader { padding: 11px 14px; }
-			.panel > .panelSection,
-			.panel > .memoryArea { padding: 12px; }
+			.viewHead { padding: 11px 14px; }
+			.modeView > .viewSec,
+			.modeView > .reviewArea { padding: 12px; }
 		}
-		.mobileNavButton:active { transform: scale(.96); }
+		.modeNavBtn:active { transform: scale(.96); }
 		@media (prefers-reduced-motion: reduce) {
 			*, *::before, *::after {
 				scroll-behavior: auto !important;
@@ -2371,34 +2373,34 @@
 		.siteHeaderMenuBtn[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
 		.siteHeaderMenuBtn[aria-expanded="true"] span:nth-child(3) { transform: translateY(-4.5px) rotate(-45deg); }
 		.siteHeaderFullscreenBtn { font-size: 16px; line-height: 1; }
-		.panelHeader { display: none; }
-		.practicePanel .formulaCardsList { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-		.practicePanel .stateCard { min-width: 0; }
-		.practicePanel .statePreview > div { width: min(116px, 100%); height: min(116px, 100%); }
+		.viewHead { display: none; }
+		.practiceView .practiceGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+		.practiceView .stateCard { min-width: 0; }
+		.practiceView .statePreview > div { width: min(116px, 100%); height: min(116px, 100%); }
 		.bottomNav { display: none; }
-		.sideRail {
+		.sideNav {
 			min-width: 0; min-height: 0; display: grid; grid-template-rows: repeat(5, minmax(0, 1fr));
 			background: var(--surface); border: 1px solid var(--line); overflow: hidden;
 			-webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
 			transition: width .2s ease, transform .22s cubic-bezier(.16, 1, .3, 1);
 		}
-		.sideRailButton {
+		.modeNavBtn {
 			position: relative; min-width: 0; min-height: 48px; padding: 8px 10px;
 			border: 0; background: transparent; color: var(--muted); cursor: pointer;
 			display: flex; align-items: center; justify-content: center; gap: 10px;
 			font-size: 12px; font-weight: 800; transition: color .16s ease, background .16s ease;
 		}
-		.sideRailButton:hover,
-		.sideRailButton:focus-visible { background: var(--controlHoverBg); color: var(--ink); }
-		.sideRailButton.isActive { color: var(--accent); background: var(--accentSoft); box-shadow: inset -3px 0 0 var(--cyan); }
-		.sideRailButton .modeIcon { width: 28px; height: 28px; flex: 0 0 auto; }
-		.sideRail .navLabel { overflow: hidden; white-space: nowrap; }
+		.modeNavBtn:hover,
+		.modeNavBtn:focus-visible { background: var(--controlHoverBg); color: var(--ink); }
+		.modeNavBtn.isActive { color: var(--accent); background: var(--accentSoft); box-shadow: inset -3px 0 0 var(--cyan); }
+		.modeNavBtn .modeIcon { width: 28px; height: 28px; flex: 0 0 auto; }
+		.sideNav .navLabel { overflow: hidden; white-space: nowrap; }
 		.operationChevron {
 			display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 auto;
 			border-radius: 8px; background: var(--accentSoft); color: var(--accent);
 			font: 800 23px/1 system-ui, sans-serif; letter-spacing: -8px; padding-right: 8px;
 		}
-		.sideRailScrim {
+		.sideNavScrim {
 			position: fixed; inset: var(--site-nav-height, 0px) 0 0; z-index: 940;
 			background: rgba(12, 12, 20, .42); opacity: 0; visibility: hidden;
 			pointer-events: none; transition: opacity .18s ease, visibility .18s ease;
@@ -2412,61 +2414,61 @@
 			border-radius: 50%; background: var(--red);
 		}
 		@media (orientation: portrait) {
-			.app {
+			.appShell {
 				--cube-size: min(calc(100vw - 20px), 46dvh);
 				grid-template-columns: minmax(0, 1fr);
 				grid-template-rows: var(--cube-size) minmax(0, 1fr) auto;
 				gap: 10px; padding: 10px 0 0;
 			}
-			.stage { grid-row: 1; margin-inline: 10px; }
-			.panel { grid-row: 2; margin-inline: 8px; width: auto; }
+			.cubeArea { grid-row: 1; margin-inline: 10px; }
+			.modeView { grid-row: 2; margin-inline: 8px; width: auto; }
 			.bottomNav {
 				grid-row: 3; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
 				width: 100%; min-height: 58px; padding: 0 4px env(safe-area-inset-bottom);
 				border: 0; border-top: 1px solid var(--line); border-radius: 0;
 				background: var(--surfaceSolid); box-shadow: none; backdrop-filter: none;
 			}
-			.bottomNav .mobileNavButton { min-height: 58px; padding: 6px 2px; }
-			.bottomNav .mobileNavButton.isActive { box-shadow: inset 0 3px 0 var(--cyan); }
+			.bottomNav .modeNavBtn { min-height: 58px; padding: 6px 2px; }
+			.bottomNav .modeNavBtn.isActive { box-shadow: inset 0 3px 0 var(--cyan); }
 			.bottomNav .operationNavButton .navLabel { display: none; }
 			.bottomNav .operationChevron { transform: rotate(90deg); }
-			.sideRail {
+			.sideNav {
 				position: fixed; z-index: 950; top: var(--site-nav-height, 0px); right: 0; bottom: 0;
 				width: min(168px, 48vw); border-width: 0 0 0 1px; border-radius: 0;
 				transform: translateX(100%); box-shadow: -16px 0 42px rgba(0, 0, 0, .18);
 			}
-			.sideRailButton { justify-content: flex-start; padding-inline: 16px; }
-			.sideRail .navLabel { width: auto; opacity: 1; }
-			body.railOpen .sideRail { transform: translateX(0); }
-			body.railOpen .sideRailScrim { opacity: 1; visibility: visible; pointer-events: auto; }
+			.modeNavBtn { justify-content: flex-start; padding-inline: 16px; }
+			.sideNav .navLabel { width: auto; opacity: 1; }
+			body.railOpen .sideNav { transform: translateX(0); }
+			body.railOpen .sideNavScrim { opacity: 1; visibility: visible; pointer-events: auto; }
 		}
 		@media (orientation: landscape) {
-			.app {
+			.appShell {
 				--rail-width: 64px;
 				--cube-size: min(calc(100dvh - var(--site-nav-height, 0px) - 20px), 42vw);
 				grid-template-columns: var(--cube-size) minmax(0, 1fr) var(--rail-width);
 				grid-template-rows: minmax(0, 1fr); gap: 10px; padding: 10px 0 10px 10px;
 				transition: grid-template-columns .2s ease;
 			}
-			body.railExpanded .app { --rail-width: 152px; }
+			body.railExpanded .appShell { --rail-width: 152px; }
 			.bottomNav { display: none; }
-			.stage { grid-column: 1; grid-row: 1; align-self: center; }
-			.panel { grid-column: 2; grid-row: 1; }
-			.sideRail {
+			.cubeArea { grid-column: 1; grid-row: 1; align-self: center; }
+			.modeView { grid-column: 2; grid-row: 1; }
+			.sideNav {
 				grid-column: 3; grid-row: 1; width: var(--rail-width); height: 100%;
 				border-width: 1px 0 1px 1px; border-radius: 12px 0 0 12px;
 			}
-			.sideRailButton { justify-content: center; }
-			.sideRail .navLabel { width: 0; opacity: 0; transition: width .18s ease, opacity .14s ease; }
-			body.railExpanded .sideRailButton { justify-content: flex-start; }
-			body.railExpanded .sideRail .navLabel { width: auto; opacity: 1; }
+			.modeNavBtn { justify-content: center; }
+			.sideNav .navLabel { width: 0; opacity: 0; transition: width .18s ease, opacity .14s ease; }
+			body.railExpanded .modeNavBtn { justify-content: flex-start; }
+			body.railExpanded .sideNav .navLabel { width: auto; opacity: 1; }
 		}
 		.bottomNav .operationNavButton[aria-expanded="true"] .operationChevron { transform: rotate(-90deg); }
-		.sideRail .operationNavButton[aria-expanded="true"] .operationChevron { transform: rotate(180deg); }
+		.sideNav .operationNavButton[aria-expanded="true"] .operationChevron { transform: rotate(180deg); }
 		@media (orientation: landscape) {
 			body { --active-rail-width: 64px; }
 			body.railExpanded { --active-rail-width: 152px; }
-			.actionPanelOverlay { right: var(--active-rail-width); transition: right .2s ease, opacity .2s ease, visibility .2s ease; }
+			.panelOverlay { right: var(--active-rail-width); transition: right .2s ease, opacity .2s ease, visibility .2s ease; }
 		}
 		@media (max-width: 420px) {
 			.siteHeader { padding-inline: 8px; }
@@ -2484,32 +2486,32 @@
 		.siteHeaderMenuBtn:hover,
 		.siteHeaderFullscreenBtn:hover,
 		.siteHeaderBtnTheme:hover { background: var(--controlHoverBg); }
-		.panel { scrollbar-width: none; }
-		.panel::-webkit-scrollbar,
-		.actionDrawerBody::-webkit-scrollbar { display: none; }
-		.panel > .panelSection,
-		.panel > .memoryArea {
+		.modeView { scrollbar-width: none; }
+		.modeView::-webkit-scrollbar,
+		.modeOpsBody::-webkit-scrollbar { display: none; }
+		.modeView > .viewSec,
+		.modeView > .reviewArea {
 			border-color: color-mix(in srgb, var(--line) 72%, transparent);
 			border-radius: 14px;
 			box-shadow: 0 8px 22px rgba(20, 20, 36, .06);
 		}
-		.practicePanel #formulaImport { padding: 14px; }
-		.practicePanel .formulaCardsList { gap: 12px; }
-		.practicePanel .stateCard {
+		.practiceView #formulaImport { padding: 14px; }
+		.practiceView .practiceGrid { gap: 12px; }
+		.practiceView .stateCard {
 			border-radius: 12px;
 			box-shadow: 0 6px 16px rgba(20, 20, 36, .08);
 		}
-		.bottomNav .mobileNavButton {
+		.bottomNav .modeNavBtn {
 			background: transparent;
 			box-shadow: none;
 			color: var(--muted);
 		}
-		.bottomNav .mobileNavButton.isActive {
+		.bottomNav .modeNavBtn.isActive {
 			background: transparent;
 			box-shadow: none;
 			color: var(--accent);
 		}
-		.bottomNav .mobileNavButton.isActive::before {
+		.bottomNav .modeNavBtn.isActive::before {
 			content: "";
 			position: absolute;
 			top: 0;
@@ -2520,7 +2522,7 @@
 			background: linear-gradient(90deg, var(--accent), var(--cyan));
 			transform: translateX(-50%);
 		}
-		.bottomNav .mobileNavButton.isActive .modeIcon {
+		.bottomNav .modeNavBtn.isActive .modeIcon {
 			box-shadow: 0 0 0 1px rgba(36, 240, 234, .35), 0 6px 16px rgba(93, 78, 168, .18);
 		}
 		.operationChevron {
@@ -2552,8 +2554,8 @@
 		.operationNavButton[aria-expanded="true"] .operationChevron {
 			box-shadow: 0 0 0 4px var(--accentSoft), 0 8px 18px rgba(50, 40, 112, .28);
 		}
-		.actionDrawer { overflow: hidden; }
-		.actionDrawerContent {
+		.panelDrawer { overflow: hidden; }
+		.panelContent {
 			display: flex;
 			flex: 1 1 auto;
 			flex-direction: column;
@@ -2564,7 +2566,7 @@
 			padding: 14px;
 			background: linear-gradient(145deg, var(--accentSoft), transparent 62%), var(--surfaceSolid);
 		}
-		.actionControlsBody {
+		.globalOps {
 			flex: 0 0 auto;
 			display: flex;
 			flex-direction: column;
@@ -2572,7 +2574,7 @@
 			padding: 16px 16px max(24px, env(safe-area-inset-bottom));
 			background: transparent;
 		}
-		.actionModeControls {
+		.modeOps {
 			display: flex;
 			flex: 1 1 auto;
 			flex-direction: column;
@@ -2588,80 +2590,80 @@
 		}
 		.actionSectionHeading strong { color: var(--ink); font-size: 14px; }
 		.actionSectionHeading span { color: var(--muted); font-size: 11px; }
-		.actionModeControls > .actionSectionHeading { margin: 0; padding: 13px 16px 8px; }
-		.globalControlGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-		.globalControlGrid > .button,
-		.globalControlGrid > .seamlessToggle { min-height: 44px; margin: 0; width: 100%; }
-		.globalControlGrid .globalPrimary { box-shadow: 0 7px 16px rgba(93, 78, 168, .18); }
-		.globalControlGrid > .seamlessToggle {
+		.modeOps > .actionSectionHeading { margin: 0; padding: 13px 16px 8px; }
+		.globalOpsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+		.globalOpsGrid > .button,
+		.globalOpsGrid > .seamlessToggle { min-height: 44px; margin: 0; width: 100%; }
+		.globalOpsGrid .globalPrimary { box-shadow: 0 7px 16px rgba(93, 78, 168, .18); }
+		.globalOpsGrid > .seamlessToggle {
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
 			padding-inline: 12px;
 		}
-		.globalControlGrid > .seamlessToggle::after { content: none; }
-		.actionDrawerBody {
+		.globalOpsGrid > .seamlessToggle::after { content: none; }
+		.modeOpsBody {
 			flex: 1 1 auto;
 			min-height: 0;
 			overflow-y: auto;
 			padding: 0 0 max(16px, env(safe-area-inset-bottom));
 			scrollbar-width: none;
 		}
-		.actionGroup {
+		.opGroup {
 			margin: 10px 12px 0;
 			border-radius: 12px;
 			box-shadow: 0 5px 16px rgba(20, 20, 36, .06);
 		}
-		.sideRail {
+		.sideNav {
 			background: color-mix(in srgb, var(--surfaceSolid) 94%, transparent);
 			box-shadow: 8px 0 28px rgba(20, 20, 36, .12);
 		}
-		.sideRailButton { color: var(--muted); }
-		.sideRailButton.isActive {
+		.modeNavBtn { color: var(--muted); }
+		.modeNavBtn.isActive {
 			background: linear-gradient(90deg, var(--accentSoft), transparent);
 			box-shadow: inset 3px 0 0 var(--cyan);
 			color: var(--accent);
 		}
-		.sideRail .operationChevron { width: 40px; height: 40px; }
-		.sideRail .operationChevron::before,
-		.sideRail .operationChevron::after {
+		.sideNav .operationChevron { width: 40px; height: 40px; }
+		.sideNav .operationChevron::before,
+		.sideNav .operationChevron::after {
 			left: 13px;
 			top: 15px;
 			transform: rotate(-45deg);
 		}
-		.sideRail .operationChevron::after { left: 19px; }
+		.sideNav .operationChevron::after { left: 19px; }
 		@media (orientation: portrait) {
-			.app { --cube-size: min(calc(100vw - 20px), 44dvh); }
+			.appShell { --cube-size: min(calc(100vw - 20px), 44dvh); }
 			.bottomNav {
 				min-height: 64px;
 				padding-inline: max(6px, env(safe-area-inset-left));
 				border-top-color: color-mix(in srgb, var(--line) 78%, transparent);
 			}
-			.bottomNav .mobileNavButton { min-height: 64px; gap: 4px; }
-			.bottomNav .mobileNavButton .modeIcon { width: 29px; height: 29px; border-radius: 9px; }
+			.bottomNav .modeNavBtn { min-height: 64px; gap: 4px; }
+			.bottomNav .modeNavBtn .modeIcon { width: 29px; height: 29px; border-radius: 9px; }
 			.bottomNav .navLabel { font-size: 11px; }
 			.bottomNav .operationChevron { transform: none; }
 			.bottomNav .operationNavButton[aria-expanded="true"] .operationChevron { transform: rotate(180deg); }
-			.sideRail {
+			.sideNav {
 				left: 0;
 				right: auto;
 				border-width: 0 1px 0 0;
 				transform: translateX(-100%);
 				box-shadow: 16px 0 42px rgba(0, 0, 0, .18);
 			}
-			body.railOpen .sideRail { transform: translateX(0); }
-			.actionDrawer { max-height: min(86dvh, 760px); }
+			body.railOpen .sideNav { transform: translateX(0); }
+			.panelDrawer { max-height: min(86dvh, 760px); }
 		}
 		@media (orientation: landscape) {
 			body { --rail-visual-width: 64px; }
 			body.railExpanded { --rail-visual-width: 156px; }
-			.app {
+			.appShell {
 				--cube-size: min(calc(100dvh - var(--site-nav-height, 0px) - 20px), 42vw);
 				grid-template-columns: 64px var(--cube-size) minmax(0, 1fr);
 				grid-template-rows: minmax(0, 1fr);
 				padding: 10px 10px 10px 0;
 			}
-			.sideRail {
+			.sideNav {
 				grid-column: 1;
 				grid-row: 1;
 				position: relative;
@@ -2672,39 +2674,39 @@
 				border-radius: 0 12px 12px 0;
 				transition: width .2s ease;
 			}
-			body.railExpanded .sideRail { width: 156px; }
-			.stage { grid-column: 2; grid-row: 1; }
-			.panel { grid-column: 3; grid-row: 1; }
-			body.railExpanded .app { --rail-width: 64px; }
-			.sideRail .navLabel { width: 0; opacity: 0; }
-			body.railExpanded .sideRail .navLabel { width: auto; opacity: 1; }
-			.actionPanelOverlay {
+			body.railExpanded .sideNav { width: 156px; }
+			.cubeArea { grid-column: 2; grid-row: 1; }
+			.modeView { grid-column: 3; grid-row: 1; }
+			body.railExpanded .appShell { --rail-width: 64px; }
+			.sideNav .navLabel { width: 0; opacity: 0; }
+			body.railExpanded .sideNav .navLabel { width: auto; opacity: 1; }
+			.panelOverlay {
 				left: var(--rail-visual-width);
 				right: 0;
 				justify-content: flex-start;
 				transition: left .2s ease, opacity .2s ease, visibility .2s ease;
 			}
-			.actionDrawer {
+			.panelDrawer {
 				width: min(430px, 72vw);
 				transform: translateX(-100%);
 			}
-			.actionPanelOverlay.isOpen .actionDrawer { transform: translateX(0); }
+			.panelOverlay.isOpen .panelDrawer { transform: translateX(0); }
 		}
 		/* Final mobile ergonomics: centered practice cards and one continuous drawer. */
-		.practicePanel .formulaCardsList { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; }
-		.practicePanel .stateCard { display:flex; min-height:142px; align-items:center; justify-content:center; flex-direction:column; gap:7px; padding:12px 8px; text-align:center; }
-		.practicePanel .statePreview { display:grid; width:100%; height:88px; place-items:center; padding:0; }
-		.practicePanel .statePreview > div { width:84px; height:84px; margin:0 auto; }
-		.practicePanel .stateCard strong,.practicePanel .stateCard .stateName { width:100%; text-align:center; }
+		.practiceView .practiceGrid { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; }
+		.practiceView .stateCard { display:flex; min-height:142px; align-items:center; justify-content:center; flex-direction:column; gap:7px; padding:12px 8px; text-align:center; }
+		.practiceView .statePreview { display:grid; width:100%; height:88px; place-items:center; padding:0; }
+		.practiceView .statePreview > div { width:84px; height:84px; margin:0 auto; }
+		.practiceView .stateCard strong,.practiceView .stateCard .stateName { width:100%; text-align:center; }
 		.operationChevron { display:grid; place-items:center; }
 		.operationChevron::before,.operationChevron::after { left:50%; top:50%; width:8px; height:8px; }
 		.operationChevron::before { transform:translate(-50%,-82%) rotate(-135deg); }
 		.operationChevron::after { transform:translate(-50%,-8%) rotate(-135deg); }
-		.sideRail .operationChevron::before,.sideRail .operationChevron::after { top:50%; }
-		.sideRail .operationChevron::before { left:50%; transform:translate(-82%,-50%) rotate(-45deg); }
-		.sideRail .operationChevron::after { left:50%; transform:translate(-8%,-50%) rotate(-45deg); }
-		.actionDrawer::before { content:none !important; }
-		.actionDrawerMain {
+		.sideNav .operationChevron::before,.sideNav .operationChevron::after { top:50%; }
+		.sideNav .operationChevron::before { left:50%; transform:translate(-82%,-50%) rotate(-45deg); }
+		.sideNav .operationChevron::after { left:50%; transform:translate(-8%,-50%) rotate(-45deg); }
+		.panelDrawer::before { content:none !important; }
+		.panelMain {
 			position: relative;
 			isolation: isolate;
 			display: flex;
@@ -2715,7 +2717,7 @@
 			width: 100%;
 			overflow: hidden;
 		}
-		.actionDrawerHandle {
+		.panelHandle {
 			--drawer-handle-width: 100%;
 			--drawer-handle-height: 26px;
 			--drawer-grip-width: 44px;
@@ -2732,8 +2734,8 @@
 			cursor: grab;
 			touch-action: none;
 		}
-		.actionDrawerHandle:active { cursor:grabbing; }
-		.actionDrawerHandle::before {
+		.panelHandle:active { cursor:grabbing; }
+		.panelHandle::before {
 			content: "";
 			width: var(--drawer-grip-width);
 			height: var(--drawer-grip-height);
@@ -2741,49 +2743,49 @@
 			background: color-mix(in srgb,var(--muted) 42%,transparent);
 			transition: width .18s ease, height .18s ease, background .18s ease;
 		}
-		.actionDrawerHandle:hover::before,.actionDrawerHandle:focus-visible::before {
+		.panelHandle:hover::before,.panelHandle:focus-visible::before {
 			width: var(--drawer-grip-hover-width);
 			height: var(--drawer-grip-hover-height);
 			background: var(--accent);
 		}
-		.actionDrawerContent { display:block; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:none; }
-		.actionDrawerContent::-webkit-scrollbar { display:none; }
-		.actionGlobalControls,.actionModeControls { display:block; min-height:auto; }
-		.actionDrawerBody { display:block; overflow:visible; min-height:auto; }
-		@media (orientation:portrait) { .actionDrawerHeader { padding-top:0; } }
+		.panelContent { display:block; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:none; }
+		.panelContent::-webkit-scrollbar { display:none; }
+		.actionGlobalControls,.modeOps { display:block; min-height:auto; }
+		.modeOpsBody { display:block; overflow:visible; min-height:auto; }
+		@media (orientation:portrait) { .panelHead { padding-top:0; } }
 		@media (orientation:landscape) {
-			.actionPanelOverlay { left:0; }
-			.actionDrawer { width:min(440px,78vw); }
+			.panelOverlay { left:0; }
+			.panelDrawer { width:min(440px,78vw); }
 		}
 		/* Fixed content shells and compact drawer toolbar. */
-		.stage { border:0; border-radius:0; background:transparent; box-shadow:none; }
-		.panel { overflow:hidden; scrollbar-gutter:auto; }
-		.panel:not(.practicePanel):not(.memoryPanel) > :last-child { min-height:0; overflow-y:auto; overscroll-behavior:contain; }
-		.practicePanel { overflow:hidden; }
-		.practicePanel #formulaImport {
+		.cubeArea { border:0; border-radius:0; background:transparent; box-shadow:none; }
+		.modeView { overflow:hidden; scrollbar-gutter:auto; }
+		.modeView:not(.practiceView):not(.memoryView) > :last-child { min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+		.practiceView { overflow:hidden; }
+		.practiceView #formulaImport {
 			display:flex; flex-direction:column; flex:1 1 auto; min-height:0; overflow:hidden;
 		}
-		.practicePanel .practiceFormulaToggle,
-		.practicePanel .practiceAoTimes,
-		.practicePanel #formulaImport > .sharedGroupBar,
-		.practicePanel #formulaImport > .importDropZone,
-		.practicePanel #formulaImport > .controls,
-		.practicePanel #formulaImport > .textImport,
-		.practicePanel #formulaImport > .stateOptionRow { flex:0 0 auto; }
-		.practicePanel .formulaCardsList { flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; align-content:start; }
-		.memoryPanel { overflow:hidden; }
-		.memoryPanel > .memoryArea {
+		.practiceView .practiceFormulaToggle,
+		.practiceView .practiceAoTimes,
+		.practiceView #formulaImport > .sharedGroupBar,
+		.practiceView #formulaImport > .importDropZone,
+		.practiceView #formulaImport > .controls,
+		.practiceView #formulaImport > .textImport,
+		.practiceView #formulaImport > .stateOptionRow { flex:0 0 auto; }
+		.practiceView .practiceGrid { flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; align-content:start; }
+		.memoryView { overflow:hidden; }
+		.memoryView > .reviewArea {
 			display:grid; flex:1 1 auto; min-height:0; overflow:hidden;
 			grid-template-rows:auto minmax(0,1fr);
 		}
-		.memoryPanel .memoryCurrent { min-height:0; overflow:hidden; }
-		.memoryPanel .memoryHistory { min-height:0; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; }
+		.memoryView .memoryCurrent { min-height:0; overflow:hidden; }
+		.memoryView .reviewHistory { min-height:0; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; }
 		.operationChevron::before { transform:translate(-50%,-100%) rotate(-135deg); }
 		.operationChevron::after { transform:translate(-50%,0) rotate(-135deg); }
-		.sideRail .operationChevron::before { left:50%; transform:translate(-100%,-50%) rotate(-45deg); }
-		.sideRail .operationChevron::after { left:50%; transform:translate(0,-50%) rotate(-45deg); }
-		.actionDrawerHeader { justify-content:space-between; gap:12px; }
-		.actionDrawerHeader .seamlessToggle {
+		.sideNav .operationChevron::before { left:50%; transform:translate(-100%,-50%) rotate(-45deg); }
+		.sideNav .operationChevron::after { left:50%; transform:translate(0,-50%) rotate(-45deg); }
+		.panelHead { justify-content:space-between; gap:12px; }
+		.panelHead .seamlessToggle {
 			min-height: 34px;
 			padding: 0 14px;
 			gap: 0;
@@ -2800,35 +2802,35 @@
 			box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 			transition: border-color 0.16s ease, color 0.16s ease, background 0.22s ease, transform 0.16s ease, box-shadow 0.16s ease;
 		}
-		.actionDrawerHeader .seamlessToggle:hover {
+		.panelHead .seamlessToggle:hover {
 			border-color: rgba(36, 240, 234, 0.7);
 			color: var(--accent);
 			transform: translateY(-1px);
 			background: var(--panel);
 			box-shadow: 0 2px 6px rgba(36, 240, 234, 0.20);
 		}
-		.actionDrawerHeader .seamlessToggle.isActive {
+		.panelHead .seamlessToggle.isActive {
 			border-color: var(--accent);
 			background: var(--accent);
 			color: #ffffff;
 			box-shadow: 0 2px 8px rgba(93, 78, 168, 0.40);
 		}
-		.actionDrawerHeader .seamlessToggle.isActive:hover {
+		.panelHead .seamlessToggle.isActive:hover {
 			color: #ffffff;
 			background: var(--accent);
 		}
-		.actionDrawerHeader .seamlessToggle .toggleSwitch,
-		.actionDrawerHeader .seamlessToggle .toggleLabel {
+		.panelHead .seamlessToggle .toggleSwitch,
+		.panelHead .seamlessToggle .toggleLabel {
 			display: none;
 		}
-		.actionDrawerHeader .seamlessToggle::after {
+		.panelHead .seamlessToggle::after {
 			content: "无缝";
 		}
-		:root[data-theme="dark"] .actionDrawerHeader .seamlessToggle:not(.isActive):hover {
+		:root[data-theme="dark"] .panelHead .seamlessToggle:not(.isActive):hover {
 			color: var(--controlText);
 		}
 		.visuallyHidden { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; padding:0; margin:-1px; }
-		.actionDrawerHeader .connectPill {
+		.panelHead .connectPill {
 			min-height: 34px;
 			padding: 0 14px;
 			gap: 0;
@@ -2846,55 +2848,55 @@
 			box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 			transition: border-color 0.16s ease, color 0.16s ease, background 0.22s ease, transform 0.16s ease, box-shadow 0.16s ease;
 		}
-		.actionDrawerHeader .connectPill:hover {
+		.panelHead .connectPill:hover {
 			border-color: var(--accent);
 			color: var(--accent);
 			transform: translateY(-1px);
 			background: rgba(93, 78, 168, 0.10);
 			box-shadow: 0 2px 6px rgba(93, 78, 168, 0.18);
 		}
-		.actionDrawerHeader .connectPill.isActive {
+		.panelHead .connectPill.isActive {
 			border-color: var(--cyan);
 			background: transparent;
 			color: var(--cyan);
 			box-shadow: 0 2px 8px rgba(36, 240, 234, 0.28);
 		}
-		.actionDrawerHeader .connectPill.isActive:hover {
+		.panelHead .connectPill.isActive:hover {
 			color: var(--cyan);
 			background: rgba(36, 240, 234, 0.10);
 		}
-		.actionDrawerHeader .connectPill[data-state="error"] {
+		.panelHead .connectPill[data-state="error"] {
 			border-color: var(--red);
 			background: transparent;
 			color: var(--red);
 			box-shadow: 0 2px 8px rgba(232, 93, 106, 0.28);
 		}
-		.actionDrawerHeader .connectPill[data-state="error"]:hover {
+		.panelHead .connectPill[data-state="error"]:hover {
 			color: var(--red);
 			background: rgba(232, 93, 106, 0.10);
 		}
-		:root[data-theme="dark"] .actionDrawerHeader .connectPill:not(.isActive):not([data-state="error"]):hover {
+		:root[data-theme="dark"] .panelHead .connectPill:not(.isActive):not([data-state="error"]):hover {
 			color: var(--controlText);
 		}
-		.actionDrawer .actionSectionHeading,
-		.actionDrawer .actionGroupTitle,
-		.actionDrawer .actionSubTitle,
-		.actionDrawer .panelSection > h2,
-		.actionDrawer .panelSection > h3,
-		.actionDrawer .panelSection > p { display:none !important; }
+		.panelDrawer .actionSectionHeading,
+		.panelDrawer .opGroupTitle,
+		.panelDrawer .actionSubTitle,
+		.panelDrawer .viewSec > h2,
+		.panelDrawer .viewSec > h3,
+		.panelDrawer .viewSec > p { display:none !important; }
 		.actionGlobalControls { padding:12px; }
-		.actionModeControls > .actionSectionHeading { display:none; }
-		.actionGroup { margin-top:8px; }
+		.modeOps > .actionSectionHeading { display:none; }
+		.opGroup { margin-top:8px; }
 
 		/* ===== Mobile layout polish: mature product feel for 320px+ screens ===== */
 		@media (orientation: portrait) {
-			.app {
+			.appShell {
 				--cube-size: min(calc(100vw - 16px), 30dvh);
 				--mobile-gap: 6px;
 				gap: 6px;
 				padding: 6px 0 0;
 			}
-			.stage {
+			.cubeArea {
 				margin-inline: 6px;
 				border-radius: 16px;
 			}
@@ -2905,12 +2907,12 @@
 				border-top-width: 1px;
 				background: var(--surfaceSolid);
 			}
-			.bottomNav .mobileNavButton {
+			.bottomNav .modeNavBtn {
 				min-height: 52px;
 				gap: 3px;
 				padding: 4px 2px;
 			}
-			.bottomNav .mobileNavButton .modeIcon {
+			.bottomNav .modeNavBtn .modeIcon {
 				width: 26px;
 				height: 26px;
 				border-radius: 8px;
@@ -2932,60 +2934,60 @@
 			.bottomNav .operationChevron::after {
 				transform: translate(-50%, 0) rotate(-135deg);
 			}
-			.panel {
+			.modeView {
 				margin-inline: 6px;
 				gap: 8px;
 				padding: 0 0 max(8px, env(safe-area-inset-bottom));
 				min-height: 0;
 			}
-			.panel > .panelSection,
-			.panel > .memoryArea {
+			.modeView > .viewSec,
+			.modeView > .reviewArea {
 				margin: 0;
 				padding: 12px;
 				border-radius: 14px;
 				box-shadow: 0 2px 12px rgba(20,20,36,.04);
 			}
 			/* Compact utility sections: merge mode select + orientation into tight rows */
-			.practicePanel .panelSection:first-of-type,
-			.practicePanel .panelSection:nth-of-type(2) {
+			.practiceView .viewSec:first-of-type,
+			.practiceView .viewSec:nth-of-type(2) {
 				padding: 8px 12px;
 			}
-			.practicePanel .panelSection:first-of-type .practiceControls {
+			.practiceView .viewSec:first-of-type .practiceControls {
 				gap: 0;
 			}
-			.practicePanel .panelSection:first-of-type .practiceControls > * {
+			.practiceView .viewSec:first-of-type .practiceControls > * {
 				flex: 1 1 0 !important;
 				min-width: 0 !important;
 			}
-			.practicePanel .practiceModeCurrent {
+			.practiceView .practiceModeCurrent {
 				min-height: 40px;
 				padding: 8px 12px;
 				border-radius: 10px;
 				box-shadow: none;
 				font-size: 14px;
 			}
-			.practicePanel .practiceModeOption {
+			.practiceView .practiceModeOption {
 				min-height: 42px;
 				padding: 8px 12px;
 			}
 			/* Orientation moves: denser grid */
-			.panelSection .moves {
+			.viewSec .moves {
 				grid-template-columns: repeat(6, minmax(0, 1fr));
 				gap: 6px;
 			}
-			.panelSection .moveButton {
+			.viewSec .moveButton {
 				min-height: 36px;
 				border-radius: 8px;
 				font-size: 14px;
 			}
-			.panelSection .moveButton.rotation {
+			.viewSec .moveButton.rotation {
 				font-size: 13px;
 			}
 			/* Main content section: fill remaining space, scroll internally */
-			.practicePanel #formulaImport,
-			.libraryPanel .panelSection:last-of-type,
-			.formulaPanel .panelSection:last-of-type,
-			.memoryPanel > .memoryArea {
+			.practiceView #formulaImport,
+			.libraryView .viewSec:last-of-type,
+			.makerView .viewSec:last-of-type,
+			.memoryView > .reviewArea {
 				flex: 1 1 auto;
 				min-height: 0;
 				overflow: hidden;
@@ -2993,54 +2995,54 @@
 				flex-direction: column;
 				padding: 12px;
 			}
-			.practicePanel #formulaImport {
+			.practiceView #formulaImport {
 				display: flex;
 				flex-direction: column;
 				gap: 8px;
 			}
-			.practicePanel #formulaImport > .sharedGroupBar,
-			.practicePanel #formulaImport > .importDropZone,
-			.practicePanel #formulaImport > .controls,
-			.practicePanel #formulaImport > .textImport,
-			.practicePanel #formulaImport > .stateOptionRow,
-			.practicePanel #formulaImport > .practiceFormulaToggle,
-			.practicePanel #formulaImport > .practiceAoTimes {
+			.practiceView #formulaImport > .sharedGroupBar,
+			.practiceView #formulaImport > .importDropZone,
+			.practiceView #formulaImport > .controls,
+			.practiceView #formulaImport > .textImport,
+			.practiceView #formulaImport > .stateOptionRow,
+			.practiceView #formulaImport > .practiceFormulaToggle,
+			.practiceView #formulaImport > .practiceAoTimes {
 				flex: 0 0 auto;
 			}
-			.practicePanel .importDropZone {
+			.practiceView .importDropZone {
 				min-height: 44px;
 				padding: 10px;
 				border-radius: 10px;
 				margin-bottom: 0;
 				font-size: 13px;
 			}
-			.practicePanel .controls {
+			.practiceView .controls {
 				gap: 8px;
 			}
-			.practicePanel .controls .button,
-			.practicePanel .controls .button.secondary {
+			.practiceView .controls .button,
+			.practiceView .controls .button.secondary {
 				min-height: 40px;
 				border-radius: 10px;
 				font-size: 14px;
 			}
-			.practicePanel .stateTextarea {
+			.practiceView .stateTextarea {
 				min-height: 80px;
 				padding: 10px;
 				border-radius: 10px;
 				font-size: 13px;
 			}
-			.practicePanel .practiceAoTimes {
+			.practiceView .practiceAoTimes {
 				grid-template-columns: repeat(4, minmax(0, 1fr));
 				gap: 6px;
 				margin-top: 0;
 			}
-			.practicePanel .practiceAoTime {
+			.practiceView .practiceAoTime {
 				padding: 6px 4px;
 				border-radius: 8px;
 			}
-			.practicePanel .practiceAoTime span { font-size: 10px; }
-			.practicePanel .practiceAoTime strong { font-size: 14px; }
-			.practicePanel .formulaCardsList {
+			.practiceView .practiceAoTime span { font-size: 10px; }
+			.practiceView .practiceAoTime strong { font-size: 14px; }
+			.practiceView .practiceGrid {
 				min-height: 0;
 				flex: 1 1 auto;
 				overflow-y: auto;
@@ -3052,22 +3054,22 @@
 				scrollbar-width: none;
 				padding-bottom: 4px;
 			}
-			.practicePanel .formulaCardsList::-webkit-scrollbar { display: none; }
-			.practicePanel .stateCard {
+			.practiceView .practiceGrid::-webkit-scrollbar { display: none; }
+			.practiceView .stateCard {
 				min-height: 130px;
 				padding: 10px 8px;
 				border-radius: 12px;
 				gap: 6px;
 			}
-			.practicePanel .statePreview {
+			.practiceView .statePreview {
 				height: 80px;
 			}
-			.practicePanel .statePreview > div {
+			.practiceView .statePreview > div {
 				width: 76px;
 				height: 76px;
 			}
-			.practicePanel .stateCard strong,
-			.practicePanel .stateCard .stateName {
+			.practiceView .stateCard strong,
+			.practiceView .stateCard .stateName {
 				font-size: 13px;
 				line-height: 1.3;
 			}
@@ -3087,7 +3089,7 @@
 				border-radius: 8px;
 			}
 			/* Library panel */
-			.libraryPanel .libraryList {
+			.libraryView .libraryList {
 				min-height: 0;
 				flex: 1 1 auto;
 				overflow-y: auto;
@@ -3096,11 +3098,11 @@
 				-webkit-overflow-scrolling: touch;
 				scrollbar-width: none;
 			}
-			.libraryPanel .libraryList::-webkit-scrollbar { display: none; }
-			.libraryPanel .libraryItem { border-radius: 12px; }
-			.libraryPanel .libraryHeader { min-height: 44px; padding: 10px 12px; }
+			.libraryView .libraryList::-webkit-scrollbar { display: none; }
+			.libraryView .libraryItem { border-radius: 12px; }
+			.libraryView .libraryHeader { min-height: 44px; padding: 10px 12px; }
 			/* Formula panel */
-			.formulaPanel .formulaList {
+			.makerView .draftList {
 				min-height: 0;
 				flex: 1 1 auto;
 				overflow-y: auto;
@@ -3108,15 +3110,15 @@
 				-webkit-overflow-scrolling: touch;
 				scrollbar-width: none;
 			}
-			.formulaPanel .formulaList::-webkit-scrollbar { display: none; }
-			.formulaPanel .formulaRow { gap: 8px; }
-			.formulaPanel .formulaNameInput,
-			.formulaPanel .formulaAlgInput,
-			.formulaPanel .formulaTrack { min-height: 40px; border-radius: 10px; font-size: 14px; }
-			.formulaPanel .formulaIconButton,
-			.formulaPanel .formulaAddButton { min-height: 40px; border-radius: 10px; }
+			.makerView .draftList::-webkit-scrollbar { display: none; }
+			.makerView .formulaRow { gap: 8px; }
+			.makerView .formulaNameInput,
+			.makerView .formulaAlgInput,
+			.makerView .formulaTrack { min-height: 40px; border-radius: 10px; font-size: 14px; }
+			.makerView .formulaIconButton,
+			.makerView .formulaAddButton { min-height: 40px; border-radius: 10px; }
 			/* Memory panel */
-			.memoryPanel > .memoryArea {
+			.memoryView > .reviewArea {
 				display: grid;
 				grid-template-rows: minmax(0, 1fr) minmax(90px, 22%);
 				gap: 8px;
@@ -3125,65 +3127,65 @@
 				background: transparent;
 				box-shadow: none;
 			}
-			.memoryPanel .memoryCurrent { padding: 20px 12px 12px; gap: 10px; }
-			.memoryPanel .memoryPrompt { min-height: 100px; font-size: 16px; padding: 16px; border-radius: 12px; }
-			.memoryPanel .memoryAnswerName { font-size: 16px; }
-			.memoryPanel .memoryAnswerFormula { font-size: 20px; }
-			.memoryPanel .memoryOptions { grid-template-columns: repeat(4, minmax(0,1fr)); gap: 6px; }
-			.memoryPanel .memoryOption { min-height: 44px; border-radius: 10px; font-size: 12px; }
-			.memoryPanel .memoryHistory { padding: 10px; border-radius: 0 0 14px 14px; }
+			.memoryView .memoryCurrent { padding: 20px 12px 12px; gap: 10px; }
+			.memoryView .memoryPrompt { min-height: 100px; font-size: 16px; padding: 16px; border-radius: 12px; }
+			.memoryView .memoryAnswerName { font-size: 16px; }
+			.memoryView .memoryAnswerFormula { font-size: 20px; }
+			.memoryView .memoryOptions { grid-template-columns: repeat(4, minmax(0,1fr)); gap: 6px; }
+			.memoryView .memoryOption { min-height: 44px; border-radius: 10px; font-size: 12px; }
+			.memoryView .reviewHistory { padding: 10px; border-radius: 0 0 14px 14px; }
 			.memoryLibraryBar { margin: 0; padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid color-mix(in srgb, var(--line) 72%, transparent); box-shadow: 0 2px 12px rgba(20,20,36,.04); }
 		}
 
 		@media (orientation: landscape) {
-			.app {
+			.appShell {
 				--cube-size: min(calc(100dvh - var(--site-nav-height,0px) - 20px), 40vw);
 				gap: 8px;
 				padding: 8px 8px 8px 0;
 			}
-			.stage {
+			.cubeArea {
 				border-radius: 16px;
 			}
-			.sideRail {
+			.sideNav {
 				border-radius: 0 14px 14px 0;
 				width: 58px;
 			}
-			body.railExpanded .sideRail { width: 148px; }
-			.sideRailButton { padding: 6px 8px; }
-			.sideRailButton .modeIcon { width: 26px; height: 26px; border-radius: 8px; }
-			.sideRail .operationChevron { width: 36px; height: 36px; }
-			.panel {
+			body.railExpanded .sideNav { width: 148px; }
+			.modeNavBtn { padding: 6px 8px; }
+			.modeNavBtn .modeIcon { width: 26px; height: 26px; border-radius: 8px; }
+			.sideNav .operationChevron { width: 36px; height: 36px; }
+			.modeView {
 				gap: 8px;
 				padding: 0 4px 8px;
 				min-height: 0;
 			}
-			.panel > .panelSection,
-			.panel > .memoryArea {
+			.modeView > .viewSec,
+			.modeView > .reviewArea {
 				margin: 0;
 				padding: 12px;
 				border-radius: 14px;
 			}
-			.practicePanel .panelSection:first-of-type,
-			.practicePanel .panelSection:nth-of-type(2) {
+			.practiceView .viewSec:first-of-type,
+			.practiceView .viewSec:nth-of-type(2) {
 				padding: 8px 12px;
 			}
-			.panelSection .moves { gap: 6px; }
-			.panelSection .moveButton { min-height: 34px; font-size: 13px; }
-			.practicePanel #formulaImport,
-			.libraryPanel .panelSection:last-of-type,
-			.formulaPanel .panelSection:last-of-type {
+			.viewSec .moves { gap: 6px; }
+			.viewSec .moveButton { min-height: 34px; font-size: 13px; }
+			.practiceView #formulaImport,
+			.libraryView .viewSec:last-of-type,
+			.makerView .viewSec:last-of-type {
 				flex: 1 1 auto;
 				min-height: 0;
 				overflow: hidden;
 				display: flex;
 				flex-direction: column;
 			}
-			.practicePanel #formulaImport {
+			.practiceView #formulaImport {
 				display: flex;
 				flex-direction: column;
 				gap: 8px;
 			}
-			.practicePanel .formulaCardsList {
+			.practiceView .practiceGrid {
 				flex: 1 1 auto;
 				min-height: 0;
 				overflow-y: auto;
@@ -3193,41 +3195,41 @@
 				-webkit-overflow-scrolling: touch;
 				scrollbar-width: none;
 			}
-			.practicePanel .formulaCardsList::-webkit-scrollbar { display: none; }
+			.practiceView .practiceGrid::-webkit-scrollbar { display: none; }
 		}
 
 		/* Small screen extra tightening (very narrow/short phones) */
 		@media (orientation: portrait) and (max-height: 680px) {
-			.app { --cube-size: min(calc(100vw - 12px), calc((100dvh - var(--site-nav-height, 0px) - 56px) * 0.43)); --mobile-gap: 5px; gap: 5px; padding: 5px 0 0; }
+			.appShell { --cube-size: min(calc(100vw - 12px), calc((100dvh - var(--site-nav-height, 0px) - 56px) * 0.43)); --mobile-gap: 5px; gap: 5px; padding: 5px 0 0; }
 			.bottomNav { min-height: 50px; }
-			.bottomNav .mobileNavButton { min-height: 46px; }
-			.practicePanel .statePreview { height: 68px; }
-			.practicePanel .statePreview > div { width: 64px; height: 64px; }
-			.practicePanel .stateCard { min-height: 108px; padding: 8px 6px; gap: 4px; }
-			.panel > .panelSection,
-			.panel > .memoryArea { padding: 10px; }
-			.practicePanel #formulaImport { padding: 10px; gap: 6px; }
-			.practicePanel .importDropZone { min-height: 38px; padding: 8px; font-size: 12px; }
-			.practicePanel .controls .button,
-			.practicePanel .controls .button.secondary { min-height: 36px; font-size: 13px; }
-			.practicePanel .stateTextarea { min-height: 60px; padding: 8px; font-size: 12px; }
-			.practicePanel .practiceAoTimes { gap: 4px; }
-			.practicePanel .practiceAoTime { padding: 4px 2px; }
-			.practicePanel .practiceAoTime strong { font-size: 13px; }
+			.bottomNav .modeNavBtn { min-height: 46px; }
+			.practiceView .statePreview { height: 68px; }
+			.practiceView .statePreview > div { width: 64px; height: 64px; }
+			.practiceView .stateCard { min-height: 108px; padding: 8px 6px; gap: 4px; }
+			.modeView > .viewSec,
+			.modeView > .reviewArea { padding: 10px; }
+			.practiceView #formulaImport { padding: 10px; gap: 6px; }
+			.practiceView .importDropZone { min-height: 38px; padding: 8px; font-size: 12px; }
+			.practiceView .controls .button,
+			.practiceView .controls .button.secondary { min-height: 36px; font-size: 13px; }
+			.practiceView .stateTextarea { min-height: 60px; padding: 8px; font-size: 12px; }
+			.practiceView .practiceAoTimes { gap: 4px; }
+			.practiceView .practiceAoTime { padding: 4px 2px; }
+			.practiceView .practiceAoTime strong { font-size: 13px; }
 		}
 	
 		/* Consolidated mobile layout: one responsive system for panels, cards and drawers. */
-		.panel > .panelSection { border-bottom: 0; }
-		.libraryPanel > .panelSection:has(.libraryList),
-		.formulaPanel > .panelSection:has(.formulaList) {
+		.modeView > .viewSec { border-bottom: 0; }
+		.libraryView > .viewSec:has(.libraryList),
+		.makerView > .viewSec:has(.draftList) {
 			display: flex;
 			flex: 1 1 auto;
 			min-height: 0;
 			flex-direction: column;
 			overflow: hidden;
 		}
-		.libraryPanel .libraryList,
-		.formulaPanel .formulaList {
+		.libraryView .libraryList,
+		.makerView .draftList {
 			flex: 1 1 auto;
 			min-height: 0;
 			overflow-x: hidden;
@@ -3235,11 +3237,11 @@
 			overscroll-behavior: contain;
 			-webkit-overflow-scrolling: touch;
 		}
-		.libraryPanel .libraryList { display: block; }
-		.libraryPanel .libraryItem + .libraryItem { margin-top: 8px; }
+		.libraryView .libraryList { display: block; }
+		.libraryView .libraryItem + .libraryItem { margin-top: 8px; }
 
 		/* Drawer sections are spacing groups, not cards around cards. */
-		.actionDrawer .actionGroup {
+		.panelDrawer .opGroup {
 			margin: 16px 16px 0;
 			padding: 0;
 			border: 0;
@@ -3248,17 +3250,17 @@
 			box-shadow: none;
 			overflow: visible;
 		}
-		.actionDrawer .actionGroup:first-child { margin-top: 12px; }
-		.actionDrawer .actionGroupBody { padding: 0; }
-		.actionDrawer .actionGroupBody > .panelSection {
+		.panelDrawer .opGroup:first-child { margin-top: 12px; }
+		.panelDrawer .opGroupBody { padding: 0; }
+		.panelDrawer .opGroupBody > .viewSec {
 			padding: 0;
 			border: 0;
 			background: transparent;
 		}
-		.actionGroupBody .button,
-		.actionGroupBody input,
-		.actionGroupBody .memoryLibraryCurrent,
-		.actionGroupBody .memoryLibraryIconBtn { min-height: 44px; }
+		.opGroupBody .button,
+		.opGroupBody input,
+		.opGroupBody .memoryLibraryCurrent,
+		.opGroupBody .memoryLibraryIconBtn { min-height: 44px; }
 		.strictDetectionControls {
 			display: flex;
 			grid-template-columns: none;
@@ -3273,7 +3275,7 @@
 		}
 
 		/* Cards keep equal gutters and choose their own column count. */
-		.practicePanel .formulaCardsList {
+		.practiceView .practiceGrid {
 			grid-template-columns: repeat(auto-fit, minmax(132px, 168px));
 			grid-auto-rows: max-content;
 			justify-content: center;
@@ -3281,7 +3283,7 @@
 			gap: 12px;
 			margin-top: 2px;
 		}
-		.practicePanel .stateCard {
+		.practiceView .stateCard {
 			display: grid;
 			grid-template-rows: 82px auto;
 			min-width: 0;
@@ -3292,7 +3294,7 @@
 			border-radius: 14px;
 			box-shadow: none;
 		}
-		.practicePanel .statePreview {
+		.practiceView .statePreview {
 			display: grid;
 			width: 100%;
 			height: 82px;
@@ -3300,49 +3302,49 @@
 			place-items: center;
 			aspect-ratio: auto;
 		}
-		.practicePanel .statePreview > div {
+		.practiceView .statePreview > div {
 			width: 78px;
 			height: 78px;
 			margin: 0 auto;
 		}
 
 		@media (orientation: portrait) {
-			.app {
+			.appShell {
 				--cube-size: min(calc(100vw - 20px), calc((100dvh - var(--site-nav-height, 0px) - 64px) * .43));
 				grid-template-rows: var(--cube-size) minmax(0, 1fr) auto;
 				gap: 8px;
 				padding-top: 8px;
 			}
-			.stage { margin-inline: 10px; border-radius: 16px; }
-			.panel { margin-inline: 6px; gap: 10px; padding-bottom: 10px; }
-			.panel > .panelSection,
-			.panel > .memoryArea,
+			.cubeArea { margin-inline: 10px; border-radius: 16px; }
+			.modeView { margin-inline: 6px; gap: 10px; padding-bottom: 10px; }
+			.modeView > .viewSec,
+			.modeView > .reviewArea,
 			.memoryLibraryBar {
 				border-radius: 16px;
 				box-shadow: 0 4px 16px rgba(20, 20, 36, .055);
 			}
-			.practicePanel #formulaImport,
-			.libraryPanel > .panelSection:has(.libraryList),
-			.formulaPanel > .panelSection:has(.formulaList) { padding: 14px; }
-			.practicePanel .formulaCardsList,
-			.libraryPanel .libraryList,
-			.formulaPanel .formulaList { min-height: 128px; }
-			.practicePanel .practiceFormulaToggle {
+			.practiceView #formulaImport,
+			.libraryView > .viewSec:has(.libraryList),
+			.makerView > .viewSec:has(.draftList) { padding: 14px; }
+			.practiceView .practiceGrid,
+			.libraryView .libraryList,
+			.makerView .draftList { min-height: 128px; }
+			.practiceView .practiceFormulaToggle {
 				min-height: 30px;
 				justify-content: center;
 			}
-			.practicePanel .practiceAoTime {
+			.practiceView .practiceAoTime {
 				border-color: color-mix(in srgb, var(--line) 66%, transparent);
 				background: color-mix(in srgb, var(--controlBg) 88%, var(--accentSoft));
 			}
-			.libraryPanel .libraryList,
-			.formulaPanel .formulaList { align-content: start; padding-bottom: 4px; }
-			.libraryPanel .libraryList { margin-top: 10px; }
-			.libraryPanel .libraryItem { border-radius: 14px; }
-			.libraryPanel .libraryHeader,
-			.libraryPanel .libraryFormulaRow { min-height: 48px; }
-			.formulaPanel .formulaList { gap: 10px; }
-			.formulaPanel .formulaRow:not(.isOrganizing) {
+			.libraryView .libraryList,
+			.makerView .draftList { align-content: start; padding-bottom: 4px; }
+			.libraryView .libraryList { margin-top: 10px; }
+			.libraryView .libraryItem { border-radius: 14px; }
+			.libraryView .libraryHeader,
+			.libraryView .libraryFormulaRow { min-height: 48px; }
+			.makerView .draftList { gap: 10px; }
+			.makerView .formulaRow:not(.isOrganizing) {
 				grid-template-columns: minmax(0, 1fr);
 				gap: 8px;
 				padding: 10px;
@@ -3350,37 +3352,37 @@
 				border-radius: 14px;
 				background: var(--controlBg);
 			}
-			.formulaPanel .formulaRow:not(.isOrganizing) .formulaTrack { grid-column: 1; }
-			.formulaPanel .formulaNameInput,
-			.formulaPanel .formulaAlgInput,
-			.formulaPanel .formulaTrack,
-			.formulaPanel .formulaIconButton,
-			.formulaPanel .formulaAddButton,
-			.formulaPanel .formulaOrganizeButton { min-height: 44px; }
-			.memoryPanel > .memoryArea {
+			.makerView .formulaRow:not(.isOrganizing) .formulaTrack { grid-column: 1; }
+			.makerView .formulaNameInput,
+			.makerView .formulaAlgInput,
+			.makerView .formulaTrack,
+			.makerView .formulaIconButton,
+			.makerView .formulaAddButton,
+			.makerView .formulaOrganizeButton { min-height: 44px; }
+			.memoryView > .reviewArea {
 				gap: 10px;
 				border: 0;
 				background: transparent;
 				box-shadow: none;
 			}
-			.memoryPanel .memoryCurrent,
-			.memoryPanel .memoryHistory {
+			.memoryView .memoryCurrent,
+			.memoryView .reviewHistory {
 				border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
 				border-radius: 16px;
 				background: var(--surface);
 				box-shadow: 0 4px 16px rgba(20, 20, 36, .055);
 			}
-			.memoryPanel .memoryHistory { padding: 10px 12px; }
-			.memoryPanel .memoryHistoryTitle { background: transparent; }
+			.memoryView .reviewHistory { padding: 10px 12px; }
+			.memoryView .reviewHistoryTitle { background: transparent; }
 			.bottomNav {
 				min-height: 60px;
 				padding-bottom: max(4px, env(safe-area-inset-bottom));
 			}
-			.bottomNav .mobileNavButton { min-height: 56px; }
+			.bottomNav .modeNavBtn { min-height: 56px; }
 
 			/* Bottom sheet: flush to the viewport, rounded only on the leading edge. */
-			.actionPanelOverlay { align-items: flex-end; padding: 0; }
-			.actionDrawer {
+			.panelOverlay { align-items: flex-end; padding: 0; }
+			.panelDrawer {
 				position: relative;
 				display: flex;
 				width: 100%;
@@ -3389,7 +3391,7 @@
 				border-radius: 20px 20px 0 0;
 				overflow: hidden;
 			}
-			.actionDrawerHeader {
+			.panelHead {
 				min-height: 58px;
 				padding: 0 16px 10px;
 			}
@@ -3399,45 +3401,45 @@
 		}
 
 		@media (orientation: landscape) {
-			.app {
+			.appShell {
 				grid-template-columns: 58px var(--cube-size) minmax(0, 1fr);
 				padding-left: 0;
 			}
-			.sideRail {
+			.sideNav {
 				width: 58px;
 				height: calc(100dvh - var(--site-nav-height, 0px));
 				margin-block: -8px;
 				border-width: 0 1px 0 0;
 				border-radius: 0;
 			}
-			body.railExpanded .sideRail { width: 148px; }
-			.libraryPanel > .panelSection:has(.libraryList),
-			.formulaPanel > .panelSection:has(.formulaList),
-			.practicePanel #formulaImport { height: 100%; padding: 14px; }
-			.libraryPanel .libraryList,
-			.formulaPanel .formulaList,
-			.practicePanel .formulaCardsList { min-height: 120px; }
-			.practicePanel .formulaCardsList {
+			body.railExpanded .sideNav { width: 148px; }
+			.libraryView > .viewSec:has(.libraryList),
+			.makerView > .viewSec:has(.draftList),
+			.practiceView #formulaImport { height: 100%; padding: 14px; }
+			.libraryView .libraryList,
+			.makerView .draftList,
+			.practiceView .practiceGrid { min-height: 120px; }
+			.practiceView .practiceGrid {
 				grid-template-columns: repeat(auto-fit, minmax(116px, 144px));
 				justify-content: center;
 				gap: 10px;
 			}
-			.practicePanel .stateCard {
+			.practiceView .stateCard {
 				grid-template-rows: 68px auto;
 				min-height: 108px;
 				padding: 8px;
 			}
-			.practicePanel .statePreview { height: 68px; min-height: 68px; }
-			.practicePanel .statePreview > div { width: 64px; height: 64px; }
+			.practiceView .statePreview { height: 68px; min-height: 68px; }
+			.practiceView .statePreview > div { width: 64px; height: 64px; }
 
 			/* Side drawer: full height, flush left, rounded only on its exposed side. */
-			.actionPanelOverlay {
+			.panelOverlay {
 				left: 0;
 				right: 0;
 				align-items: stretch;
 				padding: 0;
 			}
-		.actionDrawer {
+		.panelDrawer {
 			position: relative;
 			display: flex;
 			flex-direction: row-reverse;
@@ -3457,7 +3459,7 @@
 		   z-index:-1 keeps it below content (drawer transform forms a stacking context, so the negative
 		   layer paints above the drawer bg but under content); revealed through the body's right 62px
 		   transparent cut. content:""!important overrides the content:none!important inside the 900px block. */
-		.actionDrawerMain::before {
+		.panelMain::before {
 			content: "" !important;
 			position: absolute;
 			right: 0;
@@ -3468,10 +3470,10 @@
 			background: linear-gradient(to left, var(--surfaceSolid), var(--bg));
 			pointer-events: none;
 		}
-		.actionDrawerMain { width: auto; }
-		.actionPanelOverlay.isOpen .actionDrawer { transform: translateX(0); }
-		.actionDrawerHeader { width: 100%; }
-		.actionDrawerContent {
+		.panelMain { width: auto; }
+		.panelOverlay.isOpen .panelDrawer { transform: translateX(0); }
+		.panelHead { width: 100%; }
+		.panelContent {
 			flex: 1 1 auto;
 			min-width: 0;
 			min-height: 0;
@@ -3479,7 +3481,7 @@
 			background: linear-gradient(to right, var(--bg) 0, var(--bg) calc(100% - 62px), transparent calc(100% - 62px));
 		}
 
-		.actionDrawerHandle {
+		.panelHandle {
 			--drawer-handle-width: 26px;
 			--drawer-handle-height: 100%;
 			--drawer-grip-width: 5px;
@@ -3493,20 +3495,20 @@
 		}
 
 		@media (orientation: portrait) and (max-height: 680px) {
-			.practicePanel #formulaImport {
+			.practiceView #formulaImport {
 				display: grid;
 				grid-template-columns: minmax(0, 1fr) auto;
 				grid-template-rows: auto auto minmax(96px, 1fr);
 				gap: 4px 8px;
 			}
-			.practicePanel .practiceFormulaToggle {
+			.practiceView .practiceFormulaToggle {
 				grid-column: 1 / -1;
 				grid-row: 1;
 				min-height: 20px;
 				justify-content: flex-start;
 			}
-			.practicePanel .practiceAoTimes { grid-column: 1 / -1; grid-row: 2; }
-			.practicePanel .formulaCardsList {
+			.practiceView .practiceAoTimes { grid-column: 1 / -1; grid-row: 2; }
+			.practiceView .practiceGrid {
 				grid-column: 1 / -1;
 				grid-row: 3;
 				grid-template-columns: repeat(auto-fit, minmax(124px, 142px));
@@ -3514,14 +3516,14 @@
 				justify-content: center;
 				gap: 10px;
 			}
-			.practicePanel .stateCard {
+			.practiceView .stateCard {
 				grid-template-rows: 52px auto;
 				min-height: 90px;
 				height: 90px;
 				padding: 6px;
 			}
-			.practicePanel .statePreview,
-			.practicePanel .statePreview > div {
+			.practiceView .statePreview,
+			.practiceView .statePreview > div {
 				width: 52px;
 				height: 52px;
 				min-height: 52px;
@@ -3529,13 +3531,13 @@
 		}
 
 /* Unified action information architecture. */
-.actionDrawerBody {
+.modeOpsBody {
 	display: flex;
 	flex-direction: column;
 	gap: 20px;
 	padding: 16px 16px max(24px, env(safe-area-inset-bottom));
 }
-.actionDrawer .actionGroup {
+.panelDrawer .opGroup {
 	margin: 0;
 	padding: 0;
 	border: 0;
@@ -3543,24 +3545,24 @@
 	background: transparent;
 	box-shadow: none;
 }
-.actionDrawer .actionGroupBody {
+.panelDrawer .opGroupBody {
 	display: grid;
 	gap: 10px;
 	padding: 0;
 }
-.actionDrawer .actionGroupBody > * { margin: 0; }
-.actionDrawer .actionGroupBody > .panelSection {
+.panelDrawer .opGroupBody > * { margin: 0; }
+.panelDrawer .opGroupBody > .viewSec {
 	padding: 0;
 	border: 0;
 	background: transparent;
 }
-.actionDrawer .strictDetectionControls { margin-top: 10px; }
-.actionDrawer .strictDetectionToggle {
+.panelDrawer .strictDetectionControls { margin-top: 10px; }
+.panelDrawer .strictDetectionToggle {
 	min-height: 44px;
 	padding: 0 2px;
 	font-weight: 700;
 }
-.actionDrawer .macHelp.isVisible {
+.panelDrawer .macHelp.isVisible {
 	padding: 12px 0;
 	border: 0;
 	background: transparent;
@@ -3570,7 +3572,7 @@
 .mobileOverlayHost,
 .formulaExportOverlay,
 .customStateOverlay,
-.formulaAddGroupDialog,
+.groupPicker,
 .memoryOverlay {
 	z-index: 1200;
 	background: rgba(8, 8, 15, .58);
@@ -3579,7 +3581,7 @@
 }
 .formulaExportDialog,
 .customStateDialog,
-.formulaAddGroupDialogBox,
+.groupPickerBox,
 .memoryDialog {
 	border-color: color-mix(in srgb, var(--line) 78%, transparent);
 	background: var(--surfaceSolid);
@@ -3587,7 +3589,7 @@
 }
 .formulaExportDialog,
 .customStateDialog,
-.formulaAddGroupDialogBox,
+.groupPickerBox,
 .memoryDialog {
 	position: relative;
 }
@@ -3621,8 +3623,8 @@
 	font-size: 14px;
 	line-height: 1.6;
 }
-.formulaAddGroupDialogActions { gap: 10px; }
-.formulaAddGroupDialogActions .button { min-height: 46px; }
+.groupPickerActions { gap: 10px; }
+.groupPickerActions .button { min-height: 46px; }
 .memoryDialog {
 	overflow: hidden;
 }
@@ -3644,7 +3646,7 @@
 @media (orientation: portrait) {
 	.formulaExportOverlay,
 	.customStateOverlay,
-	.formulaAddGroupDialog,
+	.groupPicker,
 	.memoryOverlay {
 		align-items: flex-end;
 		justify-content: center;
@@ -3652,7 +3654,7 @@
 	}
 	.formulaExportDialog,
 	.customStateDialog,
-	.formulaAddGroupDialogBox,
+	.groupPickerBox,
 	.memoryDialog {
 		width: 100%;
 		max-width: none;
@@ -3664,11 +3666,11 @@
 	}
 	.formulaExportOverlay.isOpen .formulaExportDialog,
 	.customStateOverlay.isOpen .customStateDialog,
-	.formulaAddGroupDialog.isOpen .formulaAddGroupDialogBox,
+	.groupPicker.isOpen .groupPickerBox,
 	.memoryOverlay.isOpen .memoryDialog { transform: translateY(0); }
 	.formulaExportDialog::before,
 	.customStateDialog::before,
-	.formulaAddGroupDialogBox::before,
+	.groupPickerBox::before,
 	.memoryDialog::before {
 		content: "";
 		position: absolute;
@@ -3684,7 +3686,7 @@
 	.formulaExportHeader,
 	.customStateHeader,
 	.memoryDialogHeader { padding-top: 24px; }
-	.formulaAddGroupDialogBox { padding: 30px 18px max(18px, env(safe-area-inset-bottom)); }
+	.groupPickerBox { padding: 30px 18px max(18px, env(safe-area-inset-bottom)); }
 	.formulaExportDialog {
 		height: min(86dvh, 760px);
 		grid-template-rows: auto minmax(0, 1fr) auto;
@@ -3716,10 +3718,10 @@
 }
 
 @media (orientation: landscape) {
-	.keyboardDrawer { --keyboard-key-size: min(60px, calc((100dvh - 55px) / 6)); }
+	.keyDrawer { --keyboard-key-size: min(60px, calc((100dvh - 55px) / 6)); }
 	.formulaExportOverlay,
 	.customStateOverlay,
-	.formulaAddGroupDialog,
+	.groupPicker,
 	.memoryOverlay {
 		align-items: center;
 		justify-content: center;
@@ -3733,7 +3735,7 @@
 		max-height: 680px;
 		border-radius: 18px;
 	}
-	.formulaAddGroupDialogBox,
+	.groupPickerBox,
 	.memoryDialog:not(.memoryPlanDialog) {
 		width: min(440px, 92vw);
 		max-height: calc(100dvh - var(--site-nav-height, 0px) - 32px);
@@ -3758,11 +3760,11 @@
 @media (orientation: portrait) {
 	.formulaExportOverlay,
 	.customStateOverlay,
-	.formulaAddGroupDialog,
+	.groupPicker,
 	.memoryOverlay { display: flex; }
 	.formulaExportDialog,
 	.customStateDialog,
-	.formulaAddGroupDialogBox,
+	.groupPickerBox,
 	.memoryDialog {
 		min-width: 100%;
 		justify-self: stretch;
@@ -3786,8 +3788,8 @@
 	}
 }
 
-.actionDrawer .importDropZone { display: none; }
-.actionGroup-help:not(:has(.macHelp.isVisible)) { display: none; }
+.panelDrawer .importDropZone { display: none; }
+.opGroup-help:not(:has(.macHelp.isVisible)) { display: none; }
 
 /* ѵ��ģʽ��Ƭ���֣�Ȩ��"���ղþ�"��Դ��λ��ȫ�� @media ֮�󣩣�
    �ռ������(JS)����Ƭ����ħ������=��Ƭ���ݿ���������������(��������)
@@ -3795,10 +3797,10 @@
    ǰ��� @media �ϵ���д���� padding / height / min-height / statePreview
    �ߴ�ͳһ�ڴ��տڣ������ļ��ڲ�����ì�ܡ������ !important����ѹ��
    JS ��������ʽ������ħ���ߴ�ʧЧ���� */
-.practicePanel .formulaCardsList {
+.practiceView .practiceGrid {
 	grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
 }
-.practicePanel .stateCard {
+.practiceView .stateCard {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -3809,7 +3811,7 @@
 	height: auto;
 	min-height: 0;
 }
-.practicePanel .statePreview {
+.practiceView .statePreview {
 	display: grid;
 	width: 100%;
 	height: auto;
@@ -3817,7 +3819,7 @@
 	padding: 0;
 	border-top: 0;
 }
-.practicePanel .statePreview > div {
+.practiceView .statePreview > div {
 	width: 100%;
 	height: 100%;
 	aspect-ratio: 1 / 1;
@@ -3827,15 +3829,15 @@
    ����ڲ������κηָ��ߡ�����ʾ Group ���⡢Group �ޱ߿򣨽��������飬�����򣩡�
    �� !important ����ǰ��� @media �ϵ�������� border / background / ���⡣
    ��ť��connectPill / seamlessToggle / .button �ȣ�һ�ɲ����� */
-.actionDrawer .actionGroup {
+.panelDrawer .opGroup {
 	border: 0 !important;
 	border-radius: 0 !important;
 	background: transparent !important;
 	box-shadow: none !important;
 }
-.actionDrawer .actionGroupTitle { display: none !important; }
-.actionDrawerBody > .panelSection,
-.actionDrawer .actionGroupBody > .panelSection {
+.panelDrawer .opGroupTitle { display: none !important; }
+.modeOpsBody > .viewSec,
+.panelDrawer .opGroupBody > .viewSec {
 	border: 0 !important;
 	background: transparent !important;
 }
@@ -3844,7 +3846,7 @@
    ������嶥��ȫ�ֿ�������actionGlobalControls��ȥ�������ɫ�����������
    ��ƽ���һ�£���ʽ��������������memoryLibraryBar / sharedGroupBar��ȥ���߿�
    ����Ӱ��sharedGroupBar ���� memoryLibraryBar �࣬��һ���տڡ���ťһ�ɲ����� */
-.actionDrawer .actionGlobalControls {
+.panelDrawer .actionGlobalControls {
 	background: transparent !important;
 	border: 0 !important;
 	box-shadow: none !important;
@@ -3861,36 +3863,36 @@
 }
 
 /* ������屳��ͳһ��Ȩ��"���ղþ�"��λ��ȫ�� @media ֮�󣩣�
-   actionControlsBody �� actionDrawerBody ����ɫͳһΪ --bg��
-   actionDrawerHeader�����������½���(�϶� --surfaceSolid �� �¶� --bg)��
+   globalOps �� modeOpsBody ����ɫͳһΪ --bg��
+   panelHead�����������½���(�϶� --surfaceSolid �� �¶� --bg)��
    ������ƽ(�� --bg����Ҫ����)�� */
-.actionDrawer .actionControlsBody,
-.actionDrawer .actionDrawerBody {
+.panelDrawer .globalOps,
+.panelDrawer .modeOpsBody {
 	background: var(--bg) !important;
 }
 /* �����������������Ҳ� 62px ͸������͸������ײ㽥��� */
 @media (orientation: landscape) {
-	.actionDrawer .actionControlsBody,
-	.actionDrawer .actionModeControls,
-	.actionDrawer .actionDrawerBody {
+	.panelDrawer .globalOps,
+	.panelDrawer .modeOps,
+	.panelDrawer .modeOpsBody {
 		background: linear-gradient(to right, var(--bg) 0, var(--bg) calc(100% - 62px), transparent calc(100% - 62px)) !important;
 	}
 }
 /* ������header ���� */
 @media (orientation: portrait) {
-	.actionDrawer .actionDrawerHeader {
+	.panelDrawer .panelHead {
 		background: linear-gradient(to bottom, var(--surfaceSolid), var(--bg)) !important;
 	}
 }
 /* ������header ��ƽ�����ý��� */
 @media (orientation: landscape) {
-	.actionDrawer .actionDrawerHeader {
+	.panelDrawer .panelHead {
 		background: linear-gradient(to right, var(--bg) 0, var(--bg) calc(100% - 62px), transparent calc(100% - 62px)) !important;
 	}
 }
 
 /* Inline control-panel tools and unified prompts. */
-.panelInlineExpansion {
+.inlineBox {
 	width: 100%;
 	max-height: 0;
 	margin-top: 0;
@@ -3899,13 +3901,13 @@
 	transform: translateY(-10px);
 	transition: max-height .34s cubic-bezier(.2,.8,.2,1), margin-top .28s ease, opacity .22s ease, transform .28s ease;
 }
-.panelInlineExpansion.isOpen {
+.inlineBox.isOpen {
 	max-height: 2400px;
 	margin-top: 12px;
 	opacity: 1;
 	transform: translateY(0);
 }
-.panelInlineCard,
+.inlineCard,
 .memoryPlanEditCard,
 .appPromptCard,
 .appNoticeCard {
@@ -3915,13 +3917,13 @@
 	box-shadow: 0 14px 38px rgba(0, 0, 0, .16);
 	overflow: hidden;
 }
-.actionControlsBody > .panelInlineExpansion,
-.actionDrawer .panelSection > .panelInlineExpansion { grid-column: 1 / -1; }
+.globalOps > .inlineBox,
+.panelDrawer .viewSec > .inlineBox { grid-column: 1 / -1; }
 .customStateInline .customCubeStage { min-height: 300px; height: 42dvh; max-height: 420px; }
-.formulaExportInline .panelInlineCard { display: grid; grid-template-rows: auto minmax(210px, 1fr) auto; }
+.formulaExportInline .inlineCard { display: grid; grid-template-rows: auto minmax(210px, 1fr) auto; }
 .formulaExportInline .formulaExportText { min-height: 220px; max-height: 42dvh; resize: vertical; }
 .formulaExportInline .formulaExportActions { flex-wrap: wrap; }
-.memoryPlanInlineHost,
+.planBox,
 .memoryPlanEditHost { width: 100%; }
 .memoryPlanInline .memoryDialog {
 	width: 100%;
@@ -3943,7 +3945,7 @@
 .memoryPlanEditCard .memoryPlanTextarea { min-height: 240px; max-height: 40dvh; }
 
 .appNoticeOverlay,
-.formulaAddGroupDialog {
+.groupPicker {
 	position: fixed;
 	inset: 0;
 	z-index: 1400;
@@ -3957,9 +3959,9 @@
 	transition: opacity .18s ease;
 }
 .appNoticeOverlay.isOpen,
-.formulaAddGroupDialog.isOpen { opacity: 1; }
+.groupPicker.isOpen { opacity: 1; }
 .appNoticeCard,
-.formulaAddGroupDialogBox {
+.groupPickerBox {
 	width: min(430px, 100%);
 	padding: 18px;
 	opacity: 0;
@@ -3967,13 +3969,13 @@
 	transition: opacity .18s ease, transform .22s cubic-bezier(.16,1,.3,1);
 }
 .appNoticeOverlay.isOpen .appNoticeCard,
-.formulaAddGroupDialog.isOpen .formulaAddGroupDialogBox {
+.groupPicker.isOpen .groupPickerBox {
 	opacity: 1;
 	transform: translateY(0) scale(1);
 }
 .appNoticeCard { display: flex; align-items: flex-start; gap: 13px; }
 .appNoticeIcon,
-.formulaAddGroupDialogIcon {
+.groupPickerIcon {
 	flex: 0 0 auto;
 	width: 28px;
 	height: 28px;
@@ -3982,7 +3984,7 @@
 	position: relative;
 }
 .appNoticeIcon::after,
-.formulaAddGroupDialogIcon::after {
+.groupPickerIcon::after {
 	content: "i";
 	position: absolute;
 	inset: 0;
@@ -4000,11 +4002,11 @@
 .appNoticeActions { display: flex; justify-content: flex-end; gap: 8px; }
 .appNoticeCard.isWarning .appNoticeConfirm { background: var(--orange, #e6b84a); border-color: var(--orange, #e6b84a); color: #17130a; }
 
-.formulaAddGroupDialogBox { max-width: 430px; }
-.formulaAddGroupDialogLead { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 18px; }
-.formulaAddGroupDialogTitle { margin: 2px 0 5px; font-size: 17px; font-weight: 750; }
-.formulaAddGroupDialogDesc { margin: 0; color: var(--muted); font-size: 13px; opacity: 1; }
-.formulaAddGroupDialogActions { gap: 9px; }
+.groupPickerBox { max-width: 430px; }
+.groupPickerLead { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 18px; }
+.groupPickerTitle { margin: 2px 0 5px; font-size: 17px; font-weight: 750; }
+.groupPickerDesc { margin: 0; color: var(--muted); font-size: 13px; opacity: 1; }
+.groupPickerActions { gap: 9px; }
 .formulaAddCurrent { display: flex; align-items: center; justify-content: space-between !important; gap: 12px; padding-inline: 14px; }
 .formulaAddCurrent strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .formulaAddOtherList {
@@ -4021,23 +4023,23 @@
 
 @media (max-width: 520px) {
 	.appNoticeOverlay,
-	.formulaAddGroupDialog { align-items: end; padding: 12px; }
+	.groupPicker { align-items: end; padding: 12px; }
 	.appNoticeCard,
-	.formulaAddGroupDialogBox { width: 100%; border-radius: 18px; }
+	.groupPickerBox { width: 100%; border-radius: 18px; }
 	.appNoticeActions { display: grid; grid-template-columns: 1fr 1fr; }
 	.customStateInline .customCubeStage { height: 340px; min-height: 280px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.panelInlineExpansion,
+	.inlineBox,
 	.appNoticeOverlay,
 	.appNoticeCard,
-	.formulaAddGroupDialog,
-	.formulaAddGroupDialogBox { transition-duration: .01ms !important; }
+	.groupPicker,
+	.groupPickerBox { transition-duration: .01ms !important; }
 }
 
 /* Manual keyboard: fixed corner trigger plus responsive drawer. */
-.keyboardDrawerToggle {
+.keyToggle {
 	position: absolute;
 	z-index: 32;
 	display: grid;
@@ -4053,17 +4055,17 @@
 	cursor: pointer;
 	transition: color .18s ease, border-color .18s ease, background .18s ease, transform .22s ease;
 }
-.keyboardDrawerToggle:hover,
-.keyboardDrawerToggle[aria-expanded="true"] {
+.keyToggle:hover,
+.keyToggle[aria-expanded="true"] {
 	border-color: color-mix(in srgb, var(--accent) 72%, var(--controlBorder));
 	background: var(--controlHoverBg);
 	color: var(--accent);
 }
-.keyboardDrawerToggle:focus-visible {
+.keyToggle:focus-visible {
 	outline: 2px solid var(--accent);
 	outline-offset: 2px;
 }
-.keyboardDrawerToggle svg {
+.keyToggle svg {
 	width: 23px;
 	height: 23px;
 	fill: none;
@@ -4073,7 +4075,7 @@
 	stroke-linejoin: round;
 }
 
-.keyboardDrawer {
+.keyDrawer {
 	position: fixed;
 	left: 0;
 	right: 0;
@@ -4094,15 +4096,15 @@
 	transform: translateY(100%);
 	transition: width .28s cubic-bezier(.2,.8,.2,1), height .28s cubic-bezier(.2,.8,.2,1), transform .24s cubic-bezier(.2,.8,.2,1), opacity .18s ease, visibility .18s ease;
 }
-.keyboardDrawer.isOpen {
+.keyDrawer.isOpen {
 	opacity: 1;
 	visibility: visible;
 	pointer-events: auto;
 	transform: translateY(0);
 }
-.keyboardDrawer.isDragging { transition: transform .24s cubic-bezier(.2,.8,.2,1), opacity .18s ease, visibility .18s ease; }
+.keyDrawer.isDragging { transition: transform .24s cubic-bezier(.2,.8,.2,1), opacity .18s ease, visibility .18s ease; }
 
-.keyboardDrawerHandle {
+.keyHandle {
 	--drawer-handle-width: 100%;
 	--drawer-handle-height: 26px;
 	--drawer-grip-width: 44px;
@@ -4121,8 +4123,8 @@
 	cursor: grab;
 	touch-action: none;
 }
-.keyboardDrawerHandle:active { cursor: grabbing; }
-.keyboardDrawerHandle::before {
+.keyHandle:active { cursor: grabbing; }
+.keyHandle::before {
 	content: "";
 	width: var(--drawer-grip-width);
 	height: var(--drawer-grip-height);
@@ -4130,14 +4132,14 @@
 	background: color-mix(in srgb, var(--muted) 45%, transparent);
 	transition: width .18s ease, height .18s ease, background .18s ease;
 }
-.keyboardDrawerHandle:hover::before,
-.keyboardDrawerHandle:focus-visible::before {
+.keyHandle:hover::before,
+.keyHandle:focus-visible::before {
 	width: var(--drawer-grip-hover-width);
 	height: var(--drawer-grip-hover-height);
 	background: var(--accent);
 }
 
-.keyboardDrawerBody {
+.keyBody {
 	display: flex;
 	flex-direction: column;
 	justify-content: flex-end;
@@ -4148,18 +4150,18 @@
 	overscroll-behavior: contain;
 	scrollbar-width: none;
 }
-.keyboardDrawerBody::-webkit-scrollbar { display: none; }
-.keyboardDrawerBody > .panelSection { flex: 0 0 auto; margin: 0; padding: 8px 10px 10px; border: 0; background: transparent; box-shadow: none; }
-.keyboardDrawer .moves { display: flex; width: min(100%, 720px); margin: 0 auto; flex-direction: column; gap: 7px; }
+.keyBody::-webkit-scrollbar { display: none; }
+.keyBody > .viewSec { flex: 0 0 auto; margin: 0; padding: 8px 10px 10px; border: 0; background: transparent; box-shadow: none; }
+.keyDrawer .moves { display: flex; width: min(100%, 720px); margin: 0 auto; flex-direction: column; gap: 7px; }
 .keyboardExtraMoves,
 .keyboardRotationMoves { display: grid; gap: 7px; }
-.keyboardDrawer:not(.isLarge) .keyboardExtraMoves { display: none; }
-.keyboardDrawer.isPreviewLarge .keyboardExtraMoves { display: grid; }
+.keyDrawer:not(.isLarge) .keyboardExtraMoves { display: none; }
+.keyDrawer.isPreviewLarge .keyboardExtraMoves { display: grid; }
 .keyboardExtraMoves,
 .keyboardRotationMoves { align-items: stretch; }
 .keyboardExtraMoves { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .keyboardRotationMoves { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.keyboardDrawer .moveButton {
+.keyDrawer .moveButton {
 	width: 100%;
 	min-width: 0;
 	min-height: 0;
@@ -4167,29 +4169,29 @@
 	aspect-ratio: 1;
 	box-sizing: border-box;
 }
-.keyboardDrawer .moveButton.rotation {
+.keyDrawer .moveButton.rotation {
 	background: var(--rotationBg);
 	color: var(--rotationText);
 	border-color: rgba(93, 78, 168, 0.42);
 }
 
 @media (orientation: portrait) {
-	.keyboardDrawerToggle { grid-column: 1; grid-row: 2; top: 0; right: auto; bottom: auto; left: 6px; margin: 0; transform: translateY(calc(-100% - 10px)); }
-	.keyboardDrawerToggle:hover,
-	.keyboardDrawerToggle:focus-visible,
-	.keyboardDrawerToggle[aria-expanded="true"] { transform: translateY(calc(-100% - 10px)) scale(1.04); }
-	.keyboardDrawerHandle { --drawer-handle-height: 32px; }
-	.keyboardDrawer { height: auto; }
-	.keyboardDrawerBody { flex: 0 0 auto; }
-	.keyboardDrawer.isDragging .keyboardDrawerBody { flex: 1 1 auto; }
+	.keyToggle { grid-column: 1; grid-row: 2; top: 0; right: auto; bottom: auto; left: 6px; margin: 0; transform: translateY(calc(-100% - 10px)); }
+	.keyToggle:hover,
+	.keyToggle:focus-visible,
+	.keyToggle[aria-expanded="true"] { transform: translateY(calc(-100% - 10px)) scale(1.04); }
+	.keyHandle { --drawer-handle-height: 32px; }
+	.keyDrawer { height: auto; }
+	.keyBody { flex: 0 0 auto; }
+	.keyDrawer.isDragging .keyBody { flex: 1 1 auto; }
 }
 
 @media (orientation: landscape) {
-	.keyboardDrawerToggle { grid-column: 3; grid-row: 1; top: auto; right: auto; bottom: 16px; left: 0; margin: 0; transform: translateX(calc(-100% - 10px)); }
-	.keyboardDrawerToggle:hover,
-	.keyboardDrawerToggle:focus-visible,
-	.keyboardDrawerToggle[aria-expanded="true"] { transform: translateX(calc(-100% - 10px)) scale(1.04); }
-	.keyboardDrawer {
+	.keyToggle { grid-column: 3; grid-row: 1; top: auto; right: auto; bottom: 16px; left: 0; margin: 0; transform: translateX(calc(-100% - 10px)); }
+	.keyToggle:hover,
+	.keyToggle:focus-visible,
+	.keyToggle[aria-expanded="true"] { transform: translateX(calc(-100% - 10px)) scale(1.04); }
+	.keyDrawer {
 		left: auto;
 		right: 0;
 		top: 0;
@@ -4200,8 +4202,8 @@
 		border-radius: 18px 0 0 18px;
 		transform: translateX(100%);
 	}
-	.keyboardDrawer.isOpen { transform: translateX(0); }
-	.keyboardDrawerHandle {
+	.keyDrawer.isOpen { transform: translateX(0); }
+	.keyHandle {
 		--drawer-handle-width: 32px;
 		--drawer-handle-height: 100%;
 		--drawer-grip-width: 5px;
@@ -4209,9 +4211,9 @@
 		--drawer-grip-hover-width: 5px;
 		--drawer-grip-hover-height: 54px;
 	}
-	.keyboardDrawerBody { flex-direction: row; align-items: stretch; }
-	.keyboardDrawerBody > .panelSection { display: flex; width: 100%; padding: 10px; justify-content: flex-end; }
-	.keyboardDrawer .moves { width: max-content; min-width: max-content; height: 100%; margin: 0; flex-direction: row; align-items: stretch; }
+	.keyBody { flex-direction: row; align-items: stretch; }
+	.keyBody > .viewSec { display: flex; width: 100%; padding: 10px; justify-content: flex-end; }
+	.keyDrawer .moves { width: max-content; min-width: max-content; height: 100%; margin: 0; flex-direction: row; align-items: stretch; }
 	.keyboardExtraMoves,
 	.keyboardRotationMoves { grid-template-rows: repeat(6, var(--keyboard-key-size)); grid-auto-flow: column; grid-auto-rows: var(--keyboard-key-size); }
 	.keyboardExtraMoves {
@@ -4232,6 +4234,25 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.keyboardDrawer,
-	.keyboardDrawerToggle { transition-duration: .01ms !important; }
+	.keyDrawer,
+	.keyToggle { transition-duration: .01ms !important; }
+}
+
+body.isFullscreen .bottomNav,
+body.isFullscreen .sideNav {
+	display: none !important;
+}
+
+@media (orientation: portrait) {
+	body.isFullscreen .appShell {
+		grid-template-rows: var(--cube-size) minmax(0, 1fr);
+	}
+}
+
+@media (orientation: landscape) {
+	body.isFullscreen .appShell {
+		grid-template-columns: var(--cube-size) minmax(0, 1fr);
+	}
+	body.isFullscreen .cubeArea { grid-column: 1; }
+	body.isFullscreen .modeView { grid-column: 2; }
 }

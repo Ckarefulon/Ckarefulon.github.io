@@ -1,14 +1,14 @@
-.memoryPanel {
+﻿.memoryView {
 	overflow: hidden;
 }
 
-.memoryPanel .panelSection {
+.memoryView .viewSec {
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
 }
 
-.memoryPanel .panelSection > .button {
+.memoryView .viewSec > .button {
 	width: 100%;
 }
 
@@ -259,7 +259,7 @@
 	text-align: center;
 }
 
-.memoryArea {
+.reviewArea {
 	display: grid;
 	grid-template-rows: minmax(0, 1fr) minmax(108px, 28%);
 	flex: 1 1 auto;
@@ -471,7 +471,7 @@
 	pointer-events: none;
 }
 
-.memoryHistory {
+.reviewHistory {
 	min-height: 0;
 	padding: 10px 12px;
 	border-top: 1px solid var(--line);
@@ -479,15 +479,15 @@
 	overscroll-behavior: contain;
 }
 
-.memoryHistory.isHidden {
+.reviewHistory.isHidden {
 	display: none;
 }
 
-.memoryArea:has(.memoryHistory.isHidden) {
+.reviewArea:has(.reviewHistory.isHidden) {
 	grid-template-rows: minmax(0, 1fr);
 }
 
-.memoryHistoryTitle {
+.reviewHistoryTitle {
 	position: sticky;
 	top: -10px;
 	z-index: 1;
@@ -1003,7 +1003,7 @@
 }
 
 @media (max-width: 520px) {
-	.memoryArea {
+	.reviewArea {
 		grid-template-rows: minmax(360px, 1fr) 130px;
 	}
 
@@ -1011,21 +1011,4 @@
 	.memoryOptions {
 		grid-template-columns: repeat(2, 1fr);
 	}
-}
-
-.memoryFullscreenMode .topbar,
-.memoryFullscreenMode .panelSection,
-.memoryFullscreenMode .panelHeader,
-.memoryFullscreenMode .panelFooter,
-.memoryFullscreenMode .diagnostics {
-	display: none !important;
-}
-
-.memoryFullscreenMode .memoryPanel {
-	flex: 1;
-	max-width: 100%;
-}
-
-.memoryFullscreenMode .memoryArea {
-	grid-template-rows: 1fr auto;
 }

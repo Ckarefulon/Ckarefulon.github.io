@@ -11,24 +11,24 @@
 
 	function createGroup(key, label) {
 		var section = document.createElement("section");
-		section.className = "actionGroup actionGroup-" + key;
+		section.className = "opGroup opGroup-" + key;
 		section.setAttribute("data-action-group", key);
 
 		var title = document.createElement("h2");
-		title.className = "actionGroupTitle";
+		title.className = "opGroupTitle";
 		title.textContent = label;
 
 		var body = document.createElement("div");
-		body.className = "actionGroupBody";
+		body.className = "opGroupBody";
 		section.append(title, body);
 		return { section: section, body: body };
 	}
 
-	function organizeActionPanel(options) {
-		var panel = options && options.panel;
+	function organizeOps(options) {
+		var view = options && options.view;
 		var target = options && options.body;
 		var mode = options && options.mode || "practice";
-		if (!panel || !target) return;
+		if (!view || !target) return;
 
 		target.replaceChildren();
 		var labels = groupLabels[mode] || groupLabels.practice;
@@ -40,21 +40,21 @@
 			groups[key].body.appendChild(node);
 		}
 
-		var header = panel.querySelector(":scope > .panelHeader");
+		var header = view.querySelector(":scope > .viewHead");
 		if (header) header.remove();
 
-		Array.from(panel.children).forEach(function (section) {
-			if (!section.classList || !section.classList.contains("panelSection")) return;
+		Array.from(view.children).forEach(function (section) {
+			if (!section.classList || !section.classList.contains("viewSec")) return;
 			var isImport = section.id === "formulaImport" || section.id === "stateImport";
 			if (section.classList.contains("macHelp")) append("help", section);
 			else if (section.querySelector("#manualMoves, #orientationMoves")) append("cube", section);
-			else if (section.classList.contains("customStateSection")) append("data", section);
+			else if (section.classList.contains("stateBox")) append("data", section);
 			else if (!isImport && section.querySelector(":scope > .controls")) append("settings", section);
 		});
 
-		var importPanel = panel.querySelector("#formulaImport, #stateImport");
-		if (importPanel) {
-			Array.from(importPanel.children).forEach(function (child) {
+		var importBox = view.querySelector("#formulaImport, #stateImport");
+		if (importBox) {
+			Array.from(importBox.children).forEach(function (child) {
 				if (child.matches(".sharedGroupBar, #sharedCustomStateBtn, .importDropZone, .controls, .hiddenFileInput, .textImport, .stateOptionRow")) {
 					append("data", child);
 				}
@@ -66,7 +66,7 @@
 		});
 	}
 
-	function mountOverlay(overlay, options) {
+	function mount(overlay, options) {
 		options = options || {};
 		if (!overlay) return function () {};
 		var returnFocus = document.activeElement;
@@ -115,8 +115,9 @@
 		return close;
 	}
 
-	window.MobileUI = {
-		mountOverlay: mountOverlay,
-		organizeActionPanel: organizeActionPanel
+	window.AppUI = {
+		mount: mount,
+		organizeOps: organizeOps
 	};
 })();
+
