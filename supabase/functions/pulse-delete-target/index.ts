@@ -71,6 +71,16 @@ serve(async (req: Request) => {
 			console.warn("Delete secret warning:", deleteSecretErr);
 		}
 
+		const { error: deleteCustomConfigErr } = await supabase
+			.from("checkin_custom_http_configs")
+			.delete()
+			.eq("target_id", targetId)
+			.eq("user_id", user.id);
+
+		if (deleteCustomConfigErr) {
+			console.warn("Delete custom http config warning:", deleteCustomConfigErr);
+		}
+
 		const { error: deleteTargetErr } = await supabase
 			.from("checkin_targets")
 			.delete()

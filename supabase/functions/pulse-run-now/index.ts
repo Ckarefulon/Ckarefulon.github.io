@@ -28,16 +28,21 @@ serve(async (req: Request) => {
 		return errorResponse("缺少目标ID", 400);
 	}
 
+	const triggerType = body.trigger_type === "test" ? "test" : "manual";
+	const isTest = triggerType === "test";
+	const customHttpConfig = isTest ? body.custom_http_config : undefined;
+
 	const supabase = getServiceClient();
 
-	const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+	// 1 分钟冷却：对同一目标的 manual/test 触发分别限制
+	const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
 	const { data: recentRun } = await supabase
 		.from("checkin_runs")
 		.select("id, status, created_at")
 		.eq("target_id", targetId)
 		.eq("user_id", user.id)
-		.eq("trigger_type", "manual")
-		.gte("created_at", fiveMinutesAgo)
+		.eq("trigger_type", triggerType)
+		.gte("created_at", oneMinuteAgo)
 		.in("status", ["queued", "running"])
 		.order("created_at", { ascending: false })
 		.limit(1)
@@ -47,8 +52,38 @@ serve(async (req: Request) => {
 		return errorResponse("请稍候再试，该项目刚刚被触发过", 429, "COOLDOWN");
 	}
 
+	// 普通手动签到额外检查一分钟内是否有任意 manual 运行（执行完成后也防连点）
+	if (!isTest) {
+		const { data: recentAnyManual } = await supabase
+			.from("checkin_runs")
+			.select("id, status, created_at")
+			.eq("target_id", targetId)
+			.eq("user_id", user.id)
+			.eq("trigger_type", "manual")
+			.gte("created_at", oneMinuteAgo)
+			.order("created_at", { ascending: false })
+			.limit(1)
+			.maybeSingle();
+
+		if (recentAnyManual) {
+			return errorResponse("请稍候再试，一分钟内已触发过手动签到", 429, "COOLDOWN");
+		}
+	}
+
 	try {
-		const result = await performCheckin(supabase, targetId, user.id, "manual", 1);
+		const result = await performCheckin(
+			supabase,
+			targetId,
+			user.id,
+			triggerType,
+			1,
+			undefined,
+			undefined,
+			undefined,
+			false,
+			undefined,
+			customHttpConfig
+		);
 		if (result.success) {
 			return successResponse({ run_id: result.runId, message: result.message });
 		} else {
@@ -57,7 +92,7 @@ serve(async (req: Request) => {
 				message: result.message,
 				run_id: result.runId,
 				requires_reauth: result.requiresReauth,
-			}, result.requiresReauth ? 200 : 200);
+			}, 200);
 		}
 	} catch (err: unknown) {
 		console.error("Run now exception:", err);

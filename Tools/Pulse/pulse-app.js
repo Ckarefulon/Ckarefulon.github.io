@@ -12,6 +12,8 @@
 		schedules: new Map(),
 		runs: [],
 		editingTargetId: null,
+		serviceType: 'preset',
+		customHttpConfig: null,
 		refreshTimer: null,
 		realtimeSubscriptions: [],
 		eventsBound: false
@@ -324,6 +326,208 @@
 		});
 	}
 
+	// ========== 自定义 HTTP 表单 ==========
+	const SENSITIVE_PLACEHOLDER = '__PULSE_SENSITIVE__';
+
+	function createEmptyCustomHttpConfig() {
+		return {
+			url: '',
+			method: 'GET',
+			bodyType: 'none',
+			queryParams: [],
+			headers: [],
+			bodyFields: [],
+			successRules: [{ type: 'status_range' }],
+			alreadyCheckedInRules: [],
+			authFailureRules: []
+		};
+	}
+
+	function normalizeCustomHttpConfig(dbConfig) {
+		if (!dbConfig) return createEmptyCustomHttpConfig();
+		return {
+			url: dbConfig.url || '',
+			method: dbConfig.method || 'GET',
+			bodyType: dbConfig.body_type || 'none',
+			queryParams: Array.isArray(dbConfig.query_params) ? dbConfig.query_params : [],
+			headers: Array.isArray(dbConfig.headers) ? dbConfig.headers : [],
+			bodyFields: Array.isArray(dbConfig.body_fields) ? dbConfig.body_fields : [],
+			successRules: Array.isArray(dbConfig.success_rules) && dbConfig.success_rules.length > 0
+				? dbConfig.success_rules : [{ type: 'status_range' }],
+			alreadyCheckedInRules: Array.isArray(dbConfig.already_checked_in_rules) ? dbConfig.already_checked_in_rules : [],
+			authFailureRules: Array.isArray(dbConfig.auth_failure_rules) ? dbConfig.auth_failure_rules : []
+		};
+	}
+
+	function getDefaultRuleValue(type) {
+		if (type === 'status_code') return { type, statusCode: 200 };
+		if (type === 'status_range') return { type };
+		if (type === 'text_contains') return { type, text: '' };
+		if (type === 'json_equals') return { type, jsonPath: '', jsonValue: '' };
+		return { type };
+	}
+
+	function renderParamRow(param, category, index) {
+		const isSensitive = param.sensitive ? 'checked' : '';
+		const valueDisplay = param.sensitive && param.value === SENSITIVE_PLACEHOLDER
+			? '已配置'
+			: escapeHtml(param.value || '');
+		const valuePlaceholder = param.sensitive ? '•••••••• (留空不修改)' : '参数值';
+		const sensitiveClass = param.sensitive && param.value === SENSITIVE_PLACEHOLDER ? 'pulseSensitivePlaceholder' : '';
+		return `
+			<div class="pulseParamRow" data-category="${category}" data-index="${index}">
+				<input type="text" class="param-key" placeholder="参数名" value="${escapeHtml(param.key || '')}">
+				<input type="text" class="param-value ${sensitiveClass}" placeholder="${valuePlaceholder}" value="${valueDisplay}" data-sensitive="${param.sensitive ? '1' : '0'}">
+				<label><input type="checkbox" class="param-sensitive" ${isSensitive}> 敏感</label>
+				<button type="button" class="pulseRemoveBtn remove-param">&times;</button>
+			</div>
+		`;
+	}
+
+	function renderRuleRow(rule, category, index) {
+		const typeOptions = [
+			{ value: 'status_range', label: '200-299' },
+			{ value: 'status_code', label: '状态码等于' },
+			{ value: 'text_contains', label: '文本包含' },
+			{ value: 'json_equals', label: 'JSON 字段等于' }
+		];
+		const typeSelect = typeOptions.map(opt =>
+			`<option value="${opt.value}" ${rule.type === opt.value ? 'selected' : ''}>${opt.label}</option>`
+		).join('');
+
+		let valueInputs = '';
+		if (rule.type === 'status_code') {
+			valueInputs = `<input type="number" class="rule-status-code" placeholder="状态码" value="${rule.statusCode ?? ''}" min="100" max="599">`;
+		} else if (rule.type === 'text_contains') {
+			valueInputs = `<input type="text" class="rule-text" placeholder="匹配文本" value="${escapeHtml(rule.text || '')}">`;
+		} else if (rule.type === 'json_equals') {
+			valueInputs = `
+				<input type="text" class="rule-json-path" placeholder="字段路径，如 data.success" value="${escapeHtml(rule.jsonPath || '')}">
+				<input type="text" class="rule-json-value" placeholder="期望值" value="${escapeHtml(String(rule.jsonValue ?? ''))}">
+			`;
+		} else {
+			valueInputs = `<input type="text" disabled placeholder="200-299" value="200-299">`;
+		}
+
+		return `
+			<div class="pulseRuleRow" data-category="${category}" data-index="${index}">
+				<select class="rule-type">${typeSelect}</select>
+				${valueInputs}
+				<button type="button" class="pulseRemoveBtn remove-rule">&times;</button>
+			</div>
+		`;
+	}
+
+	function renderCustomHttpForm() {
+		const cfg = appState.customHttpConfig || createEmptyCustomHttpConfig();
+
+		$('customUrl').value = cfg.url || '';
+		$('customMethod').value = cfg.method || 'GET';
+		$('customBodyType').value = cfg.bodyType || 'none';
+
+		$('queryParams').innerHTML = (cfg.queryParams || []).map((p, i) => renderParamRow(p, 'queryParams', i)).join('');
+		$('headerParams').innerHTML = (cfg.headers || []).map((p, i) => renderParamRow(p, 'headers', i)).join('');
+		$('bodyParams').innerHTML = (cfg.bodyFields || []).map((p, i) => renderParamRow(p, 'bodyFields', i)).join('');
+
+		$('successRules').innerHTML = (cfg.successRules || []).map((r, i) => renderRuleRow(r, 'successRules', i)).join('');
+		$('alreadyCheckedInRules').innerHTML = (cfg.alreadyCheckedInRules || []).map((r, i) => renderRuleRow(r, 'alreadyCheckedInRules', i)).join('');
+		$('authFailureRules').innerHTML = (cfg.authFailureRules || []).map((r, i) => renderRuleRow(r, 'authFailureRules', i)).join('');
+
+		updateBodyFieldsVisibility();
+	}
+
+	function updateBodyFieldsVisibility() {
+		const bodyType = $('customBodyType').value;
+		const method = $('customMethod').value;
+		const section = $('bodyFieldsSection');
+		if (method === 'GET' || bodyType === 'none') {
+			section.style.display = 'none';
+		} else {
+			section.style.display = 'block';
+		}
+	}
+
+	function collectCustomHttpConfig() {
+		function collectParams(container) {
+			return qsa('.pulseParamRow', container).map(row => {
+				const keyInput = qs('.param-key', row);
+				const valueInput = qs('.param-value', row);
+				const sensitiveInput = qs('.param-sensitive', row);
+				let value = valueInput.value;
+				const isSensitive = sensitiveInput.checked;
+				if (isSensitive && value === '已配置') {
+					value = SENSITIVE_PLACEHOLDER;
+				}
+				return {
+					key: keyInput.value.trim(),
+					value: value,
+					sensitive: isSensitive
+				};
+			});
+		}
+
+		function collectRules(container) {
+			return qsa('.pulseRuleRow', container).map(row => {
+				const type = qs('.rule-type', row).value;
+				const rule = { type };
+				if (type === 'status_code') {
+					rule.statusCode = parseInt(qs('.rule-status-code', row)?.value) || 200;
+				} else if (type === 'text_contains') {
+					rule.text = qs('.rule-text', row)?.value || '';
+				} else if (type === 'json_equals') {
+					rule.jsonPath = qs('.rule-json-path', row)?.value || '';
+					const valInput = qs('.rule-json-value', row);
+					let val = valInput?.value;
+					if (val === 'true') val = true;
+					else if (val === 'false') val = false;
+					else if (!isNaN(Number(val)) && val !== '') val = Number(val);
+					rule.jsonValue = val;
+				}
+				return rule;
+			});
+		}
+
+		return {
+			url: $('customUrl').value.trim(),
+			method: $('customMethod').value,
+			bodyType: $('customBodyType').value,
+			queryParams: collectParams($('queryParams')),
+			headers: collectParams($('headerParams')),
+			bodyFields: collectParams($('bodyParams')),
+			successRules: collectRules($('successRules')),
+			alreadyCheckedInRules: collectRules($('alreadyCheckedInRules')),
+			authFailureRules: collectRules($('authFailureRules'))
+		};
+	}
+
+	function switchServiceType(type) {
+		appState.serviceType = type;
+		qsa('.pulseServiceTypeTab').forEach(tab => {
+			tab.classList.toggle('isActive', tab.dataset.type === type);
+		});
+
+		if (type === 'custom') {
+			$('presetServiceField').style.display = 'none';
+			$('customHttpFields').style.display = 'block';
+			$('testConfigBtn').style.display = 'inline-flex';
+			$('formService').value = 'custom-http';
+			if (!appState.customHttpConfig) {
+				appState.customHttpConfig = createEmptyCustomHttpConfig();
+			}
+			renderCustomHttpForm();
+			updateBodyFieldsVisibility();
+		} else {
+			$('presetServiceField').style.display = 'block';
+			$('customHttpFields').style.display = 'none';
+			$('testConfigBtn').style.display = 'none';
+			if ($('formService').value === 'custom-http') {
+				$('formService').value = '';
+			}
+			renderServiceFields($('formService').value, {}, {}, !!appState.editingTargetId);
+		}
+		updateTestButtonState();
+	}
+
 	function populateTargetFilter() {
 		const filterSelect = $('runFilterTarget');
 		if (!filterSelect) return;
@@ -351,7 +555,8 @@
 				.from('checkin_targets')
 				.select(`
 					*,
-					checkin_schedules (*)
+					checkin_schedules (*),
+					checkin_custom_http_configs (*)
 				`)
 				.order('created_at', { ascending: true });
 
@@ -363,6 +568,9 @@
 			(data || []).forEach(t => {
 				if (t.checkin_schedules && t.checkin_schedules.length > 0) {
 					appState.schedules.set(t.id, t.checkin_schedules[0]);
+				}
+				if (t.checkin_custom_http_configs && t.checkin_custom_http_configs.length > 0) {
+					t.custom_http_config = t.checkin_custom_http_configs[0];
 				}
 			});
 
@@ -645,7 +853,14 @@
 		$('credentialHint').style.display = 'none';
 		resetForm();
 		$('targetModal').style.display = 'flex';
-		setTimeout(() => $('formService').focus(), 100);
+		updateTestButtonState();
+		setTimeout(() => {
+			if (appState.serviceType === 'preset') {
+				$('formService').focus();
+			} else {
+				$('customUrl').focus();
+			}
+		}, 100);
 	}
 
 	function openEditModal(targetId) {
@@ -656,10 +871,18 @@
 		$('modalTitle').textContent = '编辑签到项目';
 		$('credentialHint').style.display = target.credential_secret_id ? 'flex' : 'none';
 
-		$('formService').value = target.service_key;
 		$('formDisplayName').value = target.display_name;
-		renderServiceFields(target.service_key, {}, target.public_config || {}, true);
 		$('formEnabled').checked = target.enabled;
+
+		if (target.service_key === 'custom-http') {
+			switchServiceType('custom');
+			appState.customHttpConfig = normalizeCustomHttpConfig(target.custom_http_config);
+			renderCustomHttpForm();
+		} else {
+			switchServiceType('preset');
+			$('formService').value = target.service_key;
+			renderServiceFields(target.service_key, {}, target.public_config || {}, true);
+		}
 
 		const schedule = appState.schedules.get(targetId);
 		if (schedule) {
@@ -676,6 +899,7 @@
 			});
 		}
 
+		updateTestButtonState();
 		$('targetModal').style.display = 'flex';
 	}
 
@@ -685,6 +909,9 @@
 	}
 
 	function resetForm() {
+		appState.serviceType = 'preset';
+		appState.customHttpConfig = createEmptyCustomHttpConfig();
+		switchServiceType('preset');
 		$('formService').value = '';
 		$('formDisplayName').value = '';
 		$('serviceFields').innerHTML = '';
@@ -695,10 +922,15 @@
 		$('formRandomDelay').value = 0;
 		$('formEnabled').checked = true;
 		qsa('#formDaysOfWeek input').forEach(cb => cb.checked = true);
+		renderCustomHttpForm();
+		$('customAdvancedSection').style.display = 'none';
+		const toggleIcon = qs('#toggleAdvancedBtn svg');
+		if (toggleIcon) toggleIcon.style.transform = '';
 	}
 
 	async function saveTarget() {
-		const serviceKey = $('formService').value;
+		const isCustom = appState.serviceType === 'custom';
+		const serviceKey = isCustom ? 'custom-http' : $('formService').value;
 		const displayName = $('formDisplayName').value.trim();
 		const enabled = $('formEnabled').checked;
 		const localTime = $('formLocalTime').value;
@@ -717,13 +949,26 @@
 			showToast('请输入账号名称', 'error');
 			return;
 		}
-		if (!/^([01]?\d|2[0-3]):([0-5]\d)$/.test(localTime)) {
-			showToast('请输入有效的时间', 'error');
+		if (!/^([01]?\d|2[0-3]):00$/.test(localTime)) {
+			showToast('请选择整点时间', 'error');
 			return;
 		}
 		if (daysOfWeek.length === 0) {
 			showToast('请至少选择一天', 'error');
 			return;
+		}
+
+		let customHttpConfig = null;
+		if (isCustom) {
+			customHttpConfig = collectCustomHttpConfig();
+			if (!customHttpConfig.url || !customHttpConfig.url.startsWith('https://')) {
+				showToast('请输入有效的 HTTPS 签到接口 URL', 'error');
+				return;
+			}
+			if (!customHttpConfig.successRules || customHttpConfig.successRules.length === 0) {
+				showToast('请至少配置一条成功判断规则', 'error');
+				return;
+			}
 		}
 
 		const credentials = {};
@@ -769,8 +1014,14 @@
 				random_delay_seconds: Math.min(3600, Math.max(0, randomDelay))
 			};
 
-			await callEdgeFunction('pulse-upsert-target', body);
-			showToast(appState.editingTargetId ? '已更新' : '已添加', 'success');
+			if (isCustom && customHttpConfig) {
+			body.custom_http_config = customHttpConfig;
+		}
+
+		console.log('[saveTarget] 发送的完整请求体:', JSON.stringify(body, null, 2));
+		const response = await callEdgeFunction('pulse-upsert-target', body);
+		console.log('[saveTarget] 后端响应:', JSON.stringify(response, null, 2));
+		showToast(appState.editingTargetId ? '已更新' : '已添加', 'success');
 			closeModal();
 			await loadAllData();
 		} catch (err) {
@@ -1078,6 +1329,135 @@
 		}
 	}
 
+	// ========== 自定义 HTTP 事件处理 ==========
+	function updateTestButtonState() {
+		const btn = $('testConfigBtn');
+		if (!btn) return;
+		if (appState.serviceType !== 'custom') {
+			btn.style.display = 'none';
+			return;
+		}
+		btn.style.display = 'inline-flex';
+		btn.disabled = !appState.editingTargetId;
+		btn.title = appState.editingTargetId ? '使用当前配置测试一次' : '保存后才能测试';
+	}
+
+	function addParam(category) {
+		if (!appState.customHttpConfig) {
+			appState.customHttpConfig = createEmptyCustomHttpConfig();
+		}
+		appState.customHttpConfig[category].push({ key: '', value: '', sensitive: false });
+		renderCustomHttpForm();
+	}
+
+	function removeParam(row) {
+		const category = row.dataset.category;
+		const index = parseInt(row.dataset.index);
+		if (!appState.customHttpConfig || !category) return;
+		appState.customHttpConfig[category].splice(index, 1);
+		renderCustomHttpForm();
+	}
+
+	function addRule(category, type) {
+		if (!appState.customHttpConfig) {
+			appState.customHttpConfig = createEmptyCustomHttpConfig();
+		}
+		appState.customHttpConfig[category].push(getDefaultRuleValue(type || 'status_range'));
+		renderCustomHttpForm();
+	}
+
+	function removeRule(row) {
+		const category = row.dataset.category;
+		const index = parseInt(row.dataset.index);
+		if (!appState.customHttpConfig || !category) return;
+		appState.customHttpConfig[category].splice(index, 1);
+		renderCustomHttpForm();
+	}
+
+	function addQuickAuth(type) {
+		if (!appState.customHttpConfig) {
+			appState.customHttpConfig = createEmptyCustomHttpConfig();
+		}
+		const headers = appState.customHttpConfig.headers;
+		const existingIndex = headers.findIndex(h => h.key.toLowerCase() === type.toLowerCase());
+		if (existingIndex >= 0) {
+			headers[existingIndex].sensitive = true;
+		} else {
+			let label = type;
+			if (type === 'authorization') label = 'Authorization';
+			else if (type === 'cookie') label = 'Cookie';
+			else if (type === 'x-api-key') label = 'X-API-Key';
+			else if (type === 'token') label = 'Token';
+			headers.push({ key: label, value: '', sensitive: true });
+		}
+		renderCustomHttpForm();
+		$('customAdvancedSection').style.display = 'block';
+		const toggleIcon = qs('#toggleAdvancedBtn svg');
+		if (toggleIcon) toggleIcon.style.transform = 'rotate(180deg)';
+	}
+
+	function toggleAdvanced() {
+		const section = $('customAdvancedSection');
+		const icon = qs('#toggleAdvancedBtn svg');
+		const isHidden = section.style.display === 'none';
+		section.style.display = isHidden ? 'block' : 'none';
+		if (icon) icon.style.transform = isHidden ? 'rotate(180deg)' : '';
+	}
+
+	async function testConfig() {
+		if (!appState.editingTargetId) {
+			showToast('请先保存项目，再点击测试', 'error');
+			return;
+		}
+		const customHttpConfig = collectCustomHttpConfig();
+		if (!customHttpConfig.url || !customHttpConfig.url.startsWith('https://')) {
+			showToast('请输入有效的 HTTPS 签到接口 URL', 'error');
+			return;
+		}
+		if (!customHttpConfig.successRules || customHttpConfig.successRules.length === 0) {
+			showToast('请至少配置一条成功判断规则', 'error');
+			return;
+		}
+
+		const btn = $('testConfigBtn');
+		btn.disabled = true;
+		btn.textContent = '测试中...';
+
+		try {
+			const result = await callEdgeFunction('pulse-run-now', {
+				target_id: appState.editingTargetId,
+				trigger_type: 'test',
+				custom_http_config: customHttpConfig
+			});
+			showToast(result.message || '测试成功', 'success');
+			loadAllData();
+		} catch (err) {
+			console.error('Test config error:', err);
+			showToast(err.message || '测试失败', 'error');
+		} finally {
+			btn.disabled = false;
+			btn.textContent = '测试配置';
+		}
+	}
+
+	function handleRuleTypeChange(row, newType) {
+		appState.customHttpConfig = collectCustomHttpConfig();
+		const category = row.dataset.category;
+		const index = parseInt(row.dataset.index);
+		if (!appState.customHttpConfig || !category || isNaN(index)) return;
+		appState.customHttpConfig[category][index] = getDefaultRuleValue(newType);
+		renderCustomHttpForm();
+	}
+
+	function handleParamSensitiveChange(row, checked) {
+		appState.customHttpConfig = collectCustomHttpConfig();
+		const category = row.dataset.category;
+		const index = parseInt(row.dataset.index);
+		if (!appState.customHttpConfig || !category || isNaN(index)) return;
+		appState.customHttpConfig[category][index].sensitive = checked;
+		renderCustomHttpForm();
+	}
+
 	function bindEvents() {
 		$('loginBtn').onclick = handleLogin;
 		$('signupLink').onclick = handleSignup;
@@ -1118,6 +1498,61 @@
 		};
 
 		$('settingsRefreshInterval').onchange = setupRefreshTimer;
+
+		// 自定义 HTTP 表单事件
+		qsa('.pulseServiceTypeTab').forEach(tab => {
+			tab.onclick = () => switchServiceType(tab.dataset.type);
+		});
+
+		$('customMethod').onchange = updateBodyFieldsVisibility;
+		$('customBodyType').onchange = updateBodyFieldsVisibility;
+
+		$('toggleAdvancedBtn').onclick = toggleAdvanced;
+		$('testConfigBtn').onclick = testConfig;
+
+		qsa('[data-add-param]').forEach(btn => {
+			btn.onclick = () => addParam(btn.dataset.addParam === 'query' ? 'queryParams' : btn.dataset.addParam === 'header' ? 'headers' : 'bodyFields');
+		});
+
+		$('addSuccessRuleBtn').onclick = () => addRule('successRules', 'status_range');
+		$('addAlreadyCheckedInRuleBtn').onclick = () => addRule('alreadyCheckedInRules', 'text_contains');
+		$('addAuthFailureRuleBtn').onclick = () => addRule('authFailureRules', 'status_code');
+
+		qsa('#quickAuthButtons button').forEach(btn => {
+			btn.onclick = () => addQuickAuth(btn.dataset.auth);
+		});
+
+		const customFields = $('customHttpFields');
+		if (customFields) {
+			customFields.onclick = (e) => {
+				const removeBtn = e.target.closest('.remove-param');
+				if (removeBtn) {
+					const row = removeBtn.closest('.pulseParamRow');
+					if (row) removeParam(row);
+					return;
+				}
+				const removeRuleBtn = e.target.closest('.remove-rule');
+				if (removeRuleBtn) {
+					const row = removeRuleBtn.closest('.pulseRuleRow');
+					if (row) removeRule(row);
+					return;
+				}
+			};
+
+			customFields.onchange = (e) => {
+				const ruleSelect = e.target.closest('.rule-type');
+				if (ruleSelect) {
+					const row = ruleSelect.closest('.pulseRuleRow');
+					if (row) handleRuleTypeChange(row, ruleSelect.value);
+					return;
+				}
+				const sensitiveCheck = e.target.closest('.param-sensitive');
+				if (sensitiveCheck) {
+					const row = sensitiveCheck.closest('.pulseParamRow');
+					if (row) handleParamSensitiveChange(row, sensitiveCheck.checked);
+				}
+			};
+		}
 
 		document.addEventListener('keydown', (e) => {
 			if (e.key === 'Escape') {

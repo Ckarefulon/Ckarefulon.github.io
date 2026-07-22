@@ -1,17 +1,19 @@
 import { decryptCredentials, deserializeEncryptedBlob } from "./crypto.ts";
 import { executeCheckin } from "./adapters/index.ts";
+import type { CustomHttpConfig } from "./custom-http/types.ts";
 
 export async function performCheckin(
 	supabase: any,
 	targetId: string,
 	userId: string,
-	triggerType: "manual" | "scheduled" | "retry",
+	triggerType: "manual" | "scheduled" | "retry" | "test",
 	attempt: number = 1,
 	existingRunId?: string,
 	scheduleId?: string,
 	scheduledFor?: string,
 	updateSchedule: boolean = false,
-	retryIntervalMinutes?: number
+	retryIntervalMinutes?: number,
+	customHttpConfig?: CustomHttpConfig
 ) {
 	const startedAt = new Date().toISOString();
 	let runId = existingRunId;
@@ -76,7 +78,7 @@ export async function performCheckin(
 		return { success: false, message: "该项目需要重新授权", runId, requiresReauth: true };
 	}
 
-	let credentials: Record<string, string> = {};
+	let credentials: Record<string, unknown> = {};
 	if (target.credential_secret_id) {
 		const { data: secretRow, error: secretErr } = await supabase
 			.from("checkin_secrets")
@@ -124,6 +126,30 @@ export async function performCheckin(
 		}
 	}
 
+	let resolvedCustomHttpConfig = customHttpConfig;
+	if (target.service_key === "custom-http" && !resolvedCustomHttpConfig) {
+		const { data: customConfigRow, error: customConfigErr } = await supabase
+			.from("checkin_custom_http_configs")
+			.select("url, method, body_type, query_params, headers, body_fields, success_rules, already_checked_in_rules, auth_failure_rules")
+			.eq("target_id", targetId)
+			.eq("user_id", userId)
+			.maybeSingle();
+
+		if (!customConfigErr && customConfigRow) {
+			resolvedCustomHttpConfig = {
+				url: customConfigRow.url,
+				method: customConfigRow.method,
+				bodyType: customConfigRow.body_type,
+				queryParams: customConfigRow.query_params || [],
+				headers: customConfigRow.headers || [],
+				bodyFields: customConfigRow.body_fields || [],
+				successRules: customConfigRow.success_rules || [],
+				alreadyCheckedInRules: customConfigRow.already_checked_in_rules || [],
+				authFailureRules: customConfigRow.auth_failure_rules || [],
+			};
+		}
+	}
+
 	const startTime = Date.now();
 	const result = await executeCheckin(target.service_key, {
 		credentials,
@@ -132,18 +158,23 @@ export async function performCheckin(
 		userId: target.user_id,
 		attempt: attempt,
 		scheduledFor: scheduledFor,
+		customHttpConfig: resolvedCustomHttpConfig as Record<string, unknown> | undefined,
 	});
 	const durationMs = Date.now() - startTime;
 	const finishedAt = new Date().toISOString();
 
 	if (result.success) {
 		await supabase.from("checkin_runs").update({
-			status: "success",
+			status: result.alreadyCheckedIn ? "skipped" : "success",
 			finished_at: finishedAt,
 			duration_ms: durationMs,
 			result_summary: result.summary,
 			response_excerpt: result.sanitizedResponse ? result.sanitizedResponse.substring(0, 500) : null,
 		}).eq("id", runId);
+
+		if (triggerType === "test") {
+			return { success: true, message: result.summary, runId };
+		}
 
 		const lastSuccessAt = finishedAt;
 		let consecutiveDays = 0;
@@ -214,6 +245,17 @@ export async function performCheckin(
 			error_message: (result.errorMessage || result.summary).substring(0, 500),
 			response_excerpt: result.sanitizedResponse ? result.sanitizedResponse.substring(0, 500) : null,
 		}).eq("id", runId);
+
+		if (triggerType === "test") {
+			return {
+				success: false,
+				message: result.summary,
+				runId,
+				retryable: result.retryable,
+				requiresReauth: isAuthError,
+				errorCode: result.errorCode,
+			};
+		}
 
 		await supabase.from("checkin_targets").update({
 			last_status: "failed",

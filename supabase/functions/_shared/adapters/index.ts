@@ -1,5 +1,6 @@
 import type { CheckinAdapter, CheckinContext, CheckinResult } from "./types.ts";
 import testEchoAdapter from "./test-echo.ts";
+import customHttpAdapter from "./custom-http.ts";
 
 const adapters: Map<string, CheckinAdapter> = new Map();
 
@@ -8,6 +9,7 @@ function registerAdapter(adapter: CheckinAdapter) {
 }
 
 registerAdapter(testEchoAdapter);
+registerAdapter(customHttpAdapter);
 
 export function getAdapter(serviceKey: string): CheckinAdapter | null {
 	return adapters.get(serviceKey) || null;
@@ -108,7 +110,7 @@ export async function executeCheckin(
 
 export async function validateAdapterConfig(
 	serviceKey: string,
-	credentials: Record<string, string>,
+	credentials: Record<string, unknown>,
 	publicConfig: Record<string, unknown>
 ) {
 	const adapter = getAdapter(serviceKey);

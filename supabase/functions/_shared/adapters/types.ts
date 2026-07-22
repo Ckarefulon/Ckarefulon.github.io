@@ -4,12 +4,13 @@ export interface ValidationResult {
 }
 
 export interface CheckinContext {
-	credentials: Record<string, string>;
+	credentials: Record<string, unknown>;
 	publicConfig: Record<string, unknown>;
 	targetId: string;
 	userId: string;
 	attempt: number;
 	scheduledFor?: string;
+	customHttpConfig?: Record<string, unknown>;
 }
 
 export interface CheckinResult {
@@ -49,6 +50,6 @@ export interface CheckinAdapter {
 	description: string;
 	credentialFields: CredentialField[];
 	publicConfigFields: PublicConfigField[];
-	validateConfig(credentials: Record<string, string>, publicConfig: Record<string, unknown>): Promise<ValidationResult>;
+	validateConfig(credentials: Record<string, unknown>, publicConfig: Record<string, unknown>): Promise<ValidationResult>;
 	checkin(context: CheckinContext): Promise<CheckinResult>;
 }

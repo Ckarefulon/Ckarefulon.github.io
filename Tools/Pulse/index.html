@@ -185,6 +185,11 @@
 						</div>
 					</div>
 
+					<div class="pulseScheduleHint" id="scheduleHint">
+						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+						<span>自动任务每小时整点检查一次，实际签到按所选整点执行。</span>
+					</div>
+
 					<div class="pulseSection">
 						<div class="pulseSectionHeader">
 							<h2>签到项目状态</h2>
@@ -282,7 +287,32 @@
 							</div>
 							<div class="pulseSettingRow">
 								<label>默认签到时间</label>
-								<input type="time" id="settingsDefaultTime" value="08:00" class="pulseInput" style="width:120px;">
+								<select id="settingsDefaultTime" class="pulseSelect" style="width:120px;">
+									<option value="00:00">00:00</option>
+									<option value="01:00">01:00</option>
+									<option value="02:00">02:00</option>
+									<option value="03:00">03:00</option>
+									<option value="04:00">04:00</option>
+									<option value="05:00">05:00</option>
+									<option value="06:00">06:00</option>
+									<option value="07:00">07:00</option>
+									<option value="08:00" selected>08:00</option>
+									<option value="09:00">09:00</option>
+									<option value="10:00">10:00</option>
+									<option value="11:00">11:00</option>
+									<option value="12:00">12:00</option>
+									<option value="13:00">13:00</option>
+									<option value="14:00">14:00</option>
+									<option value="15:00">15:00</option>
+									<option value="16:00">16:00</option>
+									<option value="17:00">17:00</option>
+									<option value="18:00">18:00</option>
+									<option value="19:00">19:00</option>
+									<option value="20:00">20:00</option>
+									<option value="21:00">21:00</option>
+									<option value="22:00">22:00</option>
+									<option value="23:00">23:00</option>
+								</select>
 							</div>
 						</div>
 					</div>
@@ -326,6 +356,13 @@
 			</div>
 			<div class="pulseModalBody" id="modalBody">
 				<div class="pulseField">
+					<label>服务类型</label>
+					<div class="pulseServiceTypeTabs" id="formServiceTypeTabs">
+						<button type="button" class="pulseServiceTypeTab isActive" data-type="preset">预设网站</button>
+						<button type="button" class="pulseServiceTypeTab" data-type="custom">自定义 HTTP 签到</button>
+					</div>
+				</div>
+				<div class="pulseField" id="presetServiceField">
 					<label>签到服务</label>
 					<select id="formService" class="pulseSelect">
 						<option value="">请选择服务</option>
@@ -336,17 +373,119 @@
 					<input type="text" id="formDisplayName" class="pulseInput" placeholder="例如：我的账号" maxlength="100">
 				</div>
 				<div id="serviceFields"></div>
-				<div class="pulseField">
-					<label>每日签到时间</label>
-					<input type="time" id="formLocalTime" class="pulseInput" value="08:00" style="width:140px;">
+
+				<div id="customHttpFields" style="display:none;">
+					<div class="pulseField">
+						<label>签到接口 URL <span class="pulseRequired">*</span></label>
+						<input type="url" id="customUrl" class="pulseInput" placeholder="https://example.com/api/checkin">
+						<div class="pulseFieldHint">仅支持 HTTPS 公网地址，标准 443 端口</div>
+					</div>
+					<div class="pulseFormRow">
+						<div class="pulseField">
+							<label>请求方法</label>
+							<select id="customMethod" class="pulseSelect">
+								<option value="GET">GET</option>
+								<option value="POST">POST</option>
+							</select>
+						</div>
+						<div class="pulseField">
+							<label>请求数据类型</label>
+							<select id="customBodyType" class="pulseSelect">
+								<option value="none">无请求体</option>
+								<option value="json">JSON</option>
+								<option value="form">Form URL Encoded</option>
+							</select>
+						</div>
+					</div>
+
+					<div class="pulseSectionTitle">常用授权字段</div>
+					<div class="pulseQuickAuth" id="quickAuthButtons">
+						<button type="button" class="pulseBtn pulseBtnSm" data-auth="cookie">+ Cookie</button>
+						<button type="button" class="pulseBtn pulseBtnSm" data-auth="authorization">+ Authorization</button>
+						<button type="button" class="pulseBtn pulseBtnSm" data-auth="x-api-key">+ X-API-Key</button>
+						<button type="button" class="pulseBtn pulseBtnSm" data-auth="token">+ Token</button>
+					</div>
+
+					<div class="pulseField">
+						<label>成功判断 <span class="pulseRequired">*</span></label>
+						<div class="pulseRulesList" id="successRules"></div>
+						<button type="button" class="pulseBtn pulseBtnSm" id="addSuccessRuleBtn">+ 添加规则</button>
+					</div>
+
+					<div class="pulseAdvancedToggle" id="customAdvancedToggle">
+						<button type="button" class="pulseBtn pulseBtnText" id="toggleAdvancedBtn">
+							<span>高级设置</span>
+							<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+						</button>
+					</div>
+
+					<div class="pulseAdvancedSection" id="customAdvancedSection" style="display:none;">
+						<div class="pulseField">
+							<label>Query 参数</label>
+							<div class="pulseParamsList" id="queryParams"></div>
+							<button type="button" class="pulseBtn pulseBtnSm" data-add-param="query">+ 添加参数</button>
+						</div>
+						<div class="pulseField">
+							<label>Header</label>
+							<div class="pulseParamsList" id="headerParams"></div>
+							<button type="button" class="pulseBtn pulseBtnSm" data-add-param="header">+ 添加参数</button>
+						</div>
+						<div class="pulseField" id="bodyFieldsSection">
+							<label>Body 参数</label>
+							<div class="pulseParamsList" id="bodyParams"></div>
+							<button type="button" class="pulseBtn pulseBtnSm" data-add-param="body">+ 添加参数</button>
+						</div>
+						<div class="pulseField">
+							<label>今日已签到判断</label>
+							<div class="pulseRulesList" id="alreadyCheckedInRules"></div>
+							<button type="button" class="pulseBtn pulseBtnSm" id="addAlreadyCheckedInRuleBtn">+ 添加规则</button>
+						</div>
+						<div class="pulseField">
+							<label>授权失效判断</label>
+							<div class="pulseRulesList" id="authFailureRules"></div>
+							<button type="button" class="pulseBtn pulseBtnSm" id="addAuthFailureRuleBtn">+ 添加规则</button>
+						</div>
+					</div>
 				</div>
-				<div class="pulseField">
-					<label>时区</label>
-					<select id="formTimezone" class="pulseSelect">
-						<option value="Asia/Shanghai">Asia/Shanghai (UTC+8)</option>
-						<option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
-						<option value="UTC">UTC</option>
-					</select>
+
+				<div class="pulseFormRow">
+					<div class="pulseField">
+						<label>每日签到时间</label>
+						<select id="formLocalTime" class="pulseSelect" style="width:120px;">
+							<option value="00:00">00:00</option>
+							<option value="01:00">01:00</option>
+							<option value="02:00">02:00</option>
+							<option value="03:00">03:00</option>
+							<option value="04:00">04:00</option>
+							<option value="05:00">05:00</option>
+							<option value="06:00">06:00</option>
+							<option value="07:00">07:00</option>
+							<option value="08:00" selected>08:00</option>
+							<option value="09:00">09:00</option>
+							<option value="10:00">10:00</option>
+							<option value="11:00">11:00</option>
+							<option value="12:00">12:00</option>
+							<option value="13:00">13:00</option>
+							<option value="14:00">14:00</option>
+							<option value="15:00">15:00</option>
+							<option value="16:00">16:00</option>
+							<option value="17:00">17:00</option>
+							<option value="18:00">18:00</option>
+							<option value="19:00">19:00</option>
+							<option value="20:00">20:00</option>
+							<option value="21:00">21:00</option>
+							<option value="22:00">22:00</option>
+							<option value="23:00">23:00</option>
+						</select>
+					</div>
+					<div class="pulseField">
+						<label>时区</label>
+						<select id="formTimezone" class="pulseSelect">
+							<option value="Asia/Shanghai">Asia/Shanghai (UTC+8)</option>
+							<option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
+							<option value="UTC">UTC</option>
+						</select>
+					</div>
 				</div>
 				<div class="pulseField">
 					<label>执行星期</label>
@@ -387,6 +526,7 @@
 			</div>
 			<div class="pulseModalFooter">
 				<button class="pulseBtn" id="cancelFormBtn" type="button">取消</button>
+				<button class="pulseBtn" id="testConfigBtn" type="button" style="display:none;">测试配置</button>
 				<button class="pulseBtn pulseBtnPrimary" id="saveFormBtn" type="button">保存</button>
 			</div>
 		</div>
