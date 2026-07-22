@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="icon" href="/favicon.svg?v=7" type="image/svg+xml">
+
+	<link rel="stylesheet" href="/nav/nav.css?v=20260707">
+	<link rel="stylesheet" href="pulse.css?v=1">
+
+	<script src="/nav/nav.js?v=20260707" defer></script>
+
+	<script src="/assets/services/core/site-scope.js?v=7" defer></script>
+	<script src="/assets/services/core/storage-manager.js?v=7" defer></script>
+
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+	<script src="/supabase/supabase-config.js?v=7" defer></script>
+	<script src="/supabase/supabase-client.js?v=7" defer></script>
+	<script src="/supabase/auth-manager.js?v=7" defer></script>
+	<script src="/assets/backend/profile-manager.js?v=7" defer></script>
+	<script src="/assets/services/global/global-data-manager.js?v=7" defer></script>
+
+	<script src="pulse-app.js?v=1" defer></script>
+
+	<title>Pulse — 自动签到管理控制台</title>
+	<style>
+		:root {
+			color-scheme: light;
+			--bg: #f6f7fb;
+			--surface: rgba(255, 255, 255, 0.9);
+			--surfaceSolid: #ffffff;
+			--ink: #242436;
+			--muted: #575a6d;
+			--line: #d5d8e5;
+			--accent: #5d4ea8;
+			--accentSoft: rgba(93, 78, 168, 0.12);
+			--cyan: #24f0ea;
+			--good: #178b82;
+			--red: #e85d6a;
+			--orange: #e6b84a;
+			--blue: #4a90e6;
+			--primaryBg: #5d4ea8;
+			--primaryHoverBg: #514598;
+			--primaryText: #ffffff;
+			--primaryBorder: #5d4ea8;
+			--controlBg: #ffffff;
+			--controlText: #242436;
+			--controlBorder: #cfd3e3;
+			--controlHoverBg: rgba(93, 78, 168, 0.10);
+			--pageBg: radial-gradient(circle at 16% 8%, rgba(93, 78, 168, 0.16), transparent 34%), radial-gradient(circle at 86% 12%, rgba(36, 240, 234, 0.10), transparent 30%), linear-gradient(135deg, #fafaff, #f4f6fb 58%, #ffffff);
+			--shadow: 0 18px 50px rgba(36, 36, 54, 0.10);
+		}
+
+		:root[data-theme="dark"] {
+			color-scheme: dark;
+			--bg: #0f0f16;
+			--surface: rgba(27, 27, 38, 0.94);
+			--surfaceSolid: #1c1c28;
+			--ink: #f4f4fb;
+			--muted: #c0c2d0;
+			--line: #414157;
+			--accentSoft: rgba(93, 78, 168, 0.26);
+			--good: #24f0ea;
+			--red: #e85d6a;
+			--orange: #f0c050;
+			--blue: #5aa0f0;
+			--primaryBg: #6b5dc2;
+			--primaryHoverBg: #786bd0;
+			--primaryText: #ffffff;
+			--primaryBorder: #8174d6;
+			--controlBg: #252536;
+			--controlText: #f6f7ff;
+			--controlBorder: #595c72;
+			--controlHoverBg: #303046;
+			--pageBg: radial-gradient(circle at 18% 10%, rgba(93, 78, 168, 0.34), transparent 34%), radial-gradient(circle at 88% 0%, rgba(93, 78, 168, 0.16), transparent 32%), linear-gradient(180deg, #161620, #0d0d14);
+			--shadow: 0 18px 58px rgba(0, 0, 0, 0.32);
+		}
+
+		* { box-sizing: border-box; }
+
+		html, body {
+			height: 100%;
+			margin: 0;
+		}
+
+		body {
+			background: var(--pageBg);
+			color: var(--ink);
+			font: 15px/1.45 Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+			transition: background 0.22s ease, color 0.22s ease;
+		}
+
+		button, input, textarea, select {
+			font: inherit;
+		}
+	</style>
+</head>
+<body>
+	<div class="pulseApp" id="pulseApp">
+		<div class="pulseLoading" id="pulseLoading">
+			<div class="pulseSpinner"></div>
+			<span>加载中...</span>
+		</div>
+
+		<div class="pulseLogin" id="pulseLogin" style="display:none;">
+			<div class="pulseLoginCard">
+				<div class="pulseLoginHeader">
+					<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<circle cx="12" cy="12" r="10"/>
+						<polyline points="12 6 12 12 16 14"/>
+					</svg>
+					<h1>Pulse</h1>
+					<p>自动签到管理控制台</p>
+				</div>
+				<div class="pulseLoginForm">
+					<div class="pulseField">
+						<label>邮箱</label>
+						<input type="email" id="loginEmail" placeholder="your@email.com" autocomplete="email">
+					</div>
+					<div class="pulseField">
+						<label>密码</label>
+						<input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+					</div>
+					<button class="pulseBtn pulseBtnPrimary" id="loginBtn" type="button">登录</button>
+					<div class="pulseLoginStatus" id="loginStatus"></div>
+					<div class="pulseLoginLinks">
+						<a href="#" id="forgotPasswordLink">忘记密码？</a>
+						<span>·</span>
+						<a href="#" id="signupLink">注册账号</a>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="pulseMain" id="pulseMain" style="display:none;">
+			<div class="pulseTabs">
+				<button class="pulseTab isActive" data-tab="dashboard" type="button">
+					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+					<span>总览</span>
+				</button>
+				<button class="pulseTab" data-tab="targets" type="button">
+					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+					<span>签到项目</span>
+				</button>
+				<button class="pulseTab" data-tab="runs" type="button">
+					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+					<span>执行记录</span>
+				</button>
+				<button class="pulseTab" data-tab="settings" type="button">
+					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+					<span>设置</span>
+				</button>
+			</div>
+
+			<div class="pulseContent">
+				<div class="pulseTabPanel isActive" id="panel-dashboard">
+					<div class="pulseStatsGrid">
+						<div class="pulseStatCard">
+							<div class="pulseStatIcon" style="background: var(--accentSoft); color: var(--accent);">
+								<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+							</div>
+							<div class="pulseStatValue" id="statTotal">0</div>
+							<div class="pulseStatLabel">今日任务</div>
+						</div>
+						<div class="pulseStatCard">
+							<div class="pulseStatIcon" style="background: rgba(23, 139, 130, 0.12); color: var(--good);">
+								<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+							</div>
+							<div class="pulseStatValue pulseStatSuccess" id="statSuccess">0</div>
+							<div class="pulseStatLabel">成功</div>
+						</div>
+						<div class="pulseStatCard">
+							<div class="pulseStatIcon" style="background: rgba(232, 93, 106, 0.12); color: var(--red);">
+								<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+							</div>
+							<div class="pulseStatValue pulseStatFailed" id="statFailed">0</div>
+							<div class="pulseStatLabel">失败</div>
+						</div>
+						<div class="pulseStatCard">
+							<div class="pulseStatIcon" style="background: rgba(74, 144, 230, 0.12); color: var(--blue);">
+								<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+							</div>
+							<div class="pulseStatValue pulseStatPending" id="statPending">0</div>
+							<div class="pulseStatLabel">待执行</div>
+						</div>
+					</div>
+
+					<div class="pulseSection">
+						<div class="pulseSectionHeader">
+							<h2>签到项目状态</h2>
+							<button class="pulseBtn pulseBtnPrimary pulseBtnSm" id="addTargetBtn" type="button">
+								<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+								添加项目
+							</button>
+						</div>
+						<div class="pulseTargetList" id="dashboardTargetList">
+							<div class="pulseEmpty">加载中...</div>
+						</div>
+					</div>
+
+					<div class="pulseSection">
+						<div class="pulseSectionHeader">
+							<h2>最近执行记录</h2>
+						</div>
+						<div class="pulseRunList" id="recentRuns">
+							<div class="pulseEmpty">加载中...</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="pulseTabPanel" id="panel-targets">
+					<div class="pulseSectionHeader">
+						<h2>签到项目</h2>
+						<button class="pulseBtn pulseBtnPrimary" id="addTargetBtn2" type="button">
+							<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+							添加项目
+						</button>
+					</div>
+					<div class="pulseTargetGrid" id="targetGrid">
+						<div class="pulseEmpty">加载中...</div>
+					</div>
+				</div>
+
+				<div class="pulseTabPanel" id="panel-runs">
+					<div class="pulseSectionHeader">
+						<h2>执行记录</h2>
+						<div class="pulseFilters">
+							<select id="runFilterTarget" class="pulseSelect">
+								<option value="">全部项目</option>
+							</select>
+							<select id="runFilterStatus" class="pulseSelect">
+								<option value="">全部状态</option>
+								<option value="success">成功</option>
+								<option value="failed">失败</option>
+								<option value="running">执行中</option>
+							</select>
+						</div>
+					</div>
+					<div class="pulseRunTableWrap">
+						<table class="pulseRunTable" id="runTable">
+							<thead>
+								<tr>
+									<th>时间</th>
+									<th>项目</th>
+									<th>触发方式</th>
+									<th>状态</th>
+									<th>耗时</th>
+									<th>结果</th>
+								</tr>
+							</thead>
+							<tbody id="runTableBody">
+								<tr><td colspan="6" class="pulseEmpty" style="text-align:center;">加载中...</td></tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+
+				<div class="pulseTabPanel" id="panel-settings">
+					<div class="pulseSection">
+						<div class="pulseSectionHeader">
+							<h2>账号设置</h2>
+						</div>
+						<div class="pulseSettingsCard">
+							<div class="pulseSettingRow">
+								<label>当前账号</label>
+								<span id="settingsEmail">-</span>
+							</div>
+							<div class="pulseSettingRow">
+								<label>用户名</label>
+								<div class="pulseSettingInputGroup">
+									<input type="text" id="settingsUsername" placeholder="设置用户名" maxlength="20">
+									<button class="pulseBtn pulseBtnSm" id="saveUsernameBtn" type="button" disabled>保存</button>
+								</div>
+							</div>
+							<div class="pulseSettingRow">
+								<label>默认时区</label>
+								<select id="settingsTimezone" class="pulseSelect">
+									<option value="Asia/Shanghai">Asia/Shanghai (UTC+8)</option>
+									<option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
+									<option value="UTC">UTC</option>
+								</select>
+							</div>
+							<div class="pulseSettingRow">
+								<label>默认签到时间</label>
+								<input type="time" id="settingsDefaultTime" value="08:00" class="pulseInput" style="width:120px;">
+							</div>
+						</div>
+					</div>
+					<div class="pulseSection">
+						<div class="pulseSectionHeader">
+							<h2>数据刷新</h2>
+						</div>
+						<div class="pulseSettingsCard">
+							<div class="pulseSettingRow">
+								<label>自动刷新间隔</label>
+								<select id="settingsRefreshInterval" class="pulseSelect">
+									<option value="0">手动刷新</option>
+									<option value="10">10秒</option>
+									<option value="30" selected>30秒</option>
+									<option value="60">1分钟</option>
+								</select>
+							</div>
+							<button class="pulseBtn" id="refreshNowBtn" type="button">立即刷新数据</button>
+						</div>
+					</div>
+					<div class="pulseSection">
+						<div class="pulseSectionHeader">
+							<h2>退出登录</h2>
+						</div>
+						<div class="pulseSettingsCard">
+							<button class="pulseBtn pulseBtnDanger" id="logoutBtn" type="button">退出登录</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="pulseModalOverlay" id="targetModal" style="display:none;">
+		<div class="pulseModal">
+			<div class="pulseModalHeader">
+				<h3 id="modalTitle">添加签到项目</h3>
+				<button class="pulseIconBtn" id="closeModalBtn" type="button">
+					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+				</button>
+			</div>
+			<div class="pulseModalBody" id="modalBody">
+				<div class="pulseField">
+					<label>签到服务</label>
+					<select id="formService" class="pulseSelect">
+						<option value="">请选择服务</option>
+					</select>
+				</div>
+				<div class="pulseField">
+					<label>账号名称</label>
+					<input type="text" id="formDisplayName" class="pulseInput" placeholder="例如：我的账号" maxlength="100">
+				</div>
+				<div id="serviceFields"></div>
+				<div class="pulseField">
+					<label>每日签到时间</label>
+					<input type="time" id="formLocalTime" class="pulseInput" value="08:00" style="width:140px;">
+				</div>
+				<div class="pulseField">
+					<label>时区</label>
+					<select id="formTimezone" class="pulseSelect">
+						<option value="Asia/Shanghai">Asia/Shanghai (UTC+8)</option>
+						<option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
+						<option value="UTC">UTC</option>
+					</select>
+				</div>
+				<div class="pulseField">
+					<label>执行星期</label>
+					<div class="pulseDaysSelect" id="formDaysOfWeek">
+						<label><input type="checkbox" value="0" checked> 日</label>
+						<label><input type="checkbox" value="1" checked> 一</label>
+						<label><input type="checkbox" value="2" checked> 二</label>
+						<label><input type="checkbox" value="3" checked> 三</label>
+						<label><input type="checkbox" value="4" checked> 四</label>
+						<label><input type="checkbox" value="5" checked> 五</label>
+						<label><input type="checkbox" value="6" checked> 六</label>
+					</div>
+				</div>
+				<div class="pulseFormRow">
+					<div class="pulseField">
+						<label>失败重试次数</label>
+						<input type="number" id="formRetryCount" class="pulseInput" value="2" min="0" max="5" style="width:100px;">
+					</div>
+					<div class="pulseField">
+						<label>重试间隔（分钟）</label>
+						<input type="number" id="formRetryInterval" class="pulseInput" value="5" min="1" max="60" style="width:100px;">
+					</div>
+					<div class="pulseField">
+						<label>随机延迟（秒）</label>
+						<input type="number" id="formRandomDelay" class="pulseInput" value="0" min="0" max="3600" style="width:100px;">
+					</div>
+				</div>
+				<div class="pulseField">
+					<label class="pulseCheckboxLabel">
+						<input type="checkbox" id="formEnabled" checked>
+						<span>启用此签到项目</span>
+					</label>
+				</div>
+				<div class="pulseCredentialHint" id="credentialHint" style="display:none;">
+					<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+					<span>凭据已加密保存。留空表示不修改原有凭据；如需更换请重新输入。</span>
+				</div>
+			</div>
+			<div class="pulseModalFooter">
+				<button class="pulseBtn" id="cancelFormBtn" type="button">取消</button>
+				<button class="pulseBtn pulseBtnPrimary" id="saveFormBtn" type="button">保存</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="pulseToast" id="pulseToast"></div>
+</body>
+</html>

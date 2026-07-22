@@ -1,0 +1,1014 @@
+/* ========== Pulse 主布局 ========== */
+.pulseApp {
+	min-height: calc(100dvh - var(--site-nav-height));
+	width: 100%;
+}
+
+.pulseLoading {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 16px;
+	min-height: calc(100dvh - var(--site-nav-height));
+	color: var(--muted);
+	font-size: 14px;
+}
+
+.pulseSpinner {
+	width: 32px;
+	height: 32px;
+	border: 3px solid var(--line);
+	border-top-color: var(--accent);
+	border-radius: 50%;
+	animation: pulseSpin 0.8s linear infinite;
+}
+
+@keyframes pulseSpin {
+	to { transform: rotate(360deg); }
+}
+
+/* ========== 登录页 ========== */
+.pulseLogin {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: calc(100dvh - var(--site-nav-height));
+	padding: 20px;
+}
+
+.pulseLoginCard {
+	width: 100%;
+	max-width: 380px;
+	padding: 32px;
+	background: var(--surfaceSolid);
+	border: 1px solid var(--line);
+	border-radius: 16px;
+	box-shadow: var(--shadow);
+	-webkit-backdrop-filter: blur(14px);
+	backdrop-filter: blur(14px);
+}
+
+.pulseLoginHeader {
+	text-align: center;
+	margin-bottom: 24px;
+}
+
+.pulseLoginHeader svg {
+	margin-bottom: 12px;
+}
+
+.pulseLoginHeader h1 {
+	margin: 0 0 4px;
+	font-size: 24px;
+	font-weight: 700;
+	color: var(--ink);
+}
+
+.pulseLoginHeader p {
+	margin: 0;
+	font-size: 13px;
+	color: var(--muted);
+}
+
+.pulseLoginForm {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.pulseLoginLinks {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	font-size: 12px;
+	color: var(--muted);
+}
+
+.pulseLoginLinks a {
+	color: var(--accent);
+	text-decoration: none;
+	transition: color 0.15s;
+}
+
+.pulseLoginLinks a:hover {
+	color: var(--cyan);
+}
+
+.pulseLoginStatus {
+	text-align: center;
+	font-size: 12px;
+	min-height: 18px;
+}
+
+.pulseLoginStatus.isError {
+	color: var(--red);
+}
+
+.pulseLoginStatus.isSuccess {
+	color: var(--good);
+}
+
+/* ========== 主内容区 ========== */
+.pulseMain {
+	max-width: 1200px;
+	margin: 0 auto;
+	padding: 20px 16px;
+	width: 100%;
+}
+
+/* ========== 标签页 ========== */
+.pulseTabs {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 20px;
+	padding: 6px;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+.pulseTab {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 10px 16px;
+	border: none;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--muted);
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: all 0.2s ease;
+	flex-shrink: 0;
+}
+
+.pulseTab:hover {
+	background: var(--controlHoverBg);
+	color: var(--ink);
+}
+
+.pulseTab.isActive {
+	background: var(--primaryBg);
+	color: var(--primaryText);
+}
+
+.pulseTab.isActive:hover {
+	background: var(--primaryHoverBg);
+}
+
+.pulseContent {
+	width: 100%;
+}
+
+.pulseTabPanel {
+	display: none;
+	animation: pulseFadeIn 0.25s ease;
+}
+
+.pulseTabPanel.isActive {
+	display: block;
+}
+
+@keyframes pulseFadeIn {
+	from { opacity: 0; transform: translateY(4px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========== 统计卡片 ========== */
+.pulseStatsGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 16px;
+	margin-bottom: 24px;
+}
+
+.pulseStatCard {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 20px;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	box-shadow: var(--shadow);
+	-webkit-backdrop-filter: blur(14px);
+	backdrop-filter: blur(14px);
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pulseStatCard:hover {
+	transform: translateY(-2px);
+}
+
+.pulseStatIcon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
+	border-radius: 10px;
+}
+
+.pulseStatValue {
+	font-size: 32px;
+	font-weight: 700;
+	color: var(--ink);
+	line-height: 1;
+}
+
+.pulseStatValue.pulseStatSuccess {
+	color: var(--good);
+}
+
+.pulseStatValue.pulseStatFailed {
+	color: var(--red);
+}
+
+.pulseStatValue.pulseStatPending {
+	color: var(--blue);
+}
+
+.pulseStatLabel {
+	font-size: 13px;
+	color: var(--muted);
+	font-weight: 500;
+}
+
+/* ========== 区域 ========== */
+.pulseSection {
+	margin-bottom: 24px;
+}
+
+.pulseSectionHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 12px;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.pulseSectionHeader h2 {
+	margin: 0;
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--ink);
+}
+
+.pulseFilters {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+/* ========== 表单控件 ========== */
+.pulseField {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.pulseField label {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--muted);
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
+.pulseInput, .pulseSelect {
+	height: 40px;
+	padding: 0 12px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 8px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	font-size: 14px;
+	outline: none;
+	transition: border-color 0.15s, background 0.15s;
+}
+
+.pulseInput:focus, .pulseSelect:focus {
+	border-color: var(--accent);
+}
+
+.pulseInput::placeholder {
+	color: var(--muted);
+	opacity: 0.6;
+}
+
+textarea.pulseInput {
+	height: auto;
+	padding: 10px 12px;
+	resize: vertical;
+	min-height: 80px;
+}
+
+.pulseFormRow {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+	gap: 12px;
+}
+
+.pulseDaysSelect {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.pulseDaysSelect label {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 6px 10px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--controlBg);
+	font-size: 13px;
+	color: var(--muted);
+	cursor: pointer;
+	text-transform: none;
+	letter-spacing: normal;
+	font-weight: 500;
+	transition: all 0.15s;
+}
+
+.pulseDaysSelect label:has(input:checked) {
+	border-color: var(--primaryBorder);
+	background: var(--accentSoft);
+	color: var(--accent);
+}
+
+.pulseDaysSelect input {
+	margin: 0;
+}
+
+.pulseCheckboxLabel {
+	display: inline-flex !important;
+	align-items: center;
+	gap: 8px;
+	flex-direction: row !important;
+	text-transform: none !important;
+	letter-spacing: normal !important;
+	font-weight: 500 !important;
+	color: var(--ink) !important;
+	cursor: pointer;
+}
+
+.pulseCredentialHint {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 12px;
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--orange) 12%, var(--controlBg));
+	border: 1px solid color-mix(in srgb, var(--orange) 30%, var(--controlBorder));
+	font-size: 12px;
+	color: var(--orange);
+	line-height: 1.5;
+}
+
+.pulseCredentialHint svg {
+	flex-shrink: 0;
+	margin-top: 2px;
+}
+
+/* ========== 按钮 ========== */
+.pulseBtn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	height: 40px;
+	padding: 0 18px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 8px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	-webkit-user-select: none;
+	user-select: none;
+	white-space: nowrap;
+}
+
+.pulseBtn:hover {
+	border-color: var(--cyan);
+	background: var(--controlHoverBg);
+	color: var(--cyan);
+	transform: translateY(-1px);
+}
+
+.pulseBtn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+	transform: none;
+}
+
+.pulseBtn.pulseBtnPrimary {
+	background: var(--primaryBg);
+	border-color: var(--primaryBorder);
+	color: var(--primaryText);
+}
+
+.pulseBtn.pulseBtnPrimary:hover {
+	background: var(--primaryHoverBg);
+	border-color: var(--primaryBorder);
+	color: var(--primaryText);
+}
+
+.pulseBtn.pulseBtnDanger {
+	border-color: var(--red);
+	color: var(--red);
+}
+
+.pulseBtn.pulseBtnDanger:hover {
+	background: var(--red);
+	color: #fff;
+}
+
+.pulseBtn.pulseBtnSm {
+	height: 32px;
+	padding: 0 12px;
+	font-size: 13px;
+}
+
+.pulseBtn.isRunning {
+	pointer-events: none;
+	opacity: 0.7;
+}
+
+.pulseBtn.isRunning svg {
+	animation: pulseSpin 0.8s linear infinite;
+}
+
+.pulseIconBtn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	padding: 0;
+	border: 1px solid var(--controlBorder);
+	border-radius: 8px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.pulseIconBtn:hover {
+	border-color: var(--cyan);
+	background: var(--controlHoverBg);
+	color: var(--cyan);
+}
+
+/* ========== 签到项目列表/卡片 ========== */
+.pulseTargetList {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.pulseTargetGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+	gap: 16px;
+}
+
+.pulseTargetCard {
+	padding: 16px;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	box-shadow: var(--shadow);
+	-webkit-backdrop-filter: blur(14px);
+	backdrop-filter: blur(14px);
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pulseTargetCard:hover {
+	transform: translateY(-2px);
+}
+
+.pulseTargetHeader {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+
+.pulseTargetInfo {
+	flex: 1;
+	min-width: 0;
+}
+
+.pulseTargetName {
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--ink);
+	margin-bottom: 4px;
+	word-break: break-word;
+}
+
+.pulseTargetService {
+	font-size: 12px;
+	color: var(--muted);
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.pulseTargetStatus {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 8px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 600;
+	flex-shrink: 0;
+}
+
+.pulseTargetStatus.status-success {
+	background: rgba(23, 139, 130, 0.12);
+	color: var(--good);
+}
+
+.pulseTargetStatus.status-failed {
+	background: rgba(232, 93, 106, 0.12);
+	color: var(--red);
+}
+
+.pulseTargetStatus.status-pending {
+	background: rgba(74, 144, 230, 0.12);
+	color: var(--blue);
+}
+
+.pulseTargetStatus.status-paused {
+	background: rgba(87, 90, 109, 0.12);
+	color: var(--muted);
+}
+
+.pulseTargetStatus.status-reauth {
+	background: rgba(230, 184, 74, 0.12);
+	color: var(--orange);
+}
+
+.pulseTargetMeta {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 8px;
+	margin-bottom: 12px;
+	font-size: 12px;
+}
+
+.pulseTargetMetaItem {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.pulseTargetMetaLabel {
+	color: var(--muted);
+	font-weight: 500;
+}
+
+.pulseTargetMetaValue {
+	color: var(--ink);
+	font-weight: 600;
+}
+
+.pulseTargetStreak {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	color: var(--good);
+	font-weight: 600;
+}
+
+.pulseTargetActions {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.pulseTargetActions .pulseBtn {
+	height: 32px;
+	padding: 0 10px;
+	font-size: 12px;
+}
+
+/* Dashboard 列表项 */
+.pulseTargetListItem {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 16px;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	transition: background 0.15s;
+}
+
+.pulseTargetListItem:hover {
+	background: var(--controlHoverBg);
+}
+
+.pulseTargetListItemInfo {
+	flex: 1;
+	min-width: 0;
+}
+
+.pulseTargetListItemName {
+	font-weight: 600;
+	color: var(--ink);
+	font-size: 14px;
+}
+
+.pulseTargetListItemMeta {
+	font-size: 12px;
+	color: var(--muted);
+	margin-top: 2px;
+}
+
+/* ========== 执行记录 ========== */
+.pulseRunList {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.pulseRunItem {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 14px;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	font-size: 13px;
+}
+
+.pulseRunTime {
+	color: var(--muted);
+	font-size: 12px;
+	width: 140px;
+	flex-shrink: 0;
+}
+
+.pulseRunTarget {
+	flex: 1;
+	min-width: 0;
+	color: var(--ink);
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.pulseRunStatus {
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 600;
+	flex-shrink: 0;
+}
+
+.pulseRunStatus.status-success {
+	background: rgba(23, 139, 130, 0.12);
+	color: var(--good);
+}
+
+.pulseRunStatus.status-failed {
+	background: rgba(232, 93, 106, 0.12);
+	color: var(--red);
+}
+
+.pulseRunStatus.status-running {
+	background: rgba(74, 144, 230, 0.12);
+	color: var(--blue);
+	animation: pulsePulse 1.5s ease-in-out infinite;
+}
+
+.pulseRunStatus.status-skipped {
+	background: rgba(87, 90, 109, 0.12);
+	color: var(--muted);
+}
+
+@keyframes pulsePulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.6; }
+}
+
+.pulseRunDuration {
+	color: var(--muted);
+	font-size: 12px;
+	width: 60px;
+	text-align: right;
+	flex-shrink: 0;
+}
+
+.pulseRunMessage {
+	color: var(--muted);
+	font-size: 12px;
+	max-width: 200px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	flex-shrink: 0;
+}
+
+/* 执行记录表格 */
+.pulseRunTableWrap {
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	overflow: hidden;
+	box-shadow: var(--shadow);
+	overflow-x: auto;
+}
+
+.pulseRunTable {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 13px;
+}
+
+.pulseRunTable th {
+	text-align: left;
+	padding: 12px 14px;
+	font-weight: 600;
+	font-size: 12px;
+	color: var(--muted);
+	background: var(--controlBg);
+	border-bottom: 1px solid var(--line);
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	white-space: nowrap;
+}
+
+.pulseRunTable td {
+	padding: 10px 14px;
+	border-bottom: 1px solid var(--line);
+	color: var(--ink);
+	vertical-align: middle;
+}
+
+.pulseRunTable tr:last-child td {
+	border-bottom: none;
+}
+
+.pulseRunTable tr:hover td {
+	background: var(--controlHoverBg);
+}
+
+.pulseRunTable .pulseRunMessageCell {
+	max-width: 280px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--muted);
+}
+
+/* ========== 设置页 ========== */
+.pulseSettingsCard {
+	padding: 20px;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	box-shadow: var(--shadow);
+}
+
+.pulseSettingRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 12px 0;
+	border-bottom: 1px solid var(--line);
+	flex-wrap: wrap;
+}
+
+.pulseSettingRow:last-child {
+	border-bottom: none;
+}
+
+.pulseSettingRow label {
+	font-size: 14px;
+	font-weight: 500;
+	color: var(--ink);
+}
+
+.pulseSettingRow > span {
+	color: var(--muted);
+	font-size: 14px;
+}
+
+.pulseSettingInputGroup {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+.pulseSettingInputGroup input {
+	width: 180px;
+}
+
+/* ========== 弹窗 ========== */
+.pulseModalOverlay {
+	position: fixed;
+	inset: 0;
+	z-index: 2000;
+	background: rgba(0, 0, 0, 0.45);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	animation: pulseFadeIn 0.2s ease;
+}
+
+.pulseModal {
+	width: 100%;
+	max-width: 520px;
+	max-height: calc(100dvh - 40px);
+	background: var(--surfaceSolid);
+	border: 1px solid var(--line);
+	border-radius: 16px;
+	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+	display: flex;
+	flex-direction: column;
+	animation: pulseSlideUp 0.25s ease;
+}
+
+@keyframes pulseSlideUp {
+	from { opacity: 0; transform: translateY(20px) scale(0.98); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.pulseModalHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 20px 24px;
+	border-bottom: 1px solid var(--line);
+	flex-shrink: 0;
+}
+
+.pulseModalHeader h3 {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+	color: var(--ink);
+}
+
+.pulseModalBody {
+	padding: 20px 24px;
+	overflow-y: auto;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.pulseModalFooter {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+	padding: 16px 24px;
+	border-top: 1px solid var(--line);
+	flex-shrink: 0;
+}
+
+/* ========== 空状态 ========== */
+.pulseEmpty {
+	padding: 40px 20px;
+	text-align: center;
+	color: var(--muted);
+	font-size: 14px;
+	background: var(--surface);
+	border: 1px dashed var(--line);
+	border-radius: 12px;
+}
+
+/* ========== Toast 提示 ========== */
+.pulseToast {
+	position: fixed;
+	bottom: 24px;
+	left: 50%;
+	transform: translateX(-50%) translateY(100px);
+	padding: 12px 20px;
+	background: var(--surfaceSolid);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+	font-size: 14px;
+	color: var(--ink);
+	z-index: 3000;
+	opacity: 0;
+	transition: all 0.3s ease;
+	pointer-events: none;
+	max-width: calc(100vw - 32px);
+}
+
+.pulseToast.isVisible {
+	transform: translateX(-50%) translateY(0);
+	opacity: 1;
+}
+
+.pulseToast.isSuccess {
+	border-color: rgba(23, 139, 130, 0.4);
+	color: var(--good);
+}
+
+.pulseToast.isError {
+	border-color: rgba(232, 93, 106, 0.4);
+	color: var(--red);
+}
+
+/* ========== 响应式 ========== */
+@media (max-width: 768px) {
+	.pulseMain {
+		padding: 12px;
+	}
+
+	.pulseStatsGrid {
+		grid-template-columns: repeat(2, 1fr);
+		gap: 10px;
+		margin-bottom: 16px;
+	}
+
+	.pulseStatCard {
+		padding: 14px;
+	}
+
+	.pulseStatValue {
+		font-size: 24px;
+	}
+
+	.pulseTargetGrid {
+		grid-template-columns: 1fr;
+	}
+
+	.pulseRunTime {
+		width: auto;
+	}
+
+	.pulseRunItem {
+		flex-wrap: wrap;
+	}
+
+	.pulseRunDuration, .pulseRunMessage {
+		width: auto;
+	}
+
+	.pulseFormRow {
+		grid-template-columns: 1fr;
+	}
+
+	.pulseSettingInputGroup input {
+		width: 140px;
+	}
+
+	.pulseModal {
+		border-radius: 12px;
+		max-height: calc(100dvh - 20px);
+	}
+
+	.pulseModalHeader, .pulseModalFooter {
+		padding: 14px 16px;
+	}
+
+	.pulseModalBody {
+		padding: 16px;
+	}
+
+	.pulseTabs {
+		margin-bottom: 16px;
+	}
+
+	.pulseTab {
+		padding: 8px 12px;
+		font-size: 12px;
+	}
+
+	.pulseRunTable th, .pulseRunTable td {
+		padding: 8px 10px;
+		font-size: 12px;
+	}
+}
+
+@media (max-width: 480px) {
+	.pulseStatsGrid {
+		grid-template-columns: 1fr;
+	}
+}

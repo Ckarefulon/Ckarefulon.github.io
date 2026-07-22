@@ -1,0 +1,8 @@
+{
+    "Ip":  "192.168.1.4",
+    "Port":  9527,
+    "RootThumbprint":  "9701BBAAC142C08F2C3F13A0685DBBA60C3EE85A",
+    "ServerThumbprint":  "629EE4BF2CA0E40F4DC5AD33DC33B64EDE448040",
+    "RootCertificateCer":  "C:\\Users\\Vxiao\\OneDrive - Ckarefulon\\-------  Careful S.  -------\\Careful S\\Program\\Github\\Ckarefulon.github.io\\_local_https\\LocalHttpsRootCA.cer",
+    "RootCertificateCrt":  "C:\\Users\\Vxiao\\OneDrive - Ckarefulon\\-------  Careful S.  -------\\Careful S\\Program\\Github\\Ckarefulon.github.io\\_local_https\\LocalHttpsRootCA.crt"
+}

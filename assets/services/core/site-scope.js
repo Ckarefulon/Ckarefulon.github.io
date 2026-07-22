@@ -2,11 +2,11 @@
 	"use strict";
 
 	/**
-	 * siteScope - Í³Ò»Õ¾µã×÷ÓÃÓò
+	 * siteScope - Í³Ò»Õ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	 *
-	 * µ±Ç°Õ¾µã»á°´Â·¾¶Ó³Éäµ½¶ÔÓ¦µÄ site scope¡£
-	 * Cube/Formula ºÍ Cube/Formula/Beta ¹²ÓÃ Cube-Formula¡£
-	 * Tools/Relay ¹²ÓÃ Tools-Relay¡£
+	 * ï¿½ï¿½Ç°Õ¾ï¿½ï¿½á°´Â·ï¿½ï¿½Ó³ï¿½äµ½ï¿½ï¿½Ó¦ï¿½ï¿½ site scopeï¿½ï¿½
+	 * Cube/Formula ï¿½ï¿½ Cube/Formula/Beta ï¿½ï¿½ï¿½ï¿½ Cube-Formulaï¿½ï¿½
+	 * Tools/Relay ï¿½ï¿½ï¿½ï¿½ Tools-Relayï¿½ï¿½
 	 */
 
 	function normalizePathname(pathname) {
@@ -15,6 +15,9 @@
 
 	function getCurrentSiteScope() {
 		var path = normalizePathname(window.location.pathname);
+		if (path.indexOf("/Tools/Pulse") === 0) {
+			return "Tools-Pulse";
+		}
 		if (path.indexOf("/Tools/Relay") === 0) {
 			return "Tools-Relay";
 		}
@@ -26,6 +29,9 @@
 
 	function getCurrentSiteBasePath() {
 		var path = normalizePathname(window.location.pathname);
+		if (path.indexOf("/Tools/Pulse") === 0) {
+			return "/Tools/Pulse";
+		}
 		if (path.indexOf("/Tools/Relay") === 0) {
 			return "/Tools/Relay";
 		}
