@@ -7,12 +7,10 @@
 
 	let appState = {
 		user: null,
-		services: [],
 		targets: [],
 		schedules: new Map(),
 		runs: [],
 		editingTargetId: null,
-		serviceType: 'preset',
 		customHttpConfig: null,
 		refreshTimer: null,
 		realtimeSubscriptions: [],
@@ -112,13 +110,17 @@
 	}
 
 	function showScreen(screen) {
-		$('pulseLoading').style.display = 'none';
-		$('pulseLogin').style.display = screen === 'login' ? 'flex' : 'none';
-		$('pulseMain').style.display = screen === 'main' ? 'block' : 'none';
+		$('pulseLoading').style.display = screen === 'loading' ? 'flex' : 'none';
+		$('pulseMain').style.display = screen === 'main' || screen === 'guest' ? 'flex' : 'none';
+		$('pulseMain').classList.toggle('isGuest', screen === 'guest');
+		const guestHint = $('pulseGuestHint');
+		if (guestHint) {
+			guestHint.style.display = screen === 'guest' ? 'flex' : 'none';
+		}
 	}
 
 	function switchTab(tabName) {
-		qsa('.pulseTab').forEach(tab => {
+		qsa('.pulseSidebarItem').forEach(tab => {
 			tab.classList.toggle('isActive', tab.dataset.tab === tabName);
 		});
 		qsa('.pulseTabPanel').forEach(panel => {
@@ -129,201 +131,111 @@
 		}
 	}
 
-	async function initApp() {
-		try {
-			if (!supabase) {
-				setTimeout(initApp, 100);
+	function waitForServices(callback) {
+		let checks = 0;
+		const maxChecks = 100;
+		function check() {
+			checks++;
+			if (window.authManager && window.storageManager && window.supabaseClient !== undefined) {
+				callback();
 				return;
 			}
+			if (checks >= maxChecks) {
+				showToast('服务加载失败，请刷新页面', 'error');
+				showScreen('guest');
+				return;
+			}
+			setTimeout(check, 50);
+		}
+		check();
+	}
 
-			if (!appState.eventsBound) {
-				bindEvents();
-				appState.eventsBound = true;
+	function initTheme() {
+		let saved = null;
+		try { saved = localStorage.getItem('smartCubeTheme'); } catch(e) {}
+		const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+		const theme = saved || (prefersDark ? 'dark' : 'light');
+		applyTheme(theme, false);
+	}
+
+	function applyTheme(theme, save) {
+		theme = theme === 'dark' ? 'dark' : 'light';
+		document.documentElement.dataset.theme = theme;
+		const themeBtn = document.getElementById('siteThemeToggle');
+		if (themeBtn) {
+			themeBtn.textContent = theme === 'dark' ? '☀' : '☾';
+		}
+		if (save !== false) {
+			try { localStorage.setItem('smartCubeTheme', theme); } catch(e) {}
+			if (window.globalDataManager && window.globalDataManager.isReady()) {
+				window.globalDataManager.saveThemePreference(theme).catch(function(error) {
+					console.warn('[Theme] 云端主题同步失败:', error);
+				});
+			}
+		}
+	}
+
+	function initApp() {
+		initTheme();
+		if (!appState.eventsBound) {
+			bindEvents();
+			appState.eventsBound = true;
+		}
+
+		showScreen('loading');
+
+		waitForServices(() => {
+			if (window.siteNav && typeof window.siteNav.init === 'function') {
+				window.siteNav.init({
+					setTheme: function(theme) {
+						applyTheme(theme, true);
+					}
+				});
 			}
 
-			supabase.auth.onAuthStateChange((event, session) => {
-				if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-					appState.user = session?.user || null;
-					if (appState.user) {
-						onLoggedIn();
-					}
-				} else if (event === 'SIGNED_OUT') {
-					appState.user = null;
-					clearRefreshTimer();
-					if (appState.realtimeSubscriptions) {
-						appState.realtimeSubscriptions.forEach(sub => {
-							if (sub && sub.unsubscribe) sub.unsubscribe();
-						});
-						appState.realtimeSubscriptions = [];
-					}
-					showScreen('login');
+			if (window.authManager) {
+				window.authManager.onAuthStateChange((user) => {
+					onAuthStateChange(user);
+				});
+				if (!window.authManager._siteNavInitialized) {
+					window.authManager._siteNavInitialized = true;
+					window.authManager.init();
 				}
-			});
-
-			const { data: { session } } = await supabase.auth.getSession();
-			appState.user = session?.user || null;
-
-			if (appState.user) {
-				onLoggedIn();
+				if (window.authManager.isLoggedIn()) {
+					onAuthStateChange(window.authManager.getUser());
+				} else {
+					onAuthStateChange(null);
+				}
 			} else {
-				showScreen('login');
+				onAuthStateChange(null);
 			}
-		} catch (err) {
-			console.error('Init error:', err);
-			showScreen('login');
+		});
+	}
+
+	function onAuthStateChange(user) {
+		appState.user = user || null;
+		if (appState.user) {
+			showScreen('main');
+			onLoggedIn();
+		} else {
+			clearRefreshTimer();
+			if (appState.realtimeSubscriptions) {
+				appState.realtimeSubscriptions.forEach(sub => {
+					if (sub && sub.unsubscribe) sub.unsubscribe();
+				});
+				appState.realtimeSubscriptions = [];
+			}
+			showScreen('guest');
 		}
 	}
 
 	async function onLoggedIn() {
-		showScreen('main');
-		await loadServices();
 		await loadAllData();
-		loadProfile();
 		setupRefreshTimer();
 		setupRealtime();
-	}
-
-	async function loadServices() {
-		try {
-			const data = await callEdgeFunction('pulse-get-services', null, 'GET');
-			if (data && data.services) {
-				appState.services = data.services;
-				populateServiceSelect();
-			}
-		} catch (err) {
-			console.error('Load services error:', err);
-			appState.services = [{
-				serviceKey: 'test-echo',
-				displayName: '测试服务 (Echo)',
-				description: '用于测试的模拟签到服务',
-				credentialFields: [
-					{ key: 'username', label: '用户名', type: 'text', placeholder: '任意用户名', required: true },
-					{ key: 'shouldFail', label: '模拟失败', type: 'checkbox', required: false }
-				],
-				publicConfigFields: []
-			}];
-			populateServiceSelect();
+		if (typeof window._siteNavInitialSyncComplete === 'function') {
+			window._siteNavInitialSyncComplete();
 		}
-	}
-
-	function populateServiceSelect() {
-		const selects = [$('formService')];
-		selects.forEach(sel => {
-			if (!sel) return;
-			sel.innerHTML = '<option value="">请选择服务</option>';
-			appState.services.forEach(svc => {
-				const opt = document.createElement('option');
-				opt.value = svc.serviceKey;
-				opt.textContent = svc.displayName;
-				sel.appendChild(opt);
-			});
-		});
-
-		const filterSelect = $('runFilterTarget');
-		if (filterSelect) {
-			const currentVal = filterSelect.value;
-			filterSelect.innerHTML = '<option value="">全部项目</option>';
-			appState.targets.forEach(t => {
-				const opt = document.createElement('option');
-				opt.value = t.id;
-				opt.textContent = t.display_name;
-				filterSelect.appendChild(opt);
-			});
-			filterSelect.value = currentVal;
-		}
-	}
-
-	function renderServiceFields(serviceKey, existingCredentials, existingPublicConfig, isEdit) {
-		const container = $('serviceFields');
-		container.innerHTML = '';
-		const svc = appState.services.find(s => s.serviceKey === serviceKey);
-		if (!svc) return;
-
-		(svc.credentialFields || []).forEach(field => {
-			const fieldDiv = document.createElement('div');
-			fieldDiv.className = 'pulseField';
-			const label = document.createElement('label');
-			label.textContent = field.label + (field.required ? ' *' : '');
-			fieldDiv.appendChild(label);
-
-			let input;
-			if (field.type === 'textarea') {
-				input = document.createElement('textarea');
-				input.className = 'pulseInput';
-				input.rows = 3;
-			} else if (field.type === 'checkbox') {
-				input = document.createElement('input');
-				input.type = 'checkbox';
-				input.style.width = 'auto';
-				input.style.height = 'auto';
-			} else {
-				input = document.createElement('input');
-				input.type = field.type === 'password' ? 'password' : (field.type || 'text');
-				input.className = 'pulseInput';
-			}
-			input.id = 'cred_' + field.key;
-			input.name = field.key;
-			input.placeholder = field.placeholder || '';
-			input.dataset.fieldType = 'credential';
-
-			if (isEdit && field.type !== 'checkbox') {
-				input.placeholder = '•••••••• (留空不修改)';
-			}
-			if (existingCredentials && existingCredentials[field.key] !== undefined && field.type === 'checkbox') {
-				input.checked = !!existingCredentials[field.key];
-			}
-
-			fieldDiv.appendChild(input);
-			container.appendChild(fieldDiv);
-		});
-
-		(svc.publicConfigFields || []).forEach(field => {
-			const fieldDiv = document.createElement('div');
-			fieldDiv.className = 'pulseField';
-			const label = document.createElement('label');
-			label.textContent = field.label + (field.required ? ' *' : '');
-			fieldDiv.appendChild(label);
-
-			let input;
-			if (field.type === 'select') {
-				input = document.createElement('select');
-				input.className = 'pulseSelect';
-				(field.options || []).forEach(opt => {
-					const option = document.createElement('option');
-					option.value = opt.value;
-					option.textContent = opt.label;
-					input.appendChild(option);
-				});
-			} else if (field.type === 'checkbox') {
-				input = document.createElement('input');
-				input.type = 'checkbox';
-				input.style.width = 'auto';
-				input.style.height = 'auto';
-			} else {
-				input = document.createElement('input');
-				input.type = field.type || 'text';
-				input.className = 'pulseInput';
-			}
-			input.id = 'pub_' + field.key;
-			input.name = field.key;
-			input.placeholder = field.placeholder || '';
-			input.dataset.fieldType = 'public';
-			if (existingPublicConfig && existingPublicConfig[field.key] !== undefined) {
-				if (field.type === 'checkbox') {
-					input.checked = !!existingPublicConfig[field.key];
-				} else {
-					input.value = existingPublicConfig[field.key];
-				}
-			} else if (field.defaultValue !== undefined) {
-				if (field.type === 'checkbox') {
-					input.checked = !!field.defaultValue;
-				} else {
-					input.value = field.defaultValue;
-				}
-			}
-			fieldDiv.appendChild(input);
-			container.appendChild(fieldDiv);
-		});
 	}
 
 	// ========== 自定义 HTTP 表单 ==========
@@ -500,31 +412,12 @@
 		};
 	}
 
-	function switchServiceType(type) {
-		appState.serviceType = type;
-		qsa('.pulseServiceTypeTab').forEach(tab => {
-			tab.classList.toggle('isActive', tab.dataset.type === type);
-		});
-
-		if (type === 'custom') {
-			$('presetServiceField').style.display = 'none';
-			$('customHttpFields').style.display = 'block';
-			$('testConfigBtn').style.display = 'inline-flex';
-			$('formService').value = 'custom-http';
-			if (!appState.customHttpConfig) {
-				appState.customHttpConfig = createEmptyCustomHttpConfig();
-			}
-			renderCustomHttpForm();
-			updateBodyFieldsVisibility();
-		} else {
-			$('presetServiceField').style.display = 'block';
-			$('customHttpFields').style.display = 'none';
-			$('testConfigBtn').style.display = 'none';
-			if ($('formService').value === 'custom-http') {
-				$('formService').value = '';
-			}
-			renderServiceFields($('formService').value, {}, {}, !!appState.editingTargetId);
+	function showCustomHttpForm() {
+		if (!appState.customHttpConfig) {
+			appState.customHttpConfig = createEmptyCustomHttpConfig();
 		}
+		renderCustomHttpForm();
+		updateBodyFieldsVisibility();
 		updateTestButtonState();
 	}
 
@@ -759,8 +652,8 @@
 	}
 
 	function getServiceName(serviceKey) {
-		const svc = appState.services.find(s => s.serviceKey === serviceKey);
-		return svc ? svc.displayName : serviceKey;
+		if (serviceKey === 'custom-http') return '自定义 HTTP 签到';
+		return serviceKey;
 	}
 
 	async function loadRecentRuns() {
@@ -855,11 +748,7 @@
 		$('targetModal').style.display = 'flex';
 		updateTestButtonState();
 		setTimeout(() => {
-			if (appState.serviceType === 'preset') {
-				$('formService').focus();
-			} else {
-				$('customUrl').focus();
-			}
+			$('customUrl').focus();
 		}, 100);
 	}
 
@@ -874,15 +763,8 @@
 		$('formDisplayName').value = target.display_name;
 		$('formEnabled').checked = target.enabled;
 
-		if (target.service_key === 'custom-http') {
-			switchServiceType('custom');
-			appState.customHttpConfig = normalizeCustomHttpConfig(target.custom_http_config);
-			renderCustomHttpForm();
-		} else {
-			switchServiceType('preset');
-			$('formService').value = target.service_key;
-			renderServiceFields(target.service_key, {}, target.public_config || {}, true);
-		}
+		appState.customHttpConfig = normalizeCustomHttpConfig(target.custom_http_config);
+		renderCustomHttpForm();
 
 		const schedule = appState.schedules.get(targetId);
 		if (schedule) {
@@ -909,12 +791,8 @@
 	}
 
 	function resetForm() {
-		appState.serviceType = 'preset';
 		appState.customHttpConfig = createEmptyCustomHttpConfig();
-		switchServiceType('preset');
-		$('formService').value = '';
 		$('formDisplayName').value = '';
-		$('serviceFields').innerHTML = '';
 		$('formLocalTime').value = '08:00';
 		$('formTimezone').value = 'Asia/Shanghai';
 		$('formRetryCount').value = 2;
@@ -929,8 +807,7 @@
 	}
 
 	async function saveTarget() {
-		const isCustom = appState.serviceType === 'custom';
-		const serviceKey = isCustom ? 'custom-http' : $('formService').value;
+		const serviceKey = 'custom-http';
 		const displayName = $('formDisplayName').value.trim();
 		const enabled = $('formEnabled').checked;
 		const localTime = $('formLocalTime').value;
@@ -941,10 +818,6 @@
 		const dayChecks = qsa('#formDaysOfWeek input:checked');
 		const daysOfWeek = dayChecks.map(cb => parseInt(cb.value));
 
-		if (!serviceKey) {
-			showToast('请选择签到服务', 'error');
-			return;
-		}
 		if (!displayName) {
 			showToast('请输入账号名称', 'error');
 			return;
@@ -958,41 +831,15 @@
 			return;
 		}
 
-		let customHttpConfig = null;
-		if (isCustom) {
-			customHttpConfig = collectCustomHttpConfig();
-			if (!customHttpConfig.url || !customHttpConfig.url.startsWith('https://')) {
-				showToast('请输入有效的 HTTPS 签到接口 URL', 'error');
-				return;
-			}
-			if (!customHttpConfig.successRules || customHttpConfig.successRules.length === 0) {
-				showToast('请至少配置一条成功判断规则', 'error');
-				return;
-			}
+		const customHttpConfig = collectCustomHttpConfig();
+		if (!customHttpConfig.url || !customHttpConfig.url.startsWith('https://')) {
+			showToast('请输入有效的 HTTPS 签到接口 URL', 'error');
+			return;
 		}
-
-		const credentials = {};
-		const publicConfig = {};
-		qsa('#serviceFields input, #serviceFields textarea, #serviceFields select').forEach(input => {
-			const key = input.name;
-			const isCredential = input.dataset.fieldType === 'credential';
-			if (input.type === 'checkbox') {
-				if (isCredential) {
-					credentials[key] = input.checked;
-				} else {
-					publicConfig[key] = input.checked;
-				}
-			} else {
-				const val = input.value;
-				if (val && val.length > 0) {
-					if (isCredential) {
-						credentials[key] = val;
-					} else {
-						publicConfig[key] = val;
-					}
-				}
-			}
-		});
+		if (!customHttpConfig.successRules || customHttpConfig.successRules.length === 0) {
+			showToast('请至少配置一条成功判断规则', 'error');
+			return;
+		}
 
 		const saveBtn = $('saveFormBtn');
 		saveBtn.disabled = true;
@@ -1004,24 +851,19 @@
 				service_key: serviceKey,
 				display_name: displayName,
 				enabled,
-				credentials,
-				public_config: publicConfig,
 				timezone,
 				local_time: localTime,
 				days_of_week: daysOfWeek,
 				retry_count: Math.min(5, Math.max(0, retryCount)),
 				retry_interval_minutes: Math.min(60, Math.max(1, retryInterval)),
-				random_delay_seconds: Math.min(3600, Math.max(0, randomDelay))
+				random_delay_seconds: Math.min(3600, Math.max(0, randomDelay)),
+				custom_http_config: customHttpConfig
 			};
 
-			if (isCustom && customHttpConfig) {
-			body.custom_http_config = customHttpConfig;
-		}
-
-		console.log('[saveTarget] 发送的完整请求体:', JSON.stringify(body, null, 2));
-		const response = await callEdgeFunction('pulse-upsert-target', body);
-		console.log('[saveTarget] 后端响应:', JSON.stringify(response, null, 2));
-		showToast(appState.editingTargetId ? '已更新' : '已添加', 'success');
+			console.log('[saveTarget] 发送的完整请求体:', JSON.stringify(body, null, 2));
+			const response = await callEdgeFunction('pulse-upsert-target', body);
+			console.log('[saveTarget] 后端响应:', JSON.stringify(response, null, 2));
+			showToast(appState.editingTargetId ? '已更新' : '已添加', 'success');
 			closeModal();
 			await loadAllData();
 		} catch (err) {
@@ -1127,26 +969,6 @@
 		});
 	}
 
-	async function loadProfile() {
-		try {
-			if (appState.user) {
-				$('settingsEmail').textContent = appState.user.email || '-';
-
-				const { data: profile } = await supabase
-					.from('user_profiles')
-					.select('username')
-					.eq('user_id', appState.user.id)
-					.maybeSingle();
-
-				if (profile && profile.username) {
-					$('settingsUsername').value = profile.username;
-				}
-			}
-		} catch (err) {
-			console.log('Profile load:', err);
-		}
-	}
-
 	function setupRefreshTimer() {
 		clearRefreshTimer();
 		const interval = parseInt($('settingsRefreshInterval')?.value || '30') * 1000;
@@ -1202,100 +1024,6 @@
 		}
 	}
 
-	async function saveUsername() {
-		const username = $('settingsUsername').value.trim();
-		const saveBtn = $('saveUsernameBtn');
-
-		try {
-			const { error } = await supabase
-				.from('user_profiles')
-				.upsert({
-					user_id: appState.user.id,
-					username: username || null,
-					updated_at: new Date().toISOString()
-				}, {
-					onConflict: 'user_id'
-				});
-			if (error) throw error;
-			showToast('用户名已保存', 'success');
-			saveBtn.disabled = true;
-		} catch (err) {
-			console.error('Save username error:', err);
-			showToast('保存失败', 'error');
-		}
-	}
-
-	async function handleLogin(e) {
-		e.preventDefault();
-		const email = $('loginEmail').value.trim();
-		const password = $('loginPassword').value;
-		const statusEl = $('loginStatus');
-		const loginBtn = $('loginBtn');
-
-		if (!email || !password) {
-			statusEl.textContent = '请输入邮箱和密码';
-			statusEl.className = 'pulseLoginStatus isError';
-			return;
-		}
-
-		loginBtn.disabled = true;
-		statusEl.textContent = '登录中...';
-		statusEl.className = 'pulseLoginStatus';
-
-		try {
-			const { data, error } = await supabase.auth.signInWithPassword({
-				email, password
-			});
-			if (error) throw error;
-			if (data.user) {
-				statusEl.textContent = '登录成功';
-				statusEl.className = 'pulseLoginStatus isSuccess';
-			}
-		} catch (err) {
-			console.error('Login error:', err);
-			statusEl.textContent = err.message || '登录失败';
-			statusEl.className = 'pulseLoginStatus isError';
-		} finally {
-			loginBtn.disabled = false;
-		}
-	}
-
-	async function handleSignup(e) {
-		e.preventDefault();
-		const email = $('loginEmail').value.trim();
-		const password = $('loginPassword').value;
-		const statusEl = $('loginStatus');
-		const loginBtn = $('loginBtn');
-
-		if (!email || !password) {
-			statusEl.textContent = '请输入邮箱和密码';
-			statusEl.className = 'pulseLoginStatus isError';
-			return;
-		}
-		if (password.length < 6) {
-			statusEl.textContent = '密码至少6位';
-			statusEl.className = 'pulseLoginStatus isError';
-			return;
-		}
-
-		loginBtn.disabled = true;
-		statusEl.textContent = '注册中...';
-		statusEl.className = 'pulseLoginStatus';
-
-		try {
-			const { data, error } = await supabase.auth.signUp({ email, password });
-			if (error) throw error;
-			statusEl.textContent = '注册成功，请检查邮箱验证后登录';
-			statusEl.className = 'pulseLoginStatus isSuccess';
-		} catch (err) {
-			console.error('Signup error:', err);
-			statusEl.textContent = err.message || '注册失败';
-			statusEl.className = 'pulseLoginStatus isError';
-		} finally {
-			loginBtn.disabled = false;
-		}
-	}
-
 	async function handleLogout() {
 		try {
 			clearRefreshTimer();
@@ -1303,29 +1031,11 @@
 				if (sub && sub.unsubscribe) sub.unsubscribe();
 			});
 			appState.realtimeSubscriptions = [];
-			await supabase.auth.signOut();
+			if (window.authManager) {
+				await window.authManager.signOut();
+			}
 		} catch (err) {
 			console.error('Logout error:', err);
-		}
-	}
-
-	async function handleForgotPassword(e) {
-		e.preventDefault();
-		const email = $('loginEmail').value.trim();
-		const statusEl = $('loginStatus');
-		if (!email) {
-			statusEl.textContent = '请先输入邮箱';
-			statusEl.className = 'pulseLoginStatus isError';
-			return;
-		}
-		try {
-			const { error } = await supabase.auth.resetPasswordForEmail(email);
-			if (error) throw error;
-			statusEl.textContent = '重置密码邮件已发送，请检查邮箱';
-			statusEl.className = 'pulseLoginStatus isSuccess';
-		} catch (err) {
-			statusEl.textContent = err.message || '发送失败';
-			statusEl.className = 'pulseLoginStatus isError';
 		}
 	}
 
@@ -1333,10 +1043,6 @@
 	function updateTestButtonState() {
 		const btn = $('testConfigBtn');
 		if (!btn) return;
-		if (appState.serviceType !== 'custom') {
-			btn.style.display = 'none';
-			return;
-		}
 		btn.style.display = 'inline-flex';
 		btn.disabled = !appState.editingTargetId;
 		btn.title = appState.editingTargetId ? '使用当前配置测试一次' : '保存后才能测试';
@@ -1459,12 +1165,8 @@
 	}
 
 	function bindEvents() {
-		$('loginBtn').onclick = handleLogin;
-		$('signupLink').onclick = handleSignup;
-		$('forgotPasswordLink').onclick = handleForgotPassword;
-
-		qsa('.pulseTab').forEach(tab => {
-			tab.onclick = () => switchTab(tab.dataset.tab);
+		qsa('.pulseSidebarItem').forEach(item => {
+			item.onclick = () => switchTab(item.dataset.tab);
 		});
 
 		$('addTargetBtn').onclick = openAddModal;
@@ -1477,11 +1179,6 @@
 			if (e.target === $('targetModal')) closeModal();
 		};
 
-		$('formService').onchange = () => {
-			const svcKey = $('formService').value;
-			renderServiceFields(svcKey, {}, {}, !!appState.editingTargetId);
-		};
-
 		$('runFilterTarget').onchange = loadRuns;
 		$('runFilterStatus').onchange = loadRuns;
 
@@ -1490,20 +1187,10 @@
 			loadAllData();
 			showToast('已刷新', 'success');
 		};
-		$('saveUsernameBtn').onclick = saveUsername;
-
-		$('settingsUsername').oninput = () => {
-			const original = '';
-			$('saveUsernameBtn').disabled = $('settingsUsername').value.trim() === original;
-		};
 
 		$('settingsRefreshInterval').onchange = setupRefreshTimer;
 
 		// 自定义 HTTP 表单事件
-		qsa('.pulseServiceTypeTab').forEach(tab => {
-			tab.onclick = () => switchServiceType(tab.dataset.type);
-		});
-
 		$('customMethod').onchange = updateBodyFieldsVisibility;
 		$('customBodyType').onchange = updateBodyFieldsVisibility;
 

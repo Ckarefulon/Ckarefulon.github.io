@@ -102,55 +102,34 @@
 			<span>加载中...</span>
 		</div>
 
-		<div class="pulseLogin" id="pulseLogin" style="display:none;">
-			<div class="pulseLoginCard">
-				<div class="pulseLoginHeader">
-					<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+		<div class="pulseMain" id="pulseMain" style="display:none;">
+			<nav class="pulseSidebar" id="pulseSidebar" aria-label="Pulse 导航">
+				<div class="pulseSidebarHeader">
+					<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<circle cx="12" cy="12" r="10"/>
 						<polyline points="12 6 12 12 16 14"/>
 					</svg>
-					<h1>Pulse</h1>
-					<p>自动签到管理控制台</p>
+					<span>Pulse</span>
 				</div>
-				<div class="pulseLoginForm">
-					<div class="pulseField">
-						<label>邮箱</label>
-						<input type="email" id="loginEmail" placeholder="your@email.com" autocomplete="email">
-					</div>
-					<div class="pulseField">
-						<label>密码</label>
-						<input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
-					</div>
-					<button class="pulseBtn pulseBtnPrimary" id="loginBtn" type="button">登录</button>
-					<div class="pulseLoginStatus" id="loginStatus"></div>
-					<div class="pulseLoginLinks">
-						<a href="#" id="forgotPasswordLink">忘记密码？</a>
-						<span>·</span>
-						<a href="#" id="signupLink">注册账号</a>
-					</div>
+				<div class="pulseSidebarItems">
+					<button class="pulseSidebarItem isActive" data-tab="dashboard" type="button">
+						<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+						<span>总览</span>
+					</button>
+					<button class="pulseSidebarItem" data-tab="targets" type="button">
+						<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+						<span>签到项目</span>
+					</button>
+					<button class="pulseSidebarItem" data-tab="runs" type="button">
+						<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+						<span>执行记录</span>
+					</button>
+					<button class="pulseSidebarItem" data-tab="settings" type="button">
+						<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+						<span>设置</span>
+					</button>
 				</div>
-			</div>
-		</div>
-
-		<div class="pulseMain" id="pulseMain" style="display:none;">
-			<div class="pulseTabs">
-				<button class="pulseTab isActive" data-tab="dashboard" type="button">
-					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-					<span>总览</span>
-				</button>
-				<button class="pulseTab" data-tab="targets" type="button">
-					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-					<span>签到项目</span>
-				</button>
-				<button class="pulseTab" data-tab="runs" type="button">
-					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-					<span>执行记录</span>
-				</button>
-				<button class="pulseTab" data-tab="settings" type="button">
-					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-					<span>设置</span>
-				</button>
-			</div>
+			</nav>
 
 			<div class="pulseContent">
 				<div class="pulseTabPanel isActive" id="panel-dashboard">
@@ -263,20 +242,9 @@
 				<div class="pulseTabPanel" id="panel-settings">
 					<div class="pulseSection">
 						<div class="pulseSectionHeader">
-							<h2>账号设置</h2>
+							<h2>偏好设置</h2>
 						</div>
 						<div class="pulseSettingsCard">
-							<div class="pulseSettingRow">
-								<label>当前账号</label>
-								<span id="settingsEmail">-</span>
-							</div>
-							<div class="pulseSettingRow">
-								<label>用户名</label>
-								<div class="pulseSettingInputGroup">
-									<input type="text" id="settingsUsername" placeholder="设置用户名" maxlength="20">
-									<button class="pulseBtn pulseBtnSm" id="saveUsernameBtn" type="button" disabled>保存</button>
-								</div>
-							</div>
 							<div class="pulseSettingRow">
 								<label>默认时区</label>
 								<select id="settingsTimezone" class="pulseSelect">
@@ -343,6 +311,11 @@
 					</div>
 				</div>
 			</div>
+			<div class="pulseGuestHint" id="pulseGuestHint" style="display:none;">
+				<svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+				<strong>请登录后使用 Pulse</strong>
+				<p>登录后可管理自动签到项目、查看执行记录并同步数据。</p>
+			</div>
 		</div>
 	</div>
 
@@ -356,25 +329,11 @@
 			</div>
 			<div class="pulseModalBody" id="modalBody">
 				<div class="pulseField">
-					<label>服务类型</label>
-					<div class="pulseServiceTypeTabs" id="formServiceTypeTabs">
-						<button type="button" class="pulseServiceTypeTab isActive" data-type="preset">预设网站</button>
-						<button type="button" class="pulseServiceTypeTab" data-type="custom">自定义 HTTP 签到</button>
-					</div>
-				</div>
-				<div class="pulseField" id="presetServiceField">
-					<label>签到服务</label>
-					<select id="formService" class="pulseSelect">
-						<option value="">请选择服务</option>
-					</select>
-				</div>
-				<div class="pulseField">
 					<label>账号名称</label>
 					<input type="text" id="formDisplayName" class="pulseInput" placeholder="例如：我的账号" maxlength="100">
 				</div>
-				<div id="serviceFields"></div>
 
-				<div id="customHttpFields" style="display:none;">
+				<div id="customHttpFields">
 					<div class="pulseField">
 						<label>签到接口 URL <span class="pulseRequired">*</span></label>
 						<input type="url" id="customUrl" class="pulseInput" placeholder="https://example.com/api/checkin">
@@ -393,7 +352,7 @@
 							<select id="customBodyType" class="pulseSelect">
 								<option value="none">无请求体</option>
 								<option value="json">JSON</option>
-								<option value="form">Form URL Encoded</option>
+								<option value="form">表单 (x-www-form-urlencoded)</option>
 							</select>
 						</div>
 					</div>

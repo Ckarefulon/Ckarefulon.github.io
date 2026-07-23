@@ -1,5 +1,4 @@
 import type { CheckinAdapter, CheckinContext, CheckinResult } from "./types.ts";
-import testEchoAdapter from "./test-echo.ts";
 import customHttpAdapter from "./custom-http.ts";
 
 const adapters: Map<string, CheckinAdapter> = new Map();
@@ -8,7 +7,6 @@ function registerAdapter(adapter: CheckinAdapter) {
 	adapters.set(adapter.serviceKey, adapter);
 }
 
-registerAdapter(testEchoAdapter);
 registerAdapter(customHttpAdapter);
 
 export function getAdapter(serviceKey: string): CheckinAdapter | null {
