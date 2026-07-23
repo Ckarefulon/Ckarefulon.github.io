@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
 	"use strict";
 
 	var overlayStack = [];
@@ -55,10 +55,18 @@
 		var importBox = view.querySelector("#formulaImport, #stateImport");
 		if (importBox) {
 			Array.from(importBox.children).forEach(function (child) {
-				if (child.matches(".sharedGroupBar, #sharedCustomStateBtn, .importDropZone, .controls, .hiddenFileInput, .textImport, .stateOptionRow")) {
+				if (child.matches("#sharedGroupBar, #planExpandBtn, #planPanel, #planFileInput, .memoryDataControls")) {
 					append("data", child);
+				} else if (child.matches(".strictDetectionControls")) {
+					append("settings", child);
 				}
 			});
+			var hasVisibleChild = Array.from(importBox.children).some(function (child) {
+				return !!(child.offsetWidth || child.offsetHeight);
+			});
+			if (!hasVisibleChild) {
+				importBox.style.display = "none";
+			}
 		}
 
 		["settings", "cube", "data", "help"].forEach(function (key) {

@@ -1,4 +1,4 @@
-﻿(function() {
+(function() {
 	"use strict";
 
 	var app = window.smartCubeApp;
@@ -61,7 +61,9 @@
 			thresholdData: { threshold: 500, precision: 2 },
 			undoStack: [],
 			idSeed: 1,
-			hiddenStickerMask: {}
+			hiddenStickerMask: {},
+			syncEnabled: true,
+			trainingSelectedFormulaIds: {}
 		};
 	}
 
@@ -123,6 +125,8 @@
 			migrated.thresholdData = Object.assign({ threshold: 500, precision: 2 }, value.thresholdData || {});
 			migrated.idSeed = Number(value.idSeed) || 1;
 			migrated.hiddenStickerMask = {};
+			migrated.syncEnabled = value.syncEnabled !== false;
+			migrated.trainingSelectedFormulaIds = (value.trainingSelectedFormulaIds && typeof value.trainingSelectedFormulaIds === "object") ? value.trainingSelectedFormulaIds : {};
 			base.libraries["lib_default"] = migrated;
 			base.activeLibraryId = "lib_default";
 			return reviveDates(base);
@@ -154,6 +158,8 @@
 			dest.thresholdData = Object.assign({ threshold: 500, precision: 2 }, src.thresholdData || {});
 			dest.idSeed = Number(src.idSeed) || 1;
 			dest.hiddenStickerMask = (src.hiddenStickerMask && typeof src.hiddenStickerMask === "object" && !Array.isArray(src.hiddenStickerMask)) ? src.hiddenStickerMask : {};
+			dest.syncEnabled = src.syncEnabled !== false;
+			dest.trainingSelectedFormulaIds = (src.trainingSelectedFormulaIds && typeof src.trainingSelectedFormulaIds === "object" && !Array.isArray(src.trainingSelectedFormulaIds)) ? src.trainingSelectedFormulaIds : {};
 			base.libraries[lid] = dest;
 		});
 		if (!base.libraries[base.activeLibraryId]) {
@@ -474,7 +480,7 @@
 	function getMemoryHtml() {
 		var groupBarHtml = (typeof app.getGroupSelectorHtml === 'function') ? app.getGroupSelectorHtml() : '';
 		return '<aside class="modeView memoryView"><header class="viewHead"><h1>记忆模式</h1></header>' +
-			'<section class="viewSec memoryManageSection">' + groupBarHtml + '<button id="memoryPlanBtn" class="button" type="button" aria-expanded="false">规划记忆</button><div id="planBox" class="planBox"></div><div class="controls"><button id="memoryImportBtn" class="button secondary" type="button">导入记忆数据</button><button id="memoryExportBtn" class="button secondary" type="button">导出记忆数据</button></div><input id="memoryImportFile" class="hiddenFileInput" type="file" accept=".json,application/json"></section>' +
+			'<section class="viewSec stateImport memoryManageSection" id="formulaImport">' + groupBarHtml + '<div class="memoryDataControls"><button id="memoryImportBtn" class="button secondary" type="button">导入记忆数据</button><button id="memoryExportBtn" class="button secondary" type="button">导出记忆数据</button></div><input id="memoryImportFile" class="hiddenFileInput" type="file" accept=".json,application/json"></section>' +
 			'<section class="reviewArea"><div id="memoryCurrent" class="memoryCurrent"><button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">请开始还原…<br>点击此处显示答案。</button></div><div id="reviewHistory" class="reviewHistory"></div></section>' +
 			app.getDiagnosticsHtml(true) + '</aside>';
 	}
@@ -1889,7 +1895,11 @@
 				}
 			});
 		}
-		document.querySelector("#memoryPlanBtn").addEventListener("click", openPlanDialog);
+		var planBtn = document.querySelector("#planExpandBtn");
+		if (planBtn && app.bindPlanPanel) {
+			if (!app.elements) app.refreshElements();
+			app.bindPlanPanel();
+		}
 		document.querySelector("#memoryExportBtn").addEventListener("click", exportData);
 		var importButton = document.querySelector("#memoryImportBtn");
 		var importInput = document.querySelector("#memoryImportFile");
@@ -2015,12 +2025,32 @@
 	document.addEventListener("webkitfullscreenchange", syncMemoryFs);
 
 window.MemoryStore = {
-		data: function() { return memory.data; },
-		group: lib,
-		make: freshLibrary,
-		save: saveData,
-		loadMask: loadLibraryMask,
-		progress: getProgress,
-		refresh: function() { if (app.currentMode === "memory") startMemoryMode(); }
-	};
+	data: function() { return memory.data; },
+	group: lib,
+	make: freshLibrary,
+	save: saveData,
+	loadMask: loadLibraryMask,
+	progress: getProgress,
+	refresh: function() { if (app.currentMode === "memory") startMemoryMode(); }
+};
+
+window.applyMemoryPlan = function(selectedFormulas, allFormulas) {
+	var l = lib();
+	if (!l) return;
+	l.formulas = selectedFormulas.slice();
+	l.allFormulas = allFormulas.slice();
+	l.planText = allFormulas.map(function(f) {
+		var alg = f.alg || f.formula || '';
+		if (!alg.endsWith(';')) { alg += ';'; }
+		return f.name + ': ' + alg;
+	}).join('\n');
+	l.queue = [];
+	l.todayQueue = [];
+	l.undoStack = [];
+	memory.pendingAutofill = "";
+	saveData();
+	app._notifyActiveGroupChanged();
+};
+
+window.startMemoryMode = startMemoryMode;
 })();

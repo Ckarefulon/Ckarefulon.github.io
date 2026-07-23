@@ -1,4 +1,4 @@
-﻿(function() {
+(function() {
 			"use strict";
 
 			var PRACTICE_STATS_SCHEMA_VERSION = 3;
@@ -147,8 +147,12 @@
 					}
 					this.syncGroupFormulas();
 					var textarea = document.getElementById("formulaTextInput");
-					if (textarea && document.activeElement !== textarea) textarea.value = this.formulaInputText;
+					var planTextarea = document.getElementById("planTextarea");
+					var activeEl = document.activeElement;
+					if (textarea && activeEl !== textarea) textarea.value = this.formulaInputText;
+					if (planTextarea && activeEl !== planTextarea) planTextarea.value = this.formulaInputText;
 					this.renderGroupPicker();
+					this.updateSyncButton();
 					this.formulaSolveTimes = this.getPracticeData().solveTimes;
 					this.syncFormulaState();
 					this.applyGroupMaskToCube();
@@ -211,12 +215,26 @@
 						manualMoves: document.getElementById("manualMoves"),
 						customFinalStateBtn: document.getElementById("customFinalStateBtn"),
 						formulaDropZone: document.getElementById("formulaDropZone"),
-						chooseFormulaFileBtn: document.getElementById("chooseFormulaFileBtn"),
-						formulaFileInput: document.getElementById("formulaFileInput"),
-						toggleTextImportBtn: document.getElementById("toggleTextImportBtn"),
+						chooseFormulaFileBtn: document.getElementById("chooseFormulaFileBtn") || document.getElementById("planImportBtn"),
+						formulaFileInput: document.getElementById("formulaFileInput") || document.getElementById("planFileInput"),
+						toggleTextImportBtn: document.getElementById("toggleTextImportBtn") || document.getElementById("planViewTextBtn"),
 						textImportBox: document.getElementById("textImportBox"),
-						formulaTextInput: document.getElementById("formulaTextInput"),
-						importFormulaTextBtn: document.getElementById("importFormulaTextBtn"),
+						formulaTextInput: document.getElementById("formulaTextInput") || document.getElementById("planTextarea"),
+						importFormulaTextBtn: document.getElementById("importFormulaTextBtn") || document.getElementById("planSaveBtn"),
+						planExpandBtn: document.getElementById("planExpandBtn"),
+						planPanel: document.getElementById("planPanel"),
+						planViewListBtn: document.getElementById("planViewListBtn"),
+						planImportBtn: document.getElementById("planImportBtn"),
+						planViewTextBtn: document.getElementById("planViewTextBtn"),
+						planContentArea: document.getElementById("planContentArea"),
+						planFormulaList: document.getElementById("planFormulaList"),
+						planTextarea: document.getElementById("planTextarea"),
+						planCollapseBtn: document.getElementById("planCollapseBtn"),
+						planSaveBtn: document.getElementById("planSaveBtn"),
+						planFileInput: document.getElementById("planFileInput"),
+						planCount: document.getElementById("planCount"),
+						planDailyCount: document.getElementById("planDailyCount"),
+						planSyncBtn: document.getElementById("planSyncBtn"),
 						showFormulaThumbs: document.getElementById("showFormulaThumbs"),
 						showPracticeFormula: document.getElementById("showPracticeFormula"),
 						practiceFormulaText: document.getElementById("practiceFormulaText"),
@@ -984,13 +1002,13 @@
 					this.renderGroupPicker();
 					this.applyGroupMaskToCube();
 					this.syncKeyMode(mode);
-					if (mode === "library") {
-						this.loadFormulaLibraries();
-					}
-					this.organizeOps();
-					var def = this.modeDefs[mode];
-					if (def && typeof def.enter === "function") def.enter.call(this);
-				},
+				if (mode === "library") {
+					this.loadFormulaLibraries();
+				}
+				var def = this.modeDefs[mode];
+				if (def && typeof def.enter === "function") def.enter.call(this);
+				this.organizeOps();
+			},
 
 				getModeHtml: function(mode) {
 					var def = this.modeDefs[mode];
@@ -1022,12 +1040,12 @@
 				},
 
 				getGroupSelectorHtml: function() {
-					return '<div class="memoryLibraryBar sharedGroupBar" id="sharedGroupBar"><div id="sharedGroupSelector" class="memoryLibrarySelector"><button id="sharedGroupCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="sharedGroupCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="sharedGroupMenu" class="memoryLibraryMenu" role="menu"></div></div><input id="sharedGroupNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="sharedGroupAddBtn" class="memoryLibraryIconBtn" type="button" title="新建组"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名组"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除组"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>';
+					return '<div class="memoryLibraryBar sharedGroupBar" id="sharedGroupBar"><button id="planSyncBtn" class="planSyncBtn" type="button" title="同步选择状态"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7L21 16"/><path d="M21 21v-5h-5"/></svg></button><div id="sharedGroupSelector" class="memoryLibrarySelector" style="flex:1 1 auto"><button id="sharedGroupCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="sharedGroupCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="sharedGroupMenu" class="memoryLibraryMenu" role="menu"></div></div><input id="sharedGroupNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="sharedGroupAddBtn" class="memoryLibraryIconBtn" type="button" title="新建组"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名组"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除组"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><button id="planExpandBtn" class="planExpandBtn" type="button" aria-expanded="false"><span>规划学习</span><span class="planChevron"></span></button><div id="planPanel" class="planPanel"><div class="planPanelContent"><div class="planViewToggle"><button id="planViewListBtn" class="planViewBtn isActive" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>公式列表</button><button id="planImportBtn" class="planViewBtn planImportBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>导入公式</button><button id="planViewTextBtn" class="planViewBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>文本编辑</button></div><div id="planContentArea" class="planContentArea"><div id="planFormulaListWrap" class="planFormulaListWrap"><div id="planFormulaList" class="planFormulaList"></div></div><div id="planTextEditWrap" class="planTextEditWrap"><textarea id="planTextarea" class="planTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea></div></div><div class="planDailyRow"><label class="planDailyLabel">每日公式数 <input id="planDailyCount" class="planDailyInput" type="number" min="1" max="999" value="10"></label><span id="planCount" class="planCount">[0]/[10]</span></div><div class="memoryDialogActions"><button id="planSaveBtn" class="button" type="button">保存</button></div></div><button id="planCollapseBtn" class="planCollapseBtn" type="button"><span class="collapseChevrons"><span></span><span></span></span>收起</button></div><input id="planFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain">';
 				},
 
 				getFormulaImportHtml: function(showThumbOption, practiceCards, includeGroupControls) {
 					var groupControls = includeGroupControls === false ? "" : this.getGroupSelectorHtml();
-					return '<section class="viewSec stateImport" id="formulaImport">' + groupControls + '<div id="formulaDropZone" class="importDropZone">拖入 TXT 公式文件</div><div class="controls ' + (practiceCards ? "importButtons" : "") + '"><button id="chooseFormulaFileBtn" class="button secondary" type="button">选择 TXT</button><button id="toggleTextImportBtn" class="button secondary" type="button">输入文本</button></div><input id="formulaFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain"><div id="textImportBox" class="textImport"><div class="textImportWrap"><textarea id="formulaTextInput" class="stateTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea><div class="textImportActions"><button id="clearFormulaTextBtn" class="textImportActionBtn" type="button" title="清空文本"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button><button id="copyFormulaTextBtn" class="textImportActionBtn" type="button" title="复制全文"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div><button id="importFormulaTextBtn" class="button small" type="button">导入公式</button></div>' + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showFormulaThumbs" type="checkbox"><span class="checkVisual"></span><span>显示公式缩略图</span></label></div>' : "") + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><span id="practiceFormulaCount" class="practiceFormulaCount">共0个</span><span id="practiceFormulaName" class="practiceFormulaName"></span><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"><div class="practiceAoTime"><span>本次</span><strong>--</strong></div><div class="practiceAoTime"><span>AO5</span><strong>--</strong></div><div class="practiceAoTime"><span>AO10</span><strong>--</strong></div><div class="practiceAoTime"><span>AO50</span><strong>--</strong></div></div>' : "") + '<div id="practiceGrid" class="practiceGrid"></div></section>';
+					return '<section class="viewSec stateImport memoryManageSection" id="formulaImport">' + groupControls + (showThumbOption ? '<div class="stateOptionRow"><label class="stateOptions smartCheck"><input id="showFormulaThumbs" type="checkbox"><span class="checkVisual"></span><span>显示公式缩略图</span></label></div>' : "") + (practiceCards ? '<label id="practiceFormulaToggle" class="practiceFormulaToggle smartCheck"><span id="practiceFormulaCount" class="practiceFormulaCount">共0个</span><span id="practiceFormulaName" class="practiceFormulaName"></span><input id="showPracticeFormula" type="checkbox"><span class="checkVisual"></span><span id="practiceFormulaText">显示公式</span></label><div id="practiceAoTimes" class="practiceAoTimes"><div class="practiceAoTime"><span>本次</span><strong>--</strong></div><div class="practiceAoTime"><span>AO5</span><strong>--</strong></div><div class="practiceAoTime"><span>AO10</span><strong>--</strong></div><div class="practiceAoTime"><span>AO50</span><strong>--</strong></div></div>' : "") + '<div id="practiceGrid" class="practiceGrid"></div></section>';
 				},
 
 				getDiagnosticsHtml: function(hidden) {
@@ -1138,7 +1156,7 @@
 							}
 						});
 					});
-					if (this.elements.formulaDropZone && !this.elements.formulaDropZone.dataset.smartBound) {
+					if ((this.elements.formulaDropZone || this.elements.planExpandBtn) && !(this.elements.formulaDropZone && this.elements.formulaDropZone.dataset.smartBound) && !(this.elements.planExpandBtn && this.elements.planExpandBtn.dataset.smartBound)) {
 						this.bindFormulaImport();
 					}
 					if (this.elements.draftList && !this.elements.draftList.dataset.smartBound) {
@@ -2913,84 +2931,11 @@
 
 				bindFormulaImport: function() {
 					var self = this;
-					if (!this.elements.formulaDropZone || this.elements.formulaDropZone.dataset.smartBound) {
-						return;
+					this._planSelectedIds = {};
+					this._planTextView = false;
+					if (this.elements.planExpandBtn) {
+						this.bindPlanPanel();
 					}
-					this.elements.formulaDropZone.dataset.smartBound = "1";
-					this.elements.chooseFormulaFileBtn.addEventListener("click", function() {
-						self.elements.formulaFileInput.click();
-					});
-					this.elements.formulaFileInput.addEventListener("change", function(event) {
-						self.importFiles(event.target.files);
-						event.target.value = "";
-					});
-					this.elements.toggleTextImportBtn.addEventListener("click", function() {
-						self.elements.textImportBox.classList.toggle("isVisible");
-						var isVisible = self.elements.textImportBox.classList.contains("isVisible");
-						self.elements.toggleTextImportBtn.textContent = isVisible ? "收起文本框" : "输入文本";
-						if (isVisible) {
-							self.elements.formulaTextInput.focus();
-						}
-					});
-					this.elements.importFormulaTextBtn.addEventListener("click", function() {
-						var text = self.elements.formulaTextInput.value;
-						self.formulaInputText = text;
-						if (typeof self.setActiveGroupPlanText === 'function') {
-							self.setActiveGroupPlanText(text);
-						} else {
-							self.saveFormulaInputText();
-							self.importFormulaText(text, "manual");
-						}
-						self.elements.textImportBox.classList.remove("isVisible");
-						self.elements.toggleTextImportBtn.textContent = "输入文本";
-					});
-				this.elements.formulaTextInput.addEventListener("input", function(event) {
-					self.formulaInputText = event.target.value;
-					self.saveFormulaInputText();
-				});
-				var clearBtn = document.getElementById("clearFormulaTextBtn");
-				if (clearBtn && !clearBtn.dataset.smartBound) {
-					clearBtn.dataset.smartBound = "1";
-					clearBtn.addEventListener("click", function() {
-						if (self.elements.formulaTextInput) {
-							self.elements.formulaTextInput.value = "";
-							self.formulaInputText = "";
-							self.saveFormulaInputText();
-							self.showToast("已清空");
-						}
-					});
-				}
-				var copyBtn = document.getElementById("copyFormulaTextBtn");
-				if (copyBtn && !copyBtn.dataset.smartBound) {
-					copyBtn.dataset.smartBound = "1";
-					copyBtn.addEventListener("click", function() {
-						var text = self.elements.formulaTextInput ? self.elements.formulaTextInput.value : (self.formulaInputText || "");
-						if (navigator.clipboard && navigator.clipboard.writeText) {
-							navigator.clipboard.writeText(text).then(function() {
-								self.showToast("已复制到剪贴板");
-							}).catch(function() {
-								fallbackCopy(text, self);
-							});
-						} else {
-							fallbackCopy(text, self);
-						}
-					});
-				}
-				function fallbackCopy(text, selfRef) {
-					try {
-						var ta = document.createElement("textarea");
-						ta.value = text;
-						ta.style.position = "fixed";
-						ta.style.opacity = "0";
-						document.body.appendChild(ta);
-						ta.select();
-						document.execCommand("copy");
-						document.body.removeChild(ta);
-						selfRef.showToast("已复制到剪贴板");
-					} catch (e) {
-						selfRef.showToast("复制失败");
-					}
-				}
 					if (this.elements.showFormulaThumbs) {
 						this.elements.showFormulaThumbs.checked = this.showFormulaThumbs;
 						this.elements.showFormulaThumbs.addEventListener("change", function(event) {
@@ -3006,25 +2951,335 @@
 						});
 					}
 					this.syncPracticeToggle();
-					this.elements.practiceGrid.addEventListener("click", function(event) {
-						var button = event.target.closest("[data-state-index]");
-						if (button) {
-							self.applyImportedFormula(Number(button.getAttribute("data-state-index")));
+					if (this.elements.practiceGrid) {
+						this.elements.practiceGrid.addEventListener("click", function(event) {
+							var button = event.target.closest("[data-state-index]");
+							if (button) {
+								self.applyImportedFormula(Number(button.getAttribute("data-state-index")));
+							}
+						});
+						this.bindThumbnailDrag();
+					}
+				},
+
+				bindPlanPanel: function() {
+					var self = this;
+					if (!this.elements.planExpandBtn || this.elements.planExpandBtn.dataset.smartBound) {
+						return;
+					}
+					this.elements.planExpandBtn.dataset.smartBound = "1";
+					this.updateSyncButton();
+					this.elements.planExpandBtn.addEventListener("click", function() {
+						self.togglePlanPanel();
+					});
+					if (this.elements.planCollapseBtn) {
+						this.elements.planCollapseBtn.addEventListener("click", function() {
+							self.closePlanPanel();
+						});
+					}
+					if (this.elements.planSyncBtn) {
+						this.elements.planSyncBtn.addEventListener("click", function() {
+							if (typeof self.setSyncEnabled === 'function') {
+								var current = self.getSyncEnabled();
+								self.setSyncEnabled(!current);
+								self.updateSyncButton();
+								self.renderPlanFormulaList();
+								self.showToast(!current ? "已开启选择同步" : "已关闭选择同步");
+							}
+						});
+					}
+					if (this.elements.planViewListBtn) {
+						this.elements.planViewListBtn.addEventListener("click", function() {
+							self.switchPlanView(false);
+						});
+					}
+					if (this.elements.planViewTextBtn) {
+						this.elements.planViewTextBtn.addEventListener("click", function() {
+							self.switchPlanView(true);
+						});
+					}
+					if (this.elements.planImportBtn) {
+						this.elements.planImportBtn.addEventListener("click", function() {
+							if (self.elements.planFileInput) {
+								self.elements.planFileInput.click();
+							}
+						});
+					}
+					if (this.elements.planFileInput) {
+						this.elements.planFileInput.addEventListener("change", function(event) {
+							self.importFiles(event.target.files);
+							event.target.value = "";
+						});
+					}
+					if (this.elements.planTextarea) {
+						this.elements.planTextarea.addEventListener("input", function(event) {
+							self.formulaInputText = event.target.value;
+							self.saveFormulaInputText();
+						});
+					}
+					if (this.elements.planFormulaList) {
+						this.elements.planFormulaList.addEventListener("click", function(event) {
+							var row = event.target.closest(".planFormulaRow");
+							if (!row) return;
+							var fid = row.getAttribute("data-formula-id");
+							if (!fid) return;
+							self._planSelectedIds[fid] = !self._planSelectedIds[fid];
+							self.updatePlanCheckVisual(row, self._planSelectedIds[fid]);
+							self.updatePlanCount();
+						});
+					}
+					if (this.elements.planSaveBtn) {
+						this.elements.planSaveBtn.addEventListener("click", function() {
+							self.savePlanSelection();
+						});
+					}
+					if (this.elements.planDailyCount) {
+						this.elements.planDailyCount.addEventListener("change", function(event) {
+							var val = Math.max(1, Math.min(999, Math.round(Number(event.target.value) || 10)));
+							event.target.value = val;
+							var l = typeof self.getActiveGroupId === 'function' ? (self.getAllFormulas && self.getAllFormulas()) : null;
+							if (typeof self.setActiveGroupSettings === 'function') {
+								self.setActiveGroupSettings({ dailyCount: val });
+							}
+							self.updatePlanCount();
+						});
+					}
+				},
+
+				togglePlanPanel: function() {
+					if (!this.elements.planPanel) return;
+					var isOpen = this.elements.planPanel.classList.contains("isOpen");
+					if (isOpen) {
+						this.closePlanPanel();
+					} else {
+						this.openPlanPanel();
+					}
+				},
+
+				openPlanPanel: function() {
+					if (!this.elements.planPanel || !this.elements.planExpandBtn) return;
+					this.loadPlanSelectionState();
+					this.renderPlanFormulaList();
+					this.syncPlanTextarea();
+					this.updateSyncButton();
+					if (this.elements.planDailyCount) {
+						var dailyVal = 10;
+						if (typeof this.getActiveGroupSettings === 'function') {
+							var s = this.getActiveGroupSettings();
+							dailyVal = (s && s.dailyCount) || 10;
 						}
-					});
-					this.bindThumbnailDrag();
-					this.elements.formulaDropZone.addEventListener("dragover", function(event) {
-						event.preventDefault();
-						self.elements.formulaDropZone.classList.add("isDragging");
-					});
-					this.elements.formulaDropZone.addEventListener("dragleave", function() {
-						self.elements.formulaDropZone.classList.remove("isDragging");
-					});
-					this.elements.formulaDropZone.addEventListener("drop", function(event) {
-						event.preventDefault();
-						self.elements.formulaDropZone.classList.remove("isDragging");
-						self.importFiles(event.dataTransfer && event.dataTransfer.files);
-					});
+						this.elements.planDailyCount.value = String(dailyVal);
+					}
+					this.elements.planPanel.classList.add("isOpen");
+					this.elements.planExpandBtn.classList.add("isOpen");
+					this.elements.planExpandBtn.setAttribute("aria-expanded", "true");
+				},
+
+				closePlanPanel: function() {
+					if (!this.elements.planPanel || !this.elements.planExpandBtn) return;
+					this.elements.planPanel.classList.remove("isOpen");
+					this.elements.planExpandBtn.classList.remove("isOpen");
+					this.elements.planExpandBtn.setAttribute("aria-expanded", "false");
+					if (this._planTextView) {
+						this.switchPlanView(false);
+					}
+				},
+
+				switchPlanView: function(textView) {
+					var self = this;
+					this._planTextView = !!textView;
+					if (this.elements.planContentArea) {
+						this.elements.planContentArea.classList.toggle("isTextView", this._planTextView);
+					}
+					if (this.elements.planViewListBtn) {
+						this.elements.planViewListBtn.classList.toggle("isActive", !this._planTextView);
+					}
+					if (this.elements.planViewTextBtn) {
+						this.elements.planViewTextBtn.classList.toggle("isActive", this._planTextView);
+					}
+					if (this._planTextView && this.elements.planTextarea) {
+						this.syncPlanTextarea();
+						setTimeout(function() {
+							if (self.elements.planTextarea) self.elements.planTextarea.focus();
+						}, 320);
+					}
+				},
+
+				syncPlanTextarea: function() {
+					if (this.elements.planTextarea) {
+						var text = this.formulaInputText || "";
+						if (this.elements.planTextarea.value !== text) {
+							this.elements.planTextarea.value = text;
+						}
+					}
+				},
+
+				updateSyncButton: function() {
+					if (!this.elements.planSyncBtn) return;
+					var enabled = true;
+					if (typeof this.getSyncEnabled === 'function') {
+						enabled = this.getSyncEnabled();
+					}
+					this.elements.planSyncBtn.classList.toggle("isActive", enabled);
+				},
+
+				loadPlanSelectionState: function() {
+					this._planSelectedIds = {};
+					var allFormulas = typeof this.getAllFormulas === 'function' ? this.getAllFormulas() : [];
+					var syncEnabled = true;
+					if (typeof this.getSyncEnabled === 'function') {
+						syncEnabled = this.getSyncEnabled();
+					}
+					if (syncEnabled) {
+						var selectedFormulas = typeof this.getActiveGroupFormulas === 'function' ? this.getActiveGroupFormulas() : [];
+						selectedFormulas.forEach(function(f) {
+							this._planSelectedIds[f.id] = true;
+						}, this);
+						allFormulas.forEach(function(f) {
+							if (!(f.id in this._planSelectedIds)) {
+								this._planSelectedIds[f.id] = false;
+							}
+						}, this);
+					} else {
+						var saved = typeof this.getTrainingSelectedFormulaIds === 'function' ? this.getTrainingSelectedFormulaIds() : {};
+						allFormulas.forEach(function(f) {
+							this._planSelectedIds[f.id] = saved[f.id] === true;
+						}, this);
+					}
+					if (Object.keys(this._planSelectedIds).length === 0 && allFormulas.length > 0) {
+						allFormulas.forEach(function(f) {
+							this._planSelectedIds[f.id] = true;
+						}, this);
+					}
+				},
+
+				renderPlanFormulaList: function() {
+					if (!this.elements.planFormulaList) return;
+					var allFormulas = typeof this.getAllFormulas === 'function' ? this.getAllFormulas() : [];
+					var learnedIds = this.getLearnedFormulaIds ? this.getLearnedFormulaIds() : {};
+					if (!allFormulas.length) {
+						this.elements.planFormulaList.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">暂无公式，请导入或输入公式</div>';
+						this.updatePlanCount();
+						return;
+					}
+					var html = allFormulas.map(function(f) {
+						var isSelected = !!this._planSelectedIds[f.id];
+						var isLearned = !!(learnedIds[f.id]);
+						var checkClass = isLearned ? 'isLearned' : (isSelected ? 'isSelected' : '');
+						return '<div class="planFormulaRow" data-formula-id="' + this.escapeHtml(f.id) + '"><div class="planFormulaCheck ' + checkClass + '"></div><div class="planFormulaLabel"><strong>' + this.escapeHtml(f.name) + '</strong>: ' + this.escapeHtml(f.alg || f.formula || '') + '</div></div>';
+					}, this).join('');
+					this.elements.planFormulaList.innerHTML = html;
+					this.updatePlanCount();
+				},
+
+				updatePlanCheckVisual: function(row, checked) {
+					var check = row.querySelector('.planFormulaCheck');
+					if (!check) return;
+					var learnedIds = this.getLearnedFormulaIds ? this.getLearnedFormulaIds() : {};
+					var fid = row.getAttribute("data-formula-id");
+					var isLearned = !!(learnedIds[fid]);
+					check.classList.remove('isLearned', 'isSelected');
+					if (isLearned && checked) {
+						check.classList.add('isLearned');
+					} else if (checked) {
+						check.classList.add('isSelected');
+					}
+				},
+
+				updatePlanCount: function() {
+					if (!this.elements.planCount) return;
+					var allFormulas = typeof this.getAllFormulas === 'function' ? this.getAllFormulas() : [];
+					var selectedCount = 0;
+					for (var fid in this._planSelectedIds) {
+						if (this._planSelectedIds[fid]) selectedCount++;
+					}
+					if (selectedCount === 0 && allFormulas.length > 0 && Object.keys(this._planSelectedIds).length === 0) {
+						selectedCount = allFormulas.length;
+					}
+					var daily = 10;
+					if (this.elements.planDailyCount) {
+						daily = Math.max(1, Math.min(999, Math.round(Number(this.elements.planDailyCount.value) || 10)));
+					}
+					this.elements.planCount.textContent = '[' + selectedCount + ']/[' + daily + ']';
+				},
+
+				savePlanSelection: function() {
+					var allFormulas = typeof this.getAllFormulas === 'function' ? this.getAllFormulas() : [];
+					var syncEnabled = true;
+					if (typeof this.getSyncEnabled === 'function') {
+						syncEnabled = this.getSyncEnabled();
+					}
+					var text = this.elements.planTextarea ? this.elements.planTextarea.value : this.formulaInputText;
+					if (text !== this.formulaInputText) {
+						this.formulaInputText = text;
+						if (typeof this.setActiveGroupPlanText === 'function') {
+							this.setActiveGroupPlanText(text);
+						} else {
+							this.saveFormulaInputText();
+							this.importFormulaText(text, "manual");
+						}
+						this.closePlanPanel();
+						if (this.isMemoryMode && typeof window.startMemoryMode === 'function') {
+							window.startMemoryMode();
+						} else if (this.isPracticeMode) {
+							this.syncGroupFormulas();
+							this.importedFormulas = this.formulaInputEntries;
+							this.formulaImported = this.formulaInputEntries.length > 0;
+							this.randomBag = [];
+							this.showNextState();
+						}
+						this.showToast("公式已保存");
+						return;
+					}
+					var selected = allFormulas.filter(function(f) {
+						return this._planSelectedIds[f.id];
+					}, this);
+					var daily = this.elements.planDailyCount ? Math.max(1, Math.min(999, Math.round(Number(this.elements.planDailyCount.value) || 10))) : 10;
+					if (typeof this.setActiveGroupSettings === 'function') {
+						this.setActiveGroupSettings({ dailyCount: daily });
+					}
+					if (this.isMemoryMode) {
+						if (selected.length === 0) {
+							this.showToast("请至少选择一个公式");
+							return;
+						}
+						if (typeof window.applyMemoryPlan === 'function') {
+							window.applyMemoryPlan(selected, allFormulas);
+						}
+					} else {
+						if (syncEnabled) {
+							if (typeof this.setPlanFormulas === 'function') {
+								this.setPlanFormulas(selected, allFormulas);
+							}
+						} else {
+							if (typeof this.setTrainingSelectedFormulaIds === 'function') {
+								this.setTrainingSelectedFormulaIds(this._planSelectedIds);
+							}
+						}
+					}
+					this.closePlanPanel();
+					this.showToast("已保存学习计划");
+					if (this.isMemoryMode && typeof window.startMemoryMode === 'function') {
+						window.startMemoryMode();
+					} else if (this.isPracticeMode) {
+						this.syncGroupFormulas();
+						this.importedFormulas = this.formulaInputEntries;
+						this.formulaImported = this.formulaInputEntries.length > 0;
+						this.randomBag = [];
+						this.showNextState();
+					}
+				},
+
+				getLearnedFormulaIds: function() {
+					var ids = {};
+					var allFormulas = typeof this.getAllFormulas === 'function' ? this.getAllFormulas() : [];
+					if (typeof this.getFormulaProgress === 'function') {
+						allFormulas.forEach(function(f) {
+							var p = this.getFormulaProgress(f.id);
+							if (p && p.reps && p.reps > 0) ids[f.id] = true;
+						}, this);
+					}
+					return ids;
 				},
 
 				bindThumbnailDrag: function() {
@@ -3099,18 +3354,28 @@
 				if (changed) {
 					this.saveFormulaInputText();
 				}
-				if (!this.elements.formulaTextInput) {
+				var textarea = this.elements.planTextarea || this.elements.formulaTextInput;
+				if (!textarea) {
 					return;
 				}
-				this.elements.formulaTextInput.value = newText;
-				if (reveal && this.elements.textImportBox) {
-					this.elements.textImportBox.classList.add("isVisible");
-					if (this.elements.toggleTextImportBtn) {
-						this.elements.toggleTextImportBtn.textContent = "收起文本框";
+				textarea.value = newText;
+				if (this.elements.planTextarea && this.elements.formulaTextInput && this.elements.formulaTextInput !== this.elements.planTextarea) {
+					this.elements.formulaTextInput.value = newText;
+				}
+				if (reveal) {
+					if (this.elements.textImportBox) {
+						this.elements.textImportBox.classList.add("isVisible");
+						if (this.elements.toggleTextImportBtn && this.elements.toggleTextImportBtn !== this.elements.planViewTextBtn) {
+							this.elements.toggleTextImportBtn.textContent = "收起文本框";
+						}
+					}
+					if (this.elements.planPanel && this.elements.planExpandBtn) {
+						this.openPlanPanel();
+						this.switchPlanView(true);
 					}
 				}
 				if (focus) {
-					this.elements.formulaTextInput.focus();
+					textarea.focus();
 				}
 			},
 
@@ -3152,9 +3417,43 @@
 			},
 
 			syncGroupFormulas: function() {
-				if (typeof this.getActiveGroupFormulas !== 'function') return;
-				var formulas = this.getActiveGroupFormulas();
-				this.formulaInputEntries = formulas.map(function(f) {
+				if (typeof this.getAllFormulas !== 'function') {
+					if (typeof this.getActiveGroupFormulas !== 'function') return;
+					var formulas = this.getActiveGroupFormulas();
+					this.formulaInputEntries = formulas.map(function(f) {
+						return {
+							id: f.id,
+							name: f.name,
+							alg: f.alg,
+							moves: f.moves || [],
+							selected: true,
+							image: f.image || null,
+							customSolvedState: f.customSolvedState || null
+						};
+					});
+					this.formulaImported = this.formulaInputEntries.length > 0;
+					return;
+				}
+				var allFormulas = this.getAllFormulas();
+				var syncEnabled = true;
+				if (typeof this.getSyncEnabled === 'function') {
+					syncEnabled = this.getSyncEnabled();
+				}
+				var entriesToUse;
+				if (syncEnabled) {
+					var selectedFormulas = typeof this.getActiveGroupFormulas === 'function' ? this.getActiveGroupFormulas() : allFormulas;
+					entriesToUse = selectedFormulas.length ? selectedFormulas : allFormulas;
+				} else {
+					var trainingIds = typeof this.getTrainingSelectedFormulaIds === 'function' ? this.getTrainingSelectedFormulaIds() : {};
+					var hasSelection = false;
+					for (var k in trainingIds) { if (trainingIds[k]) { hasSelection = true; break; } }
+					if (hasSelection) {
+						entriesToUse = allFormulas.filter(function(f) { return trainingIds[f.id] === true; });
+					} else {
+						entriesToUse = allFormulas;
+					}
+				}
+				this.formulaInputEntries = entriesToUse.map(function(f) {
 					return {
 						id: f.id,
 						name: f.name,

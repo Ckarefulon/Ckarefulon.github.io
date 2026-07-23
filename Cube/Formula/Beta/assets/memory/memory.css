@@ -1,4 +1,4 @@
-﻿.memoryView {
+.memoryView {
 	overflow: hidden;
 }
 
@@ -1000,6 +1000,383 @@
 	background: #24f0ea;
 	color: #0a0a14;
 	font-weight: 700;
+}
+
+.sharedGroupBar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	position: relative;
+	z-index: 10;
+	margin-bottom: 0;
+}
+
+.planSyncBtn {
+	flex: 0 0 auto;
+	width: 36px;
+	height: 36px;
+	padding: 0;
+	border: 1px solid var(--controlBorder);
+	border-radius: 8px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.25s ease;
+}
+
+.planSyncBtn:hover {
+	border-color: var(--cyan);
+	background: var(--controlHoverBg);
+}
+
+.planSyncBtn.isActive {
+	background: var(--primaryBg);
+	border-color: var(--primaryBorder);
+	color: var(--primaryText);
+}
+
+.planSyncBtn svg {
+	width: 18px;
+	height: 18px;
+}
+
+.planExpandBtn {
+	width: 100%;
+	min-height: 44px;
+	margin-top: 8px;
+	border: 1px solid var(--primaryBorder);
+	border-radius: 8px;
+	background: var(--primaryBg);
+	color: var(--primaryText);
+	font-weight: 700;
+	font-size: 15px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	flex-shrink: 0;
+	transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.planExpandBtn:hover {
+	background: var(--primaryHoverBg);
+	border-color: var(--cyan);
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(93, 78, 168, 0.3);
+}
+
+.planExpandBtn .planChevron {
+	width: 10px;
+	height: 10px;
+	border-right: 2px solid currentColor;
+	border-bottom: 2px solid currentColor;
+	transform: rotate(45deg) translateY(-2px);
+	transition: transform 0.25s ease;
+}
+
+.planExpandBtn.isOpen .planChevron {
+	transform: rotate(-135deg) translateY(-1px);
+}
+
+.planPanel {
+	max-height: 0;
+	overflow: hidden;
+	opacity: 0;
+	transform: translateY(-8px);
+	transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease, transform 0.25s ease, margin 0.25s ease;
+	margin-top: 0;
+	border: 1px solid transparent;
+	border-radius: 0 0 12px 12px;
+	background: var(--controlBg);
+	flex-shrink: 0;
+}
+
+.planPanel.isOpen {
+	max-height: 1000px;
+	opacity: 1;
+	transform: translateY(0);
+	margin-top: -4px;
+	padding-top: 4px;
+	border-color: var(--line);
+	border-top-color: transparent;
+	overflow-y: auto;
+}
+
+.planPanelContent {
+	padding: 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.planViewToggle {
+	display: flex;
+	gap: 8px;
+}
+
+.planViewBtn {
+	flex: 1;
+	min-height: 36px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--surfaceSolid);
+	color: var(--controlText);
+	font-weight: 600;
+	font-size: 13px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	transition: all 0.2s ease;
+}
+
+.planViewBtn:hover {
+	border-color: var(--cyan);
+}
+
+.planViewBtn.isActive {
+	background: var(--primaryBg);
+	border-color: var(--primaryBorder);
+	color: var(--primaryText);
+}
+
+.planViewBtn svg {
+	width: 16px;
+	height: 16px;
+}
+
+.planContentArea {
+	position: relative;
+	height: 280px;
+	overflow: hidden;
+	border-radius: 6px;
+}
+
+.planFormulaListWrap {
+	position: absolute;
+	inset: 0;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--surfaceSolid);
+	display: flex;
+	flex-direction: column;
+	transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+	overflow: hidden;
+}
+
+.planFormulaList {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 4px 0;
+}
+
+.planTextEditWrap {
+	position: absolute;
+	inset: 0;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--surfaceSolid);
+	transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+	opacity: 0;
+	pointer-events: none;
+	transform: translateY(100%);
+}
+
+.planContentArea.isTextView .planFormulaListWrap {
+	transform: translateY(-100%);
+	opacity: 0;
+	pointer-events: none;
+}
+
+.planContentArea.isTextView .planTextEditWrap {
+	transform: translateY(0);
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.planTextarea {
+	width: 100%;
+	height: 100%;
+	border: none;
+	padding: 10px;
+	background: transparent;
+	color: var(--controlText);
+	font: 13px/1.5 "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+	resize: none;
+	outline: none;
+}
+
+.planCollapseBtn {
+	width: 100%;
+	min-height: 32px;
+	border: none;
+	background: transparent;
+	color: var(--muted);
+	font-size: 12px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	transition: color 0.2s ease;
+	padding: 4px;
+}
+
+.planCollapseBtn:hover {
+	color: var(--cyan);
+}
+
+.planCollapseBtn .collapseChevrons {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.planCollapseBtn .collapseChevrons span {
+	display: block;
+	width: 12px;
+	height: 12px;
+	border-right: 2px solid currentColor;
+	border-top: 2px solid currentColor;
+	transform: rotate(-45deg);
+}
+
+.planFormulaRow {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 12px;
+	cursor: pointer;
+	border-bottom: 1px solid var(--line);
+	transition: background 0.12s ease;
+}
+
+.planFormulaRow:last-child {
+	border-bottom: none;
+}
+
+.planFormulaRow:hover {
+	background: rgba(36, 240, 234, 0.06);
+}
+
+.planFormulaCheck {
+	flex: 0 0 auto;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	border: 2px solid var(--muted);
+	background: transparent;
+	cursor: pointer;
+	position: relative;
+	transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.planFormulaCheck:hover {
+	border-color: var(--cyan);
+}
+
+.planFormulaCheck.isLearned {
+	border-color: var(--cyan);
+	background: var(--cyan);
+}
+
+.planFormulaCheck.isLearned::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 8px;
+	height: 5px;
+	border-left: 2px solid #0a0a14;
+	border-bottom: 2px solid #0a0a14;
+	transform: translate(-50%, -65%) rotate(-45deg);
+}
+
+.planFormulaCheck.isSelected {
+	border-color: var(--cyan);
+	background: transparent;
+}
+
+.planFormulaCheck.isSelected::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 8px;
+	height: 5px;
+	border-left: 2px solid var(--cyan);
+	border-bottom: 2px solid var(--cyan);
+	transform: translate(-50%, -65%) rotate(-45deg);
+}
+
+.planFormulaLabel {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	color: var(--controlText);
+	font-size: 13px;
+	line-height: 1.4;
+}
+
+.planFormulaLabel strong {
+	color: var(--ink);
+}
+
+.planImportBtn {
+	min-height: 36px;
+}
+
+.planDailyRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding-top: 4px;
+	border-top: 1px solid var(--line);
+	margin-top: 2px;
+	padding-top: 10px;
+}
+
+.planDailyLabel {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--muted);
+	font-size: 13px;
+}
+
+.planDailyInput {
+	width: 60px;
+	min-height: 30px;
+	padding: 4px 8px;
+	border: 1px solid var(--controlBorder);
+	border-radius: 6px;
+	background: var(--surfaceSolid);
+	color: var(--controlText);
+	text-align: center;
+}
+
+.planCount {
+	color: var(--muted);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.memoryManageSection .importDropZone,
+.memoryManageSection .textImport,
+.memoryManageSection #chooseFormulaFileBtn,
+.memoryManageSection #toggleTextImportBtn,
+.memoryManageSection #formulaFileInput,
+.memoryManageSection #importFormulaTextBtn {
+	display: none !important;
 }
 
 @media (max-width: 520px) {

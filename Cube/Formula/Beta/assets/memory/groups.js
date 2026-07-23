@@ -1,4 +1,4 @@
-﻿(function() {
+(function() {
 	"use strict";
 
 	var app = window.smartCubeApp;
@@ -244,6 +244,73 @@ app.getFormulaGroups = function() {
 	app.getActiveLibraryFormulas = function() { return app.getActiveGroupFormulas(); };
 	app.setActiveLibraryFormulas = function(states, silent) { app.setActiveGroupFormulas(states, silent); };
 	app.findMemoryFormulaByAlg = function(alg) { return app.findGroupFormulaByAlg(alg); };
+
+	app.getSyncEnabled = function() {
+		var l = lib();
+		return l ? (l.syncEnabled !== false) : true;
+	};
+
+	app.setSyncEnabled = function(enabled) {
+		var l = lib();
+		if (!l) return;
+		l.syncEnabled = !!enabled;
+		saveData();
+		app._notifyActiveGroupChanged();
+	};
+
+	app.getTrainingSelectedFormulaIds = function() {
+		var l = lib();
+		if (!l) return {};
+		if (!l.trainingSelectedFormulaIds) {
+			l.trainingSelectedFormulaIds = {};
+		}
+		return l.trainingSelectedFormulaIds;
+	};
+
+	app.setTrainingSelectedFormulaIds = function(ids) {
+		var l = lib();
+		if (!l) return;
+		l.trainingSelectedFormulaIds = (ids && typeof ids === "object") ? ids : {};
+		saveData();
+	};
+
+	app.getAllFormulas = function() {
+		var l = lib();
+		return l ? (l.allFormulas && l.allFormulas.length ? l.allFormulas : (l.formulas || [])) : [];
+	};
+
+	app.setPlanFormulas = function(selectedFormulas, allFormulas) {
+		var l = lib();
+		if (!l) return;
+		l.formulas = selectedFormulas || [];
+		l.allFormulas = allFormulas || selectedFormulas || [];
+		l.planText = (allFormulas || selectedFormulas || []).map(function(f) {
+			var alg = f.alg || f.formula || '';
+			if (!alg.endsWith(';')) { alg += ';'; }
+			return f.name + ': ' + alg;
+		}).join('\n');
+		l.queue = [];
+		l.todayQueue = [];
+		l.undoStack = [];
+		saveData();
+		app._notifyActiveGroupChanged();
+	};
+
+	app.setActiveGroupSettings = function(settings) {
+		var l = lib();
+		if (!l || !settings) return;
+		l.settings = Object.assign(l.settings || { dailyCount: 10, solveDetectionMode: 2 }, settings);
+		saveData();
+	};
+
+	app.getActiveGroupSettings = function() {
+		var l = lib();
+		return l ? (l.settings || { dailyCount: 10, solveDetectionMode: 2 }) : { dailyCount: 10, solveDetectionMode: 2 };
+	};
+
+	app.getFormulaProgress = function(formulaId) {
+		return getProgress(formulaId);
+	};
 
 	var _activeGroupChangeListeners = [];
 	var _groupListChangeListeners = [];
