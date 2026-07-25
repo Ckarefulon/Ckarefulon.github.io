@@ -28,16 +28,29 @@
 		return div.innerHTML;
 	}
 
+	function getDisplayTimezone() {
+		// 默认跟随浏览器时区；选择具体时区时固定显示
+		try {
+			const tz = localStorage.getItem('pulseTimezone') || 'auto';
+			return tz === 'auto' ? undefined : tz;
+		} catch (e) {
+			return undefined;
+		}
+	}
+
 	function formatTime(isoString) {
 		if (!isoString) return '-';
 		try {
 			const d = new Date(isoString);
-			return d.toLocaleString('zh-CN', {
+			const opts = {
 				month: '2-digit',
 				day: '2-digit',
 				hour: '2-digit',
 				minute: '2-digit'
-			});
+			};
+			const tz = getDisplayTimezone();
+			if (tz) opts.timeZone = tz;
+			return d.toLocaleString('zh-CN', opts);
 		} catch { return isoString; }
 	}
 
@@ -979,6 +992,53 @@
 		}
 	}
 
+	// 获取浏览器当前时区的可读名称（优先中文）
+	function getBrowserTimezoneName() {
+		try {
+			const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+			const now = new Date();
+			let names = [];
+			try {
+				const dtf = new Intl.DateTimeFormat('zh-CN', { timeZoneName: 'long' });
+				names = dtf.formatToParts(now)
+					.filter(p => p.type === 'timeZoneName')
+					.map(p => p.value);
+			} catch (e) {}
+			const zhName = names[0] || '';
+			if (zhName) {
+				return resolved ? `自动：${zhName}（${resolved}）` : `自动：${zhName}`;
+			}
+			return resolved ? `自动：${resolved}` : '自动：浏览器时区';
+		} catch (e) {
+			return '自动：浏览器时区';
+		}
+	}
+
+	// 「默认时区」设置：控制所有时间的显示（默认跟随浏览器时区）
+	function loadTimezoneSetting() {
+		const tzEl = $('settingsTimezone');
+		if (!tzEl) return;
+		// 动态填充“自动”选项的浏览器时区名
+		const autoOpt = $('tzAutoOption');
+		if (autoOpt) autoOpt.textContent = getBrowserTimezoneName();
+		let tz = 'auto';
+		try {
+			tz = localStorage.getItem('pulseTimezone') || 'auto';
+		} catch (e) {}
+		tzEl.value = tz;
+	}
+
+	function saveTimezoneSetting() {
+		const tzEl = $('settingsTimezone');
+		if (!tzEl) return;
+		const tz = tzEl.value || 'auto';
+		try {
+			localStorage.setItem('pulseTimezone', tz);
+		} catch (e) {}
+		// 时区变更后立即刷新展示
+		loadAllData();
+	}
+
 	function clearRefreshTimer() {
 		if (appState.refreshTimer) {
 			clearInterval(appState.refreshTimer);
@@ -1169,6 +1229,8 @@
 			item.onclick = () => switchTab(item.dataset.tab);
 		});
 
+		loadTimezoneSetting();
+
 		$('addTargetBtn').onclick = openAddModal;
 		$('addTargetBtn2').onclick = openAddModal;
 		$('closeModalBtn').onclick = closeModal;
@@ -1189,6 +1251,7 @@
 		};
 
 		$('settingsRefreshInterval').onchange = setupRefreshTimer;
+		$('settingsTimezone').onchange = saveTimezoneSetting;
 
 		// 自定义 HTTP 表单事件
 		$('customMethod').onchange = updateBodyFieldsVisibility;

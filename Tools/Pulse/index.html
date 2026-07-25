@@ -5,10 +5,10 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="icon" href="/favicon.svg?v=7" type="image/svg+xml">
 
-	<link rel="stylesheet" href="/nav/nav.css?v=20260707">
-	<link rel="stylesheet" href="pulse.css?v=1">
+	<link rel="stylesheet" href="/nav/nav.css?v=7">
+	<link rel="stylesheet" href="pulse.css?v=7">
 
-	<script src="/nav/nav.js?v=20260707" defer></script>
+	<script src="/nav/nav.js?v=7" defer></script>
 
 	<script src="/assets/services/core/site-scope.js?v=7" defer></script>
 	<script src="/assets/services/core/storage-manager.js?v=7" defer></script>
@@ -20,7 +20,7 @@
 	<script src="/assets/backend/profile-manager.js?v=7" defer></script>
 	<script src="/assets/services/global/global-data-manager.js?v=7" defer></script>
 
-	<script src="pulse-app.js?v=1" defer></script>
+	<script src="pulse-app.js?v=7" defer></script>
 
 	<title>Pulse — 自动签到管理控制台</title>
 	<style>
@@ -245,14 +245,21 @@
 							<h2>偏好设置</h2>
 						</div>
 						<div class="pulseSettingsCard">
-							<div class="pulseSettingRow">
-								<label>默认时区</label>
-								<select id="settingsTimezone" class="pulseSelect">
-									<option value="Asia/Shanghai">Asia/Shanghai (UTC+8)</option>
-									<option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
-									<option value="UTC">UTC</option>
-								</select>
-							</div>
+						<div class="pulseSettingRow">
+							<label>默认时区</label>
+							<select id="settingsTimezone" class="pulseSelect">
+								<option value="auto" id="tzAutoOption" selected>自动：浏览器时区</option>
+								<option value="Asia/Shanghai">北京时间 (UTC+8)</option>
+								<option value="Asia/Tokyo">东京时间 (UTC+9)</option>
+								<option value="Asia/Hong_Kong">香港时间 (UTC+8)</option>
+								<option value="Asia/Singapore">新加坡时间 (UTC+8)</option>
+								<option value="Europe/London">伦敦时间 (UTC+0/+1)</option>
+								<option value="America/New_York">纽约时间 (UTC-5/-4)</option>
+								<option value="America/Los_Angeles">洛杉矶时间 (UTC-8/-7)</option>
+								<option value="UTC">UTC</option>
+							</select>
+							<div class="pulseFieldHint" style="width:100%;">默认按浏览器所在时区显示时间；也可固定为某一时区（如北京时间）。</div>
+						</div>
 							<div class="pulseSettingRow">
 								<label>默认签到时间</label>
 								<select id="settingsDefaultTime" class="pulseSelect" style="width:120px;">
@@ -440,8 +447,13 @@
 					<div class="pulseField">
 						<label>时区</label>
 						<select id="formTimezone" class="pulseSelect">
-							<option value="Asia/Shanghai">Asia/Shanghai (UTC+8)</option>
-							<option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
+							<option value="Asia/Shanghai">北京时间 (UTC+8)</option>
+							<option value="Asia/Tokyo">东京时间 (UTC+9)</option>
+							<option value="Asia/Hong_Kong">香港时间 (UTC+8)</option>
+							<option value="Asia/Singapore">新加坡时间 (UTC+8)</option>
+							<option value="Europe/London">伦敦时间 (UTC+0/+1)</option>
+							<option value="America/New_York">纽约时间 (UTC-5/-4)</option>
+							<option value="America/Los_Angeles">洛杉矶时间 (UTC-8/-7)</option>
 							<option value="UTC">UTC</option>
 						</select>
 					</div>
