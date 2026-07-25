@@ -229,11 +229,11 @@
 
 .memoryLibraryIconBtn {
 	flex: 0 0 auto;
-	width: 32px;
-	height: 32px;
+	width: 36px;
+	height: 36px;
 	padding: 0;
 	border: 1px solid var(--controlBorder);
-	border-radius: 6px;
+	border-radius: 8px;
 	background: var(--controlBg);
 	color: var(--controlText);
 	cursor: pointer;
@@ -241,11 +241,12 @@
 	align-items: center;
 	justify-content: center;
 	font-size: 15px;
-	transition: border-color 0.15s ease;
+	transition: border-color 0.15s ease, background 0.2s ease;
 }
 
 .memoryLibraryIconBtn:hover {
 	border-color: var(--cyan);
+	background: var(--controlHoverBg);
 }
 
 .memoryDailyInput {
@@ -1012,24 +1013,10 @@
 }
 
 .planSyncBtn {
-	flex: 0 0 auto;
-	width: 36px;
-	height: 36px;
 	padding: 0;
-	border: 1px solid var(--controlBorder);
-	border-radius: 8px;
 	background: var(--controlBg);
 	color: var(--controlText);
-	cursor: pointer;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	transition: all 0.25s ease;
-}
-
-.planSyncBtn:hover {
-	border-color: var(--cyan);
-	background: var(--controlHoverBg);
+	transition: border-color 0.15s ease, background 0.2s ease, color 0.2s ease;
 }
 
 .planSyncBtn.isActive {
@@ -1043,10 +1030,21 @@
 	height: 18px;
 }
 
-.planExpandBtn {
+.planBox {
+	position: relative;
 	width: 100%;
 	min-height: 44px;
+	flex-shrink: 0;
 	margin-top: 8px;
+	transition: min-height 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.planExpandBtn {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	width: 100%;
+	min-height: 44px;
 	border: 1px solid var(--primaryBorder);
 	border-radius: 8px;
 	background: var(--primaryBg);
@@ -1057,9 +1055,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	gap: 8px;
-	flex-shrink: 0;
-	transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+	transition: opacity 0.2s ease, background 0.25s ease, border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
 }
 
 .planExpandBtn:hover {
@@ -1069,40 +1065,42 @@
 	box-shadow: 0 4px 12px rgba(93, 78, 168, 0.3);
 }
 
-.planExpandBtn .planChevron {
-	width: 10px;
-	height: 10px;
-	border-right: 2px solid currentColor;
-	border-bottom: 2px solid currentColor;
-	transform: rotate(45deg) translateY(-2px);
-	transition: transform 0.25s ease;
+.planExpandBtn .planExpandLabel {
+	transition: opacity 0.2s ease;
 }
 
-.planExpandBtn.isOpen .planChevron {
-	transform: rotate(-135deg) translateY(-1px);
+.planBox.isOpen .planExpandBtn .planExpandLabel {
+	opacity: 0;
 }
 
 .planPanel {
-	max-height: 0;
+	position: relative;
+	z-index: 1;
+	width: 100%;
+	max-height: 44px;
+	opacity: 1;
 	overflow: hidden;
-	opacity: 0;
-	transform: translateY(-8px);
-	transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease, transform 0.25s ease, margin 0.25s ease;
-	margin-top: 0;
-	border: 1px solid transparent;
-	border-radius: 0 0 12px 12px;
-	background: var(--controlBg);
-	flex-shrink: 0;
+	border: 1px solid var(--primaryBorder);
+	border-radius: 8px;
+	background: var(--primaryBg);
+	pointer-events: none;
+	transition: max-height 0.34s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s ease, border-color 0.25s ease;
 }
 
-.planPanel.isOpen {
-	max-height: 1000px;
-	opacity: 1;
-	transform: translateY(0);
-	margin-top: -4px;
-	padding-top: 4px;
+.planBox.isOpen {
+	min-height: 520px;
+}
+
+.planBox.isOpen .planExpandBtn {
+	opacity: 0;
+	pointer-events: none;
+}
+
+.planBox.isOpen .planPanel {
+	max-height: 520px;
+	background: var(--controlBg);
 	border-color: var(--line);
-	border-top-color: transparent;
+	pointer-events: auto;
 	overflow-y: auto;
 }
 
@@ -1111,6 +1109,13 @@
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+}
+
+.planBox.isOpen .planPanelContent {
+	opacity: 1;
+	transition-delay: 0.12s;
 }
 
 .planViewToggle {
@@ -1148,6 +1153,7 @@
 .planViewBtn svg {
 	width: 16px;
 	height: 16px;
+	flex: 0 0 auto;
 }
 
 .planContentArea {
@@ -1210,6 +1216,21 @@
 	font: 13px/1.5 "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 	resize: none;
 	outline: none;
+}
+
+.planBox.isPracticeMode .planDailyRow {
+	display: none;
+}
+
+.planPanelActions {
+	gap: 16px;
+	padding: 8px 0;
+}
+
+.planPanelActions .button {
+	flex: 1 1 0;
+	min-height: 46px;
+	padding: 10px 16px;
 }
 
 .planCollapseBtn {

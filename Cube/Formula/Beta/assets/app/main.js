@@ -217,19 +217,20 @@
 						formulaDropZone: document.getElementById("formulaDropZone"),
 						chooseFormulaFileBtn: document.getElementById("chooseFormulaFileBtn") || document.getElementById("planImportBtn"),
 						formulaFileInput: document.getElementById("formulaFileInput") || document.getElementById("planFileInput"),
-						toggleTextImportBtn: document.getElementById("toggleTextImportBtn") || document.getElementById("planViewTextBtn"),
+						toggleTextImportBtn: document.getElementById("toggleTextImportBtn") || document.getElementById("planViewToggleBtn"),
 						textImportBox: document.getElementById("textImportBox"),
 						formulaTextInput: document.getElementById("formulaTextInput") || document.getElementById("planTextarea"),
 						importFormulaTextBtn: document.getElementById("importFormulaTextBtn") || document.getElementById("planSaveBtn"),
+						planBox: document.getElementById("planBox"),
 						planExpandBtn: document.getElementById("planExpandBtn"),
 						planPanel: document.getElementById("planPanel"),
-						planViewListBtn: document.getElementById("planViewListBtn"),
+						planViewToggleBtn: document.getElementById("planViewToggleBtn"),
 						planImportBtn: document.getElementById("planImportBtn"),
-						planViewTextBtn: document.getElementById("planViewTextBtn"),
 						planContentArea: document.getElementById("planContentArea"),
 						planFormulaList: document.getElementById("planFormulaList"),
 						planTextarea: document.getElementById("planTextarea"),
 						planCollapseBtn: document.getElementById("planCollapseBtn"),
+						planCancelBtn: document.getElementById("planCancelBtn"),
 						planSaveBtn: document.getElementById("planSaveBtn"),
 						planFileInput: document.getElementById("planFileInput"),
 						planCount: document.getElementById("planCount"),
@@ -1040,7 +1041,7 @@
 				},
 
 				getGroupSelectorHtml: function() {
-					return '<div class="memoryLibraryBar sharedGroupBar" id="sharedGroupBar"><button id="planSyncBtn" class="planSyncBtn" type="button" title="同步选择状态"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7L21 16"/><path d="M21 21v-5h-5"/></svg></button><div id="sharedGroupSelector" class="memoryLibrarySelector" style="flex:1 1 auto"><button id="sharedGroupCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="sharedGroupCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="sharedGroupMenu" class="memoryLibraryMenu" role="menu"></div></div><input id="sharedGroupNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="sharedGroupAddBtn" class="memoryLibraryIconBtn" type="button" title="新建组"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名组"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除组"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><button id="planExpandBtn" class="planExpandBtn" type="button" aria-expanded="false"><span>规划学习</span><span class="planChevron"></span></button><div id="planPanel" class="planPanel"><div class="planPanelContent"><div class="planViewToggle"><button id="planViewListBtn" class="planViewBtn isActive" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>公式列表</button><button id="planImportBtn" class="planViewBtn planImportBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>导入公式</button><button id="planViewTextBtn" class="planViewBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>文本编辑</button></div><div id="planContentArea" class="planContentArea"><div id="planFormulaListWrap" class="planFormulaListWrap"><div id="planFormulaList" class="planFormulaList"></div></div><div id="planTextEditWrap" class="planTextEditWrap"><textarea id="planTextarea" class="planTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea></div></div><div class="planDailyRow"><label class="planDailyLabel">每日公式数 <input id="planDailyCount" class="planDailyInput" type="number" min="1" max="999" value="10"></label><span id="planCount" class="planCount">[0]/[10]</span></div><div class="memoryDialogActions"><button id="planSaveBtn" class="button" type="button">保存</button></div></div><button id="planCollapseBtn" class="planCollapseBtn" type="button"><span class="collapseChevrons"><span></span><span></span></span>收起</button></div><input id="planFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain">';
+					return '<div class="memoryLibraryBar sharedGroupBar" id="sharedGroupBar"><button id="planSyncBtn" class="planSyncBtn memoryLibraryIconBtn" type="button" title="同步选择状态"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7L21 16"/><path d="M21 21v-5h-5"/></svg></button><div id="sharedGroupSelector" class="memoryLibrarySelector" style="flex:1 1 auto"><button id="sharedGroupCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="sharedGroupCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="sharedGroupMenu" class="memoryLibraryMenu" role="menu"></div></div><input id="sharedGroupNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="sharedGroupAddBtn" class="memoryLibraryIconBtn" type="button" title="新建组"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名组"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除组"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><div id="planBox" class="planBox"><button id="planExpandBtn" class="planExpandBtn" type="button" aria-expanded="false"><span class="planExpandLabel">规划学习</span></button><div id="planPanel" class="planPanel"><div class="planPanelContent"><div class="planViewToggle"><button id="planViewToggleBtn" class="planViewBtn" type="button" data-view="list"><svg class="planViewIconList" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><svg class="planViewIconText" style="display:none" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span class="planViewToggleText">文本编辑</span></button><button id="planImportBtn" class="planViewBtn planImportBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>导入公式</button></div><div id="planContentArea" class="planContentArea"><div id="planFormulaListWrap" class="planFormulaListWrap"><div id="planFormulaList" class="planFormulaList"></div></div><div id="planTextEditWrap" class="planTextEditWrap"><textarea id="planTextarea" class="planTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea></div></div><div class="planDailyRow"><label class="planDailyLabel">每日公式数 <input id="planDailyCount" class="planDailyInput" type="number" min="1" max="999" value="10"></label><span id="planCount" class="planCount">[0]/[10]</span></div><div class="memoryDialogActions planPanelActions"><button id="planCancelBtn" class="button secondary" type="button">取消</button><button id="planSaveBtn" class="button" type="button">保存</button></div></div><button id="planCollapseBtn" class="planCollapseBtn" type="button"><span class="collapseChevrons"><span></span><span></span></span>收起</button></div></div><input id="planFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain">';
 				},
 
 				getFormulaImportHtml: function(showThumbOption, practiceCards, includeGroupControls) {
@@ -2988,14 +2989,14 @@
 							}
 						});
 					}
-					if (this.elements.planViewListBtn) {
-						this.elements.planViewListBtn.addEventListener("click", function() {
-							self.switchPlanView(false);
+					if (this.elements.planViewToggleBtn) {
+						this.elements.planViewToggleBtn.addEventListener("click", function() {
+							self.switchPlanView(!self._planTextView);
 						});
 					}
-					if (this.elements.planViewTextBtn) {
-						this.elements.planViewTextBtn.addEventListener("click", function() {
-							self.switchPlanView(true);
+					if (this.elements.planCancelBtn) {
+						this.elements.planCancelBtn.addEventListener("click", function() {
+							self.closePlanPanel();
 						});
 					}
 					if (this.elements.planImportBtn) {
@@ -3047,8 +3048,8 @@
 				},
 
 				togglePlanPanel: function() {
-					if (!this.elements.planPanel) return;
-					var isOpen = this.elements.planPanel.classList.contains("isOpen");
+					if (!this.elements.planBox) return;
+					var isOpen = this.elements.planBox.classList.contains("isOpen");
 					if (isOpen) {
 						this.closePlanPanel();
 					} else {
@@ -3057,7 +3058,7 @@
 				},
 
 				openPlanPanel: function() {
-					if (!this.elements.planPanel || !this.elements.planExpandBtn) return;
+					if (!this.elements.planPanel || !this.elements.planExpandBtn || !this.elements.planBox) return;
 					this.loadPlanSelectionState();
 					this.renderPlanFormulaList();
 					this.syncPlanTextarea();
@@ -3070,16 +3071,21 @@
 						}
 						this.elements.planDailyCount.value = String(dailyVal);
 					}
+					this.elements.planBox.classList.toggle("isPracticeMode", this.isPracticeMode);
+					this.elements.planBox.classList.add("isOpen");
 					this.elements.planPanel.classList.add("isOpen");
 					this.elements.planExpandBtn.classList.add("isOpen");
 					this.elements.planExpandBtn.setAttribute("aria-expanded", "true");
+					this.elements.planExpandBtn.setAttribute("tabindex", "-1");
 				},
 
 				closePlanPanel: function() {
-					if (!this.elements.planPanel || !this.elements.planExpandBtn) return;
+					if (!this.elements.planPanel || !this.elements.planExpandBtn || !this.elements.planBox) return;
+					this.elements.planBox.classList.remove("isOpen");
 					this.elements.planPanel.classList.remove("isOpen");
 					this.elements.planExpandBtn.classList.remove("isOpen");
 					this.elements.planExpandBtn.setAttribute("aria-expanded", "false");
+					this.elements.planExpandBtn.removeAttribute("tabindex");
 					if (this._planTextView) {
 						this.switchPlanView(false);
 					}
@@ -3091,11 +3097,15 @@
 					if (this.elements.planContentArea) {
 						this.elements.planContentArea.classList.toggle("isTextView", this._planTextView);
 					}
-					if (this.elements.planViewListBtn) {
-						this.elements.planViewListBtn.classList.toggle("isActive", !this._planTextView);
-					}
-					if (this.elements.planViewTextBtn) {
-						this.elements.planViewTextBtn.classList.toggle("isActive", this._planTextView);
+					if (this.elements.planViewToggleBtn) {
+						var btn = this.elements.planViewToggleBtn;
+						var listIcon = btn.querySelector(".planViewIconList");
+						var textIcon = btn.querySelector(".planViewIconText");
+						var textSpan = btn.querySelector(".planViewToggleText");
+						btn.setAttribute("data-view", this._planTextView ? "text" : "list");
+						if (listIcon) listIcon.style.display = this._planTextView ? "" : "none";
+						if (textIcon) textIcon.style.display = this._planTextView ? "none" : "";
+						if (textSpan) textSpan.textContent = this._planTextView ? "公式列表" : "文本编辑";
 					}
 					if (this._planTextView && this.elements.planTextarea) {
 						this.syncPlanTextarea();
@@ -3365,7 +3375,7 @@
 				if (reveal) {
 					if (this.elements.textImportBox) {
 						this.elements.textImportBox.classList.add("isVisible");
-						if (this.elements.toggleTextImportBtn && this.elements.toggleTextImportBtn !== this.elements.planViewTextBtn) {
+						if (this.elements.toggleTextImportBtn && this.elements.toggleTextImportBtn !== this.elements.planViewToggleBtn) {
 							this.elements.toggleTextImportBtn.textContent = "收起文本框";
 						}
 					}

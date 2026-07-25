@@ -55,7 +55,7 @@
 		var importBox = view.querySelector("#formulaImport, #stateImport");
 		if (importBox) {
 			Array.from(importBox.children).forEach(function (child) {
-				if (child.matches("#sharedGroupBar, #planExpandBtn, #planPanel, #planFileInput, .memoryDataControls")) {
+				if (child.matches("#sharedGroupBar, #planBox, #planExpandBtn, #planPanel, #planFileInput, .memoryDataControls")) {
 					append("data", child);
 				} else if (child.matches(".strictDetectionControls")) {
 					append("settings", child);
