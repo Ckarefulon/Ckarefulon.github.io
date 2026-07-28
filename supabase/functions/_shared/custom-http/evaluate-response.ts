@@ -37,6 +37,9 @@ function evaluateSingleRule(rule: HttpMatchRule, status: number, bodyText: strin
 	if (rule.type === "text_contains") {
 		return bodyText.includes(rule.text || "");
 	}
+	if (rule.type === "text_not_contains") {
+		return !bodyText.includes(rule.text || "");
+	}
 	if (rule.type === "json_equals") {
 		const value = getJsonValue(parsedJson, rule.jsonPath || "");
 		return valuesEqual(value, rule.jsonValue);
@@ -69,3 +72,4 @@ export function looksLikeHtmlLoginPage(bodyText: string): boolean {
 	const hasLoginText = lower.includes("登录") || lower.includes("login") || lower.includes("sign in") || lower.includes("密码");
 	return hasForm && hasLoginText;
 }
+

@@ -2,7 +2,7 @@ import type { CustomHttpConfig, HttpMatchRule, HttpMethod, HttpBodyType } from "
 
 const VALID_METHODS: HttpMethod[] = ["GET", "POST"];
 const VALID_BODY_TYPES: HttpBodyType[] = ["none", "json", "form"];
-const VALID_RULE_TYPES = ["status_code", "status_range", "text_contains", "json_equals"] as const;
+const VALID_RULE_TYPES = ["status_code", "status_range", "text_contains", "text_not_contains", "json_equals"] as const;
 
 const BLOCKED_HEADER_NAMES = new Set([
 	"host",
@@ -22,7 +22,6 @@ const BLOCKED_HEADER_NAMES = new Set([
 function isValidJsonPath(path: string): boolean {
 	if (!path || typeof path !== "string") return false;
 	if (path.length > 200) return false;
-	// 只支持简单的点路径，如 data.success
 	return /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/.test(path);
 }
 
@@ -40,7 +39,7 @@ function validateRule(rule: HttpMatchRule, index: number, category: string): str
 			errors.push(`${category}[${index}] 状态码必须在 100-599 之间`);
 		}
 	}
-	if (rule.type === "text_contains") {
+	if (rule.type === "text_contains" || rule.type === "text_not_contains") {
 		if (typeof rule.text !== "string" || rule.text.trim().length === 0) {
 			errors.push(`${category}[${index}] 文本匹配内容不能为空`);
 		}
@@ -74,8 +73,29 @@ function validateParam(param: { key?: string; value?: string; sensitive?: boolea
 	if (typeof param.value !== "string") {
 		errors.push(`${category}[${index}] 参数值必须是字符串`);
 	}
-	if (param.value && param.value.length > 5000) {
+	if (param.value && param.value.length > 10000) {
 		errors.push(`${category}[${index}] 参数值过长`);
+	}
+	return errors;
+}
+
+function validateExtractRule(rule: { variableName?: string; pattern?: string }, index: number): string[] {
+	const errors: string[] = [];
+	if (!rule || typeof rule !== "object") {
+		errors.push(`提取规则[${index}] 格式错误`);
+		return errors;
+	}
+	if (typeof rule.variableName !== "string" || rule.variableName.trim().length === 0) {
+		errors.push(`提取规则[${index}] 变量名不能为空`);
+	}
+	if (typeof rule.pattern !== "string" || rule.pattern.trim().length === 0) {
+		errors.push(`提取规则[${index}] 正则表达式不能为空`);
+	} else {
+		try {
+			new RegExp(rule.pattern, rule.flags || "i");
+		} catch {
+			errors.push(`提取规则[${index}] 正则表达式格式错误`);
+		}
 	}
 	return errors;
 }
@@ -118,9 +138,6 @@ export function validateCustomHttpConfig(config: CustomHttpConfig): { valid: boo
 			if (lowerKey && BLOCKED_HEADER_NAMES.has(lowerKey)) {
 				errors.push(`Header[${i}] ${p.key} 不允许用户设置`);
 			}
-			if (lowerKey && lowerKey.startsWith("sec-")) {
-				errors.push(`Header[${i}] ${p.key} 不允许用户设置`);
-			}
 		});
 	}
 
@@ -156,6 +173,71 @@ export function validateCustomHttpConfig(config: CustomHttpConfig): { valid: boo
 		}
 	}
 
+	if (Array.isArray(config.failureRules)) {
+		if (config.failureRules.length > 10) {
+			errors.push("失败判断规则过多");
+		} else {
+			config.failureRules.forEach((r, i) => errors.push(...validateRule(r, i, "失败判断")));
+		}
+	}
+
+	// Validate pre-request config
+	if (config.preRequest?.enabled) {
+		if (config.preRequest.url) {
+			try {
+				new URL(config.preRequest.url);
+			} catch {
+				errors.push("前置请求 URL 格式错误");
+			}
+		}
+		if (Array.isArray(config.preRequest?.extraHeaders)) {
+			config.preRequest!.extraHeaders!.forEach((p, i) => {
+				errors.push(...validateParam(p, i, "前置请求 Header"));
+				const lowerKey = p.key?.toLowerCase();
+				if (lowerKey && BLOCKED_HEADER_NAMES.has(lowerKey)) {
+					errors.push(`前置请求 Header[${i}] ${p.key} 不允许用户设置`);
+				}
+			});
+		}
+	}
+
+	// Validate extract rules
+	if (Array.isArray(config.extractRules)) {
+		if (config.extractRules.length > 10) {
+			errors.push("提取规则过多");
+		} else {
+			config.extractRules.forEach((r, i) => errors.push(...validateExtractRule(r, i)));
+		}
+	}
+
+	// Validate browser emulation config
+	if (config.browserEmulation?.enabled) {
+		if (config.browserEmulation.userAgent && config.browserEmulation.userAgent.length > 500) {
+			errors.push("User-Agent 过长");
+		}
+		if (config.browserEmulation.referer) {
+			try {
+				new URL(config.browserEmulation.referer);
+			} catch {
+				errors.push("Referer URL 格式错误");
+			}
+		}
+		if (config.browserEmulation.origin) {
+			try {
+				new URL(config.browserEmulation.origin);
+			} catch {
+				errors.push("Origin URL 格式错误");
+			}
+		}
+	}
+
+	// Validate nonce invalid keywords
+	if (Array.isArray(config.nonceInvalidKeywords)) {
+		if (config.nonceInvalidKeywords.length > 20) {
+			errors.push("Nonce 失效关键词过多");
+		}
+	}
+
 	return { valid: errors.length === 0, errors };
 }
 
@@ -171,8 +253,13 @@ export function sanitizeCustomHttpConfigForClient(config: CustomHttpConfig): Cus
 
 	return {
 		...config,
-		queryParams: sanitizeParams(config.queryParams),
-		headers: sanitizeParams(config.headers),
-		bodyFields: sanitizeParams(config.bodyFields),
+		queryParams: sanitizeParams(config.queryParams || []),
+		headers: sanitizeParams(config.headers || []),
+		bodyFields: sanitizeParams(config.bodyFields || []),
+		preRequest: config.preRequest ? {
+			...config.preRequest,
+			extraHeaders: sanitizeParams(config.preRequest.extraHeaders || [])
+		} : undefined,
 	};
 }
+

@@ -189,6 +189,12 @@ serve(async (req: Request) => {
 				success_rules: validatedCustomHttpConfig.successRules,
 				already_checked_in_rules: validatedCustomHttpConfig.alreadyCheckedInRules,
 				auth_failure_rules: validatedCustomHttpConfig.authFailureRules,
+				failure_rules: validatedCustomHttpConfig.failureRules || [],
+				pre_request: validatedCustomHttpConfig.preRequest || null,
+				extract_rules: validatedCustomHttpConfig.extractRules || [],
+				browser_emulation: validatedCustomHttpConfig.browserEmulation || null,
+				nonce_invalid_keywords: validatedCustomHttpConfig.nonceInvalidKeywords || ["nonce invalid", "非法请求"],
+				retry_config: validatedCustomHttpConfig.retryConfig || null,
 			};
 
 			// 先查询是否已存在配置记录，再决定 insert 或 update
@@ -435,7 +441,9 @@ function mergeCredentials(existing: Record<string, unknown>, incoming: Record<st
 				const mergedCat: Record<string, string> = { ...existingCat };
 				if (incomingCat) {
 					for (const idx of Object.keys(incomingCat)) {
-						mergedCat[idx] = incomingCat[idx];
+						if (incomingCat[idx] && incomingCat[idx].length > 0) {
+							mergedCat[idx] = incomingCat[idx];
+						}
 					}
 				}
 				if (Object.keys(mergedCat).length > 0) {

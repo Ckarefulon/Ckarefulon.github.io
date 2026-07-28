@@ -7,6 +7,7 @@ export interface CustomHttpCredentials {
 		queryParams?: Record<string, string>;
 		headers?: Record<string, string>;
 		bodyFields?: Record<string, string>;
+		preRequestHeaders?: Record<string, string>;
 	};
 }
 
@@ -16,7 +17,7 @@ export function mergeCustomHttpConfig(
 ): CustomHttpConfig {
 	const sensitive = credentials?.customHttp || {};
 
-	function mergeParams(params: HttpParam[], category: "queryParams" | "headers" | "bodyFields"): HttpParam[] {
+	function mergeParams(params: HttpParam[], category: "queryParams" | "headers" | "bodyFields" | "preRequestHeaders"): HttpParam[] {
 		const values = sensitive[category] || {};
 		return params.map((p, index) => {
 			if (p.sensitive && p.value === SENSITIVE_PLACEHOLDER) {
@@ -29,11 +30,17 @@ export function mergeCustomHttpConfig(
 		});
 	}
 
+	const mergedPreRequest = config.preRequest ? {
+		...config.preRequest,
+		extraHeaders: mergeParams(config.preRequest.extraHeaders || [], "preRequestHeaders"),
+	} : config.preRequest;
+
 	return {
 		...config,
 		queryParams: mergeParams(config.queryParams, "queryParams"),
 		headers: mergeParams(config.headers, "headers"),
 		bodyFields: mergeParams(config.bodyFields, "bodyFields"),
+		preRequest: mergedPreRequest,
 	};
 }
 
@@ -42,7 +49,7 @@ export function extractSensitiveValues(
 ): { cleanedConfig: CustomHttpConfig; credentials: CustomHttpCredentials } {
 	const credentials: CustomHttpCredentials = { customHttp: {} };
 
-	function processParams(params: HttpParam[], category: "queryParams" | "headers" | "bodyFields"): HttpParam[] {
+	function processParams(params: HttpParam[], category: "queryParams" | "headers" | "bodyFields" | "preRequestHeaders"): HttpParam[] {
 		const values: Record<string, string> = {};
 		const cleaned = params.map((p, index) => {
 			if (p.sensitive) {
@@ -60,11 +67,17 @@ export function extractSensitiveValues(
 		return cleaned;
 	}
 
+	const cleanedPreRequest = config.preRequest ? {
+		...config.preRequest,
+		extraHeaders: processParams(config.preRequest.extraHeaders || [], "preRequestHeaders"),
+	} : config.preRequest;
+
 	const cleanedConfig: CustomHttpConfig = {
 		...config,
 		queryParams: processParams(config.queryParams, "queryParams"),
 		headers: processParams(config.headers, "headers"),
 		bodyFields: processParams(config.bodyFields, "bodyFields"),
+		preRequest: cleanedPreRequest,
 	};
 
 	return { cleanedConfig, credentials };

@@ -130,12 +130,14 @@ export async function performCheckin(
 	if (target.service_key === "custom-http" && !resolvedCustomHttpConfig) {
 		const { data: customConfigRow, error: customConfigErr } = await supabase
 			.from("checkin_custom_http_configs")
-			.select("url, method, body_type, query_params, headers, body_fields, success_rules, already_checked_in_rules, auth_failure_rules")
+			.select("url, method, body_type, query_params, headers, body_fields, success_rules, already_checked_in_rules, auth_failure_rules, failure_rules, pre_request, extract_rules, browser_emulation, nonce_invalid_keywords, retry_config")
 			.eq("target_id", targetId)
 			.eq("user_id", userId)
 			.maybeSingle();
 
 		if (!customConfigErr && customConfigRow) {
+			const preReq = customConfigRow.pre_request as Record<string, unknown> | null;
+			const browserEmu = customConfigRow.browser_emulation as Record<string, unknown> | null;
 			resolvedCustomHttpConfig = {
 				url: customConfigRow.url,
 				method: customConfigRow.method,
@@ -146,6 +148,36 @@ export async function performCheckin(
 				successRules: customConfigRow.success_rules || [],
 				alreadyCheckedInRules: customConfigRow.already_checked_in_rules || [],
 				authFailureRules: customConfigRow.auth_failure_rules || [],
+				failureRules: customConfigRow.failure_rules || [],
+				preRequest: preReq ? {
+					enabled: !!preReq.enabled,
+					url: (preReq.url as string) || "",
+					method: (preReq.method as string) || "GET",
+					includeCookies: preReq.includeCookies !== false,
+					extraHeaders: (preReq.extraHeaders as unknown[]) || (preReq.extra_headers as unknown[]) || [],
+				} : undefined,
+				extractRules: customConfigRow.extract_rules || [],
+				browserEmulation: browserEmu ? {
+					enabled: !!browserEmu.enabled,
+					userAgent: (browserEmu.userAgent as string) || "",
+					referer: (browserEmu.referer as string) || "",
+					origin: (browserEmu.origin as string) || "",
+					acceptLanguage: (browserEmu.acceptLanguage as string) || "zh-CN,zh;q=0.9,en;q=0.8",
+					xRequestedWith: browserEmu.xRequestedWith !== false,
+					accept: (browserEmu.accept as string) || undefined,
+					cacheControl: (browserEmu.cacheControl as string) || undefined,
+					pragma: (browserEmu.pragma as string) || undefined,
+					secChUa: (browserEmu.secChUa as string) || "",
+					secChUaMobile: (browserEmu.secChUaMobile as string) || "?0",
+					secChUaPlatform: (browserEmu.secChUaPlatform as string) || '"Windows"',
+					secFetchDest: (browserEmu.secFetchDest as string) || "empty",
+					secFetchMode: (browserEmu.secFetchMode as string) || "cors",
+					secFetchSite: (browserEmu.secFetchSite as string) || "same-origin",
+					secFetchUser: (browserEmu.secFetchUser as string) || "?1",
+					upgradeInsecureRequests: (browserEmu.upgradeInsecureRequests as string) || "1",
+				} : undefined,
+				nonceInvalidKeywords: customConfigRow.nonce_invalid_keywords || ["nonce invalid", "非法请求"],
+				retryConfig: customConfigRow.retry_config || undefined,
 			};
 		}
 	}

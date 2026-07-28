@@ -386,30 +386,158 @@
 					</div>
 
 					<div class="pulseAdvancedSection" id="customAdvancedSection" style="display:none;">
-						<div class="pulseField">
-							<label>Query 参数</label>
-							<div class="pulseParamsList" id="queryParams"></div>
-							<button type="button" class="pulseBtn pulseBtnSm" data-add-param="query">+ 添加参数</button>
+						<div class="pulseSubSection">
+							<div class="pulseSectionTitle">🌐 浏览器伪装</div>
+							<div class="pulseField">
+								<label class="pulseCheckboxLabel">
+									<input type="checkbox" id="browserEmulationEnabled">
+									<span>启用浏览器上下文伪装（应对 Cloudflare 等风控）</span>
+								</label>
+							</div>
+							<div id="browserEmulationFields" style="display:none;">
+								<div class="pulseField">
+									<label>User-Agent</label>
+									<input type="text" id="browserUserAgent" class="pulseInput" placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36...">
+									<div class="pulseFieldHint">建议使用抓包时的浏览器 UA</div>
+								</div>
+								<div class="pulseFormRow">
+									<div class="pulseField">
+										<label>Referer</label>
+										<input type="text" id="browserReferer" class="pulseInput" placeholder="留空则使用签到URL的根路径">
+									</div>
+									<div class="pulseField">
+										<label>Origin</label>
+										<input type="text" id="browserOrigin" class="pulseInput" placeholder="留空则自动从签到URL提取">
+									</div>
+								</div>
+								<div class="pulseFormRow">
+									<div class="pulseField">
+										<label>Accept-Language</label>
+										<input type="text" id="browserAcceptLanguage" class="pulseInput" value="zh-CN,zh;q=0.9,en;q=0.8">
+									</div>
+									<div class="pulseField">
+										<label class="pulseCheckboxLabel" style="margin-top:24px;">
+											<input type="checkbox" id="browserXRequestedWith" checked>
+											<span>X-Requested-With: XMLHttpRequest</span>
+										</label>
+									</div>
+								</div>
+								<details style="margin-top:8px;">
+									<summary style="cursor:pointer;font-size:13px;color:var(--muted);">高级浏览器头设置 (sec-ch-ua 等)</summary>
+									<div style="margin-top:8px;">
+										<div class="pulseField">
+											<label>sec-ch-ua</label>
+											<input type="text" id="browserSecChUa" class="pulseInput" placeholder='例如: "Chromium";v="152", "Google Chrome";v="152"'>
+										</div>
+										<div class="pulseFormRow">
+											<div class="pulseField">
+												<label>sec-ch-ua-mobile</label>
+												<input type="text" id="browserSecChUaMobile" class="pulseInput" value="?0">
+											</div>
+											<div class="pulseField">
+												<label>sec-ch-ua-platform</label>
+												<input type="text" id="browserSecChUaPlatform" class="pulseInput" value='"Windows"'>
+											</div>
+										</div>
+										<div class="pulseFormRow">
+											<div class="pulseField">
+												<label>sec-fetch-dest</label>
+												<input type="text" id="browserSecFetchDest" class="pulseInput" value="empty">
+											</div>
+											<div class="pulseField">
+												<label>sec-fetch-mode</label>
+												<input type="text" id="browserSecFetchMode" class="pulseInput" value="cors">
+											</div>
+										</div>
+										<div class="pulseFormRow">
+											<div class="pulseField">
+												<label>sec-fetch-site</label>
+												<input type="text" id="browserSecFetchSite" class="pulseInput" value="same-origin">
+											</div>
+											<div class="pulseField">
+												<label>Upgrade-Insecure-Requests</label>
+												<input type="text" id="browserUpgradeInsecure" class="pulseInput" value="1">
+											</div>
+										</div>
+									</div>
+								</details>
+							</div>
 						</div>
-						<div class="pulseField">
-							<label>Header</label>
-							<div class="pulseParamsList" id="headerParams"></div>
-							<button type="button" class="pulseBtn pulseBtnSm" data-add-param="header">+ 添加参数</button>
+
+						<div class="pulseSubSection">
+							<div class="pulseSectionTitle">🔍 前置请求 & Nonce 提取</div>
+							<div class="pulseField">
+								<label class="pulseCheckboxLabel">
+									<input type="checkbox" id="preRequestEnabled">
+									<span>先发送前置 GET 请求获取页面（提取 nonce/token）</span>
+								</label>
+							</div>
+							<div id="preRequestFields" style="display:none;">
+								<div class="pulseField">
+									<label>前置请求 URL</label>
+									<input type="text" id="preRequestUrl" class="pulseInput" placeholder="留空则使用签到URL，如 https://www.linkaudio.cc/user/coin">
+									<div class="pulseFieldHint">在执行签到 POST 前，先 GET 此页面获取 nonce</div>
+								</div>
+								<div class="pulseField">
+									<label>正则提取规则</label>
+									<div class="pulseExtractList" id="extractRules"></div>
+									<button type="button" class="pulseBtn pulseBtnSm" id="addExtractRuleBtn">+ 添加提取规则</button>
+									<div class="pulseFieldHint">提取的变量可通过 {"变量名"} 在 Body 参数中引用，例如 {"nonce"}</div>
+								</div>
+								<div class="pulseField" style="margin-top:12px;">
+									<label>前置请求附加 Header</label>
+									<div class="pulseParamsList" id="preRequestHeaders"></div>
+									<button type="button" class="pulseBtn pulseBtnSm" data-add-param="preRequestHeader">+ 添加 Header</button>
+								</div>
+							</div>
 						</div>
-						<div class="pulseField" id="bodyFieldsSection">
-							<label>Body 参数</label>
-							<div class="pulseParamsList" id="bodyParams"></div>
-							<button type="button" class="pulseBtn pulseBtnSm" data-add-param="body">+ 添加参数</button>
+
+						<div class="pulseSubSection">
+							<div class="pulseSectionTitle">⚙️ Query 参数 & Header & Body</div>
+							<div class="pulseField">
+								<label>Query 参数</label>
+								<div class="pulseParamsList" id="queryParams"></div>
+								<button type="button" class="pulseBtn pulseBtnSm" data-add-param="query">+ 添加参数</button>
+							</div>
+							<div class="pulseField">
+								<label>Header</label>
+								<div class="pulseParamsList" id="headerParams"></div>
+								<button type="button" class="pulseBtn pulseBtnSm" data-add-param="header">+ 添加参数</button>
+							</div>
+							<div class="pulseField" id="bodyFieldsSection">
+								<label>Body 参数（支持 {"变量名"} 引用提取的 nonce）</label>
+								<div class="pulseParamsList" id="bodyParams"></div>
+								<button type="button" class="pulseBtn pulseBtnSm" data-add-param="body">+ 添加参数</button>
+							</div>
 						</div>
-						<div class="pulseField">
-							<label>今日已签到判断</label>
-							<div class="pulseRulesList" id="alreadyCheckedInRules"></div>
-							<button type="button" class="pulseBtn pulseBtnSm" id="addAlreadyCheckedInRuleBtn">+ 添加规则</button>
-						</div>
-						<div class="pulseField">
-							<label>授权失效判断</label>
-							<div class="pulseRulesList" id="authFailureRules"></div>
-							<button type="button" class="pulseBtn pulseBtnSm" id="addAuthFailureRuleBtn">+ 添加规则</button>
+
+						<div class="pulseSubSection">
+							<div class="pulseSectionTitle">📋 响应判断规则</div>
+							<div class="pulseField">
+								<label>今日已签到判断</label>
+								<div class="pulseRulesList" id="alreadyCheckedInRules"></div>
+								<button type="button" class="pulseBtn pulseBtnSm" id="addAlreadyCheckedInRuleBtn">+ 添加规则</button>
+							</div>
+							<div class="pulseField">
+								<label>授权失效判断</label>
+								<div class="pulseRulesList" id="authFailureRules"></div>
+								<button type="button" class="pulseBtn pulseBtnSm" id="addAuthFailureRuleBtn">+ 添加规则</button>
+							</div>
+							<div class="pulseField">
+								<label>失败关键词判断（非成功即失败，200也可能失败）</label>
+								<div class="pulseRulesList" id="failureRules"></div>
+								<button type="button" class="pulseBtn pulseBtnSm" id="addFailureRuleBtn">+ 添加失败规则</button>
+								<div class="pulseFieldHint">如果响应包含这些关键词，即使状态码200也判定为失败</div>
+							</div>
+							<div class="pulseField">
+								<label>Nonce 失效关键词（触发重新提取）</label>
+								<div class="pulseKeywordsList" id="nonceInvalidKeywords">
+									<div class="pulseKeywordRow">
+										<input type="text" class="pulseInput" placeholder="例如: nonce invalid, 非法请求" value="nonce invalid,非法请求">
+									</div>
+								</div>
+								<div class="pulseFieldHint">匹配这些关键词时会重新获取 nonce 并重试</div>
+							</div>
 						</div>
 					</div>
 				</div>

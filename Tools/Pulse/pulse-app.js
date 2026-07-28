@@ -264,12 +264,42 @@
 			bodyFields: [],
 			successRules: [{ type: 'status_range' }],
 			alreadyCheckedInRules: [],
-			authFailureRules: []
+			authFailureRules: [],
+			failureRules: [],
+			preRequest: {
+				enabled: false,
+				url: '',
+				method: 'GET',
+				includeCookies: true,
+				extraHeaders: []
+			},
+			extractRules: [],
+			browserEmulation: {
+				enabled: false,
+				userAgent: '',
+				referer: '',
+				origin: '',
+				acceptLanguage: 'zh-CN,zh;q=0.9,en;q=0.8',
+				xRequestedWith: true,
+				accept: 'application/json, text/javascript, */*; q=0.01',
+				cacheControl: 'no-cache',
+				pragma: 'no-cache',
+				secChUa: '',
+				secChUaMobile: '?0',
+				secChUaPlatform: '"Windows"',
+				secFetchDest: 'empty',
+				secFetchMode: 'cors',
+				secFetchSite: 'same-origin',
+				secFetchUser: '?1',
+				upgradeInsecureRequests: '1'
+			},
+			nonceInvalidKeywords: ['nonce invalid', '非法请求']
 		};
 	}
 
 	function normalizeCustomHttpConfig(dbConfig) {
 		if (!dbConfig) return createEmptyCustomHttpConfig();
+		const defaultCfg = createEmptyCustomHttpConfig();
 		return {
 			url: dbConfig.url || '',
 			method: dbConfig.method || 'GET',
@@ -280,7 +310,12 @@
 			successRules: Array.isArray(dbConfig.success_rules) && dbConfig.success_rules.length > 0
 				? dbConfig.success_rules : [{ type: 'status_range' }],
 			alreadyCheckedInRules: Array.isArray(dbConfig.already_checked_in_rules) ? dbConfig.already_checked_in_rules : [],
-			authFailureRules: Array.isArray(dbConfig.auth_failure_rules) ? dbConfig.auth_failure_rules : []
+			authFailureRules: Array.isArray(dbConfig.auth_failure_rules) ? dbConfig.auth_failure_rules : [],
+			failureRules: Array.isArray(dbConfig.failure_rules) ? dbConfig.failure_rules : [],
+			preRequest: dbConfig.pre_request ? { ...defaultCfg.preRequest, ...dbConfig.pre_request, extraHeaders: dbConfig.pre_request.extraHeaders || dbConfig.pre_request.extra_headers || [] } : defaultCfg.preRequest,
+			extractRules: Array.isArray(dbConfig.extract_rules) ? dbConfig.extract_rules : [],
+			browserEmulation: dbConfig.browser_emulation ? { ...defaultCfg.browserEmulation, ...dbConfig.browser_emulation } : defaultCfg.browserEmulation,
+			nonceInvalidKeywords: Array.isArray(dbConfig.nonce_invalid_keywords) ? dbConfig.nonce_invalid_keywords : defaultCfg.nonceInvalidKeywords
 		};
 	}
 
@@ -288,8 +323,21 @@
 		if (type === 'status_code') return { type, statusCode: 200 };
 		if (type === 'status_range') return { type };
 		if (type === 'text_contains') return { type, text: '' };
+		if (type === 'text_not_contains') return { type, text: '' };
 		if (type === 'json_equals') return { type, jsonPath: '', jsonValue: '' };
 		return { type };
+	}
+
+	function renderExtractRuleRow(rule, index) {
+		return `
+			<div class="pulseExtractRow" data-index="${index}">
+				<input type="text" class="extract-varname" placeholder="变量名，如 nonce" value="${escapeHtml(rule.variableName || '')}" style="width:120px;">
+				<input type="text" class="extract-pattern" placeholder="正则表达式，如 ajax_nonce\\s*=\\s*'([^']+)'" value="${escapeHtml(rule.pattern || '')}">
+				<input type="text" class="extract-flags" placeholder="flags" value="${escapeHtml(rule.flags || 'i')}" style="width:50px;" title="正则标志，如 i(忽略大小写) g(全局)">
+				<input type="number" class="extract-group" placeholder="分组" value="${rule.groupIndex ?? 1}" min="0" style="width:60px;" title="捕获组索引，通常为1">
+				<button type="button" class="pulseRemoveBtn remove-extract">&times;</button>
+			</div>
+		`;
 	}
 
 	function renderParamRow(param, category, index) {
@@ -314,6 +362,7 @@
 			{ value: 'status_range', label: '200-299' },
 			{ value: 'status_code', label: '状态码等于' },
 			{ value: 'text_contains', label: '文本包含' },
+			{ value: 'text_not_contains', label: '文本不包含' },
 			{ value: 'json_equals', label: 'JSON 字段等于' }
 		];
 		const typeSelect = typeOptions.map(opt =>
@@ -323,7 +372,7 @@
 		let valueInputs = '';
 		if (rule.type === 'status_code') {
 			valueInputs = `<input type="number" class="rule-status-code" placeholder="状态码" value="${rule.statusCode ?? ''}" min="100" max="599">`;
-		} else if (rule.type === 'text_contains') {
+		} else if (rule.type === 'text_contains' || rule.type === 'text_not_contains') {
 			valueInputs = `<input type="text" class="rule-text" placeholder="匹配文本" value="${escapeHtml(rule.text || '')}">`;
 		} else if (rule.type === 'json_equals') {
 			valueInputs = `
@@ -357,6 +406,39 @@
 		$('successRules').innerHTML = (cfg.successRules || []).map((r, i) => renderRuleRow(r, 'successRules', i)).join('');
 		$('alreadyCheckedInRules').innerHTML = (cfg.alreadyCheckedInRules || []).map((r, i) => renderRuleRow(r, 'alreadyCheckedInRules', i)).join('');
 		$('authFailureRules').innerHTML = (cfg.authFailureRules || []).map((r, i) => renderRuleRow(r, 'authFailureRules', i)).join('');
+		$('failureRules').innerHTML = (cfg.failureRules || []).map((r, i) => renderRuleRow(r, 'failureRules', i)).join('');
+
+		// 浏览器伪装
+		const browserCfg = cfg.browserEmulation || {};
+		$('browserEmulationEnabled').checked = !!browserCfg.enabled;
+		$('browserEmulationFields').style.display = browserCfg.enabled ? 'block' : 'none';
+		$('browserUserAgent').value = browserCfg.userAgent || '';
+		$('browserReferer').value = browserCfg.referer || '';
+		$('browserOrigin').value = browserCfg.origin || '';
+		$('browserAcceptLanguage').value = browserCfg.acceptLanguage || 'zh-CN,zh;q=0.9,en;q=0.8';
+		$('browserXRequestedWith').checked = browserCfg.xRequestedWith !== false;
+		$('browserSecChUa').value = browserCfg.secChUa || '';
+		$('browserSecChUaMobile').value = browserCfg.secChUaMobile || '?0';
+		$('browserSecChUaPlatform').value = browserCfg.secChUaPlatform || '"Windows"';
+		$('browserSecFetchDest').value = browserCfg.secFetchDest || 'empty';
+		$('browserSecFetchMode').value = browserCfg.secFetchMode || 'cors';
+		$('browserSecFetchSite').value = browserCfg.secFetchSite || 'same-origin';
+		$('browserUpgradeInsecure').value = browserCfg.upgradeInsecureRequests || '1';
+
+		// 前置请求
+		const preReqCfg = cfg.preRequest || {};
+		$('preRequestEnabled').checked = !!preReqCfg.enabled;
+		$('preRequestFields').style.display = preReqCfg.enabled ? 'block' : 'none';
+		$('preRequestUrl').value = preReqCfg.url || '';
+		$('preRequestHeaders').innerHTML = (preReqCfg.extraHeaders || []).map((p, i) => renderParamRow(p, 'preRequestHeaders', i)).join('');
+
+		// 提取规则
+		$('extractRules').innerHTML = (cfg.extractRules || []).map((r, i) => renderExtractRuleRow(r, i)).join('');
+
+		// Nonce失效关键词
+		const nonceKeywords = (cfg.nonceInvalidKeywords || []).join(',');
+		const kwInput = qs('#nonceInvalidKeywords input');
+		if (kwInput) kwInput.value = nonceKeywords || 'nonce invalid,非法请求';
 
 		updateBodyFieldsVisibility();
 	}
@@ -379,7 +461,7 @@
 				const valueInput = qs('.param-value', row);
 				const sensitiveInput = qs('.param-sensitive', row);
 				let value = valueInput.value;
-				const isSensitive = sensitiveInput.checked;
+				const isSensitive = sensitiveInput ? sensitiveInput.checked : false;
 				if (isSensitive && value === '已配置') {
 					value = SENSITIVE_PLACEHOLDER;
 				}
@@ -397,7 +479,7 @@
 				const rule = { type };
 				if (type === 'status_code') {
 					rule.statusCode = parseInt(qs('.rule-status-code', row)?.value) || 200;
-				} else if (type === 'text_contains') {
+				} else if (type === 'text_contains' || type === 'text_not_contains') {
 					rule.text = qs('.rule-text', row)?.value || '';
 				} else if (type === 'json_equals') {
 					rule.jsonPath = qs('.rule-json-path', row)?.value || '';
@@ -412,6 +494,23 @@
 			});
 		}
 
+		function collectExtractRules() {
+			return qsa('.pulseExtractRow', $('extractRules')).map(row => {
+				return {
+					variableName: qs('.extract-varname', row)?.value.trim() || '',
+					pattern: qs('.extract-pattern', row)?.value || '',
+					flags: qs('.extract-flags', row)?.value || 'i',
+					groupIndex: parseInt(qs('.extract-group', row)?.value) || 1
+				};
+			}).filter(r => r.variableName && r.pattern);
+		}
+
+		// Nonce失效关键词
+		const kwInput = qs('#nonceInvalidKeywords input');
+		const nonceKeywords = kwInput
+			? kwInput.value.split(/[,，]/).map(k => k.trim()).filter(k => k)
+			: ['nonce invalid', '非法请求'];
+
 		return {
 			url: $('customUrl').value.trim(),
 			method: $('customMethod').value,
@@ -421,7 +520,36 @@
 			bodyFields: collectParams($('bodyParams')),
 			successRules: collectRules($('successRules')),
 			alreadyCheckedInRules: collectRules($('alreadyCheckedInRules')),
-			authFailureRules: collectRules($('authFailureRules'))
+			authFailureRules: collectRules($('authFailureRules')),
+			failureRules: collectRules($('failureRules')),
+			preRequest: {
+				enabled: $('preRequestEnabled').checked,
+				url: $('preRequestUrl').value.trim(),
+				method: 'GET',
+				includeCookies: true,
+				extraHeaders: collectParams($('preRequestHeaders'))
+			},
+			extractRules: collectExtractRules(),
+			browserEmulation: {
+				enabled: $('browserEmulationEnabled').checked,
+				userAgent: $('browserUserAgent').value.trim(),
+				referer: $('browserReferer').value.trim(),
+				origin: $('browserOrigin').value.trim(),
+				acceptLanguage: $('browserAcceptLanguage').value.trim() || 'zh-CN,zh;q=0.9,en;q=0.8',
+				xRequestedWith: $('browserXRequestedWith').checked,
+				accept: 'application/json, text/javascript, */*; q=0.01',
+				cacheControl: 'no-cache',
+				pragma: 'no-cache',
+				secChUa: $('browserSecChUa').value.trim(),
+				secChUaMobile: $('browserSecChUaMobile').value.trim() || '?0',
+				secChUaPlatform: $('browserSecChUaPlatform').value.trim() || '"Windows"',
+				secFetchDest: $('browserSecFetchDest').value.trim() || 'empty',
+				secFetchMode: $('browserSecFetchMode').value.trim() || 'cors',
+				secFetchSite: $('browserSecFetchSite').value.trim() || 'same-origin',
+				secFetchUser: '?1',
+				upgradeInsecureRequests: $('browserUpgradeInsecure').value.trim() || '1'
+			},
+			nonceInvalidKeywords: nonceKeywords
 		};
 	}
 
@@ -1112,7 +1240,14 @@
 		if (!appState.customHttpConfig) {
 			appState.customHttpConfig = createEmptyCustomHttpConfig();
 		}
-		appState.customHttpConfig[category].push({ key: '', value: '', sensitive: false });
+		if (category === 'preRequestHeaders') {
+			if (!appState.customHttpConfig.preRequest) {
+				appState.customHttpConfig.preRequest = createEmptyCustomHttpConfig().preRequest;
+			}
+			appState.customHttpConfig.preRequest.extraHeaders.push({ key: '', value: '', sensitive: false });
+		} else {
+			appState.customHttpConfig[category].push({ key: '', value: '', sensitive: false });
+		}
 		renderCustomHttpForm();
 	}
 
@@ -1120,7 +1255,33 @@
 		const category = row.dataset.category;
 		const index = parseInt(row.dataset.index);
 		if (!appState.customHttpConfig || !category) return;
-		appState.customHttpConfig[category].splice(index, 1);
+		if (category === 'preRequestHeaders') {
+			if (appState.customHttpConfig.preRequest && appState.customHttpConfig.preRequest.extraHeaders) {
+				appState.customHttpConfig.preRequest.extraHeaders.splice(index, 1);
+			}
+		} else {
+			appState.customHttpConfig[category].splice(index, 1);
+		}
+		renderCustomHttpForm();
+	}
+
+	function addExtractRule() {
+		if (!appState.customHttpConfig) {
+			appState.customHttpConfig = createEmptyCustomHttpConfig();
+		}
+		appState.customHttpConfig.extractRules.push({
+			variableName: 'nonce',
+			pattern: "ajax_nonce\\s*=\\s*'([^']+)'",
+			flags: 'i',
+			groupIndex: 1
+		});
+		renderCustomHttpForm();
+	}
+
+	function removeExtractRule(row) {
+		const index = parseInt(row.dataset.index);
+		if (!appState.customHttpConfig || isNaN(index)) return;
+		appState.customHttpConfig.extractRules.splice(index, 1);
 		renderCustomHttpForm();
 	}
 
@@ -1261,12 +1422,30 @@
 		$('testConfigBtn').onclick = testConfig;
 
 		qsa('[data-add-param]').forEach(btn => {
-			btn.onclick = () => addParam(btn.dataset.addParam === 'query' ? 'queryParams' : btn.dataset.addParam === 'header' ? 'headers' : 'bodyFields');
+			btn.onclick = () => {
+				const paramType = btn.dataset.addParam;
+				if (paramType === 'query') addParam('queryParams');
+				else if (paramType === 'header') addParam('headers');
+				else if (paramType === 'body') addParam('bodyFields');
+				else if (paramType === 'preRequestHeader') addParam('preRequestHeaders');
+			};
 		});
 
 		$('addSuccessRuleBtn').onclick = () => addRule('successRules', 'status_range');
 		$('addAlreadyCheckedInRuleBtn').onclick = () => addRule('alreadyCheckedInRules', 'text_contains');
 		$('addAuthFailureRuleBtn').onclick = () => addRule('authFailureRules', 'status_code');
+		$('addFailureRuleBtn').onclick = () => addRule('failureRules', 'text_contains');
+		$('addExtractRuleBtn').onclick = addExtractRule;
+
+		// 浏览器伪装开关
+		$('browserEmulationEnabled').onchange = (e) => {
+			$('browserEmulationFields').style.display = e.target.checked ? 'block' : 'none';
+		};
+
+		// 前置请求开关
+		$('preRequestEnabled').onchange = (e) => {
+			$('preRequestFields').style.display = e.target.checked ? 'block' : 'none';
+		};
 
 		qsa('#quickAuthButtons button').forEach(btn => {
 			btn.onclick = () => addQuickAuth(btn.dataset.auth);
@@ -1285,6 +1464,12 @@
 				if (removeRuleBtn) {
 					const row = removeRuleBtn.closest('.pulseRuleRow');
 					if (row) removeRule(row);
+					return;
+				}
+				const removeExtractBtn = e.target.closest('.remove-extract');
+				if (removeExtractBtn) {
+					const row = removeExtractBtn.closest('.pulseExtractRow');
+					if (row) removeExtractRule(row);
 					return;
 				}
 			};

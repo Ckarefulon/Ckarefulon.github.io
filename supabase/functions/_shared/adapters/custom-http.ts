@@ -4,24 +4,30 @@ import type { CustomHttpCredentials } from "../custom-http/merge-config.ts";
 import { validateUrl, validateRedirectUrl } from "../custom-http/validate-url.ts";
 import { validateCustomHttpConfig } from "../custom-http/validate-rules.ts";
 import { mergeCustomHttpConfig } from "../custom-http/merge-config.ts";
-import { buildRequestOptions } from "../custom-http/build-request.ts";
+import {
+	buildRequestOptions,
+	buildPreRequestOptions,
+	extractVariables,
+	containsKeywords,
+} from "../custom-http/build-request.ts";
 import { evaluateRules, looksLikeHtmlLoginPage } from "../custom-http/evaluate-response.ts";
 import { sanitizeBodyPreview, sanitizeErrorMessage } from "../custom-http/sanitize-response.ts";
 
-const MAX_RESPONSE_BYTES = 64 * 1024;
-const REQUEST_TIMEOUT_MS = 15000;
-const MAX_RETRIES = 2;
+const MAX_RESPONSE_BYTES = 128 * 1024;
+const REQUEST_TIMEOUT_MS = 20000;
+const DEFAULT_MAX_RETRIES = 2;
+const MAX_NONCE_REFRESH_ATTEMPTS = 2;
 
-async function fetchWithSSRFProtection(
-	config: CustomHttpConfig,
-	allowRedirect = false
-): Promise<{ response: Response; finalUrl: string; bodyText: string }> {
-	const validation = await validateUrl(config.url);
-	if (!validation.valid || !validation.url) {
-		throw new Error(validation.error || "URL 验证失败");
-	}
+interface RequestResult {
+	response: Response;
+	finalUrl: string;
+	bodyText: string;
+}
 
-	const options = buildRequestOptions(config);
+async function executeFetch(
+	options: { url: string; method: string; headers: Record<string, string>; body?: string },
+	allowRedirect: boolean = false
+): Promise<RequestResult> {
 	const controller = new AbortController();
 	const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -31,39 +37,37 @@ async function fetchWithSSRFProtection(
 			headers: options.headers,
 			body: options.body,
 			signal: controller.signal,
-			redirect: allowRedirect ? "manual" : "manual",
+			redirect: allowRedirect ? "follow" : "manual",
 		});
 
 		let finalUrl = options.url;
+		let bodyText = await readLimitedBody(response);
 
-		if (allowRedirect && (response.status === 301 || response.status === 302 || response.status === 307 || response.status === 308)) {
+		// Handle redirects manually for security
+		if (!allowRedirect && (response.status === 301 || response.status === 302 || response.status === 307 || response.status === 308)) {
 			const location = response.headers.get("location");
 			if (location) {
-				const redirectValidation = await validateRedirectUrl(validation.url, location);
-				if (!redirectValidation.valid || !redirectValidation.url) {
-					throw new Error(redirectValidation.error || "重定向地址验证失败");
+				const baseUrl = new URL(options.url);
+				const redirectUrl = new URL(location, baseUrl);
+				const redirectValidation = await validateRedirectUrl(options.url, redirectUrl.toString());
+				if (redirectValidation.valid && redirectValidation.url) {
+					const revalidation = await validateUrl(redirectValidation.url.toString());
+					if (revalidation.valid) {
+						const redirectOpts = { ...options, url: redirectValidation.url.toString() };
+						const redirectResponse = await fetch(redirectOpts.url, {
+							method: redirectOpts.method,
+							headers: redirectOpts.headers,
+							body: redirectOpts.body,
+							signal: controller.signal,
+							redirect: "manual",
+						});
+						bodyText = await readLimitedBody(redirectResponse);
+						return { response: redirectResponse, finalUrl: redirectValidation.url.toString(), bodyText };
+					}
 				}
-				// 重新解析并验证重定向后的域名（DNS rebinding 防护）
-				const revalidation = await validateUrl(redirectValidation.url.toString());
-				if (!revalidation.valid) {
-					throw new Error(revalidation.error || "重定向地址重新验证失败");
-				}
-				// 不允许把敏感 Header 发送到不同域名（已在 validateRedirectUrl 中检查 hostname）
-				const redirectOptions = buildRequestOptions({ ...config, url: redirectValidation.url.toString() });
-				const redirectResponse = await fetch(redirectOptions.url, {
-					method: redirectOptions.method,
-					headers: redirectOptions.headers,
-					body: redirectOptions.body,
-					signal: controller.signal,
-					redirect: "manual",
-				});
-				finalUrl = redirectValidation.url.toString();
-				const redirectBody = await readLimitedBody(redirectResponse);
-				return { response: redirectResponse, finalUrl, bodyText: redirectBody };
 			}
 		}
 
-		const bodyText = await readLimitedBody(response);
 		return { response, finalUrl, bodyText };
 	} finally {
 		clearTimeout(timeoutId);
@@ -117,15 +121,238 @@ function parseJsonSafely(text: string): { parsed: unknown; isJson: boolean } {
 	return { parsed: undefined, isJson: false };
 }
 
-function isRetryableError(error: unknown, status?: number): boolean {
+type ErrorCategory = "retryable" | "nonce_invalid" | "auth_failure" | "already_checked" | "fatal";
+
+function categorizeError(
+	error: unknown,
+	status: number,
+	bodyText: string,
+	config: CustomHttpConfig
+): { category: ErrorCategory; reason: string } {
+	// Network/timeout errors are retryable
 	if (error instanceof Error) {
 		const message = error.message.toLowerCase();
-		if (message.includes("abort") || message.includes("timeout")) return true;
-		if (message.includes("network") || message.includes("connection") || message.includes("dns")) return true;
+		if (message.includes("abort") || message.includes("timeout")) {
+			return { category: "retryable", reason: "请求超时" };
+		}
+		if (message.includes("network") || message.includes("connection") || message.includes("dns")) {
+			return { category: "retryable", reason: "网络错误" };
+		}
 	}
-	if (status === 429) return true;
-	if (status && status >= 500 && status <= 599 && status !== 501) return true;
-	return false;
+
+	// HTTP status code checks
+	if (status === 401 || status === 403) {
+		return { category: "auth_failure", reason: `HTTP ${status} 授权失效` };
+	}
+	if (status === 429) {
+		return { category: "retryable", reason: "请求过于频繁(429)" };
+	}
+	if (status >= 500 && status <= 599 && status !== 501) {
+		return { category: "retryable", reason: `服务器错误(${status})` };
+	}
+
+	// Check nonce invalid keywords
+	const nonceKeywords = config.nonceInvalidKeywords || ["nonce invalid", "非法请求", "nonce失效"];
+	if (containsKeywords(bodyText, nonceKeywords)) {
+		return { category: "nonce_invalid", reason: "Nonce 失效，需要重新获取" };
+	}
+
+	// Check failure rules
+	const { parsed: parsedJson } = parseJsonSafely(bodyText);
+	if (config.failureRules && config.failureRules.length > 0) {
+		const failureResult = evaluateRules(config.failureRules, status, bodyText, parsedJson);
+		if (failureResult.matched) {
+			return { category: "fatal", reason: "命中失败规则" };
+		}
+	}
+
+	// Check already-checked-in rules
+	if (config.alreadyCheckedInRules && config.alreadyCheckedInRules.length > 0) {
+		const alreadyResult = evaluateRules(config.alreadyCheckedInRules, status, bodyText, parsedJson);
+		if (alreadyResult.matched) {
+			return { category: "already_checked", reason: "今日已签到" };
+		}
+	}
+
+	// Check auth failure rules
+	if (config.authFailureRules && config.authFailureRules.length > 0) {
+		const authResult = evaluateRules(config.authFailureRules, status, bodyText, parsedJson);
+		if (authResult.matched) {
+			return { category: "auth_failure", reason: "授权失效" };
+		}
+	}
+
+	// Check for login page
+	if (looksLikeHtmlLoginPage(bodyText)) {
+		return { category: "auth_failure", reason: "返回登录页面" };
+	}
+
+	// Check for common auth failure keywords
+	const lowerBody = bodyText.toLowerCase();
+	if (
+		lowerBody.includes("登录失效") ||
+		lowerBody.includes("login required") ||
+		lowerBody.includes("请先登录") ||
+		lowerBody.includes("unauthorized") ||
+		lowerBody.includes("invalid token") ||
+		lowerBody.includes("token expired")
+	) {
+		return { category: "auth_failure", reason: "登录已失效" };
+	}
+
+	// Check for common "already checked in" keywords
+	if (
+		lowerBody.includes("已签到") ||
+		lowerBody.includes("今日已打卡") ||
+		lowerBody.includes("already checked") ||
+		lowerBody.includes("already signed")
+	) {
+		return { category: "already_checked", reason: "今日已签到" };
+	}
+
+	// If status is not 2xx and no other category matched, it's fatal
+	if (status < 200 || status >= 300) {
+		return { category: "fatal", reason: `HTTP ${status}` };
+	}
+
+	return { category: "fatal", reason: "未知错误" };
+}
+
+async function executeCheckinFlow(
+	config: CustomHttpConfig,
+	nonceRefreshAttempt: number = 0
+): Promise<CheckinResult> {
+	let variables: Record<string, string> = {};
+
+	// Step 1: Pre-request to get page and extract variables (nonce, etc.)
+	if (config.preRequest?.enabled && nonceRefreshAttempt <= MAX_NONCE_REFRESH_ATTEMPTS) {
+		try {
+			const preRequestOpts = buildPreRequestOptions(config, variables);
+			if (preRequestOpts) {
+				const preResult = await executeFetch(preRequestOpts, true);
+				// Extract variables from pre-request response
+				if (config.extractRules && config.extractRules.length > 0) {
+					variables = extractVariables(preResult.bodyText, config.extractRules);
+				}
+			}
+		} catch (preErr) {
+			// Pre-request failed, but continue without variables - will likely fail at main request
+			console.warn("Pre-request failed:", preErr instanceof Error ? preErr.message : preErr);
+		}
+	}
+
+	// Step 2: Build main request with extracted variables
+	const mainOpts = buildRequestOptions(config, variables, true);
+
+	// Step 3: Execute main request
+	const { response, bodyText } = await executeFetch(mainOpts, false);
+	const status = response.status;
+	const { parsed: parsedJson, isJson } = parseJsonSafely(bodyText);
+
+	// Validate JSON if needed
+	const hasJsonRule =
+		config.successRules.some(r => r.type === "json_equals") ||
+		(config.alreadyCheckedInRules && config.alreadyCheckedInRules.some(r => r.type === "json_equals")) ||
+		(config.authFailureRules && config.authFailureRules.some(r => r.type === "json_equals"));
+
+	if (hasJsonRule && !isJson && !response.headers.get("Content-Type")?.toLowerCase().includes("application/json")) {
+		return {
+			success: false,
+			summary: "配置错误：响应不是 JSON，但配置了 JSON 判断规则",
+			errorCode: "JSON_RULE_MISMATCH",
+			retryable: false,
+			sanitizedResponse: sanitizeBodyPreview(bodyText),
+		};
+	}
+
+	// Categorize the result
+	const { category, reason } = categorizeError(null, status, bodyText, config);
+
+	switch (category) {
+		case "auth_failure":
+			return {
+				success: false,
+				summary: reason,
+				errorCode: "UNAUTHORIZED",
+				requiresReauth: true,
+				retryable: false,
+				sanitizedResponse: buildSanitizedResponse(response, bodyText),
+			};
+
+		case "already_checked":
+			return {
+				success: true,
+				alreadyCheckedIn: true,
+				summary: "今日已签到",
+				sanitizedResponse: buildSanitizedResponse(response, bodyText),
+			};
+
+		case "nonce_invalid":
+			// Try refreshing nonce if we haven't exceeded max attempts
+			if (nonceRefreshAttempt < MAX_NONCE_REFRESH_ATTEMPTS) {
+				return executeCheckinFlow(config, nonceRefreshAttempt + 1);
+			}
+			return {
+				success: false,
+				summary: "Nonce 失效，刷新后仍无效",
+				errorCode: "NONCE_INVALID",
+				retryable: true,
+				sanitizedResponse: buildSanitizedResponse(response, bodyText),
+			};
+
+		case "fatal":
+			// Check success rules even for "fatal" - success rules can override
+			const successResult = evaluateRules(config.successRules, status, bodyText, parsedJson);
+			if (successResult.matched) {
+				return {
+					success: true,
+					summary: "签到成功",
+					sanitizedResponse: buildSanitizedResponse(response, bodyText, successResult.matchedRule),
+				};
+			}
+			return {
+				success: false,
+				summary: reason || "签到失败",
+				errorCode: "CHECKIN_FAILED",
+				retryable: false,
+				sanitizedResponse: buildSanitizedResponse(response, bodyText),
+			};
+
+		case "retryable":
+			// This will be handled by the retry loop in the main checkin function
+			throw new Error(reason);
+
+		default:
+			// Check success rules
+			const successCheck = evaluateRules(config.successRules, status, bodyText, parsedJson);
+			if (successCheck.matched) {
+				return {
+					success: true,
+					summary: "签到成功",
+					sanitizedResponse: buildSanitizedResponse(response, bodyText, successCheck.matchedRule),
+				};
+			}
+			return {
+				success: false,
+				summary: "未命中成功判断规则",
+				errorCode: "SUCCESS_RULE_NOT_MATCHED",
+				retryable: false,
+				sanitizedResponse: buildSanitizedResponse(response, bodyText),
+			};
+	}
+}
+
+function buildSanitizedResponse(response: Response, bodyText: string, matchedRule?: { type?: string }): string {
+	const contentType = response.headers.get("Content-Type") || "";
+	const preview = sanitizeBodyPreview(bodyText, 500);
+	let summary = `状态码: ${response.status}; Content-Type: ${contentType}; 长度: ${bodyText.length}`;
+	if (matchedRule?.type) {
+		summary += `; 命中规则: ${matchedRule.type}`;
+	}
+	if (preview) {
+		summary += `; 响应摘要: ${preview}`;
+	}
+	return summary;
 }
 
 const adapter: CheckinAdapter = {
@@ -162,139 +389,69 @@ const adapter: CheckinAdapter = {
 			};
 		}
 
+		const maxRetries = Math.min(
+			mergedConfig.retryConfig?.maxRetries ?? DEFAULT_MAX_RETRIES,
+			5
+		);
+		const initialDelayMs = mergedConfig.retryConfig?.initialDelayMs ?? 1000;
+
 		let lastError: Error | null = null;
-		let lastStatus = 0;
-		let lastBodyText = "";
-		let lastContentType = "";
+		let lastResult: CheckinResult | null = null;
 
-		for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+		for (let attempt = 0; attempt <= maxRetries; attempt++) {
 			try {
-				const { response, finalUrl, bodyText } = await fetchWithSSRFProtection(mergedConfig, true);
-				lastStatus = response.status;
-				lastBodyText = bodyText;
-				lastContentType = response.headers.get("Content-Type") || "";
+				const result = await executeCheckinFlow(mergedConfig, 0);
+				lastResult = result;
 
-				const { parsed: parsedJson, isJson } = parseJsonSafely(bodyText);
-
-				// 如果配置了 JSON 判断但响应不是 JSON，返回配置错误
-				const hasJsonRule =
-					mergedConfig.successRules.some(r => r.type === "json_equals") ||
-					mergedConfig.alreadyCheckedInRules.some(r => r.type === "json_equals") ||
-					mergedConfig.authFailureRules.some(r => r.type === "json_equals");
-
-				if (hasJsonRule && !isJson && !lastContentType.toLowerCase().includes("application/json")) {
-					return {
-						success: false,
-						summary: "配置错误：响应不是 JSON，但配置了 JSON 判断规则",
-						errorCode: "JSON_RULE_MISMATCH",
-						retryable: false,
-						sanitizedResponse: sanitizeBodyPreview(bodyText),
-					};
+				// If we got a non-retryable result, return immediately
+				if (!result.retryable) {
+					return result;
 				}
 
-				// 授权失效判断
-				const authFailureResult = evaluateRules(mergedConfig.authFailureRules, response.status, bodyText, parsedJson);
-				if (authFailureResult.matched) {
-					return {
-						success: false,
-						summary: "授权失效，请重新配置凭据",
-						errorCode: "UNAUTHORIZED",
-						requiresReauth: true,
-						retryable: false,
-						sanitizedResponse: buildSanitizedResponse(response, bodyText, authFailureResult.matchedRule),
-					};
+				// If retryable and we have attempts left, wait and retry
+				if (attempt < maxRetries) {
+					const delay = initialDelayMs * Math.pow(1.5, attempt);
+					await new Promise(r => setTimeout(r, delay));
+					continue;
 				}
 
-				// 如果状态码是 401/403，标记需要重新授权
-				if (response.status === 401 || response.status === 403) {
-					return {
-						success: false,
-						summary: `HTTP ${response.status}，授权失效`,
-						errorCode: "UNAUTHORIZED",
-						requiresReauth: true,
-						retryable: false,
-						sanitizedResponse: buildSanitizedResponse(response, bodyText),
-					};
-				}
-
-				// HTML 登录页面识别
-				if (looksLikeHtmlLoginPage(bodyText)) {
-					return {
-						success: false,
-						summary: "响应为登录页面，授权可能已失效",
-						errorCode: "LOGIN_REQUIRED",
-						requiresReauth: true,
-						retryable: false,
-						sanitizedResponse: buildSanitizedResponse(response, bodyText),
-					};
-				}
-
-				// 今日已签到判断
-				const alreadyCheckedInResult = evaluateRules(mergedConfig.alreadyCheckedInRules, response.status, bodyText, parsedJson);
-				if (alreadyCheckedInResult.matched) {
-					return {
-						success: true,
-						alreadyCheckedIn: true,
-						summary: "今日已签到",
-						sanitizedResponse: buildSanitizedResponse(response, bodyText, alreadyCheckedInResult.matchedRule),
-					};
-				}
-
-				// 成功判断
-				const successResult = evaluateRules(mergedConfig.successRules, response.status, bodyText, parsedJson);
-				if (successResult.matched) {
-					return {
-						success: true,
-						summary: "签到成功",
-						sanitizedResponse: buildSanitizedResponse(response, bodyText, successResult.matchedRule),
-					};
-				}
-
-				// 未命中任何成功规则
-				return {
-					success: false,
-					summary: "未命中成功判断规则",
-					errorCode: "SUCCESS_RULE_NOT_MATCHED",
-					retryable: false,
-					sanitizedResponse: buildSanitizedResponse(response, bodyText),
-				};
+				return result;
 			} catch (error: unknown) {
 				lastError = error instanceof Error ? error : new Error(String(error));
-				const retryable = isRetryableError(error, lastStatus);
-				if (!retryable || attempt >= MAX_RETRIES) {
+
+				// Check if this error is retryable
+				const errorMsg = lastError.message.toLowerCase();
+				const isRetryable =
+					errorMsg.includes("abort") ||
+					errorMsg.includes("timeout") ||
+					errorMsg.includes("network") ||
+					errorMsg.includes("connection") ||
+					errorMsg.includes("429") ||
+					errorMsg.includes("服务器错误") ||
+					errorMsg.includes("请求过于频繁");
+
+				if (!isRetryable || attempt >= maxRetries) {
 					break;
 				}
-				// 简单线性退避
-				await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+
+				// Exponential backoff
+				const delay = initialDelayMs * Math.pow(1.5, attempt);
+				await new Promise(r => setTimeout(r, delay));
 			}
 		}
 
-		const errorMessage = lastError ? sanitizeErrorMessage(lastError.message) : "未知错误";
-		const errorCode = lastError?.message?.includes("abort") ? "TIMEOUT" : "REQUEST_FAILED";
-		const retryable = isRetryableError(lastError, lastStatus);
+		// If we got a last result, return it
+		if (lastResult) return lastResult;
 
+		const errorMessage = lastError ? sanitizeErrorMessage(lastError.message) : "未知错误";
 		return {
 			success: false,
-			summary: retryable ? "请求失败，可重试" : "请求失败",
-			errorCode,
-			errorMessage: errorMessage,
-			retryable,
-			sanitizedResponse: lastBodyText ? sanitizeBodyPreview(lastBodyText) : undefined,
+			summary: "请求失败",
+			errorCode: lastError?.message?.includes("abort") ? "TIMEOUT" : "REQUEST_FAILED",
+			errorMessage,
+			retryable: true,
 		};
 	},
 };
-
-function buildSanitizedResponse(response: Response, bodyText: string, matchedRule?: { type?: string }): string {
-	const contentType = response.headers.get("Content-Type") || "";
-	const preview = sanitizeBodyPreview(bodyText, 500);
-	let summary = `状态码: ${response.status}; Content-Type: ${contentType}; 长度: ${bodyText.length}`;
-	if (matchedRule?.type) {
-		summary += `; 命中规则: ${matchedRule.type}`;
-	}
-	if (preview) {
-		summary += `; 响应摘要: ${preview}`;
-	}
-	return summary;
-}
 
 export default adapter;
