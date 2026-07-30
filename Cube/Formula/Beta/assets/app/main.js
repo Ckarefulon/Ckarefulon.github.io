@@ -70,6 +70,8 @@
 				cubeDimension: 3,
 				orientationMatrix: null,
 				orientationMoves: [],
+				wideMode: false,
+				manualMoveHistory: [],
 				viewYaw: 0,
 				viewPitch: 0,
 				hiddenStickerMask: {},
@@ -439,6 +441,7 @@
 					var panelOverlay = document.getElementById("panelOverlay");
 					var keyboardToggle = document.getElementById("keyToggle");
 					var keyboardHandle = document.getElementById("keyHandle");
+
 					document.querySelectorAll("[data-action-panel-toggle]").forEach(function(toggle) {
 						toggle.addEventListener("click", function() { self.togglePanel(); });
 					});
@@ -549,7 +552,10 @@
 						};
 						var move = keyMap[event.key && event.key.toLowerCase()];
 						if (move && !self.isPracticeMode && self.currentMode !== "library" && !event.altKey && !event.ctrlKey && !event.metaKey) {
-							self.playMove(event.shiftKey ? move + "'" : move, "keyboard", Date.now());
+							self.playMove(self.wideMode || event.shiftKey ? move.toLowerCase() : move, "keyboard", Date.now());
+						}
+						if (event.key === "Backspace" && !event.altKey && !event.ctrlKey && !event.metaKey) {
+							self.playLastMoveInverse("keyboard");
 						}
 					});
 					var pressInsideMenuContainer = null;
@@ -1063,7 +1069,19 @@
 				},
 
 				getManualMovesHtml: function() {
-					return '<section class="viewSec"><div class="moves" id="manualMoves" aria-label="手动测试转动"><div class="keyboardExtraMoves"><button class="moveButton" type="button" data-move="U">U</button><button class="moveButton" type="button" data-move="R">R</button><button class="moveButton" type="button" data-move="F">F</button><button class="moveButton" type="button" data-move="D">D</button><button class="moveButton" type="button" data-move="L">L</button><button class="moveButton" type="button" data-move="B">B</button><button class="moveButton" type="button" data-move="U&#39;">U&#39;</button><button class="moveButton" type="button" data-move="R&#39;">R&#39;</button><button class="moveButton" type="button" data-move="F&#39;">F&#39;</button><button class="moveButton" type="button" data-move="D&#39;">D&#39;</button><button class="moveButton" type="button" data-move="L&#39;">L&#39;</button><button class="moveButton" type="button" data-move="B&#39;">B&#39;</button><button class="moveButton" type="button" data-move="M">M</button><button class="moveButton" type="button" data-move="E">E</button><button class="moveButton" type="button" data-move="S">S</button><button class="moveButton" type="button" data-move="M&#39;">M&#39;</button><button class="moveButton" type="button" data-move="E&#39;">E&#39;</button><button class="moveButton" type="button" data-move="S&#39;">S&#39;</button></div><div class="keyboardRotationMoves"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div></div></section>';
+					return '<section class="viewSec"><div class="moves" id="manualMoves" aria-label="手动测试转动"><div class="keyboardExtraMoves"><button class="moveButton" type="button" data-move="U" data-base="U">U</button><button class="moveButton" type="button" data-move="R" data-base="R">R</button><button class="moveButton" type="button" data-move="F" data-base="F">F</button><button class="moveButton" type="button" data-move="D" data-base="D">D</button><button class="moveButton" type="button" data-move="L" data-base="L">L</button><button class="moveButton" type="button" data-move="B" data-base="B">B</button><button class="moveButton" type="button" data-move="U&#39;" data-base="U">U&#39;</button><button class="moveButton" type="button" data-move="R&#39;" data-base="R">R&#39;</button><button class="moveButton" type="button" data-move="F&#39;" data-base="F">F&#39;</button><button class="moveButton" type="button" data-move="D&#39;" data-base="D">D&#39;</button><button class="moveButton" type="button" data-move="L&#39;" data-base="L">L&#39;</button><button class="moveButton" type="button" data-move="B&#39;" data-base="B">B&#39;</button><button class="moveButton" type="button" data-move="M">M</button><button class="moveButton" type="button" data-move="E">E</button><button class="moveButton" type="button" data-move="S">S</button><button class="moveButton" type="button" data-move="M&#39;">M&#39;</button><button class="moveButton" type="button" data-move="E&#39;">E&#39;</button><button class="moveButton" type="button" data-move="S&#39;">S&#39;</button></div><div class="keyboardRotationMoves"><button class="moveButton rotation" type="button" data-move="x">x</button><button class="moveButton rotation" type="button" data-move="y">y</button><button class="moveButton rotation" type="button" data-move="z">z</button><button class="moveButton rotation" type="button" data-move="x&#39;">x&#39;</button><button class="moveButton rotation" type="button" data-move="y&#39;">y&#39;</button><button class="moveButton rotation" type="button" data-move="z&#39;">z&#39;</button></div><div class="keyboardControlRow"><button class="moveButton keyBackspace" id="keyBackspace" type="button" aria-label="退格" title="退格"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5H9.5c-.7 0-1.3.4-1.7 1l-4.8 6c-.4.5-.4 1.3 0 1.8l4.8 6c.4.6 1 1 1.7 1H19c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-2.3 10.6L14.2 17l-2.5-2.5L9.2 17 7 14.8l2.5-2.5L7 9.8 9.2 7.6l2.5 2.5 2.5-2.5 2.3 2.2-2.5 2.5 2.5 2.5z" fill="currentColor"/></svg></button><button class="moveButton keyShiftIcon" id="keyShift" type="button" aria-label="双层操作" title="双层操作" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l8 8h-5v8H9v-8H4z" fill="currentColor"/></svg></button></div></div></section>';
+				},
+
+				updateManualMoveLabels: function() {
+					var buttons = document.querySelectorAll(".keyboardExtraMoves .moveButton[data-base]");
+					for (var i = 0; i < buttons.length; i++) {
+						var button = buttons[i];
+						var base = button.getAttribute("data-base");
+						var isPrime = button.getAttribute("data-move").indexOf("'") >= 0;
+						var newMove = (this.wideMode ? base.toLowerCase() : base) + (isPrime ? "'" : "");
+						button.setAttribute("data-move", newMove);
+						button.textContent = newMove;
+					}
 				},
 
 				getPracticeHtml: function() {
@@ -1159,6 +1177,16 @@
 							var button = event.target.closest("[data-move]");
 							if (button) {
 								self.playMove(button.getAttribute("data-move"), "manual", Date.now());
+								return;
+							}
+							var control = event.target.closest("#keyBackspace, #keyShift");
+							if (control && control.id === "keyBackspace") {
+								self.playLastMoveInverse("manual");
+							} else if (control && control.id === "keyShift") {
+								self.wideMode = !self.wideMode;
+								control.classList.toggle("isActive", !!self.wideMode);
+								control.setAttribute("aria-pressed", String(!!self.wideMode));
+								self.updateManualMoveLabels();
 							}
 						});
 					});
@@ -1650,13 +1678,16 @@
 				loadFormulaEntries: function() {
 					try {
 						var saved = storageManager.getJson("smartCubeFormulaEntries", []);
+						var self = this;
 						this.formulaEntries = Array.isArray(saved) ? saved.map(function(item) {
 							var moves = Array.isArray(item.moves) ? item.moves : [];
+							var alg = item.alg || moves.join(" ");
+							var compressedAlg = self.compressAlgText(alg);
 							return {
 								id: item.id || String(Date.now() + Math.random()),
 								name: item.name || "",
-								alg: item.alg || moves.join(""),
-								moves: moves,
+								alg: compressedAlg,
+								moves: compressedAlg ? self.parseMoveSequence(compressedAlg) : [],
 								editingMoves: false
 							};
 						}) : [];
@@ -2407,7 +2438,9 @@
 						return;
 					}
 					entry.moves.push(text);
-					entry.alg = this.addDisplayToken(entry.alg || "", text);
+					var compressedTokens = this.compressDisplayTokens(this.tokenizeMoves(entry.moves.join(" ")));
+					entry.moves = compressedTokens;
+					entry.alg = compressedTokens.join(" ");
 					this.formulaExportTextOverride = "";
 					this.saveFormulaEntries();
 					if (this.elements.draftList) {
@@ -2424,7 +2457,12 @@
 				},
 
 				getFormulaDisplayText: function(entry) {
-					return entry && entry.alg ? entry.alg : (entry && entry.moves || []).join("");
+					var alg = entry && entry.alg || "";
+					var moves = entry && entry.moves || [];
+					if (!alg && !moves.length) {
+						return "";
+					}
+					return this.compressAlgText(alg || moves.join(" "));
 				},
 
 				moveToStandardText: function(move) {
@@ -2437,10 +2475,12 @@
 					if (move.type !== "face") {
 						return "";
 					}
-					if (!move.fromCube) {
-						return move.text || this.formatMoveText(move.face, move.pow);
+					if (!move.fromCube && move.text) {
+						return move.text;
 					}
-					return this.formatMoveText(this.unmapUiFace(move.face), move.pow);
+					var face = move.fromCube ? this.unmapUiFace(move.face) : move.face;
+					var displayFace = move.wide ? face.toLowerCase() : face;
+					return this.formatMoveText(displayFace, move.pow);
 				},
 
 				unmapUiFace: function(face) {
@@ -2469,10 +2509,10 @@
 				parseEditInput: function(text) {
 					try {
 						var ast = FormulaCore.parseAlgorithm(text || "");
-						var display = FormulaCore.formatNodes(ast);
+						var display = this.compressAlgText(FormulaCore.formatNodes(ast));
 						return {
 							alg: display,
-							moves: this.parseMoveSequence(display),
+							moves: display ? this.parseMoveSequence(display) : [],
 							valid: true
 						};
 					} catch (error) {
@@ -2487,7 +2527,11 @@
 
 				compressAlgText: function(alg) {
 					try {
-						return FormulaCore.formatNodes(FormulaCore.parseAlgorithm(alg));
+						var text = String(alg || "").trim();
+						if (!text) {
+							return "";
+						}
+						return this.compressDisplayTokens(this.tokenizeMoves(text)).join(" ");
 					} catch (error) {
 						return "";
 					}
@@ -2495,26 +2539,36 @@
 
 				compressDisplayTokens: function(tokens) {
 					var result = [];
-					for (var i = 0; i < tokens.length; i++) {
-						var current = this.getTokenFacePow(tokens[i]);
-						var previous = result.length ? this.getTokenFacePow(result[result.length - 1]) : null;
-						if (current && previous && current.face === previous.face && Math.abs(current.pow) === 1 && current.pow === previous.pow) {
-							result[result.length - 1] = current.face + "2";
-						} else {
-							result.push(tokens[i]);
+					var pending = null;
+					for (var i = 0; i <= tokens.length; i++) {
+						var current = i < tokens.length ? this.getTokenFacePow(tokens[i]) : null;
+						if (pending && (!current || current.face !== pending.face)) {
+							var abs = Math.abs(pending.pow) % 4;
+							if (abs !== 0) {
+								result.push(pending.face + (pending.pow < 0 ? "'" : "") + (abs === 1 ? "" : String(abs)));
+							}
+							pending = null;
+						}
+						if (current) {
+							if (!pending || pending.face !== current.face) {
+								pending = { face: current.face, pow: current.pow };
+							} else {
+								pending.pow += current.pow;
+							}
 						}
 					}
 					return result;
 				},
 
 				getTokenFacePow: function(token) {
-					var match = /^([URFDLBMES]|[xyz])([2']?)$/.exec(String(token || ""));
+					var match = /^([URFDLBMESurfdlbmes]|[xyz])([2'3]?)$/.exec(String(token || ""));
 					if (!match) {
 						return null;
 					}
+					var face = match[1];
 					return {
-						face: match[1],
-						pow: match[2] === "2" ? 2 : match[2] === "'" ? -1 : 1
+						face: face,
+						pow: match[2] === "2" ? 2 : match[2] === "3" ? 3 : match[2] === "'" ? -1 : 1
 					};
 				},
 
@@ -2553,17 +2607,16 @@
 				},
 
 				invertFormulaToken: function(token) {
-					var match = /^([URFDLBXYZMES])([2']?)$/i.exec(String(token || ""));
+					var match = /^([URFDLBurfdlb]|[XYZMES])(['"]?)([23]?)$/.exec(String(token || ""));
 					if (!match) {
 						return "";
 					}
+					var isWide = /[urfdlb]/.test(match[1]);
 					var face = match[1].toUpperCase();
-					var suffix = match[2] || "";
-					if (suffix === "2") {
-						return /[XYZ]/.test(face) ? face.toLowerCase() + "2" : face + "2";
-					}
-					var inverseSuffix = suffix === "'" ? "" : "'";
-					return /[XYZ]/.test(face) ? face.toLowerCase() + inverseSuffix : face + inverseSuffix;
+					var displayFace = isWide ? face.toLowerCase() : face;
+					var count = match[3] ? Number(match[3]) : 1;
+					var pow = match[2] === "'" ? -count : count;
+					return this.formatMoveText(displayFace, -pow);
 				},
 
 				invertFormulaMoves: function(moves) {
@@ -2596,7 +2649,7 @@
 							id: String(Date.now()) + "-" + index + "-" + Math.floor(Math.random() * 100000),
 							name: state.name,
 							alg: alg,
-							moves: self.parseMoveSequence(alg),
+							moves: alg ? self.parseMoveSequence(alg) : [],
 							editingMoves: false
 						};
 					});
@@ -3677,7 +3730,8 @@
 					var result = FormulaCore.parseDefinitions(text);
 					var self = this;
 					result.formulas.forEach(function(state) {
-						state.moves = self.parseMoveSequence(state.alg);
+						state.alg = self.compressAlgText(state.alg);
+						state.moves = state.alg ? self.parseMoveSequence(state.alg) : [];
 					});
 					return result;
 				},
@@ -3956,6 +4010,7 @@
 					var savedViewYaw = this.viewYaw || 0;
 					var savedViewPitch = this.viewPitch || 0;
 					this.moveHistory = [];
+					this.manualMoveHistory = [];
 					this.moveCount = 0;
 					if (this.isPracticeMode) {
 						this.cancelSolvedAdvance();
@@ -4254,7 +4309,18 @@
 					if (!this.virtualCubie || !move || move.type !== "face" || !this.virtualCubie.selfMoveStr) {
 						return;
 					}
-					this.virtualCubie.selfMoveStr(this.formatMoveText(move.face, move.pow));
+					var face = move.wide ? (move.face + "w") : move.face;
+					var pow = move.pow;
+					// 将 3/-3/-2 归一化为 mathlib 可识别的 Uw'/Uw/Uw2
+					if (pow === 3) {
+						this.virtualCubie.selfMoveStr(face + "'");
+					} else if (pow === -3) {
+						this.virtualCubie.selfMoveStr(face);
+					} else if (pow === -2) {
+						this.virtualCubie.selfMoveStr(face + "2");
+					} else {
+						this.virtualCubie.selfMoveStr(this.formatMoveText(face, pow));
+					}
 				},
 
 				isVirtualStateSolved: function() {
@@ -4341,6 +4407,7 @@
 					}
 					if (!token) return;
 					this.performedProcessMoves.push(token);
+					this.performedProcessMoves = this.compressDisplayTokens(this.performedProcessMoves);
 					if (this.isPracticeMode && this.isFourTurnReset(this.performedProcessMoves)) {
 						this.applyImportedFormula(this.currentFormulaIndex);
 						return;
@@ -4550,6 +4617,7 @@
 			},
 			resetView: function() {
 					this.moveHistory = [];
+					this.manualMoveHistory = [];
 					this.moveCount = 0;
 					this.hideMacHelp();
 					this.initTwisty();
@@ -4922,6 +4990,7 @@
 						this.pushHistory(move.text, source, timestamp);
 						this.log("move", move.text + (source ? " · " + source : ""));
 					}
+					this.pushManualMoveHistory(move);
 					this.recordSolveMove(move, source, options);
 					return move;
 				},
@@ -4939,21 +5008,53 @@
 					this.renderMoves();
 				},
 
+				pushManualMoveHistory: function(move) {
+					if (!move) {
+						return;
+					}
+					this.manualMoveHistory.push(move.type === "slice" ? move.text : move.text);
+					if (this.manualMoveHistory.length > 100) {
+						this.manualMoveHistory.shift();
+					}
+				},
+
+				popManualMoveHistory: function() {
+					while (this.manualMoveHistory.length) {
+						var last = this.manualMoveHistory.pop();
+						if (last) {
+							return last;
+						}
+					}
+					return null;
+				},
+
+				playLastMoveInverse: function(source) {
+					var last = this.popManualMoveHistory();
+					if (!last) {
+						return;
+					}
+					this.playMove(this.invertFormulaToken(last), source || "manual", Date.now(), { noHistory: true });
+				},
+
 				normalizeMove: function(rawMove) {
 					if (!rawMove) {
 						return null;
 					}
 					var text = String(rawMove).replace(/[’‘`]/g, "'").replace(/\s+/g, "");
-					var match = /^([URFDLB])([2']?)$/i.exec(text);
+					var match = /^([URFDLBurfdlb])('?)([23]?)$/i.exec(text);
 					if (match) {
+						var isWide = /[urfdlb]/.test(match[1]);
 						var face = match[1].toUpperCase();
-						var facePow = match[2] === "2" ? 2 : match[2] === "'" ? -1 : 1;
+						var displayFace = isWide ? match[1].toLowerCase() : face;
+						var count = match[3] ? Number(match[3]) : 1;
+						var facePow = match[2] ? -count : count;
 						return {
-							text: face + match[2],
+							text: displayFace + (match[2] || "") + (match[3] || ""),
 							type: "face",
 							face: face,
+							wide: isWide,
 							pow: facePow,
-							twisty: [1, 1, face, facePow]
+							twisty: [1, isWide ? 2 : 1, face, facePow]
 						};
 					}
 					match = /^([MES])('?)$/i.exec(text);
@@ -4993,13 +5094,15 @@
 					}
 					if (move.type === "face") {
 						var face = this.mapUiFace(move.face);
+						var layerEnd = move.wide ? 2 : 1;
 						return {
 							text: move.text,
 							type: "face",
 							face: face,
 							uiFace: move.face,
+							wide: move.wide,
 							pow: move.pow,
-							twisty: [1, 1, face, move.pow]
+							twisty: [1, layerEnd, face, move.pow]
 						};
 					}
 					if (move.type === "orientation") {
@@ -5082,25 +5185,29 @@
 						this.matrixTranspose(this.orientationMatrix)
 					);
 					var pows = Math.abs(move.pow) === 2 ? [2] : [move.pow, -move.pow];
+					var layerEnd = move.wide ? 2 : 1;
+					var displayFace = move.wide ? targetFace.toLowerCase() : targetFace;
 					for (var i = 0; i < pows.length; i++) {
 						if (this.matrixEquals(transformed, this.rotationMatrix(targetFace, pows[i]))) {
 							return {
-								text: this.formatMoveText(targetFace, pows[i]),
+								text: this.formatMoveText(displayFace, pows[i]),
 								rawText: move.text,
 								type: "face",
 								face: targetFace,
+								wide: move.wide,
 								pow: pows[i],
-								twisty: [1, 1, targetFace, pows[i]]
+								twisty: [1, layerEnd, targetFace, pows[i]]
 							};
 						}
 					}
 					return {
-						text: this.formatMoveText(targetFace, move.pow),
+						text: this.formatMoveText(displayFace, move.pow),
 						rawText: move.text,
 						type: "face",
 						face: targetFace,
+						wide: move.wide,
 						pow: move.pow,
-						twisty: [1, 1, targetFace, move.pow]
+						twisty: [1, layerEnd, targetFace, move.pow]
 					};
 				},
 
@@ -5112,7 +5219,11 @@
 				},
 
 				formatMoveText: function(face, pow) {
-					return face + (Math.abs(pow) === 2 ? "2" : pow < 0 ? "'" : "");
+					if (!face) return "";
+					var abs = Math.abs(pow);
+					if (abs === 0 || abs === 4) return "";
+					var suffix = abs === 1 ? "" : String(abs);
+					return face + (pow < 0 ? "'" : "") + suffix;
 				},
 
 				identityMatrix: function() {

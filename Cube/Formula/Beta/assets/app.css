@@ -1,4 +1,4 @@
-﻿		:root[data-theme="light"] {
+		:root[data-theme="light"] {
 			color-scheme: light;
 			--bg: #f6f7fb;
 			--surface: rgba(255, 255, 255, 0.9);
@@ -4075,6 +4075,47 @@
 	stroke-linejoin: round;
 }
 
+.keyboardControlRow {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 7px;
+	justify-content: center;
+}
+.keyBackspace,
+.keyShiftIcon {
+	width: var(--keyboard-key-size);
+	height: var(--keyboard-key-size);
+	min-width: var(--keyboard-key-size);
+	min-height: var(--keyboard-key-size);
+	padding: 0;
+	border: 1px solid var(--controlBorder);
+	border-radius: 8px;
+	background: var(--controlBg);
+	color: var(--controlText);
+	cursor: pointer;
+	transition: transform 0.12s ease, border-color 0.14s ease, color 0.14s ease, background 0.22s ease;
+}
+.keyBackspace:hover,
+.keyBackspace:focus-visible,
+.keyShiftIcon:hover,
+.keyShiftIcon:focus-visible {
+	border-color: rgba(36, 240, 234, 0.7);
+	background: var(--controlHoverBg);
+	transform: translateY(-1px);
+}
+.keyShiftIcon.isActive {
+	border-color: color-mix(in srgb, var(--accent) 72%, var(--controlBorder));
+	background: var(--controlHoverBg);
+	color: var(--accent);
+}
+.keyBackspace svg,
+.keyShiftIcon svg {
+	width: 22px;
+	height: 22px;
+	color: currentColor;
+	pointer-events: none;
+}
+
 .keyDrawer {
 	position: fixed;
 	left: 0;
@@ -4154,13 +4195,16 @@
 .keyBody > .viewSec { flex: 0 0 auto; margin: 0; padding: 8px 10px 10px; border: 0; background: transparent; box-shadow: none; }
 .keyDrawer .moves { display: flex; width: min(100%, 720px); margin: 0 auto; flex-direction: column; gap: 7px; }
 .keyboardExtraMoves,
-.keyboardRotationMoves { display: grid; gap: 7px; }
+.keyboardRotationMoves,
+.keyboardControlRow { display: grid; gap: 7px; }
 .keyDrawer:not(.isLarge) .keyboardExtraMoves { display: none; }
 .keyDrawer.isPreviewLarge .keyboardExtraMoves { display: grid; }
 .keyboardExtraMoves,
-.keyboardRotationMoves { align-items: stretch; }
+.keyboardRotationMoves,
+.keyboardControlRow { align-items: stretch; }
 .keyboardExtraMoves { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .keyboardRotationMoves { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.keyboardControlRow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .keyDrawer .moveButton {
 	width: 100%;
 	min-width: 0;
@@ -4168,6 +4212,9 @@
 	height: auto;
 	aspect-ratio: 1;
 	box-sizing: border-box;
+}
+.keyDrawer .keyboardControlRow .moveButton {
+	aspect-ratio: auto;
 }
 .keyDrawer .moveButton.rotation {
 	background: var(--rotationBg);
@@ -4230,6 +4277,14 @@
 		min-height: var(--keyboard-key-size);
 		border-radius: 8px;
 		font-size: 14px;
+	}
+	.keyboardControlRow {
+		grid-template-rows: repeat(2, var(--keyboard-key-size));
+		grid-template-columns: var(--keyboard-key-size);
+		justify-content: flex-end;
+		width: var(--keyboard-key-size);
+		flex: 0 0 var(--keyboard-key-size);
+		gap: 7px;
 	}
 }
 

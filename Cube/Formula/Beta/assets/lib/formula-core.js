@@ -18,8 +18,10 @@
 	}
 
 	function canonicalFace(face) {
-		face = String(face || "").toUpperCase();
-		return /[XYZ]/.test(face) ? face.toLowerCase() : face;
+		face = String(face || "");
+		if (/[xyz]/i.test(face)) return face.toLowerCase();
+		if (/[urfdlb]/.test(face)) return face; // 保留小写双层转动
+		return face.toUpperCase();
 	}
 
 	function suffixText(prime, count) {
@@ -34,6 +36,10 @@
 			if (PRIME_RE.test(ch)) {
 				if (prime) throw new Error("重复的逆向标记，位置 " + state.index);
 				prime = true;
+				state.index++;
+				continue;
+			}
+			if (ch === "*") {
 				state.index++;
 				continue;
 			}
@@ -72,14 +78,14 @@
 				}
 				if (ch === ")" || ch === "]") throw new Error("不匹配的右括号，位置 " + state.index);
 				if (OPEN[ch]) {
-					var groupOpen = ch;
-					state.index++;
-					var children = parseSequence(OPEN[groupOpen]);
-					if (!children.length) throw new Error("空公式组，位置 " + state.index);
-					var groupSuffix = readSuffix(source, state);
-					nodes.push({ type: "group", nodes: children, prime: groupSuffix.prime, count: groupSuffix.count });
-					continue;
-				}
+				var groupOpen = ch;
+				state.index++;
+				var children = parseSequence(OPEN[groupOpen]);
+				var groupSuffix = readSuffix(source, state);
+				if (!children.length) continue; // 忽略空公式组 [] / []'
+				nodes.push({ type: "group", nodes: children, prime: groupSuffix.prime, count: groupSuffix.count });
+				continue;
+			}
 				if (!MOVE_RE.test(ch)) throw new Error("无法识别的公式片段，位置 " + state.index + ": " + ch);
 				state.index++;
 				var moveSuffix = readSuffix(source, state);
@@ -143,10 +149,10 @@
 	function reduceMoves(tokens) {
 		var stack = [];
 		(tokens || []).forEach(function(raw) {
-			var match = /^([URFDLBMES]|[xyz])([2']?)$/i.exec(String(raw || "").replace(/[’‘`´]/g, "'"));
+			var match = /^([URFDLBMES]|[xyz])([2'3]?)$/i.exec(String(raw || "").replace(/[’‘`´]/g, "'"));
 			if (!match) return;
 			var face = canonicalFace(match[1]);
-			var delta = match[2] === "2" ? 2 : match[2] === "'" ? -1 : 1;
+			var delta = match[2] === "2" ? 2 : match[2] === "3" ? 3 : match[2] === "'" ? -1 : 1;
 			var last = stack[stack.length - 1];
 			if (last && last.face === face) {
 				last.pow = (last.pow + delta + 8) % 4;
