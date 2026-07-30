@@ -4943,6 +4943,9 @@
 						this.pushHistory(move.text, source, timestamp);
 						this.log("move", move.text + (source ? " · " + source : ""));
 					}
+					if (!options.noHistory) {
+						this.pushManualMoveHistory(move);
+					}
 					this.recordSolveMove(move, source, options);
 					return move;
 				},
@@ -4990,7 +4993,9 @@
 						this.pushHistory(move.text, source, timestamp);
 						this.log("move", move.text + (source ? " · " + source : ""));
 					}
-					this.pushManualMoveHistory(move);
+					if (!options.noHistory) {
+						this.pushManualMoveHistory(move);
+					}
 					this.recordSolveMove(move, source, options);
 					return move;
 				},
@@ -5029,12 +5034,24 @@
 				},
 
 				playLastMoveInverse: function(source) {
-					var last = this.popManualMoveHistory();
-					if (!last) {
-						return;
-					}
-					this.playMove(this.invertFormulaToken(last), source || "manual", Date.now(), { noHistory: true });
-				},
+				var last = this.popManualMoveHistory();
+				if (!last) {
+					return;
+				}
+				var inverse = this.invertFormulaToken(last);
+				if (!inverse) {
+					return;
+				}
+				if (this.moveHistory.length) {
+					this.moveHistory.shift();
+				}
+				this.renderMoves();
+				if (this.moveCount > 0) {
+					this.moveCount -= 1;
+					this.elements.moveCount.textContent = String(this.moveCount);
+				}
+				this.playMove(inverse, source || "manual", Date.now(), { noHistory: true, noCount: true });
+			},
 
 				normalizeMove: function(rawMove) {
 					if (!rawMove) {
