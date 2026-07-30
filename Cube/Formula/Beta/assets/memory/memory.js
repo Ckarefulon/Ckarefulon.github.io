@@ -1558,7 +1558,6 @@
 			var sl = lib();
 			sl.formulas = kept;
 			sl.allFormulas = allFormulas.slice();
-			sl.planText = formulasToPlanText(allFormulas);
 			sl.queue = [];
 			sl.todayQueue = [];
 			sl.undoStack = [];
@@ -2039,11 +2038,6 @@ window.applyMemoryPlan = function(selectedFormulas, allFormulas) {
 	if (!l) return;
 	l.formulas = selectedFormulas.slice();
 	l.allFormulas = allFormulas.slice();
-	l.planText = allFormulas.map(function(f) {
-		var alg = f.alg || f.formula || '';
-		if (!alg.endsWith(';')) { alg += ';'; }
-		return f.name + ': ' + alg;
-	}).join('\n');
 	l.queue = [];
 	l.todayQueue = [];
 	l.undoStack = [];

@@ -153,6 +153,11 @@
 					if (planTextarea && activeEl !== planTextarea) planTextarea.value = this.formulaInputText;
 					this.renderGroupPicker();
 					this.updateSyncButton();
+					if (this.elements.planBox && this.elements.planBox.classList.contains("isOpen")) {
+						this.loadPlanSelectionState();
+						this.renderPlanFormulaList();
+						this.syncPlanTextarea();
+					}
 					this.formulaSolveTimes = this.getPracticeData().solveTimes;
 					this.syncFormulaState();
 					this.applyGroupMaskToCube();
@@ -3093,7 +3098,13 @@
 
 				switchPlanView: function(textView) {
 					var self = this;
+					var wasTextView = this._planTextView;
 					this._planTextView = !!textView;
+					if (wasTextView && !this._planTextView && typeof this.setActiveGroupPlanText === 'function') {
+						var text = this.elements.planTextarea ? this.elements.planTextarea.value : this.formulaInputText;
+						this.formulaInputText = text;
+						this.setActiveGroupPlanText(text, true);
+					}
 					if (this.elements.planContentArea) {
 						this.elements.planContentArea.classList.toggle("isTextView", this._planTextView);
 					}
@@ -3112,6 +3123,9 @@
 						setTimeout(function() {
 							if (self.elements.planTextarea) self.elements.planTextarea.focus();
 						}, 320);
+					} else if (!this._planTextView) {
+						this.loadPlanSelectionState();
+						this.renderPlanFormulaList();
 					}
 				},
 
@@ -3154,11 +3168,6 @@
 						var saved = typeof this.getTrainingSelectedFormulaIds === 'function' ? this.getTrainingSelectedFormulaIds() : {};
 						allFormulas.forEach(function(f) {
 							this._planSelectedIds[f.id] = saved[f.id] === true;
-						}, this);
-					}
-					if (Object.keys(this._planSelectedIds).length === 0 && allFormulas.length > 0) {
-						allFormulas.forEach(function(f) {
-							this._planSelectedIds[f.id] = true;
 						}, this);
 					}
 				},
@@ -3220,28 +3229,18 @@
 						syncEnabled = this.getSyncEnabled();
 					}
 					var text = this.elements.planTextarea ? this.elements.planTextarea.value : this.formulaInputText;
-					if (text !== this.formulaInputText) {
+					if (text !== this.formulaInputText || this._planTextView) {
 						this.formulaInputText = text;
 						if (typeof this.setActiveGroupPlanText === 'function') {
-							this.setActiveGroupPlanText(text);
+							this.setActiveGroupPlanText(text, true);
 						} else {
 							this.saveFormulaInputText();
-							this.importFormulaText(text, "manual");
 						}
-						this.closePlanPanel();
-						if (this.isMemoryMode && typeof window.startMemoryMode === 'function') {
-							window.startMemoryMode();
-						} else if (this.isPracticeMode) {
-							this.syncGroupFormulas();
-							this.importedFormulas = this.formulaInputEntries;
-							this.formulaImported = this.formulaInputEntries.length > 0;
-							this.randomBag = [];
-							this.showNextState();
-						}
+						this.switchPlanView(false);
 						this.showToast("公式已保存");
 						return;
 					}
-					var selected = allFormulas.filter(function(f) {
+				var selected = allFormulas.filter(function(f) {
 						return this._planSelectedIds[f.id];
 					}, this);
 					var daily = this.elements.planDailyCount ? Math.max(1, Math.min(999, Math.round(Number(this.elements.planDailyCount.value) || 10))) : 10;

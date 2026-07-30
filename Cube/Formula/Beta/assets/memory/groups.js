@@ -79,7 +79,7 @@ app.getFormulaGroups = function() {
 		return l ? String(l.planText || "") : "";
 	};
 
-	app.setActiveGroupPlanText = function(text) {
+	app.setActiveGroupPlanText = function(text, silent) {
 		var l = lib();
 		if (!l) return;
 		var newText = String(text || "");
@@ -90,10 +90,10 @@ app.getFormulaGroups = function() {
 			l.queue = [];
 			l.todayQueue = [];
 		} else {
-			app._parseAndUpdateFormulas(l, newText);
+			app._parseAndUpdateFormulas(l, newText, silent);
 		}
 		saveData();
-		app._notifyActiveGroupChanged();
+		if (!silent) app._notifyActiveGroupChanged();
 	};
 
 	app.setActiveGroupPlanTextQuiet = function(text) {
@@ -182,7 +182,7 @@ app.getFormulaGroups = function() {
 		return false;
 	};
 
-	app._parseAndUpdateFormulas = function(g, newText) {
+	app._parseAndUpdateFormulas = function(g, newText, keepSelection) {
 		if (!newText.trim()) {
 			g.formulas = [];
 			g.allFormulas = [];
@@ -193,10 +193,10 @@ app.getFormulaGroups = function() {
 		if (typeof app.parseFormulaDefs !== "function") return;
 		var parsed = app.parseFormulaDefs(newText);
 		if (!parsed.formulas.length) return;
-		app._replaceFormulas(g, parsed.formulas);
+		app._replaceFormulas(g, parsed.formulas, keepSelection);
 	};
 
-	app._replaceFormulas = function(g, parsedFormulas) {
+	app._replaceFormulas = function(g, parsedFormulas, keepSelection) {
 		var previous = (g.allFormulas || g.formulas || []).slice();
 		function findPrevState(state) {
 			var normalized = String(state.alg || "").replace(/\s+/g, "").toUpperCase();
@@ -225,13 +225,8 @@ app.getFormulaGroups = function() {
 				customSolvedState: customSolvedState
 			};
 		});
-		g.formulas = formulas;
+		g.formulas = keepSelection ? (g.formulas || []) : formulas;
 		g.allFormulas = formulas.slice();
-		g.planText = formulas.map(function(f) {
-			var alg = f.alg || f.formula || '';
-			if (!alg.endsWith(';')) { alg += ';'; }
-			return f.name + ': ' + alg;
-		}).join('\n');
 		g.queue = [];
 		g.todayQueue = [];
 		g.undoStack = [];
@@ -284,11 +279,6 @@ app.getFormulaGroups = function() {
 		if (!l) return;
 		l.formulas = selectedFormulas || [];
 		l.allFormulas = allFormulas || selectedFormulas || [];
-		l.planText = (allFormulas || selectedFormulas || []).map(function(f) {
-			var alg = f.alg || f.formula || '';
-			if (!alg.endsWith(';')) { alg += ';'; }
-			return f.name + ': ' + alg;
-		}).join('\n');
 		l.queue = [];
 		l.todayQueue = [];
 		l.undoStack = [];
