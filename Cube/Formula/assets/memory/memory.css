@@ -39,7 +39,6 @@
 	transition: transform 0.16s ease, border-color 0.16s ease, background 0.22s ease, box-shadow 0.16s ease;
 }
 
-.memoryLibrarySelector:hover,
 .memoryLibrarySelector.isOpen {
 	border-color: rgba(93, 78, 168, 0.45);
 	background: var(--surfaceSolid);
@@ -69,7 +68,6 @@
 	transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
 }
 
-.memoryLibraryCurrent:hover,
 .memoryLibraryCurrent:focus-visible {
 	background: var(--controlHoverBg);
 	color: var(--controlText);
@@ -157,7 +155,6 @@
 	border-radius: 0 0 7px 7px;
 }
 
-.memoryLibraryOption:hover,
 .memoryLibraryOption:focus-visible {
 	background: var(--controlHoverBg);
 	color: var(--controlText);
@@ -244,11 +241,6 @@
 	transition: border-color 0.15s ease, background 0.2s ease;
 }
 
-.memoryLibraryIconBtn:hover {
-	border-color: var(--cyan);
-	background: var(--controlHoverBg);
-}
-
 .memoryDailyInput {
 	width: 68px;
 	min-height: 32px;
@@ -296,10 +288,6 @@
 	cursor: pointer;
 }
 
-.memoryBack:hover {
-	border-color: #24f0ea;
-}
-
 .memoryBackChevron {
 	display: inline-block;
 	width: 8px;
@@ -324,10 +312,6 @@
 	background: var(--controlBg);
 	color: var(--controlText);
 	cursor: pointer;
-}
-
-.memoryFullscreen:hover {
-	border-color: #24f0ea;
 }
 
 .memoryFullscreenIcon {
@@ -371,11 +355,6 @@
 	font-size: 17px;
 	font-weight: 700;
 	line-height: 1.7;
-}
-
-.memoryPrompt:hover,
-.memoryPrompt:focus-visible {
-	border-color: #24f0ea;
 }
 
 .memoryAnswer {
@@ -486,18 +465,6 @@
 
 .reviewArea:has(.reviewHistory.isHidden) {
 	grid-template-rows: minmax(0, 1fr);
-}
-
-.reviewHistoryTitle {
-	position: sticky;
-	top: -10px;
-	z-index: 1;
-	margin: -2px 0 8px;
-	padding: 2px 0 5px;
-	background: var(--surfaceSolid);
-	color: var(--muted);
-	font-size: 11px;
-	font-weight: 700;
 }
 
 .memoryDayList {

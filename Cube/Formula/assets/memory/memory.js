@@ -852,7 +852,7 @@
 		var overdue = scheduled && scheduled < today ? daysBetween(scheduled, today) : 0;
 		var statusLabel = overdue ? '逾期' + overdue + '天' : (isNewFormula(memory.currentFormula.id) ? '新学' : '复习');
 		blocks.push('<div class="memoryDay isStatus' + (overdue ? ' isOverdue' : '') + '" style="--dayColor:#5d4ea8"><strong>Day' + currentDay + '</strong><span>' + app.escapeHtml(statusLabel) + '</span></div>');
-		container.innerHTML = '<div class="reviewHistoryTitle">历史</div><div class="memoryDayList">' + blocks.join("") + '</div>';
+		container.innerHTML = '<div class="memoryDayList">' + blocks.join("") + '</div>';
 		requestAnimationFrame(function() {
 			container.scrollTop = container.scrollHeight;
 		});

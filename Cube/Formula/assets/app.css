@@ -804,13 +804,6 @@
 			font-weight: 700;
 		}
 
-		.button:hover {
-			transform: translateY(-1px);
-			border-color: var(--cyan);
-			background: var(--primaryHoverBg);
-			box-shadow: 0 0 0 3px rgba(36, 240, 234, 0.10);
-		}
-
 		.button:disabled {
 			cursor: progress;
 			opacity: 0.68;
@@ -821,12 +814,6 @@
 			background: var(--controlBg);
 			color: var(--controlText);
 			border-color: var(--controlBorder);
-		}
-
-		.button.secondary:hover {
-			border-color: var(--cyan);
-			background: var(--controlHoverBg);
-			box-shadow: inset 0 0 0 1px rgba(36, 240, 234, 0.08);
 		}
 
 		.button.small {
@@ -1424,18 +1411,8 @@
 		.formulaIconButton {
 			border-width: 0 1px 0 0;
 			border-radius: 8px 0 0 8px;
-			background: transparent;
-		}
-
-		.formulaIconButton:hover,
-		.formulaAddButton:hover,
-		.formulaDragHandle:hover,
-		.formulaDeleteButton:hover {
-			border-color: var(--cyan);
-			background: var(--controlHoverBg);
-			box-shadow: inset 0 0 0 1px rgba(36, 240, 234, 0.08);
-			transform: translateY(-1px);
-		}
+		background: transparent;
+	}
 
 		.formulaIconButton:disabled {
 			cursor: default;
@@ -2390,10 +2367,10 @@
 			display: flex; align-items: center; justify-content: center; gap: 10px;
 			font-size: 12px; font-weight: 800; transition: color .16s ease, background .16s ease;
 		}
-		.modeNavBtn:hover,
-		.modeNavBtn:focus-visible { background: var(--controlHoverBg); color: var(--ink); }
 		.modeNavBtn.isActive { color: var(--accent); background: var(--accentSoft); box-shadow: inset -3px 0 0 var(--cyan); }
 		.modeNavBtn .modeIcon { width: 28px; height: 28px; flex: 0 0 auto; }
+		/* 侧边栏横向排布：图标在左、文字在右，垂直居中对齐 */
+		.sideNav .modeNavBtn { flex-direction: row; }
 		.sideNav .navLabel { overflow: hidden; white-space: nowrap; }
 		.operationChevron {
 			display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 auto;
@@ -2526,31 +2503,31 @@
 			box-shadow: 0 0 0 1px rgba(36, 240, 234, .35), 0 6px 16px rgba(93, 78, 168, .18);
 		}
 		.operationChevron {
-			position: relative;
-			width: 44px;
-			height: 44px;
-			padding: 0;
-			border: 1px solid rgba(255,255,255,.22);
-			border-radius: 50%;
-			background: linear-gradient(145deg, #7163c7, #514598);
-			box-shadow: 0 8px 18px rgba(50, 40, 112, .28);
-			font-size: 0;
-			letter-spacing: 0;
-			transition: transform .18s ease, box-shadow .18s ease;
-		}
-		.operationChevron::before,
-		.operationChevron::after {
-			content: "";
-			position: absolute;
-			left: 17px;
-			width: 8px;
-			height: 8px;
-			border-right: 2px solid #fff;
-			border-bottom: 2px solid #fff;
-			transform: rotate(-135deg);
-		}
-		.operationChevron::before { top: 13px; }
-		.operationChevron::after { top: 20px; }
+		position: relative;
+		width: 44px;
+		height: 44px;
+		padding: 0;
+		border: 1px solid rgba(255,255,255,.22);
+		border-radius: 50%;
+		background: linear-gradient(145deg, #7163c7, #514598);
+		box-shadow: 0 8px 18px rgba(50, 40, 112, .28);
+		font-size: 0;
+		letter-spacing: 0;
+		transition: transform .18s ease, box-shadow .18s ease;
+	}
+	.operationChevron::before,
+	.operationChevron::after {
+		content: "";
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: 8px;
+		height: 8px;
+		border-right: 2px solid #fff;
+		border-bottom: 2px solid #fff;
+	}
+	.operationChevron::before { transform: translate(-50%, calc(-50% - 4px)) rotate(-135deg); }
+	.operationChevron::after { transform: translate(-50%, calc(-50% + 4px)) rotate(-135deg); }
 		.operationNavButton[aria-expanded="true"] .operationChevron {
 			box-shadow: 0 0 0 4px var(--accentSoft), 0 8px 18px rgba(50, 40, 112, .28);
 		}
@@ -2652,6 +2629,11 @@
 				box-shadow: 16px 0 42px rgba(0, 0, 0, .18);
 			}
 			body.railOpen .sideNav { transform: translateX(0); }
+			/* 侧边栏抽屉里的圆形双箭头垂直居中 */
+			.sideNav .operationChevron::before,
+			.sideNav .operationChevron::after { top: 50%; }
+			.sideNav .operationChevron::before { left: 50%; transform: translate(-50%, -100%) rotate(-135deg); }
+			.sideNav .operationChevron::after { left: 50%; transform: translate(-50%, 0) rotate(-135deg); }
 			.panelDrawer { max-height: min(86dvh, 760px); }
 		}
 		@media (orientation: landscape) {
@@ -2700,8 +2682,8 @@
 		.practiceView .stateCard strong,.practiceView .stateCard .stateName { width:100%; text-align:center; }
 		.operationChevron { display:grid; place-items:center; }
 		.operationChevron::before,.operationChevron::after { left:50%; top:50%; width:8px; height:8px; }
-		.operationChevron::before { transform:translate(-50%,-82%) rotate(-135deg); }
-		.operationChevron::after { transform:translate(-50%,-8%) rotate(-135deg); }
+		.operationChevron::before { transform:translate(-50%, calc(-50% - 4px)) rotate(-135deg); }
+	.operationChevron::after { transform:translate(-50%, calc(-50% + 4px)) rotate(-135deg); }
 		.sideNav .operationChevron::before,.sideNav .operationChevron::after { top:50%; }
 		.sideNav .operationChevron::before { left:50%; transform:translate(-82%,-50%) rotate(-45deg); }
 		.sideNav .operationChevron::after { left:50%; transform:translate(-8%,-50%) rotate(-45deg); }
@@ -2776,9 +2758,9 @@
 		.memoryView { overflow:hidden; }
 		.memoryView > .reviewArea {
 			display:grid; flex:1 1 auto; min-height:0; overflow:hidden;
-			grid-template-rows:auto minmax(0,1fr);
+			grid-template-rows: minmax(0, 1fr) minmax(72px, 24%);
 		}
-		.memoryView .memoryCurrent { min-height:0; overflow:hidden; }
+		.memoryView .memoryCurrent { min-height:0; overflow-y:auto; overscroll-behavior:contain; }
 		.memoryView .reviewHistory { min-height:0; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; }
 		.operationChevron::before { transform:translate(-50%,-100%) rotate(-135deg); }
 		.operationChevron::after { transform:translate(-50%,0) rotate(-135deg); }
@@ -2802,22 +2784,11 @@
 			box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 			transition: border-color 0.16s ease, color 0.16s ease, background 0.22s ease, transform 0.16s ease, box-shadow 0.16s ease;
 		}
-		.panelHead .seamlessToggle:hover {
-			border-color: rgba(36, 240, 234, 0.7);
-			color: var(--accent);
-			transform: translateY(-1px);
-			background: var(--panel);
-			box-shadow: 0 2px 6px rgba(36, 240, 234, 0.20);
-		}
 		.panelHead .seamlessToggle.isActive {
 			border-color: var(--accent);
 			background: var(--accent);
 			color: #ffffff;
 			box-shadow: 0 2px 8px rgba(93, 78, 168, 0.40);
-		}
-		.panelHead .seamlessToggle.isActive:hover {
-			color: #ffffff;
-			background: var(--accent);
 		}
 		.panelHead .seamlessToggle .toggleSwitch,
 		.panelHead .seamlessToggle .toggleLabel {
@@ -2825,9 +2796,6 @@
 		}
 		.panelHead .seamlessToggle::after {
 			content: "无缝";
-		}
-		:root[data-theme="dark"] .panelHead .seamlessToggle:not(.isActive):hover {
-			color: var(--controlText);
 		}
 		.visuallyHidden { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; padding:0; margin:-1px; }
 		.panelHead .connectPill {
@@ -2848,35 +2816,17 @@
 			box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 			transition: border-color 0.16s ease, color 0.16s ease, background 0.22s ease, transform 0.16s ease, box-shadow 0.16s ease;
 		}
-		.panelHead .connectPill:hover {
-			border-color: var(--accent);
-			color: var(--accent);
-			transform: translateY(-1px);
-			background: rgba(93, 78, 168, 0.10);
-			box-shadow: 0 2px 6px rgba(93, 78, 168, 0.18);
-		}
 		.panelHead .connectPill.isActive {
 			border-color: var(--cyan);
 			background: transparent;
 			color: var(--cyan);
 			box-shadow: 0 2px 8px rgba(36, 240, 234, 0.28);
 		}
-		.panelHead .connectPill.isActive:hover {
-			color: var(--cyan);
-			background: rgba(36, 240, 234, 0.10);
-		}
 		.panelHead .connectPill[data-state="error"] {
 			border-color: var(--red);
 			background: transparent;
 			color: var(--red);
 			box-shadow: 0 2px 8px rgba(232, 93, 106, 0.28);
-		}
-		.panelHead .connectPill[data-state="error"]:hover {
-			color: var(--red);
-			background: rgba(232, 93, 106, 0.10);
-		}
-		:root[data-theme="dark"] .panelHead .connectPill:not(.isActive):not([data-state="error"]):hover {
-			color: var(--controlText);
 		}
 		.panelDrawer .actionSectionHeading,
 		.panelDrawer .opGroupTitle,
@@ -2925,6 +2875,7 @@
 			.bottomNav .operationChevron::before,
 			.bottomNav .operationChevron::after {
 				left: 50%;
+				top: 50%;
 				width: 7px;
 				height: 7px;
 			}
@@ -3102,14 +3053,15 @@
 			.libraryView .libraryItem { border-radius: 12px; }
 			.libraryView .libraryHeader { min-height: 44px; padding: 10px 12px; }
 			/* Formula panel */
-			.makerView .draftList {
-				min-height: 0;
-				flex: 1 1 auto;
-				overflow-y: auto;
-				overscroll-behavior: contain;
-				-webkit-overflow-scrolling: touch;
-				scrollbar-width: none;
-			}
+		.makerView .draftList {
+			min-height: 0;
+			flex: 1 1 auto;
+			overflow-y: auto;
+			overscroll-behavior: contain;
+			-webkit-overflow-scrolling: touch;
+			scrollbar-width: none;
+			align-content: start;
+		}
 			.makerView .draftList::-webkit-scrollbar { display: none; }
 			.makerView .formulaRow { gap: 8px; }
 			.makerView .formulaNameInput,
@@ -3373,7 +3325,6 @@
 				box-shadow: 0 4px 16px rgba(20, 20, 36, .055);
 			}
 			.memoryView .reviewHistory { padding: 10px 12px; }
-			.memoryView .reviewHistoryTitle { background: transparent; }
 			.bottomNav {
 				min-height: 60px;
 				padding-bottom: max(4px, env(safe-area-inset-bottom));
@@ -3534,8 +3485,8 @@
 .modeOpsBody {
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
-	padding: 16px 16px max(24px, env(safe-area-inset-bottom));
+	gap: 10px;
+	padding: 14px 16px max(20px, env(safe-area-inset-bottom));
 }
 .panelDrawer .opGroup {
 	margin: 0;

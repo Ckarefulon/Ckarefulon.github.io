@@ -692,6 +692,26 @@
 			};
 		}
 
+		var seamlessMode = false;
+
+		function toggleSeamlessMode(twisty, enable) {
+			if (seamlessMode === enable) {
+				return;
+			}
+			seamlessMode = enable;
+			var state = twisty.cubePieces;
+			var scaleFactor = enable ? 2 / cubeOptions.stickerWidth : 1;
+			for (var faceIndex = 0; faceIndex < numSides; faceIndex++) {
+				var faceStickers = state[faceIndex];
+				for (var stickerIndex = 0; stickerIndex < faceStickers.length; stickerIndex++) {
+					var sticker = faceStickers[stickerIndex][1];
+					var mesh = sticker.children[0];
+					mesh.scale.x = enable ? scaleFactor : 1;
+					mesh.scale.y = enable ? scaleFactor : 1;
+				}
+			}
+		}
+
 		return {
 			type: twistyParameters,
 			options: cubeOptions,
@@ -701,6 +721,7 @@
 			animateMoveCallback: animateMoveCallback,
 			advanceMoveCallback: advanceMoveCallback,
 			toggleColorVisible: toggleColorVisible,
+			toggleSeamlessMode: toggleSeamlessMode,
 			keydownCallback: keydownCallback,
 			getRaycastMoves: getRaycastMoves,
 			getTouchMoves: getTouchMoves,

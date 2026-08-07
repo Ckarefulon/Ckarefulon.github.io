@@ -97,6 +97,7 @@ window.twistyjs = (function() {
 		var baseCameraUp = null;
 		var cameraDragTheta = 0;
 		var cameraDragPhi = 0;
+		var viewDragClamped = true;
 		var viewAnimationLoop = null;
 
 		/*
@@ -475,9 +476,14 @@ window.twistyjs = (function() {
 			animateCameraRotation(axes[axis], pow * Math.TAU / 4);
 		}
 
-		this.setViewDrag = function(deltaTheta, deltaPhi) {
-			setViewDrag(deltaTheta || 0, deltaPhi || 0);
-		}
+	this.setViewDrag = function(deltaTheta, deltaPhi) {
+		setViewDrag(deltaTheta || 0, deltaPhi || 0);
+	}
+
+	// 缩略图等场景可关闭 45° 旋转限制；主魔方保持默认限制不变。
+	this.setViewDragClamped = function(clamped) {
+		viewDragClamped = clamped !== false;
+	}
 
 		this.getViewState = function() {
 			ensureCameraVectors();
@@ -550,11 +556,13 @@ window.twistyjs = (function() {
 		}
 
 		function setViewDrag(deltaTheta, deltaPhi) {
-			var maxAngle = Math.TAU / 8;
-			var length = Math.sqrt(deltaTheta * deltaTheta + deltaPhi * deltaPhi);
-			if (length > maxAngle) {
-				deltaTheta = deltaTheta / length * maxAngle;
-				deltaPhi = deltaPhi / length * maxAngle;
+			if (viewDragClamped) {
+				var maxAngle = Math.TAU / 8;
+				var length = Math.sqrt(deltaTheta * deltaTheta + deltaPhi * deltaPhi);
+				if (length > maxAngle) {
+					deltaTheta = deltaTheta / length * maxAngle;
+					deltaPhi = deltaPhi / length * maxAngle;
+				}
 			}
 			cameraDragTheta = deltaTheta;
 			cameraDragPhi = deltaPhi;
