@@ -355,6 +355,13 @@ body {
 	display: none;
 }
 
+/* 游客头像（无登录的页面） */
+.siteGuestAvatar {
+	background: var(--muted);
+	opacity: 0.75;
+	cursor: default;
+}
+
 /* 账号菜单 */
 .accountMenu {
 	position: absolute;

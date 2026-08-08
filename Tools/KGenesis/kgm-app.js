@@ -1,202 +1,333 @@
 (function(){
-  const fileInput = document.getElementById('fileInput');
-  const dropZone = document.getElementById('dropZone');
-  const queue = document.getElementById('queue');
-  const fileList = document.getElementById('fileList');
-  const queueTitle = document.getElementById('queueTitle');
-  const convertBtn = document.getElementById('convertBtn');
-  const downloadAllBtn = document.getElementById('downloadAllBtn');
-  const clearBtn = document.getElementById('clearBtn');
-  let files = [];
-  let results = new Map();
-  let converting = false;
+	const fileInput = document.getElementById('fileInput');
+	const dropZone = document.getElementById('dropZone');
+	const queue = document.getElementById('queue');
+	const fileList = document.getElementById('fileList');
+	const queueTitle = document.getElementById('queueTitle');
+	const convertBtn = document.getElementById('convertBtn');
+	const downloadAllBtn = document.getElementById('downloadAllBtn');
+	const zipDownloadBtn = document.getElementById('zipDownloadBtn');
+	const clearBtn = document.getElementById('clearBtn');
+	const toastEl = document.getElementById('kgToast');
+	let files = [];
+	let results = new Map();
+	let converting = false;
 
-  const iconMap = {
-    'kgm': '\uD83D\uDD12',
-    'kgma': '\uD83D\uDD12',
-    'flac': '\uD83C\uDFB5',
-    'mp3': '\uD83C\uDFB5',
-    'default': '\uD83D\uDCC4'
-  };
+	const iconMap = {
+		'kgm': '\uD83D\uDD12',
+		'kgma': '\uD83D\uDD12',
+		'flac': '\uD83C\uDFB5',
+		'mp3': '\uD83C\uDFB5',
+		'default': '\uD83D\uDCC4'
+	};
 
-  function getIcon(filename) {
-    const lower = filename.toLowerCase();
-    const layer = window.__KGM && __KGM.detectEncryptionLayer(filename);
-    if (layer) return iconMap[layer];
-    if (lower.endsWith('.flac')) return iconMap.flac;
-    if (lower.endsWith('.mp3')) return iconMap.mp3;
-    return iconMap.default;
-  }
+	const svgConvert = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>';
+	const svgDownload = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+	const svgDelete = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
 
-  function formatBytes(bytes) {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  }
+	function showToast(message, type) {
+		if (!toastEl) return;
+		toastEl.textContent = message;
+		toastEl.className = 'kgToast' + (type ? ' is' + type.charAt(0).toUpperCase() + type.slice(1) : '');
+		requestAnimationFrame(() => { toastEl.classList.add('isVisible'); });
+		setTimeout(() => { toastEl.classList.remove('isVisible'); }, 3000);
+	}
 
-  function escapeHtml(value) {
-    return String(value).replace(/[&<>"']/g, char => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    })[char]);
-  }
+	function getIcon(filename) {
+		const lower = filename.toLowerCase();
+		const layer = window.__KGM && __KGM.detectEncryptionLayer(filename);
+		if (layer) return iconMap[layer];
+		if (lower.endsWith('.flac')) return iconMap.flac;
+		if (lower.endsWith('.mp3')) return iconMap.mp3;
+		return iconMap.default;
+	}
 
-  function addFiles(newFiles) {
-    const arr = Array.from(newFiles);
-    arr.forEach((file, i) => {
-      const idx = files.length;
-      files.push({ file, idx });
-      results.delete(idx);
-    });
-    renderQueue();
-  }
+	function formatBytes(bytes) {
+		if (bytes < 1024) return bytes + ' B';
+		if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+		return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+	}
 
-  function renderQueue() {
-    if (files.length === 0) {
-      queue.style.display = 'none';
-      return;
-    }
-    queue.style.display = 'block';
-    queueTitle.textContent = files.length + ' 个文件';
-    fileList.innerHTML = '';
-    files.forEach(({ file, idx }) => {
-      const layer = __KGM.detectEncryptionLayer(file.name);
-      const isMp3 = __KGM.isMp3(file.name);
-      const result = results.get(idx);
-      const hasError = Boolean(result && result.error);
-      const item = document.createElement('div');
-      item.className = 'file-item';
-      item.innerHTML = `
-        <span class="file-icon">${getIcon(file.name)}</span>
-        <div class="file-info">
-          <div class="file-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</div>
-          <div class="file-meta">${formatBytes(file.size)}${layer ? ' · ' + layer.toUpperCase() : ''}${isMp3 && !layer ? ' · MP3 直出' : ''}</div>
-          ${result ? (result.done
-            ? `<div class="file-meta" style="color:var(--green)">✓ ${escapeHtml(result.name)}</div>`
-            : hasError ? `<div class="file-meta" style="color:var(--red)">✗ ${escapeHtml(result.error)}</div>` : '')
-            : ''}
-          <div class="progress-bar" style="display:${result && !result.done && !hasError ? 'block' : 'none'}">
-            <div class="progress-fill" style="width:${result ? result.progress : 0}%"></div>
-          </div>
-        </div>
-        <span class="file-status ${result ? (result.done ? 'status-done' : hasError ? 'status-error' : 'status-running') : 'status-pending'}">
-          ${result ? (result.done ? '完成' : hasError ? '失败' : '处理中') : '等待'}
-        </span>
-      `;
-      fileList.appendChild(item);
-    });
-    const pending = files.some(({ idx }) => {
-      const result = results.get(idx);
-      return !result || Boolean(result.error);
-    });
-    const hasDownload = files.some(({ idx }) => {
-      const result = results.get(idx);
-      return Boolean(result && result.done && result.blob);
-    });
-    convertBtn.disabled = converting || !pending;
-    downloadAllBtn.disabled = converting || !hasDownload;
-    convertBtn.textContent = converting ? '转换中...' : '转换';
-  }
+	function escapeHtml(value) {
+		return String(value).replace(/[&<>"']/g, char => ({
+			'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+		})[char]);
+	}
 
-  async function convertFile(file, index) {
-    const layer = __KGM.detectEncryptionLayer(file.name);
-    const isMp3 = __KGM.isMp3(file.name);
-    const isFlac = __KGM.isFlac(file.name);
-    results.set(index, { done: false, progress: 0 });
-    renderQueue();
+	function addFiles(newFiles) {
+		const arr = Array.from(newFiles);
+		arr.forEach((file) => {
+			const idx = files.length;
+			files.push({ file, idx });
+			results.delete(idx);
+		});
+		renderQueue();
+	}
 
-    try {
-      // Compound names such as song.kgm.mp3 are encrypted despite their final suffix.
-      if (!layer && (isMp3 || isFlac)) {
-        const outputName = file.name;
-        results.set(index, { done: true, blob: file, name: outputName, progress: 100 });
-        renderQueue();
-        return;
-      }
-      if (!layer) {
-        results.set(index, { done: false, error: '未知格式', progress: 0 });
-        renderQueue();
-        return;
-      }
-      results.set(index, { done: false, progress: 10 });
-      renderQueue();
-      const data = await file.arrayBuffer();
-      results.set(index, { done: false, progress: 30 });
-      renderQueue();
-      const decrypted = await __KGM.decrypt(data, layer);
-      const outputFormat = __KGM.detectFormat(decrypted);
-      if (!outputFormat) {
-        throw new Error('解密结果不是受支持的音频格式，请检查文件是否完整');
-      }
-      results.set(index, { done: false, progress: 90 });
-      renderQueue();
-      const outputName = __KGM.getOutputFilename(file.name, outputFormat);
-      const mimeType = __KGM.getOutputMimeType(decrypted);
-      const blob = new Blob([decrypted], { type: mimeType });
-      results.set(index, { done: true, blob, name: outputName, progress: 100 });
-    } catch(e) {
-      results.set(index, { done: false, error: e.message || '转换失败', progress: 0 });
-    }
-    renderQueue();
-  }
+	function removeFile(idx) {
+		const pos = files.findIndex(f => f.idx === idx);
+		if (pos !== -1) {
+			files.splice(pos, 1);
+			results.delete(idx);
+			renderQueue();
+		}
+	}
 
-  async function convertAll() {
-    if (converting) return;
-    converting = true;
-    renderQueue();
-    for (let i = 0; i < files.length; i++) {
-      const result = results.get(files[i].idx);
-      if (!result || result.error) {
-        await convertFile(files[i].file, files[i].idx);
-      }
-    }
-    converting = false;
-    renderQueue();
-  }
+	function convertSingleFile(idx) {
+		if (converting) return;
+		const fileEntry = files.find(f => f.idx === idx);
+		if (!fileEntry) return;
+		converting = true;
+		renderQueue();
+		convertFile(fileEntry.file, idx).then(() => {
+			converting = false;
+			renderQueue();
+		});
+	}
 
-  function downloadAll() {
-    const downloadable = [];
-    files.forEach(({ file, idx }) => {
-      const r = results.get(idx);
-      if (r && r.done && r.blob) downloadable.push(r);
-    });
-    if (downloadable.length === 0) return;
-    downloadable.forEach(r => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(r.blob);
-      a.download = r.name;
-      a.click();
-      const objectUrl = a.href;
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-    });
-  }
+	function renderQueue() {
+		if (files.length === 0) {
+			queue.style.display = 'none';
+			return;
+		}
+		queue.style.display = 'block';
+		queueTitle.textContent = files.length + ' 个文件';
+		fileList.innerHTML = '';
+		files.forEach(({ file, idx }) => {
+			const layer = __KGM.detectEncryptionLayer(file.name);
+			const isMp3 = __KGM.isMp3(file.name);
+			const result = results.get(idx);
+			const hasError = Boolean(result && result.error);
+			const isDone = Boolean(result && result.done);
+			const canDownload = isDone && result.blob;
+			const needsConvert = !result || hasError;
 
-  function clearAll() {
-    files = [];
-    results.clear();
-    renderQueue();
-  }
+			const item = document.createElement('div');
+			item.className = 'file-item';
+			item.innerHTML = `
+				<span class="file-icon">${getIcon(file.name)}</span>
+				<div class="file-info">
+					<div class="file-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</div>
+					<div class="file-meta">${formatBytes(file.size)}${layer ? ' · ' + layer.toUpperCase() : ''}${isMp3 && !layer ? ' · MP3 直出' : ''}</div>
+					${result ? (result.done
+						? `<div class="file-meta" style="color:var(--good)">✓ ${escapeHtml(result.name)}</div>`
+						: hasError ? `<div class="file-meta" style="color:var(--red)">✗ ${escapeHtml(result.error)}</div>` : '')
+						: ''}
+					<div class="progress-bar" style="display:${result && !result.done && !hasError ? 'block' : 'none'}">
+						<div class="progress-fill" style="width:${result ? result.progress : 0}%"></div>
+					</div>
+				</div>
+				<div class="file-actions">
+					<button class="btn-icon convert" title="转换" ${!needsConvert ? 'disabled' : ''}>${svgConvert}</button>
+					<button class="btn-icon download" title="下载" ${!canDownload ? 'disabled' : ''} data-idx="${idx}">${svgDownload}</button>
+					<button class="btn-icon delete" title="删除" data-idx="${idx}">${svgDelete}</button>
+				</div>
+				<span class="file-status ${result ? (result.done ? 'status-done' : hasError ? 'status-error' : 'status-running') : 'status-pending'}">
+					${result ? (result.done ? '完成' : hasError ? '失败' : '处理中') : '等待'}
+				</span>
+			`;
+			fileList.appendChild(item);
+		});
+		const pending = files.some(({ idx }) => {
+			const result = results.get(idx);
+			return !result || Boolean(result.error);
+		});
+		const hasDownload = files.some(({ idx }) => {
+			const result = results.get(idx);
+			return Boolean(result && result.done && result.blob);
+		});
+		convertBtn.disabled = converting || !pending;
+		downloadAllBtn.disabled = converting || !hasDownload;
+		zipDownloadBtn.disabled = converting || !hasDownload;
+		convertBtn.textContent = converting ? '转换中...' : '转换';
 
-  dropZone.addEventListener('click', () => fileInput.click());
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('drag-over');
-    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
-  });
-  fileInput.addEventListener('change', () => { if (fileInput.files.length) addFiles(fileInput.files); });
-  convertBtn.addEventListener('click', convertAll);
-  downloadAllBtn.addEventListener('click', downloadAll);
-  clearBtn.addEventListener('click', clearAll);
-  if (window.siteNav && typeof window.siteNav.init === 'function') {
-    window.siteNav.init({
-      setTheme: function(theme) {
-        document.documentElement.classList.remove('dark', 'light');
-        document.documentElement.classList.add(theme);
-        localStorage.setItem('theme', theme);
-      },
-    });
-  }
+		fileList.querySelectorAll('.btn-icon.download').forEach(btn => {
+			btn.addEventListener('click', () => downloadSingle(parseInt(btn.dataset.idx)));
+		});
+		fileList.querySelectorAll('.btn-icon.delete').forEach(btn => {
+			btn.addEventListener('click', () => removeFile(parseInt(btn.dataset.idx)));
+		});
+		fileList.querySelectorAll('.btn-icon.convert').forEach(btn => {
+			const item = btn.closest('.file-item');
+			const fileName = item.querySelector('.file-name')?.title || '';
+			const fileEntry = files.find(f => f.file.name === fileName);
+			if (fileEntry) {
+				btn.addEventListener('click', () => convertSingleFile(fileEntry.idx));
+			}
+		});
+	}
 
-  renderQueue();
+	async function convertFile(file, index) {
+		const layer = __KGM.detectEncryptionLayer(file.name);
+		const isMp3 = __KGM.isMp3(file.name);
+		const isFlac = __KGM.isFlac(file.name);
+		results.set(index, { done: false, progress: 0 });
+		renderQueue();
+
+		try {
+			if (!layer && (isMp3 || isFlac)) {
+				const outputName = file.name;
+				results.set(index, { done: true, blob: file, name: outputName, progress: 100 });
+				renderQueue();
+				return;
+			}
+			if (!layer) {
+				results.set(index, { done: false, error: '未知格式', progress: 0 });
+				renderQueue();
+				return;
+			}
+			results.set(index, { done: false, progress: 10 });
+			renderQueue();
+			const data = await file.arrayBuffer();
+			results.set(index, { done: false, progress: 30 });
+			renderQueue();
+			const decrypted = await __KGM.decrypt(data, layer);
+			const outputFormat = __KGM.detectFormat(decrypted);
+			if (!outputFormat) {
+				throw new Error('解密结果不是受支持的音频格式，请检查文件是否完整');
+			}
+			results.set(index, { done: false, progress: 90 });
+			renderQueue();
+			const outputName = __KGM.getOutputFilename(file.name, outputFormat);
+			const mimeType = __KGM.getOutputMimeType(decrypted);
+			const blob = new Blob([decrypted], { type: mimeType });
+			results.set(index, { done: true, blob, name: outputName, progress: 100 });
+		} catch(e) {
+			results.set(index, { done: false, error: e.message || '转换失败', progress: 0 });
+			showToast('转换失败：' + (e.message || ''), 'error');
+		}
+		renderQueue();
+	}
+
+	async function convertAll() {
+		if (converting) return;
+		converting = true;
+		renderQueue();
+		for (let i = 0; i < files.length; i++) {
+			const result = results.get(files[i].idx);
+			if (!result || result.error) {
+				await convertFile(files[i].file, files[i].idx);
+			}
+		}
+		converting = false;
+		const done = files.filter(f => results.get(f.idx)?.done).length;
+		showToast('完成 ' + done + '/' + files.length + ' 个文件', 'success');
+		renderQueue();
+	}
+
+	function downloadSingle(idx) {
+		const r = results.get(idx);
+		if (!r || !r.done || !r.blob) return;
+		const a = document.createElement('a');
+		a.href = URL.createObjectURL(r.blob);
+		a.download = r.name;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+	}
+
+	function downloadAll() {
+		const downloadable = [];
+		files.forEach(({ idx }) => {
+			const r = results.get(idx);
+			if (r && r.done && r.blob) downloadable.push(r);
+		});
+		if (downloadable.length === 0) return;
+		let index = 0;
+		function downloadNext() {
+			if (index >= downloadable.length) return;
+			const r = downloadable[index++];
+			const a = document.createElement('a');
+			a.href = URL.createObjectURL(r.blob);
+			a.download = r.name;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+			if (index < downloadable.length) {
+				setTimeout(downloadNext, 400);
+			}
+		}
+		downloadNext();
+		showToast('开始下载 ' + downloadable.length + ' 个文件', 'success');
+	}
+
+	async function downloadZip() {
+		const downloadable = [];
+		files.forEach(({ idx }) => {
+			const r = results.get(idx);
+			if (r && r.done && r.blob) downloadable.push(r);
+		});
+		if (downloadable.length === 0) return;
+
+		zipDownloadBtn.disabled = true;
+		zipDownloadBtn.textContent = '打包中...';
+
+		try {
+			const zip = new JSZip();
+			for (const r of downloadable) {
+				zip.file(r.name, r.blob);
+			}
+			const content = await zip.generateAsync({ type: 'blob' });
+			const a = document.createElement('a');
+			a.href = URL.createObjectURL(content);
+			a.download = 'KGenesis_' + new Date().toISOString().slice(0,10) + '.zip';
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+			showToast('已打包 ' + downloadable.length + ' 个文件', 'success');
+		} catch(e) {
+			showToast('打包失败：' + e.message, 'error');
+		}
+
+		zipDownloadBtn.disabled = false;
+		zipDownloadBtn.textContent = '打包下载';
+	}
+
+	function clearAll() {
+		files = [];
+		results.clear();
+		renderQueue();
+	}
+
+	dropZone.addEventListener('click', () => fileInput.click());
+	dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+	dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+	dropZone.addEventListener('drop', e => {
+		e.preventDefault();
+		dropZone.classList.remove('drag-over');
+		if (e.dataTransfer.files.length) {
+			addFiles(e.dataTransfer.files);
+			showToast('已添加 ' + e.dataTransfer.files.length + ' 个文件', 'success');
+		}
+	});
+	fileInput.addEventListener('change', () => { if (fileInput.files.length) { addFiles(fileInput.files); showToast('已添加 ' + fileInput.files.length + ' 个文件', 'success'); } });
+	convertBtn.addEventListener('click', convertAll);
+	downloadAllBtn.addEventListener('click', downloadAll);
+	zipDownloadBtn.addEventListener('click', downloadZip);
+	clearBtn.addEventListener('click', clearAll);
+
+	// ensure theme is restored after nav has set its own; uses saved value or dark default
+	(function initTheme() {
+		var saved = null;
+		try { saved = localStorage.getItem('smartCubeTheme'); } catch(e) {}
+		if (saved) {
+			document.documentElement.dataset.theme = saved;
+		} else {
+			document.documentElement.dataset.theme = 'dark';
+		}
+	})();
+
+	if (window.siteNav && typeof window.siteNav.init === 'function') {
+		window.siteNav.init({
+			setTheme: function(theme) {
+				document.documentElement.dataset.theme = theme;
+				try { localStorage.setItem('smartCubeTheme', theme); } catch(e) {}
+			},
+		});
+	}
+
+	renderQueue();
 })();

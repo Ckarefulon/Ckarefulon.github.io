@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="icon" href="/favicon.svg?v=7" type="image/svg+xml">
+	<link rel="stylesheet" href="/nav/nav.css?v=8">
+	<script src="/nav/nav.js?v=8" defer></script>
+	<script src="pivot-app.js?v=7" defer></script>
+	<title>测速 — Ckarefulon</title>
+	<style>
+		:root {
+			color-scheme: dark;
+			--bg: #0f0f16;
+			--surface: rgba(27, 27, 38, 0.94);
+			--surfaceSolid: #1c1c28;
+			--ink: #f4f4fb;
+			--muted: #c0c2d0;
+			--line: #414157;
+			--accent: #6b5dc2;
+			--accentSoft: rgba(107, 93, 194, 0.26);
+			--cyan: #24f0ea;
+			--good: #24f0ea;
+			--red: #e85d6a;
+			--orange: #f0c050;
+			--blue: #5aa0f0;
+			--primaryBg: #6b5dc2;
+			--primaryHoverBg: #786bd0;
+			--primaryText: #ffffff;
+			--primaryBorder: #8174d6;
+			--controlBg: #252536;
+			--controlText: #f6f7ff;
+			--controlBorder: #595c72;
+			--controlHoverBg: #303046;
+			--pageBg: radial-gradient(circle at 18% 10%, rgba(107, 93, 194, 0.34), transparent 34%), radial-gradient(circle at 88% 0%, rgba(107, 93, 194, 0.16), transparent 32%), linear-gradient(180deg, #161620, #0d0d14);
+			--shadow: 0 18px 58px rgba(0, 0, 0, 0.32);
+		}
+		:root[data-theme="light"] {
+			color-scheme: light;
+			--bg: #f6f7fb;
+			--surface: rgba(255, 255, 255, 0.9);
+			--surfaceSolid: #ffffff;
+			--ink: #242436;
+			--muted: #575a6d;
+			--line: #d5d8e5;
+			--accent: #5d4ea8;
+			--accentSoft: rgba(93, 78, 168, 0.12);
+			--cyan: #24f0ea;
+			--good: #178b82;
+			--red: #e85d6a;
+			--orange: #e6b84a;
+			--blue: #4a90e6;
+			--primaryBg: #5d4ea8;
+			--primaryHoverBg: #514598;
+			--primaryText: #ffffff;
+			--primaryBorder: #5d4ea8;
+			--controlBg: #ffffff;
+			--controlText: #242436;
+			--controlBorder: #cfd3e3;
+			--controlHoverBg: rgba(93, 78, 168, 0.10);
+			--pageBg: radial-gradient(circle at 16% 8%, rgba(93, 78, 168, 0.16), transparent 34%), radial-gradient(circle at 86% 12%, rgba(36, 240, 234, 0.10), transparent 30%), linear-gradient(135deg, #fafaff, #f4f6fb 58%, #ffffff);
+			--shadow: 0 18px 50px rgba(36, 36, 54, 0.10);
+		}
+		* { box-sizing: border-box; }
+		html, body { height: 100%; margin: 0; }
+		body {
+			color: var(--ink);
+			font: 15px/1.45 Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+			transition: color 0.22s ease;
+			background: var(--bg);
+		}
+		/* 固定渐变背景，不随滚动 */
+		.pivotBg {
+			position: fixed;
+			inset: 0;
+			z-index: -1;
+			background: var(--pageBg);
+			transition: background 0.22s ease;
+		}
+		.pivotLoading {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 16px;
+			height: calc(100dvh - var(--site-nav-height));
+			color: var(--muted);
+			font-size: 14px;
+		}
+		.pivotSpinner {
+			width: 32px;
+			height: 32px;
+			border: 3px solid var(--line);
+			border-top-color: var(--accent);
+			border-radius: 50%;
+			animation: pivotSpin 0.8s linear infinite;
+		}
+		@keyframes pivotSpin { to { transform: rotate(360deg); } }
+		.pivotApp {
+			display: none;
+			max-width: 960px;
+			margin: 0 auto;
+			padding: 32px 20px 48px;
+		}
+		.pivotApp.isVisible { display: block; }
+		.pivotTitle {
+			text-align: center;
+			font-size: 22px;
+			font-weight: 700;
+			margin-bottom: 6px;
+			color: var(--ink);
+		}
+		.pivotSubtitle {
+			text-align: center;
+			font-size: 13px;
+			color: var(--muted);
+			margin-bottom: 28px;
+		}
+		.pivotStartWrap {
+			text-align: center;
+			margin-bottom: 28px;
+		}
+		.pivotBtn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 8px;
+			height: 46px;
+			padding: 0 32px;
+			border: none;
+			border-radius: 10px;
+			background: var(--primaryBg);
+			color: var(--primaryText);
+			font: 600 15px/1 inherit;
+			cursor: pointer;
+			transition: background 0.15s, transform 0.12s;
+		}
+		.pivotBtn:hover { background: var(--primaryHoverBg); transform: translateY(-1px); }
+		.pivotBtn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+		.pivotGrid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+			gap: 16px;
+		}
+		.pivotCard {
+			background: var(--surface);
+			border: 1px solid var(--line);
+			border-radius: 14px;
+			box-shadow: var(--shadow);
+			-webkit-backdrop-filter: blur(14px);
+			backdrop-filter: blur(14px);
+			overflow: hidden;
+			transition: transform 0.18s ease;
+		}
+		.pivotCard:hover { transform: translateY(-2px); }
+		.pivotCardHeader {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 14px 16px 12px;
+			border-bottom: 1px solid var(--line);
+		}
+		.pivotCardDomain {
+			font-size: 14px;
+			font-weight: 700;
+			color: var(--ink);
+			word-break: break-all;
+			flex: 1;
+		}
+		.pivotCardStatus {
+			font-size: 11px;
+			font-weight: 600;
+			padding: 3px 10px;
+			border-radius: 999px;
+			white-space: nowrap;
+			flex-shrink: 0;
+		}
+		.pivotCardStatus.waiting { background: rgba(87,90,109,0.12); color: var(--muted); }
+		.pivotCardStatus.running { background: rgba(74,144,230,0.12); color: var(--blue); animation: pivotPulse 1.5s ease-in-out infinite; }
+		.pivotCardStatus.done   { background: rgba(23,139,130,0.12); color: var(--good); }
+		.pivotCardStatus.fail   { background: rgba(232,93,106,0.12); color: var(--red); }
+		@keyframes pivotPulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
+		.pivotCardBody { padding: 14px 16px; }
+		.pivotMetric {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 7px 0;
+			border-bottom: 1px solid var(--line);
+			gap: 10px;
+		}
+		.pivotMetric:last-child { border-bottom: none; }
+		.pivotMetricLabel {
+			font-size: 12px;
+			font-weight: 600;
+			color: var(--muted);
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			flex-shrink: 0;
+		}
+		.pivotMetricValue {
+			font-size: 15px;
+			font-weight: 700;
+			color: var(--ink);
+			text-align: right;
+			font-variant-numeric: tabular-nums;
+		}
+		.pivotMetricValue.unit { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 3px; }
+		.pivotProgressWrap {
+			padding: 0 16px 12px;
+		}
+		.pivotProgressBar {
+			height: 3px;
+			background: var(--line);
+			border-radius: 999px;
+			overflow: hidden;
+		}
+		.pivotProgressFill {
+			height: 100%;
+			background: var(--accent);
+			border-radius: 999px;
+			transition: width 0.3s ease;
+			width: 0%;
+		}
+		.pivotPhaseLabel {
+			font-size: 11px;
+			color: var(--muted);
+			margin-top: 5px;
+			text-align: center;
+		}
+		.pivotFooter {
+			text-align: center;
+			margin-top: 32px;
+			font-size: 12px;
+			color: var(--muted);
+		}
+		@media (max-width: 500px) {
+			.pivotGrid { grid-template-columns: 1fr; }
+		}
+	</style>
+</head>
+<body>
+	<div class="pivotBg"></div>
+	<div class="pivotLoading" id="pivotLoading">
+		<div class="pivotSpinner"></div>
+		<span>加载中…</span>
+	</div>
+	<div class="pivotApp" id="pivotApp">
+		<h1 class="pivotTitle">网络测速</h1>
+		<p class="pivotSubtitle">同时检测各域名延迟 · 抖动 · 上传 · 下载速率</p>
+		<div class="pivotStartWrap">
+			<button class="pivotBtn" id="startBtn" type="button">
+				<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+				开始测速
+			</button>
+		</div>
+		<div class="pivotGrid" id="grid"></div>
+		<div class="pivotFooter">结果仅供参考，受限于浏览器网络 API 的跨域限制</div>
+	</div>
+</body>
+</html>

@@ -1236,7 +1236,37 @@
 		btn.title = appState.editingTargetId ? '使用当前配置测试一次' : '保存后才能测试';
 	}
 
+	function syncFormToConfig() {
+		if (!appState.customHttpConfig) return;
+		const cfg = appState.customHttpConfig;
+		cfg.url = $('customUrl').value.trim();
+		cfg.method = $('customMethod').value;
+		cfg.bodyType = $('customBodyType').value;
+		cfg.browserEmulation = cfg.browserEmulation || {};
+		cfg.browserEmulation.enabled = $('browserEmulationEnabled').checked;
+		cfg.browserEmulation.userAgent = $('browserUserAgent').value.trim();
+		cfg.browserEmulation.referer = $('browserReferer').value.trim();
+		cfg.browserEmulation.origin = $('browserOrigin').value.trim();
+		cfg.browserEmulation.acceptLanguage = $('browserAcceptLanguage').value.trim() || 'zh-CN,zh;q=0.9,en;q=0.8';
+		cfg.browserEmulation.xRequestedWith = $('browserXRequestedWith').checked;
+		cfg.browserEmulation.secChUa = $('browserSecChUa').value.trim();
+		cfg.browserEmulation.secChUaMobile = $('browserSecChUaMobile').value.trim() || '?0';
+		cfg.browserEmulation.secChUaPlatform = $('browserSecChUaPlatform').value.trim() || '"Windows"';
+		cfg.browserEmulation.secFetchDest = $('browserSecFetchDest').value.trim() || 'empty';
+		cfg.browserEmulation.secFetchMode = $('browserSecFetchMode').value.trim() || 'cors';
+		cfg.browserEmulation.secFetchSite = $('browserSecFetchSite').value.trim() || 'same-origin';
+		cfg.browserEmulation.upgradeInsecureRequests = $('browserUpgradeInsecure').value.trim() || '1';
+		cfg.preRequest = cfg.preRequest || createEmptyCustomHttpConfig().preRequest;
+		cfg.preRequest.enabled = $('preRequestEnabled').checked;
+		cfg.preRequest.url = $('preRequestUrl').value.trim();
+		const nonceKeywords = qs('#nonceInvalidKeywords input');
+		cfg.nonceInvalidKeywords = nonceKeywords
+			? nonceKeywords.value.split(/[,，]/).map(k => k.trim()).filter(k => k)
+			: ['nonce invalid', '非法请求'];
+	}
+
 	function addParam(category) {
+		syncFormToConfig();
 		if (!appState.customHttpConfig) {
 			appState.customHttpConfig = createEmptyCustomHttpConfig();
 		}
@@ -1252,6 +1282,7 @@
 	}
 
 	function removeParam(row) {
+		syncFormToConfig();
 		const category = row.dataset.category;
 		const index = parseInt(row.dataset.index);
 		if (!appState.customHttpConfig || !category) return;
@@ -1266,6 +1297,7 @@
 	}
 
 	function addExtractRule() {
+		syncFormToConfig();
 		if (!appState.customHttpConfig) {
 			appState.customHttpConfig = createEmptyCustomHttpConfig();
 		}
@@ -1279,6 +1311,7 @@
 	}
 
 	function removeExtractRule(row) {
+		syncFormToConfig();
 		const index = parseInt(row.dataset.index);
 		if (!appState.customHttpConfig || isNaN(index)) return;
 		appState.customHttpConfig.extractRules.splice(index, 1);
@@ -1286,6 +1319,7 @@
 	}
 
 	function addRule(category, type) {
+		syncFormToConfig();
 		if (!appState.customHttpConfig) {
 			appState.customHttpConfig = createEmptyCustomHttpConfig();
 		}
@@ -1294,6 +1328,7 @@
 	}
 
 	function removeRule(row) {
+		syncFormToConfig();
 		const category = row.dataset.category;
 		const index = parseInt(row.dataset.index);
 		if (!appState.customHttpConfig || !category) return;
@@ -1302,6 +1337,7 @@
 	}
 
 	function addQuickAuth(type) {
+		syncFormToConfig();
 		if (!appState.customHttpConfig) {
 			appState.customHttpConfig = createEmptyCustomHttpConfig();
 		}
@@ -1368,6 +1404,7 @@
 	}
 
 	function handleRuleTypeChange(row, newType) {
+		syncFormToConfig();
 		appState.customHttpConfig = collectCustomHttpConfig();
 		const category = row.dataset.category;
 		const index = parseInt(row.dataset.index);
@@ -1377,6 +1414,7 @@
 	}
 
 	function handleParamSensitiveChange(row, checked) {
+		syncFormToConfig();
 		appState.customHttpConfig = collectCustomHttpConfig();
 		const category = row.dataset.category;
 		const index = parseInt(row.dataset.index);
