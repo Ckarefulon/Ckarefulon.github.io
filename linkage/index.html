@@ -6,7 +6,7 @@
 	<link rel="icon" href="/favicon.svg?v=7" type="image/svg+xml">
 	<link rel="stylesheet" href="/nav/nav.css?v=8">
 	<script src="/nav/nav.js?v=8" defer></script>
-	<script src="pivot-app.js?v=7" defer></script>
+	<script src="linkage-app.js?v=8" defer></script>
 	<title>测速 — Ckarefulon</title>
 	<style>
 		:root {
@@ -70,14 +70,14 @@
 			background: var(--bg);
 		}
 		/* 固定渐变背景，不随滚动 */
-		.pivotBg {
+		.linkageBg {
 			position: fixed;
 			inset: 0;
 			z-index: -1;
 			background: var(--pageBg);
 			transition: background 0.22s ease;
 		}
-		.pivotLoading {
+		.linkageLoading {
 			display: flex;
 			flex-direction: column;
 			align-items: center;
@@ -87,40 +87,40 @@
 			color: var(--muted);
 			font-size: 14px;
 		}
-		.pivotSpinner {
+		.linkageSpinner {
 			width: 32px;
 			height: 32px;
 			border: 3px solid var(--line);
 			border-top-color: var(--accent);
 			border-radius: 50%;
-			animation: pivotSpin 0.8s linear infinite;
+			animation: linkageSpin 0.8s linear infinite;
 		}
-		@keyframes pivotSpin { to { transform: rotate(360deg); } }
-		.pivotApp {
+		@keyframes linkageSpin { to { transform: rotate(360deg); } }
+		.linkageApp {
 			display: none;
 			max-width: 960px;
 			margin: 0 auto;
 			padding: 32px 20px 48px;
 		}
-		.pivotApp.isVisible { display: block; }
-		.pivotTitle {
+		.linkageApp.isVisible { display: block; }
+		.linkageTitle {
 			text-align: center;
 			font-size: 22px;
 			font-weight: 700;
 			margin-bottom: 6px;
 			color: var(--ink);
 		}
-		.pivotSubtitle {
+		.linkageSubtitle {
 			text-align: center;
 			font-size: 13px;
 			color: var(--muted);
 			margin-bottom: 28px;
 		}
-		.pivotStartWrap {
+		.linkageStartWrap {
 			text-align: center;
 			margin-bottom: 28px;
 		}
-		.pivotBtn {
+		.linkageBtn {
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
@@ -135,14 +135,14 @@
 			cursor: pointer;
 			transition: background 0.15s, transform 0.12s;
 		}
-		.pivotBtn:hover { background: var(--primaryHoverBg); transform: translateY(-1px); }
-		.pivotBtn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
-		.pivotGrid {
+		.linkageBtn:hover { background: var(--primaryHoverBg); transform: translateY(-1px); }
+		.linkageBtn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+		.linkageGrid {
 			display: grid;
 			grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
 			gap: 16px;
 		}
-		.pivotCard {
+		.linkageCard {
 			background: var(--surface);
 			border: 1px solid var(--line);
 			border-radius: 14px;
@@ -152,22 +152,83 @@
 			overflow: hidden;
 			transition: transform 0.18s ease;
 		}
-		.pivotCard:hover { transform: translateY(-2px); }
-		.pivotCardHeader {
+		.linkageCard:hover { transform: translateY(-2px); }
+		.linkageCardMoving {
+			transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+			z-index: 100;
+			box-shadow: 0 20px 60px rgba(107, 93, 194, 0.4) !important;
+			position: relative;
+		}
+		.linkageCardHeader {
 			display: flex;
 			align-items: center;
 			gap: 10px;
 			padding: 14px 16px 12px;
 			border-bottom: 1px solid var(--line);
 		}
-		.pivotCardDomain {
+		.linkageCardDomain {
 			font-size: 14px;
 			font-weight: 700;
 			color: var(--ink);
 			word-break: break-all;
 			flex: 1;
 		}
-		.pivotCardStatus {
+		.linkageCardDomainLink {
+			font-size: 14px;
+			font-weight: 700;
+			color: var(--ink);
+			word-break: break-all;
+			flex: 1;
+			text-decoration: none;
+			transition: color 0.15s ease;
+		}
+		.linkageCardDomainLink:hover {
+			color: var(--accent);
+			text-decoration: underline;
+		}
+		.linkageRefLink {
+			display: block;
+			padding: 4px 16px 8px;
+			font-size: 12px;
+			color: var(--muted);
+			text-decoration: none;
+			transition: color 0.15s ease;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.linkageRefLink:hover {
+			color: var(--accent);
+			text-decoration: underline;
+		}
+		.linkageRank {
+			font-size: 13px;
+			font-weight: 700;
+			color: var(--accent);
+			background: var(--accentSoft);
+			padding: 2px 8px;
+			border-radius: 6px;
+			margin-right: 6px;
+			flex-shrink: 0;
+		}
+		.linkageCardRanked {
+			position: relative;
+			z-index: 1;
+			transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+		}
+		.linkageCardRanked.moving {
+			z-index: 100;
+			box-shadow: 0 20px 60px rgba(107, 93, 194, 0.4);
+		}
+		@keyframes linkageRankHighlight {
+			0% { background: var(--accentSoft); }
+			50% { background: rgba(107, 93, 194, 0.4); }
+			100% { background: var(--accentSoft); }
+		}
+		.linkageRankAnimating {
+			animation: linkageRankHighlight 0.6s ease;
+		}
+		.linkageCardStatus {
 			font-size: 11px;
 			font-weight: 600;
 			padding: 3px 10px;
@@ -175,13 +236,13 @@
 			white-space: nowrap;
 			flex-shrink: 0;
 		}
-		.pivotCardStatus.waiting { background: rgba(87,90,109,0.12); color: var(--muted); }
-		.pivotCardStatus.running { background: rgba(74,144,230,0.12); color: var(--blue); animation: pivotPulse 1.5s ease-in-out infinite; }
-		.pivotCardStatus.done   { background: rgba(23,139,130,0.12); color: var(--good); }
-		.pivotCardStatus.fail   { background: rgba(232,93,106,0.12); color: var(--red); }
-		@keyframes pivotPulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
-		.pivotCardBody { padding: 14px 16px; }
-		.pivotMetric {
+		.linkageCardStatus.waiting { background: rgba(87,90,109,0.12); color: var(--muted); }
+		.linkageCardStatus.running { background: rgba(74,144,230,0.12); color: var(--blue); animation: linkagePulse 1.5s ease-in-out infinite; }
+		.linkageCardStatus.done   { background: rgba(23,139,130,0.12); color: var(--good); }
+		.linkageCardStatus.fail   { background: rgba(232,93,106,0.12); color: var(--red); }
+		@keyframes linkagePulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
+		.linkageCardBody { padding: 14px 16px; }
+		.linkageMetric {
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
@@ -189,8 +250,8 @@
 			border-bottom: 1px solid var(--line);
 			gap: 10px;
 		}
-		.pivotMetric:last-child { border-bottom: none; }
-		.pivotMetricLabel {
+		.linkageMetric:last-child { border-bottom: none; }
+		.linkageMetricLabel {
 			font-size: 12px;
 			font-weight: 600;
 			color: var(--muted);
@@ -198,64 +259,64 @@
 			letter-spacing: 0.04em;
 			flex-shrink: 0;
 		}
-		.pivotMetricValue {
+		.linkageMetricValue {
 			font-size: 15px;
 			font-weight: 700;
 			color: var(--ink);
 			text-align: right;
 			font-variant-numeric: tabular-nums;
 		}
-		.pivotMetricValue.unit { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 3px; }
-		.pivotProgressWrap {
+		.linkageMetricValue.unit { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 3px; }
+		.linkageProgressWrap {
 			padding: 0 16px 12px;
 		}
-		.pivotProgressBar {
+		.linkageProgressBar {
 			height: 3px;
 			background: var(--line);
 			border-radius: 999px;
 			overflow: hidden;
 		}
-		.pivotProgressFill {
+		.linkageProgressFill {
 			height: 100%;
 			background: var(--accent);
 			border-radius: 999px;
 			transition: width 0.3s ease;
 			width: 0%;
 		}
-		.pivotPhaseLabel {
+		.linkagePhaseLabel {
 			font-size: 11px;
 			color: var(--muted);
 			margin-top: 5px;
 			text-align: center;
 		}
-		.pivotFooter {
+		.linkageFooter {
 			text-align: center;
 			margin-top: 32px;
 			font-size: 12px;
 			color: var(--muted);
 		}
 		@media (max-width: 500px) {
-			.pivotGrid { grid-template-columns: 1fr; }
+			.linkageGrid { grid-template-columns: 1fr; }
 		}
 	</style>
 </head>
 <body>
-	<div class="pivotBg"></div>
-	<div class="pivotLoading" id="pivotLoading">
-		<div class="pivotSpinner"></div>
+	<div class="linkageBg"></div>
+	<div class="linkageLoading" id="linkageLoading">
+		<div class="linkageSpinner"></div>
 		<span>加载中…</span>
 	</div>
-	<div class="pivotApp" id="pivotApp">
-		<h1 class="pivotTitle">网络测速</h1>
-		<p class="pivotSubtitle">同时检测各域名延迟 · 抖动 · 上传 · 下载速率</p>
-		<div class="pivotStartWrap">
-			<button class="pivotBtn" id="startBtn" type="button">
+	<div class="linkageApp" id="linkageApp">
+		<h1 class="linkageTitle">网络测速</h1>
+		<p class="linkageSubtitle">同时检测各域名延迟 · 抖动 · 上传 · 下载速率</p>
+		<div class="linkageStartWrap">
+			<button class="linkageBtn" id="startBtn" type="button">
 				<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
 				开始测速
 			</button>
 		</div>
-		<div class="pivotGrid" id="grid"></div>
-		<div class="pivotFooter">结果仅供参考，受限于浏览器网络 API 的跨域限制</div>
+		<div class="linkageGrid" id="grid"></div>
+		<div class="linkageFooter">结果仅供参考，受限于浏览器网络 API 的跨域限制</div>
 	</div>
 </body>
 </html>

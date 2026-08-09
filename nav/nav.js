@@ -61,6 +61,7 @@
 		'				<div class="accountMenuEmail" id="accountMenuEmail"></div>',
 		'				<div class="accountMenuScope" id="accountMenuScope"></div>',
 		'				<button id="siteProfileBtn" class="siteHeaderBtn accountMenuProfileBtn" type="button">个人资料</button>',
+		'				<button id="siteSelectSiteBtn" class="siteHeaderBtn" type="button">选择链路</button>',
 		'				<button id="siteSignOutBtn" class="siteHeaderBtn" type="button">退出登录</button>',
 		'				<div class="accountMenuCloud" id="accountMenuCloud">',
 		'					<div class="accountMenuDivider"></div>',
@@ -280,6 +281,7 @@
 	var accountMenu = document.getElementById("accountMenu");
 	var signOutBtn = document.getElementById("siteSignOutBtn");
 	var profileBtn = document.getElementById("siteProfileBtn");
+	var selectSiteBtn = document.getElementById("siteSelectSiteBtn");
 
 	function goToProfile() {
 		window.location.href = "/user/profile/";
@@ -351,6 +353,14 @@
 			e.stopPropagation();
 			hideAccountMenu();
 			goToProfile();
+		});
+	}
+
+	if (selectSiteBtn) {
+		selectSiteBtn.addEventListener("click", function(e) {
+			e.stopPropagation();
+			hideAccountMenu();
+			window.location.href = "/linkage/";
 		});
 	}
 
