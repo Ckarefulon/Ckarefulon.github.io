@@ -61,7 +61,9 @@
 			thresholdData: { threshold: 500, precision: 2 },
 			undoStack: [],
 			idSeed: 1,
-			hiddenStickerMask: {}
+			hiddenStickerMask: {},
+			syncEnabled: true,
+			trainingSelectedFormulaIds: {}
 		};
 	}
 
@@ -123,6 +125,8 @@
 			migrated.thresholdData = Object.assign({ threshold: 500, precision: 2 }, value.thresholdData || {});
 			migrated.idSeed = Number(value.idSeed) || 1;
 			migrated.hiddenStickerMask = {};
+			migrated.syncEnabled = value.syncEnabled !== false;
+			migrated.trainingSelectedFormulaIds = (value.trainingSelectedFormulaIds && typeof value.trainingSelectedFormulaIds === "object") ? value.trainingSelectedFormulaIds : {};
 			base.libraries["lib_default"] = migrated;
 			base.activeLibraryId = "lib_default";
 			return reviveDates(base);
@@ -154,6 +158,8 @@
 			dest.thresholdData = Object.assign({ threshold: 500, precision: 2 }, src.thresholdData || {});
 			dest.idSeed = Number(src.idSeed) || 1;
 			dest.hiddenStickerMask = (src.hiddenStickerMask && typeof src.hiddenStickerMask === "object" && !Array.isArray(src.hiddenStickerMask)) ? src.hiddenStickerMask : {};
+			dest.syncEnabled = src.syncEnabled !== false;
+			dest.trainingSelectedFormulaIds = (src.trainingSelectedFormulaIds && typeof src.trainingSelectedFormulaIds === "object" && !Array.isArray(src.trainingSelectedFormulaIds)) ? src.trainingSelectedFormulaIds : {};
 			base.libraries[lid] = dest;
 		});
 		if (!base.libraries[base.activeLibraryId]) {
