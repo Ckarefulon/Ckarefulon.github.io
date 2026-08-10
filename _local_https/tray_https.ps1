@@ -9,7 +9,76 @@ $PowerShellExe = Join-Path `
     'System32\WindowsPowerShell\v1.0\powershell.exe'
 
 $LocalAddress = 'https://localhost:9527'
-$LanAddress = 'https://192.168.1.4:9527'
+
+$InfoPath = Join-Path $PSScriptRoot 'certificate-info.json'
+$SetupScript = Join-Path $PSScriptRoot 'setup_https.ps1'
+$CurrentIp = '127.0.0.1'
+
+. (Join-Path $PSScriptRoot 'network.ps1')
+
+function Test-CertificateReady {
+    param(
+        [string]$ExpectedIp
+    )
+
+    if (-not (Test-Path -LiteralPath $InfoPath -PathType Leaf)) {
+        return $false
+    }
+
+    try {
+        $Info = Get-Content $InfoPath | ConvertFrom-Json
+
+        if (
+            -not $Info.ServerThumbprint -or
+            -not $Info.RootThumbprint
+        ) {
+            return $false
+        }
+
+        $ServerCert = Get-Item -LiteralPath (
+            'Cert:\LocalMachine\My\' + $Info.ServerThumbprint
+        ) -ErrorAction Stop
+
+        $TrustedRoot = Get-Item -LiteralPath (
+            'Cert:\LocalMachine\Root\' + $Info.RootThumbprint
+        ) -ErrorAction Stop
+
+        $San = $ServerCert.Extensions |
+            Where-Object { $_.Oid.Value -eq '2.5.29.17' } |
+            Select-Object -First 1
+
+        return (
+            $null -ne $TrustedRoot -and
+            $ServerCert.NotAfter -gt (Get-Date).AddDays(1) -and
+            $San -and
+            $San.Format($false).Contains($ExpectedIp)
+        )
+    }
+    catch {
+        return $false
+    }
+}
+
+function Sync-CertificateIfNeeded() {
+    $DetectedIp = Get-PreferredLanIp
+
+    if (-not (Test-CertificateReady -ExpectedIp $DetectedIp)) {
+        try {
+            $Process = Start-Process powershell.exe `
+                -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$SetupScript`"" `
+                -Verb RunAs -Wait -PassThru
+            if ($Process -and $Process.ExitCode -eq 0) {
+                return $true
+            }
+        } catch {}
+        return $false
+    }
+    return $true
+}
+
+$CurrentIp = Get-PreferredLanIp
+
+$LanAddress = "https://${CurrentIp}:9527"
 
 # Prevent duplicate tray applications.
 $CreatedNew = $false
@@ -203,7 +272,7 @@ $OpenLocalItem = New-Object System.Windows.Forms.ToolStripMenuItem
 $OpenLocalItem.Text = 'Open localhost'
 
 $OpenLanItem = New-Object System.Windows.Forms.ToolStripMenuItem
-$OpenLanItem.Text = 'Open 192.168.1.4'
+$OpenLanItem.Text = "Open $CurrentIp"
 
 $ExitItem = New-Object System.Windows.Forms.ToolStripMenuItem
 $ExitItem.Text = 'Exit and stop server'
@@ -293,6 +362,13 @@ $Timer.Add_Tick({
 $Timer.Start()
 
 try {
+    # Auto-update certificate if IP changed
+    if (Sync-CertificateIfNeeded) {
+        $CurrentIp = Get-PreferredLanIp
+        $LanAddress = "https://${CurrentIp}:9527"
+        $OpenLanItem.Text = "Open $CurrentIp"
+    }
+
     Start-Server
     Update-TrayStatus
 

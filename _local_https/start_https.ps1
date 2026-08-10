@@ -1,7 +1,38 @@
 $ErrorActionPreference = 'Stop'
 
-$Ip = '192.168.1.4'
+. (Join-Path $PSScriptRoot 'network.ps1')
+
 $Port = 9527
+
+$InfoPath = Join-Path $PSScriptRoot 'certificate-info.json'
+$DetectedIp = Get-PreferredLanIp
+$CurrentIp = $DetectedIp
+
+if (-not (Test-Path -LiteralPath $InfoPath -PathType Leaf)) {
+    throw 'HTTPS certificate metadata is missing. Run setup_https.ps1 as Administrator.'
+}
+
+try {
+    $Info = Get-Content $InfoPath | ConvertFrom-Json
+    $ServerCert = Get-Item -LiteralPath (
+        'Cert:\LocalMachine\My\' + $Info.ServerThumbprint
+    ) -ErrorAction Stop
+    $San = $ServerCert.Extensions |
+        Where-Object { $_.Oid.Value -eq '2.5.29.17' } |
+        Select-Object -First 1
+}
+catch {
+    throw 'HTTPS server certificate is missing. Run setup_https.ps1 as Administrator.'
+}
+
+# A certificate for an old address must never be presented as valid for a new
+# address. The tray refreshes the leaf certificate under the same trusted CA.
+if (-not $San -or -not $San.Format($false).Contains($DetectedIp)) {
+    throw (
+        "The HTTPS certificate does not cover the current LAN address $DetectedIp. " +
+        'Run setup_https.ps1 as Administrator to refresh the server certificate.'
+    )
+}
 
 $SiteRoot = [IO.Path]::GetFullPath(
     (Join-Path $PSScriptRoot '..')
@@ -288,7 +319,7 @@ try {
 
     Write-Host ''
     Write-Host 'HTTPS server started.' -ForegroundColor Green
-    Write-Host "Address: https://${Ip}:${Port}"
+    Write-Host "Address: https://${CurrentIp}:${Port}"
     Write-Host "Site root: $SiteRoot"
     Write-Host "Exclude file: $ExcludePath"
     Write-Host 'The .git path is always blocked.'
