@@ -4432,21 +4432,7 @@
 					if (move.type !== "face") {
 						return "";
 					}
-					if (!move.fromCube) {
 						return move.text || this.formatMoveText(move.face, move.pow);
-					}
-					return this.formatMoveText(this.unmapUiFace(move.face), move.pow);
-				},
-
-				unmapUiFace: function(face) {
-					return {
-						U: "U",
-						B: "R",
-						R: "F",
-						D: "D",
-						F: "L",
-						L: "B"
-					}[face] || face;
 				},
 
 				standardFaceFromWorldFace: function(face) {
@@ -6018,12 +6004,7 @@
 					if (move.type === "slice" || move.type === "orientation") {
 						token = move.text;
 					} else if (move.type === "face") {
-						var logicalMove = move;
-						if (options.fromCube && move.rawText) logicalMove = this.normalizeMove(move.rawText);
-						if (logicalMove) {
-							logicalMove = Object.assign({}, logicalMove, { fromCube: !!options.fromCube });
-							token = this.moveToStandardText(logicalMove);
-						}
+						token = this.moveToStandardText(move);
 					}
 					if (!token) return;
 					this.performedProcessMoves.push(token);
@@ -6507,16 +6488,6 @@
 					if (move.type === "slice") {
 						return this.playManualSliceMove(move, source, timestamp, options);
 					}
-					var formulaMove = move;
-					if (options.fromCube) {
-						formulaMove = {
-							text: move.text,
-							type: move.type,
-							face: move.face,
-							pow: move.pow,
-							fromCube: true
-						};
-					}
 					if (!options.fromCube) {
 						move = this.mapManualMove(move);
 					}
@@ -6529,11 +6500,11 @@
 						return move;
 					}
 					if (options.fromCube) {
-						move = this.transformCubeMove(move);
-					}
-					if (!options.noFormula) {
-						this.recordFormulaMove(formulaMove);
-					}
+							move = this.transformCubeMove(move);
+						}
+						if (!options.noFormula) {
+							this.recordFormulaMove(move);
+						}
 					this.applyMoveToVirtualState(move);
 					if (!options.noAnimation) {
 						this.twistyScene.addMoves([move.twisty]);
@@ -6763,7 +6734,6 @@
 						if (this.matrixEquals(transformed, this.rotationMatrix(targetFace, pows[i]))) {
 							return {
 								text: this.formatMoveText(targetFace, pows[i]),
-								rawText: move.text,
 								type: "face",
 								face: targetFace,
 								pow: pows[i],
@@ -6773,7 +6743,6 @@
 					}
 					return {
 						text: this.formatMoveText(targetFace, move.pow),
-						rawText: move.text,
 						type: "face",
 						face: targetFace,
 						pow: move.pow,
