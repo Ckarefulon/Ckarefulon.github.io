@@ -2168,7 +2168,7 @@
 						if (movesInput) {
 							var moveEntry = self.getFormulaEntry(movesInput.getAttribute("data-formula-moves"));
 							if (moveEntry) {
-								var parsedMoves = self.parseEditInput(movesInput.value);
+								var parsedMoves = self.readMovesInput(movesInput);
 								movesInput.setCustomValidity(parsedMoves.valid === false ? parsedMoves.error : "");
 								if (parsedMoves.valid !== false) {
 									self.formulaExportTextOverride = "";
@@ -2198,7 +2198,7 @@
 							var entry = self.getFormulaEntry(movesInput.getAttribute("data-formula-moves"));
 							if (entry) {
 								self.formulaExportTextOverride = "";
-								var parsedMoves = self.parseEditInput(movesInput.value);
+								var parsedMoves = self.readMovesInput(movesInput);
 								if (parsedMoves.valid === false) {
 									movesInput.setCustomValidity(parsedMoves.error);
 									movesInput.reportValidity();
@@ -2437,6 +2437,7 @@
 					if (!entry || !text) {
 						return;
 					}
+					this.syncEditingMovesFromInput();
 					entry.moves.push(text);
 					var compressedTokens = this.compressDisplayTokens(this.tokenizeMoves(entry.moves.join(" ")));
 					entry.moves = compressedTokens;
@@ -2506,6 +2507,34 @@
 					} catch (error) {
 						return { alg: "", moves: [], valid: false, error: error.message || "公式格式无效" };
 					}
+				},
+
+				readMovesInput: function(input) {
+					var value = input ? String(input.value || "") : "";
+					if (!value.trim()) {
+						return { alg: "", moves: [], valid: true };
+					}
+					return this.parseEditInput(value);
+				},
+
+				syncEditingMovesFromInput: function() {
+					if (!this.isRecordingFormula || !this.activeFormulaId || !this.elements.draftList) {
+						return;
+					}
+					var entry = this.getFormulaEntry(this.activeFormulaId);
+					if (!entry || !entry.editingMoves) {
+						return;
+					}
+					var input = this.elements.draftList.querySelector('[data-formula-moves="' + entry.id + '"]');
+					if (!input) {
+						return;
+					}
+					var parsedMoves = this.readMovesInput(input);
+					if (parsedMoves.valid === false) {
+						return;
+					}
+					entry.alg = parsedMoves.alg;
+					entry.moves = parsedMoves.moves;
 				},
 
 				addDisplayToken: function(alg, token) {
