@@ -9,6 +9,7 @@ on:
       - '[a-z]*/**'
       - 'Tools/Relay/**'
       - 'Cube/Formula/**'
+      - 'Cube/Music/**'
       - 'Tools/KGenesis/**'
       - 'Tools/Pulse/**'
 
@@ -23,6 +24,8 @@ jobs:
             source_path: Tools/Relay
           - target_repo: Cube-Formula
             source_path: Cube/Formula
+          - target_repo: Cube-Music
+            source_path: Cube/Music
           - target_repo: Tools-KGenesis
             source_path: Tools/KGenesis
           - target_repo: Tools-Pulse

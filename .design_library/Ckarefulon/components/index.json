@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 2,
+  "library": "ziqing-design-system",
+  "components": [
+    { "slug": "button", "name": "Button 按钮", "semanticType": "action", "confidence": "high" },
+    { "slug": "card", "name": "Card 卡片", "semanticType": "container", "confidence": "high" },
+    { "slug": "input", "name": "Input 输入框", "semanticType": "form", "confidence": "high" },
+    { "slug": "dialog", "name": "Dialog 对话框", "semanticType": "overlay", "confidence": "high" },
+    { "slug": "tag", "name": "Tag 标签", "semanticType": "status", "confidence": "high" },
+    { "slug": "badge", "name": "Badge 徽章", "semanticType": "status", "confidence": "high" }
+  ]
+}

@@ -1,0 +1,627 @@
+/* ============================================================
+   Cube / Music — 魔方音乐
+   设计令牌来自 /.UI/colors_and_type.css（dsk-*）
+   ============================================================ */
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+	min-height: 100%;
+}
+
+body {
+	background: var(--dsk-background);
+	background-image: var(--dsk-page-bg);
+	background-attachment: fixed;
+	color: var(--dsk-foreground);
+	font-family: var(--dsk-font-sans);
+	font-size: var(--dsk-text-base);
+	line-height: var(--dsk-leading-normal);
+	-webkit-font-smoothing: antialiased;
+}
+
+.stage {
+	max-width: 900px;
+	margin: 0 auto;
+	padding: 48px 24px 80px;
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+}
+
+/* ---------- Hero ---------- */
+.hero {
+	padding: 8px 0 4px;
+}
+
+.eyebrow {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0 0 12px;
+	font-size: var(--dsk-text-xs);
+	font-weight: 500;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--dsk-accent);
+}
+
+.eyebrowDot {
+	width: 6px;
+	height: 6px;
+	border-radius: var(--dsk-radius-full);
+	background: var(--dsk-accent);
+	box-shadow: 0 0 0 3px var(--dsk-accent-soft);
+}
+
+.heroTitle {
+	margin: 0 0 8px;
+	font-size: var(--dsk-text-4xl);
+	font-weight: 650;
+	letter-spacing: -0.02em;
+	line-height: var(--dsk-leading-tight);
+	color: var(--dsk-foreground);
+}
+
+.heroSub {
+	margin: 0;
+	font-size: var(--dsk-text-sm);
+	color: var(--dsk-foreground-muted);
+}
+
+/* ---------- Panel ---------- */
+.panel {
+	background: var(--dsk-card);
+	border: 1px solid var(--dsk-card-border);
+	border-radius: var(--dsk-radius-lg);
+	padding: 20px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.panelRow {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 20px;
+}
+
+.panelHead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.panelTitle {
+	margin: 0;
+	font-size: var(--dsk-text-lg);
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	color: var(--dsk-card-foreground);
+}
+
+/* ---------- Connect ---------- */
+.connectPanel {
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+}
+
+.connInfo {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-width: 0;
+}
+
+.statusDot {
+	flex: none;
+	width: 9px;
+	height: 9px;
+	border-radius: var(--dsk-radius-full);
+	background: var(--dsk-foreground-subtle);
+	transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.statusDot.is-connected {
+	background: var(--dsk-accent);
+	box-shadow: 0 0 0 4px var(--dsk-accent-soft);
+}
+
+.statusDot.is-waiting {
+	background: var(--dsk-warning);
+	box-shadow: 0 0 0 4px rgba(230, 184, 74, 0.16);
+	animation: pulse 1.2s ease-in-out infinite;
+}
+
+.statusDot.is-error {
+	background: var(--dsk-danger);
+	box-shadow: 0 0 0 4px rgba(232, 93, 106, 0.16);
+}
+
+@keyframes pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.35; }
+}
+
+.connText {
+	min-width: 0;
+}
+
+.connStatus {
+	margin: 0;
+	font-size: var(--dsk-text-base);
+	font-weight: 550;
+	color: var(--dsk-card-foreground);
+}
+
+.connDevice {
+	margin: 2px 0 0;
+	font-size: var(--dsk-text-sm);
+	color: var(--dsk-foreground-subtle);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ---------- Button ---------- */
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-family: var(--dsk-font-sans);
+	font-weight: 500;
+	border: 1px solid transparent;
+	border-radius: var(--dsk-radius-md);
+	cursor: pointer;
+	transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+	white-space: nowrap;
+	user-select: none;
+}
+
+.btn:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 3px var(--dsk-accent-ring);
+}
+
+.btn--md {
+	height: 38px;
+	padding: 0 18px;
+	font-size: var(--dsk-text-base);
+}
+
+.btn--sm {
+	height: 30px;
+	padding: 0 12px;
+	font-size: var(--dsk-text-sm);
+	border-radius: var(--dsk-radius-sm);
+}
+
+.btn--primary {
+	background: var(--dsk-primary);
+	color: var(--dsk-primary-foreground);
+	border-color: var(--dsk-primary);
+}
+
+.btn--primary:hover:not(:disabled) {
+	background: var(--dsk-primary-hover);
+	border-color: var(--dsk-primary-hover);
+}
+
+.btn--primary:active:not(:disabled) {
+	background: var(--dsk-primary-active);
+}
+
+.btn--ghost {
+	background: transparent;
+	color: var(--dsk-foreground-muted);
+	border-color: var(--dsk-border);
+}
+
+.btn--ghost:hover:not(:disabled) {
+	background: var(--dsk-muted);
+	color: var(--dsk-foreground);
+}
+
+.btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.btn--primary.is-connected {
+	background: transparent;
+	color: var(--dsk-foreground-muted);
+	border-color: var(--dsk-border);
+}
+
+.btn--primary.is-connected:hover:not(:disabled) {
+	background: var(--dsk-muted);
+	color: var(--dsk-foreground);
+}
+
+/* ---------- Field ---------- */
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.fieldRow {
+	flex-direction: row;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.fieldLabel {
+	flex: none;
+	font-size: var(--dsk-text-sm);
+	color: var(--dsk-foreground-muted);
+}
+
+/* ---------- Chips ---------- */
+.chipRow {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.chip {
+	height: 32px;
+	padding: 0 14px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-family: var(--dsk-font-sans);
+	font-size: var(--dsk-text-sm);
+	font-weight: 500;
+	color: var(--dsk-foreground-muted);
+	background: var(--dsk-input);
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-full);
+	cursor: pointer;
+	transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+	user-select: none;
+}
+
+.chip:hover {
+	color: var(--dsk-foreground);
+	border-color: var(--dsk-foreground-subtle);
+}
+
+.chip:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 3px var(--dsk-accent-ring);
+}
+
+.chip.is-active {
+	background: var(--dsk-primary);
+	border-color: var(--dsk-primary);
+	color: var(--dsk-primary-foreground);
+}
+
+/* ---------- Select ---------- */
+.selectWrap {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+}
+
+.selectWrap::after {
+	content: "";
+	position: absolute;
+	right: 11px;
+	width: 6px;
+	height: 6px;
+	border-right: 1.5px solid var(--dsk-foreground-subtle);
+	border-bottom: 1.5px solid var(--dsk-foreground-subtle);
+	transform: translateY(-2px) rotate(45deg);
+	pointer-events: none;
+}
+
+.selectWrap--sm .select {
+	min-width: 76px;
+}
+
+.select {
+	appearance: none;
+	-webkit-appearance: none;
+	height: 32px;
+	min-width: 92px;
+	padding: 0 30px 0 12px;
+	font-family: var(--dsk-font-sans);
+	font-size: var(--dsk-text-sm);
+	color: var(--dsk-input-foreground);
+	background: var(--dsk-input);
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-md);
+	cursor: pointer;
+	transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.select:hover {
+	border-color: var(--dsk-foreground-subtle);
+}
+
+.select:focus {
+	outline: none;
+	border-color: var(--dsk-primary);
+	box-shadow: 0 0 0 3px var(--dsk-primary-ring);
+}
+
+.select option {
+	background: var(--dsk-popover);
+	color: var(--dsk-popover-foreground);
+}
+
+/* ---------- Range ---------- */
+.range {
+	appearance: none;
+	-webkit-appearance: none;
+	width: 100%;
+	height: 4px;
+	margin: 6px 0;
+	background: var(--dsk-muted);
+	border-radius: var(--dsk-radius-full);
+	cursor: pointer;
+}
+
+.range::-webkit-slider-thumb {
+	appearance: none;
+	-webkit-appearance: none;
+	width: 16px;
+	height: 16px;
+	border-radius: var(--dsk-radius-full);
+	background: var(--dsk-accent);
+	border: none;
+	box-shadow: 0 0 0 3px var(--dsk-accent-soft);
+}
+
+.range::-moz-range-thumb {
+	width: 16px;
+	height: 16px;
+	border: none;
+	border-radius: var(--dsk-radius-full);
+	background: var(--dsk-accent);
+	box-shadow: 0 0 0 3px var(--dsk-accent-soft);
+}
+
+.range:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 3px var(--dsk-accent-ring);
+}
+
+/* ---------- Switch ---------- */
+.switch {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+	user-select: none;
+}
+
+.switch input {
+	position: absolute;
+	opacity: 0;
+	width: 0;
+	height: 0;
+}
+
+.switchTrack {
+	position: relative;
+	width: 36px;
+	height: 20px;
+	border-radius: var(--dsk-radius-full);
+	background: var(--dsk-muted);
+	border: 1px solid var(--dsk-border);
+	transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.switchKnob {
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 14px;
+	height: 14px;
+	border-radius: var(--dsk-radius-full);
+	background: var(--dsk-foreground-subtle);
+	transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.switch input:checked + .switchTrack {
+	background: var(--dsk-primary-soft);
+	border-color: var(--dsk-primary);
+}
+
+.switch input:checked + .switchTrack .switchKnob {
+	transform: translateX(16px);
+	background: var(--dsk-primary);
+}
+
+.switch input:focus-visible + .switchTrack {
+	box-shadow: 0 0 0 3px var(--dsk-accent-ring);
+}
+
+.switchLabel {
+	font-size: var(--dsk-text-sm);
+	color: var(--dsk-foreground-muted);
+}
+
+/* ---------- Pads ---------- */
+.padGroup {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.groupLabel {
+	margin: 0;
+	font-size: var(--dsk-text-xs);
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--dsk-foreground-subtle);
+}
+
+.padGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+	gap: 10px;
+}
+
+.pad {
+	position: relative;
+	height: 84px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	padding: 8px;
+	font-family: var(--dsk-font-sans);
+	background: var(--dsk-input);
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-md);
+	color: var(--dsk-card-foreground);
+	cursor: pointer;
+	overflow: hidden;
+	transition: border-color 0.16s ease, background 0.16s ease, transform 0.08s ease;
+	user-select: none;
+}
+
+.pad::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: var(--dsk-accent);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.28s ease;
+}
+
+.pad:hover {
+	border-color: var(--dsk-foreground-subtle);
+}
+
+.pad:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 3px var(--dsk-accent-ring);
+}
+
+.pad.is-hit::before {
+	opacity: 0.16;
+	transition: opacity 0.04s ease;
+}
+
+.pad.is-hit {
+	border-color: var(--dsk-accent);
+}
+
+.pad.is-slice {
+	background: color-mix(in srgb, var(--dsk-primary) 12%, var(--dsk-input));
+}
+
+.padMove {
+	font-size: var(--dsk-text-lg);
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	line-height: 1.1;
+}
+
+.padDeg {
+	font-size: var(--dsk-text-sm);
+	color: var(--dsk-accent);
+	line-height: 1.2;
+}
+
+.padDeg sup,
+.padDeg sub {
+	font-size: 0.72em;
+	line-height: 0;
+	color: inherit;
+}
+
+.padNote {
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-foreground-subtle);
+}
+
+/* ---------- Log ---------- */
+.logList {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	min-height: 34px;
+	align-content: flex-start;
+}
+
+.logList .empty {
+	margin: 0;
+	font-size: var(--dsk-text-sm);
+	color: var(--dsk-foreground-subtle);
+}
+
+.logChip {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 7px;
+	padding: 5px 12px;
+	font-size: var(--dsk-text-sm);
+	background: var(--dsk-input);
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-full);
+	animation: chipIn 0.24s ease;
+}
+
+.logChip.is-new {
+	border-color: var(--dsk-accent);
+	color: var(--dsk-card-foreground);
+}
+
+.logChip .logMove {
+	font-weight: 600;
+}
+
+.logChip .logNote {
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+}
+
+@keyframes chipIn {
+	from { opacity: 0; transform: translateY(-4px); }
+	to { opacity: 1; transform: none; }
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 720px) {
+	.stage {
+		padding: 32px 16px 64px;
+		gap: 16px;
+	}
+
+	.panelRow {
+		grid-template-columns: 1fr;
+		gap: 16px;
+	}
+
+	.heroTitle {
+		font-size: var(--dsk-text-3xl);
+	}
+
+	.connectPanel {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.padGrid {
+		grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+	}
+}

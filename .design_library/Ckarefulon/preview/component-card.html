@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Card 卡片 — Ziqing Design System</title>
+  <link rel="stylesheet" href="../colors_and_type.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-background);
+      color: var(--color-foreground);
+      min-height: 100vh;
+      padding: 64px 32px;
+      line-height: 1.6;
+    }
+
+    .page-header {
+      max-width: 1200px;
+      margin: 0 auto 56px;
+      text-align: center;
+    }
+
+    .page-header .eyebrow {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--dsk-primary);
+      margin-bottom: 12px;
+    }
+
+    .page-header h1 {
+      font-size: 36px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--color-foreground);
+      margin-bottom: 12px;
+    }
+
+    .page-header p {
+      font-size: 15px;
+      color: var(--dsk-foreground-muted);
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    .section {
+      max-width: 1200px;
+      margin: 0 auto 64px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--dsk-foreground-subtle);
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--dsk-border-subtle);
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    .card-demo {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-label {
+      font-size: 12px;
+      color: var(--dsk-foreground-subtle);
+      font-family: var(--font-mono);
+      letter-spacing: 0.02em;
+    }
+
+    /* ========== Base Card ========== */
+    .card {
+      background: var(--color-card);
+      border: 1px solid var(--dsk-card-border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: var(--dsk-primary);
+      box-shadow: 0 0 0 1px var(--dsk-primary-ring), var(--shadow-md);
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--color-card-foreground);
+      margin-bottom: 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .card-desc {
+      font-size: 14px;
+      color: var(--dsk-card-muted);
+      line-height: 1.6;
+    }
+
+    /* ========== Icon Card ========== */
+    .card-icon-wrap {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      background: var(--dsk-primary-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    .card-icon-wrap i {
+      color: var(--dsk-primary);
+      width: 22px;
+      height: 22px;
+      stroke-width: 1.75;
+    }
+
+    .card-icon-wrap.cyan {
+      background: var(--dsk-accent-soft);
+    }
+
+    .card-icon-wrap.cyan i {
+      color: var(--dsk-accent);
+    }
+
+    /* ========== Top Accent Line Card ========== */
+    .card--accent-top {
+      position: relative;
+      padding-top: 28px;
+    }
+
+    .card--accent-top::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 24px;
+      right: 24px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--dsk-primary), transparent);
+      border-radius: 2px 2px 0 0;
+    }
+
+    .card--accent-top.cyan-accent::before {
+      background: linear-gradient(90deg, var(--dsk-accent), transparent);
+    }
+
+    /* ========== Left Accent Line Card ========== */
+    .card--accent-left {
+      position: relative;
+      padding-left: 28px;
+    }
+
+    .card--accent-left::before {
+      content: '';
+      position: absolute;
+      top: 20px;
+      bottom: 20px;
+      left: 0;
+      width: 3px;
+      background: linear-gradient(180deg, var(--dsk-primary), transparent);
+      border-radius: 0 2px 2px 0;
+    }
+
+    .card--accent-left.cyan-accent::before {
+      background: linear-gradient(180deg, var(--dsk-accent), transparent);
+    }
+
+    /* ========== Stat Card ========== */
+    .card-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .card-stat__label {
+      font-size: 13px;
+      color: var(--dsk-card-muted);
+      order: -1;
+    }
+
+    .card-stat__value {
+      font-size: 36px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--dsk-primary);
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .card-stat__delta {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--dsk-success);
+      margin-top: 4px;
+    }
+
+    .card-stat__delta i {
+      width: 14px;
+      height: 14px;
+    }
+
+    .card-stat__delta.down {
+      color: var(--dsk-danger);
+    }
+
+    /* ========== Card with Actions ========== */
+    .card--with-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .card-body {
+      flex: 1;
+    }
+
+    .card-footer {
+      display: flex;
+      gap: 10px;
+      padding-top: 16px;
+      border-top: 1px solid var(--dsk-border-subtle);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font-sans);
+      border-radius: var(--radius-md);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--dsk-primary);
+      color: var(--dsk-primary-foreground);
+    }
+
+    .btn-primary:hover {
+      background: var(--dsk-primary-hover);
+    }
+
+    .btn-primary:active {
+      background: var(--dsk-primary-active);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--dsk-foreground-muted);
+      border-color: var(--dsk-border-subtle);
+    }
+
+    .btn-ghost:hover {
+      color: var(--color-foreground);
+      border-color: var(--dsk-card-border);
+      background: var(--dsk-muted);
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    /* ========== Elevated Card Variant ========== */
+    .card--elevated {
+      background: var(--dsk-background-elevated);
+      border-color: var(--dsk-border-subtle);
+      box-shadow: var(--shadow-md);
+    }
+
+    .card--elevated:hover {
+      box-shadow: var(--shadow-lg);
+      border-color: var(--dsk-primary);
+    }
+
+    /* ========== Card meta info ========== */
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--dsk-border-subtle);
+    }
+
+    .card-meta__avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-full);
+      background: var(--dsk-primary-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .card-meta__avatar i {
+      width: 14px;
+      height: 14px;
+      color: var(--dsk-primary);
+    }
+
+    .card-meta__text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .card-meta__name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-card-foreground);
+    }
+
+    .card-meta__time {
+      font-size: 12px;
+      color: var(--dsk-foreground-subtle);
+    }
+
+    /* ========== Showcase section ========== */
+    .showcase-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .showcase-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 900px) {
+      .stat-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="page-header">
+    <div class="eyebrow">Components</div>
+    <h1>Card 卡片</h1>
+    <p>干净克制的容器组件。色彩仅用于图标、细边框、顶部强调线与关键数字，以中性色承载内容，紫色定气质，青色做点睛。</p>
+  </header>
+
+  <!-- Section 1: 基础卡片 -->
+  <section class="section">
+    <div class="section-title">01 — 基础卡片 Basic Card</div>
+    <div class="card-grid">
+      <div class="card-demo">
+        <div class="card-label">variant: default</div>
+        <div class="card">
+          <h3 class="card-title">项目概览</h3>
+          <p class="card-desc">这是一个基础卡片，使用中性色背景搭配细边框，承载内容信息而不过分张扬。</p>
+        </div>
+      </div>
+      <div class="card-demo">
+        <div class="card-label">variant: elevated</div>
+        <div class="card card--elevated">
+          <h3 class="card-title">浮层卡片</h3>
+          <p class="card-desc">略浅于页面背景的卡片，通过阴影与边框营造层次，用于需要突出的内容模块。</p>
+        </div>
+      </div>
+      <div class="card-demo">
+        <div class="card-label">with meta</div>
+        <div class="card">
+          <h3 class="card-title">设计系统更新日志</h3>
+          <p class="card-desc">新增 Card 组件变体，完善 Token 体系，统一暗色模式视觉规范。</p>
+          <div class="card-meta">
+            <div class="card-meta__avatar"><i data-lucide="user"></i></div>
+            <div class="card-meta__text">
+              <div class="card-meta__name">Ziqing</div>
+              <div class="card-meta__time">2 小时前更新</div>
+            </div>
+            <i data-lucide="more-horizontal" style="width:18px;height:18px;color:var(--dsk-foreground-subtle)"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 2: 图标卡片 -->
+  <section class="section">
+    <div class="section-title">02 — 图标卡片 Icon Card</div>
+    <div class="feature-grid">
+      <div class="card-demo">
+        <div class="card-label">purple icon</div>
+        <div class="card">
+          <div class="card-icon-wrap">
+            <i data-lucide="zap"></i>
+          </div>
+          <h3 class="card-title">高性能</h3>
+          <p class="card-desc">基于原生 CSS 变量构建，零运行时开销，首屏加载极致流畅。</p>
+        </div>
+      </div>
+      <div class="card-demo">
+        <div class="card-label">cyan icon (accent)</div>
+        <div class="card">
+          <div class="card-icon-wrap cyan">
+            <i data-lucide="sparkles"></i>
+          </div>
+          <h3 class="card-title">灵活扩展</h3>
+          <p class="card-desc">Token 驱动的设计系统，支持暗色/亮色双主题，轻松适配品牌需求。</p>
+        </div>
+      </div>
+      <div class="card-demo">
+        <div class="card-label">purple icon</div>
+        <div class="card">
+          <div class="card-icon-wrap">
+            <i data-lucide="shield-check"></i>
+          </div>
+          <h3 class="card-title">稳定可靠</h3>
+          <p class="card-desc">经过严格的视觉走查与可用性测试，确保每个细节都经得起推敲。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3: 顶部强调线卡片 -->
+  <section class="section">
+    <div class="section-title">03 — 顶部强调线卡片 Top Accent Line</div>
+    <div class="card-grid">
+      <div class="card-demo">
+        <div class="card-label">purple accent (top)</div>
+        <div class="card card--accent-top">
+          <h3 class="card-title">系统状态</h3>
+          <p class="card-desc">所有服务运行正常，响应时间稳定在 45ms 以内。</p>
+        </div>
+      </div>
+      <div class="card-demo">
+        <div class="card-label">cyan accent (top)</div>
+        <div class="card card--accent-top cyan-accent">
+          <h3 class="card-title">新功能上线</h3>
+          <p class="card-desc">组件库新增 Tag、Badge 组件，支持更多场景使用。</p>
+        </div>
+      </div>
+      <div class="card-demo">
+        <div class="card-label">with icon + top line</div>
+        <div class="card card--accent-top">
+          <div class="card-icon-wrap cyan">
+            <i data-lucide="activity"></i>
+          </div>
+          <h3 class="card-title">实时监控</h3>
+          <p class="card-desc">当前在线用户 1,284 人，今日访问量较昨日增长 12.4%。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 4: 左侧强调线卡片 -->
+  <section class="section">
+    <div class="section-title">04 — 左侧强调线卡片 Left Accent Line</div>
+    <div class="card-grid">
+      <div class="card-demo">
+        <div class="card-label">purple accent (left)</div>
+        <div class="card card--accent-left">
+          <h3 class="card-title">待处理事项</h3>
+          <p class="card-desc">您有 3 条待审批的设计变更请求，请及时处理。</p>
+        </div>
+      </div>
+      <div class="card-demo">
+        <div class="card-label">cyan accent (left)</div>
+        <div class="card card--accent-left cyan-accent">
+          <h3 class="card-title">今日提醒</h3>
+          <p class="card-desc">下午 3:00 有设计评审会议，请准备好相关材料。</p>
+        </div>
+      </div>
+      <div class="card-demo">
+        <div class="card-label">left line + meta</div>
+        <div class="card card--accent-left">
+          <h3 class="card-title">版本发布 v2.1.0</h3>
+          <p class="card-desc">本次更新包含 8 个新组件和 15 项体验优化。</p>
+          <div class="card-meta">
+            <div class="card-meta__avatar"><i data-lucide="tag"></i></div>
+            <div class="card-meta__text">
+              <div class="card-meta__name">Release</div>
+              <div class="card-meta__time">发布于 2026.09.07</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 5: 数据统计卡片 -->
+  <section class="section">
+    <div class="section-title">05 — 数据统计卡片 Stat Card</div>
+    <div class="stat-row">
+      <div class="card-demo">
+        <div class="card-label">primary number</div>
+        <div class="card card-stat">
+          <span class="card-stat__label">总用户数</span>
+          <span class="card-stat__value">12,847</span>
+          <span class="card-stat__delta">
+            <i data-lucide="trending-up"></i>
+            +8.2% 较上周
+          </span>
+        </div>
+      </div>
+      <div class="card-demo">
+        <div class="card-label">with cyan accent icon</div>
+        <div class="card card-stat">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <span class="card-stat__label">活跃会话</span>
+            <div class="card-icon-wrap cyan" style="width:32px;height:32px;margin-bottom:0;">
+              <i data-lucide="pulse" style="width:16px;height:16px;"></i>
+            </div>
+          </div>
+          <span class="card-stat__value">1,284</span>
+          <span class="card-stat__delta">
+            <i data-lucide="trending-up"></i>
+            +12.4% 今日
+          </span>
+        </div>
+      </div>
+      <div class="card-demo">
+        <div class="card-label">negative delta</div>
+        <div class="card card-stat">
+          <span class="card-stat__label">错误率</span>
+          <span class="card-stat__value">0.12%</span>
+          <span class="card-stat__delta down">
+            <i data-lucide="trending-down"></i>
+            -0.03% 较昨日
+          </span>
+        </div>
+      </div>
+      <div class="card-demo">
+        <div class="card-label">elevated + stat</div>
+        <div class="card card--elevated card-stat">
+          <span class="card-stat__label">平均响应</span>
+          <span class="card-stat__value">45ms</span>
+          <span class="card-stat__delta">
+            <i data-lucide="zap"></i>
+            性能优秀
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 6: 带操作卡片 -->
+  <section class="section">
+    <div class="section-title">06 — 带操作卡片 Card with Actions</div>
+    <div class="card-grid">
+      <div class="card-demo">
+        <div class="card-label">primary + ghost</div>
+        <div class="card card--with-actions">
+          <div class="card-body">
+            <h3 class="card-title">升级到专业版</h3>
+            <p class="card-desc">解锁全部组件、高级 Token 管理以及私有模板库，助力团队协作效率翻倍。</p>
+          </div>
+          <div class="card-footer">
+            <button class="btn btn-primary">
+              <i data-lucide="crown" style="width:14px;height:14px;"></i>
+              立即升级
+            </button>
+            <button class="btn btn-ghost">了解更多</button>
+          </div>
+        </div>
+      </div>
+      <div class="card-demo">
+        <div class="card-label">icon card + actions</div>
+        <div class="card card--with-actions">
+          <div class="card-body">
+            <div class="card-icon-wrap">
+              <i data-lucide="layers"></i>
+            </div>
+            <h3 class="card-title">组件库同步</h3>
+            <p class="card-desc">检测到远程有新的组件更新，是否同步到本地项目？</p>
+          </div>
+          <div class="card-footer">
+            <button class="btn btn-primary btn-sm">
+              <i data-lucide="download" style="width:13px;height:13px;"></i>
+              同步更新
+            </button>
+            <button class="btn btn-ghost btn-sm">稍后再说</button>
+          </div>
+        </div>
+      </div>
+      <div class="card-demo">
+        <div class="card-label">accent line + actions</div>
+        <div class="card card--accent-top cyan-accent card--with-actions">
+          <div class="card-body">
+            <h3 class="card-title">邀请团队成员</h3>
+            <p class="card-desc">邀请设计师和开发者加入你的工作空间，共同构建一致的设计语言。</p>
+          </div>
+          <div class="card-footer" style="justify-content: flex-end;">
+            <button class="btn btn-ghost btn-sm">跳过</button>
+            <button class="btn btn-primary btn-sm">
+              发送邀请
+              <i data-lucide="arrow-right" style="width:13px;height:13px;"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Showcase -->
+  <section class="section">
+    <div class="section-title">Showcase — 组合使用</div>
+    <div style="display:grid;gap:20px;">
+      <!-- Stats row -->
+      <div class="stat-row">
+        <div class="card card-stat">
+          <span class="card-stat__label">本月收入</span>
+          <span class="card-stat__value">¥284,930</span>
+          <span class="card-stat__delta">
+            <i data-lucide="trending-up"></i>
+            +23.5%
+          </span>
+        </div>
+        <div class="card card-stat">
+          <span class="card-stat__label">新增用户</span>
+          <span class="card-stat__value">3,428</span>
+          <span class="card-stat__delta">
+            <i data-lucide="trending-up"></i>
+            +18.2%
+          </span>
+        </div>
+        <div class="card card-stat">
+          <span class="card-stat__label">转化率</span>
+          <span class="card-stat__value">4.7%</span>
+          <span class="card-stat__delta down">
+            <i data-lucide="trending-down"></i>
+            -0.8%
+          </span>
+        </div>
+        <div class="card card-stat">
+          <span class="card-stat__label">满意度</span>
+          <span class="card-stat__value">96.2%</span>
+          <span class="card-stat__delta">
+            <i data-lucide="star"></i>
+            +1.2%
+          </span>
+        </div>
+      </div>
+      <!-- Feature cards row -->
+      <div class="feature-grid">
+        <div class="card">
+          <div class="card-icon-wrap">
+            <i data-lucide="palette"></i>
+          </div>
+          <h3 class="card-title">设计规范</h3>
+          <p class="card-desc">完整的 Token 体系与组件规范，确保团队设计语言的一致性。</p>
+        </div>
+        <div class="card">
+          <div class="card-icon-wrap cyan">
+            <i data-lucide="code-2"></i>
+          </div>
+          <h3 class="card-title">工程化</h3>
+          <p class="card-desc">与现代前端框架无缝集成，支持按需加载与主题定制。</p>
+        </div>
+        <div class="card">
+          <div class="card-icon-wrap">
+            <i data-lucide="users"></i>
+          </div>
+          <h3 class="card-title">协作友好</h3>
+          <p class="card-desc">设计师与开发者共享同一套设计语言，沟通成本大幅降低。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

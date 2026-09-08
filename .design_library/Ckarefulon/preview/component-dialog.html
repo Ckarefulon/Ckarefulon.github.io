@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dialog 对话框 · Ziqing Design System</title>
+  <link rel="stylesheet" href="../colors_and_type.css" />
+  <style>
+    /* ---------- Page Layout ---------- */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-background);
+      color: var(--color-foreground);
+      line-height: 1.6;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 80px 48px 120px;
+    }
+
+    .page-header {
+      margin-bottom: 64px;
+    }
+
+    .component-kicker {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--dsk-accent);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .component-title {
+      font-size: 42px;
+      font-weight: 600;
+      color: var(--color-foreground);
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+
+    .component-desc {
+      font-size: 16px;
+      color: var(--dsk-foreground-muted);
+      max-width: 620px;
+      line-height: 1.7;
+    }
+
+    /* ---------- Section ---------- */
+    .section {
+      margin-bottom: 64px;
+    }
+
+    .section-header {
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--dsk-border-subtle);
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--color-foreground);
+      margin-bottom: 4px;
+    }
+
+    .section-subtitle {
+      font-size: 14px;
+      color: var(--dsk-foreground-subtle);
+    }
+
+    /* ---------- Dialog Stage ---------- */
+    .dialog-stage {
+      background: var(--color-card);
+      border: 1px solid var(--dsk-card-border);
+      border-radius: var(--radius-lg);
+      padding: 48px 32px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+      min-height: 360px;
+    }
+
+    .dialog-stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 20% 30%, rgba(107, 93, 194, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(36, 240, 234, 0.06) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    /* Simulated app content behind dialog */
+    .stage-bg {
+      position: absolute;
+      inset: 0;
+      padding: 24px;
+      opacity: 0.6;
+      filter: blur(2px);
+      pointer-events: none;
+    }
+
+    .stage-bg-bar {
+      height: 28px;
+      background: var(--dsk-muted);
+      border-radius: 4px;
+      margin-bottom: 12px;
+      width: 60%;
+    }
+
+    .stage-bg-bar:nth-child(2) { width: 80%; }
+    .stage-bg-bar:nth-child(3) { width: 45%; }
+    .stage-bg-bar:nth-child(4) { width: 70%; margin-top: 20px; }
+    .stage-bg-bar:nth-child(5) { width: 55%; }
+    .stage-bg-bar:nth-child(6) { width: 90%; }
+
+    /* ---------- Dialog Overlay ---------- */
+    .dialog-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 9, 18, 0.65);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      animation: overlay-in 0.2s ease-out;
+    }
+
+    @keyframes overlay-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* ---------- Dialog Base ---------- */
+    .dialog {
+      position: relative;
+      width: 100%;
+      max-width: 440px;
+      background: var(--dsk-popover);
+      border: 1px solid var(--dsk-popover-border);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--dsk-shadow-lg),
+                  0 0 0 1px rgba(255, 255, 255, 0.02);
+      padding: 28px 28px 24px;
+      animation: dialog-in 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes dialog-in {
+      from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Dialog header */
+    .dialog-header {
+      margin-bottom: 16px;
+    }
+
+    .dialog-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--dsk-popover-foreground);
+      letter-spacing: -0.01em;
+      line-height: 1.4;
+    }
+
+    .dialog-description {
+      font-size: 14px;
+      color: var(--dsk-foreground-muted);
+      margin-top: 6px;
+      line-height: 1.6;
+    }
+
+    /* Dialog body */
+    .dialog-body {
+      margin-bottom: 24px;
+    }
+
+    /* Dialog footer */
+    .dialog-footer {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .dialog-footer--left {
+      justify-content: flex-start;
+    }
+
+    /* Close button */
+    .dialog-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      color: var(--dsk-foreground-subtle);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .dialog-close:hover {
+      background: var(--dsk-muted);
+      color: var(--dsk-foreground);
+    }
+
+    .dialog-close svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ---------- Button Styles (scoped for dialog) ---------- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: var(--font-sans);
+      font-weight: 500;
+      font-size: 14px;
+      line-height: 1;
+      border: 1px solid transparent;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      white-space: nowrap;
+      text-decoration: none;
+      height: 38px;
+      padding: 0 18px;
+    }
+
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--dsk-accent-ring);
+    }
+
+    .btn--primary {
+      background: var(--dsk-primary);
+      color: var(--dsk-primary-foreground);
+      border-color: var(--dsk-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn--primary:hover {
+      background: var(--dsk-primary-hover);
+      border-color: var(--dsk-primary-hover);
+    }
+
+    .btn--secondary {
+      background: transparent;
+      color: var(--color-foreground);
+      border-color: var(--color-border);
+    }
+
+    .btn--secondary:hover {
+      border-color: var(--dsk-accent);
+      box-shadow: 0 0 0 1px var(--dsk-accent-glow);
+    }
+
+    .btn--danger {
+      background: var(--dsk-danger);
+      color: #ffffff;
+      border-color: var(--dsk-danger);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn--danger:hover {
+      background: #f06e7a;
+      border-color: #f06e7a;
+    }
+
+    .btn--ghost {
+      background: transparent;
+      color: var(--color-foreground);
+      border-color: transparent;
+    }
+
+    .btn--ghost:hover {
+      background: var(--dsk-accent-soft);
+      color: var(--dsk-accent);
+    }
+
+    .btn-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1em;
+      height: 1em;
+      font-size: 1.1em;
+      flex-shrink: 0;
+    }
+
+    .btn-icon svg {
+      width: 100%;
+      height: 100%;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ---------- Warning / Danger Dialog Variant ---------- */
+    .dialog--warning {
+      border-color: rgba(232, 93, 106, 0.4);
+      box-shadow: var(--dsk-shadow-lg),
+                  0 0 0 1px rgba(232, 93, 106, 0.15),
+                  0 0 32px rgba(232, 93, 106, 0.1);
+    }
+
+    .dialog--warning .dialog-header {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .dialog-icon-badge {
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-full);
+      background: rgba(232, 93, 106, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--dsk-danger);
+    }
+
+    .dialog-icon-badge svg {
+      width: 22px;
+      height: 22px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .dialog--warning .dialog-title-group {
+      flex: 1;
+      padding-top: 4px;
+    }
+
+    /* ---------- Form Dialog ---------- */
+    .form-field {
+      margin-bottom: 16px;
+    }
+
+    .form-field:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--dsk-foreground-muted);
+      margin-bottom: 8px;
+    }
+
+    .form-input {
+      width: 100%;
+      height: 38px;
+      padding: 0 12px;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      color: var(--dsk-input-foreground);
+      background: var(--dsk-input);
+      border: 1px solid var(--dsk-border);
+      border-radius: var(--radius-md);
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    .form-input:focus {
+      border-color: var(--dsk-accent);
+      box-shadow: 0 0 0 3px var(--dsk-accent-ring);
+    }
+
+    .form-input::placeholder {
+      color: var(--dsk-foreground-subtle);
+    }
+
+    .form-textarea {
+      width: 100%;
+      min-height: 80px;
+      padding: 10px 12px;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--dsk-input-foreground);
+      background: var(--dsk-input);
+      border: 1px solid var(--dsk-border);
+      border-radius: var(--radius-md);
+      resize: vertical;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    .form-textarea:focus {
+      border-color: var(--dsk-accent);
+      box-shadow: 0 0 0 3px var(--dsk-accent-ring);
+    }
+
+    .form-textarea::placeholder {
+      color: var(--dsk-foreground-subtle);
+    }
+
+    /* ---------- Settings Dialog ---------- */
+    .settings-group {
+      margin-bottom: 20px;
+    }
+
+    .settings-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .settings-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--dsk-foreground-muted);
+      margin-bottom: 10px;
+    }
+
+    .settings-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .settings-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--dsk-input);
+      border: 1px solid var(--dsk-border);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .settings-option:hover {
+      border-color: var(--dsk-accent);
+    }
+
+    .settings-option.is-selected {
+      border-color: var(--dsk-primary);
+      background: var(--dsk-primary-soft);
+    }
+
+    .settings-option-radio {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid var(--dsk-foreground-subtle);
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .settings-option.is-selected .settings-option-radio {
+      border-color: var(--dsk-primary);
+    }
+
+    .settings-option.is-selected .settings-option-radio::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--dsk-primary);
+    }
+
+    .settings-option-text {
+      font-size: 14px;
+      color: var(--dsk-popover-foreground);
+    }
+
+    .settings-option-desc {
+      font-size: 12px;
+      color: var(--dsk-foreground-subtle);
+      margin-top: 2px;
+    }
+
+    .settings-option-content {
+      flex: 1;
+    }
+
+    /* ---------- Dialog Grid (for side-by-side display) ---------- */
+    .dialog-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 24px;
+    }
+
+    .dialog-stage--small {
+      min-height: 320px;
+      padding: 32px 20px;
+    }
+
+    .dialog-stage--small .dialog {
+      max-width: 380px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- Header -->
+    <header class="page-header">
+      <div class="component-kicker">Components</div>
+      <h1 class="component-title">Dialog 对话框</h1>
+      <p class="component-desc">
+        对话框用于中断用户流程，展示重要信息或请求决策。干净克制的设计语言，无彩色装饰条；遮罩采用半透明深色搭配模糊效果，营造层次感与聚焦感。
+      </p>
+    </header>
+
+    <!-- Basic Confirm Dialog -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">基础确认 Basic Confirm</h2>
+        <p class="section-subtitle">标题 + 描述 + 取消/确认按钮，按钮默认居右</p>
+      </div>
+      <div class="dialog-stage">
+        <div class="stage-bg">
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+        </div>
+        <div class="dialog-overlay">
+          <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="basic-title">
+            <button class="dialog-close" aria-label="关闭">
+              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+            <div class="dialog-header">
+              <h2 class="dialog-title" id="basic-title">确认删除项目？</h2>
+              <p class="dialog-description">
+                此操作将永久删除项目及其所有数据，删除后无法恢复。请确认您的操作。
+              </p>
+            </div>
+            <div class="dialog-footer">
+              <button class="btn btn--secondary">取消</button>
+              <button class="btn btn--primary">确认删除</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Form Dialog -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">表单对话框 Form Dialog</h2>
+        <p class="section-subtitle">带输入框的新建对话框，用于收集用户输入</p>
+      </div>
+      <div class="dialog-stage">
+        <div class="stage-bg">
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+        </div>
+        <div class="dialog-overlay">
+          <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="form-title" style="max-width: 480px;">
+            <button class="dialog-close" aria-label="关闭">
+              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+            <div class="dialog-header">
+              <h2 class="dialog-title" id="form-title">新建项目</h2>
+              <p class="dialog-description">
+                创建一个新项目，填写基本信息后即可开始。
+              </p>
+            </div>
+            <div class="dialog-body">
+              <div class="form-field">
+                <label class="form-label" for="project-name">项目名称</label>
+                <input class="form-input" id="project-name" type="text" placeholder="输入项目名称" />
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="project-desc">项目描述</label>
+                <textarea class="form-textarea" id="project-desc" placeholder="简要描述项目的目标和内容"></textarea>
+              </div>
+            </div>
+            <div class="dialog-footer">
+              <button class="btn btn--secondary">取消</button>
+              <button class="btn btn--primary">
+                <span class="btn-icon">
+                  <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                </span>
+                创建项目
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Warning Dialog -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">警示对话框 Warning</h2>
+        <p class="section-subtitle">危险操作图标徽章 + 警示色边框，按钮居左以突出危险操作</p>
+      </div>
+      <div class="dialog-stage">
+        <div class="stage-bg">
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+        </div>
+        <div class="dialog-overlay">
+          <div class="dialog dialog--warning" role="alertdialog" aria-modal="true" aria-labelledby="warning-title">
+            <div class="dialog-header">
+              <div class="dialog-icon-badge" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                  <path d="M12 9v4"/>
+                  <path d="M12 17h.01"/>
+                </svg>
+              </div>
+              <div class="dialog-title-group">
+                <h2 class="dialog-title" id="warning-title">删除工作区</h2>
+                <p class="dialog-description">
+                  此操作将永久删除工作区 <strong style="color: var(--dsk-foreground);">"生产环境"</strong> 及其中所有项目、数据和成员权限。此操作<strong style="color: var(--dsk-foreground);">不可撤销</strong>。
+                </p>
+              </div>
+            </div>
+            <div class="dialog-footer dialog-footer--left">
+              <button class="btn btn--danger">
+                <span class="btn-icon">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M3 6h18"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                </span>
+                确认删除
+              </button>
+              <button class="btn btn--ghost">取消</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings Dialog -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">设置对话框 Settings</h2>
+        <p class="section-subtitle">取消 + 应用 + 确定 三按钮布局，适用于偏好设置场景</p>
+      </div>
+      <div class="dialog-stage">
+        <div class="stage-bg">
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+          <div class="stage-bg-bar"></div>
+        </div>
+        <div class="dialog-overlay">
+          <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title" style="max-width: 480px;">
+            <button class="dialog-close" aria-label="关闭">
+              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+            <div class="dialog-header">
+              <h2 class="dialog-title" id="settings-title">界面设置</h2>
+              <p class="dialog-description">
+                自定义界面外观和行为偏好。
+              </p>
+            </div>
+            <div class="dialog-body">
+              <div class="settings-group">
+                <div class="settings-label">主题模式</div>
+                <div class="settings-options">
+                  <div class="settings-option is-selected">
+                    <div class="settings-option-radio"></div>
+                    <div class="settings-option-content">
+                      <div class="settings-option-text">深色模式</div>
+                      <div class="settings-option-desc">默认暗色主题，降低视觉疲劳</div>
+                    </div>
+                  </div>
+                  <div class="settings-option">
+                    <div class="settings-option-radio"></div>
+                    <div class="settings-option-content">
+                      <div class="settings-option-text">浅色模式</div>
+                      <div class="settings-option-desc">明亮清爽的日间主题</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="settings-group">
+                <div class="settings-label">动效强度</div>
+                <div class="settings-options">
+                  <div class="settings-option is-selected">
+                    <div class="settings-option-radio"></div>
+                    <div class="settings-option-content">
+                      <div class="settings-option-text">标准</div>
+                      <div class="settings-option-desc">平衡的过渡与微交互</div>
+                    </div>
+                  </div>
+                  <div class="settings-option">
+                    <div class="settings-option-radio"></div>
+                    <div class="settings-option-content">
+                      <div class="settings-option-text">极简</div>
+                      <div class="settings-option-desc">减少动画，提升响应速度</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="dialog-footer">
+              <button class="btn btn--ghost" style="margin-right: auto;">取消</button>
+              <button class="btn btn--secondary">应用</button>
+              <button class="btn btn--primary">确定</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

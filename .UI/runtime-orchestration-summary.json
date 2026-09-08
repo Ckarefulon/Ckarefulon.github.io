@@ -1,0 +1,285 @@
+{
+  "project": {
+    "name": "UI Design System",
+    "resolvedLane": "free_exploration",
+    "selectedIntentWorkflowRead": true,
+    "deviceType": "desktop",
+    "intentProfile": {
+      "caseFamily": "design_system_showcase",
+      "routingReason": "free_exploration — no existing project, open-ended UI design system showcase page with dark/light dual mode component library",
+      "complexity": "stateful-free-fast"
+    },
+    "contextRequirementsLoaded": [
+      {
+        "path": "shared-runtime/runtime-boundaries/lane-runtime-contracts.md",
+        "readStatus": "loaded",
+        "bodyRead": true
+      },
+      {
+        "path": "shared-runtime/agent-dispatch-runtime/lane-dispatch-index.md",
+        "readStatus": "loaded",
+        "bodyRead": true
+      },
+      {
+        "path": "delivery-quality/page-rendering-quality-gate.md",
+        "readStatus": "loaded",
+        "bodyRead": true
+      },
+      {
+        "path": "delivery-quality/design-artifact-validation.md",
+        "readStatus": "loaded",
+        "bodyRead": true
+      },
+      {
+        "path": "delivery-quality/delivery-evidence-contract.md",
+        "readStatus": "loaded",
+        "bodyRead": true
+      },
+      {
+        "path": "visual-experience/visual-experience-guidelines.md",
+        "readStatus": "loaded",
+        "bodyRead": true
+      }
+    ],
+    "contextReadScope": {
+      "mainAgent": {
+        "forbiddenReads": [
+          "other intent-workflows/**",
+          "Sub-Agent implementation files before dispatch"
+        ]
+      },
+      "pageSubAgent": {
+        "allowedReads": [
+          "current lane page runtime guide",
+          "current lane dispatch contract excerpt",
+          "current Page Packet",
+          "supplementaryReads[] only"
+        ],
+        "forbiddenReads": [
+          "SKILL.md full re-read",
+          "other intent-workflows/**",
+          "full runtime-orchestration-summary.json unless explicitly sliced"
+        ]
+      },
+      "readScopeLedgerWriter": "shared-runtime/deterministic-tooling/build-page-dispatch-manifest.mjs"
+    },
+    "validationRunDiscipline": {
+      "maxFullValidationRuns": 2,
+      "softWarningsTriggerRepair": false,
+      "blockingRepairMode": "targeted-once",
+      "forbiddenRepairTriggers": [
+        "soft-warning-only",
+        "provenance-warning-only",
+        "style-warning-only"
+      ]
+    },
+    "lowValueCallWatchdog": {
+      "applies": true,
+      "noProgressSignals": [
+        "no_tool_call",
+        "no_artifact_diff",
+        "no_structured_decision"
+      ],
+      "noProgressNextAction": "enter_readiness_or_blocked_summary"
+    },
+    "cssPreflightEvidence": {
+      "applies": true,
+      "status": "passed",
+      "command": "node {SKILL_DIR}/shared-runtime/deterministic-tooling/apply-html-head-contract.mjs colors_and_type.css .preflight/preflight.html --title=\"Preflight\" --lang=zh-CN --prefix=dsk",
+      "brandPrefix": "dsk",
+      "checks": {
+        "themeVars": "present",
+        "semanticTokenFallback": "present",
+        "themeInline": "present",
+        "tailwindCdn": "present",
+        "htmlClass": "present",
+        "semanticMappings": "resolved"
+      },
+      "retryCount": 0,
+      "blockingReason": null
+    },
+    "creativeRecipe": {
+      "businessTone": "高级、简约、冷静、干净、轻微未来感，科技感但不电竞",
+      "layoutArchetype": "design-system-showcase / component-library-grid",
+      "visualSignature": "深紫黑空间中的青色电光 / 冷白空间中的雾紫光晕",
+      "densityTarget": "balanced",
+      "avoidOneThing": "电竞霓虹风、大面积青色、廉价渐变、紫青平均分配"
+    },
+    "defaultDeliverableVisibility": {
+      "applies": true,
+      "requiredVisibleRegions": [
+        {
+          "htmlSrc": "pages/design-system.html",
+          "selector": "#colors",
+          "label": "color palette",
+          "source": "design system requirement"
+        },
+        {
+          "htmlSrc": "pages/design-system.html",
+          "selector": "#typography",
+          "label": "typography scale",
+          "source": "design system requirement"
+        },
+        {
+          "htmlSrc": "pages/design-system.html",
+          "selector": "#buttons",
+          "label": "button components",
+          "source": "design system requirement"
+        },
+        {
+          "htmlSrc": "pages/design-system.html",
+          "selector": "#forms",
+          "label": "form controls",
+          "source": "design system requirement"
+        },
+        {
+          "htmlSrc": "pages/design-system.html",
+          "selector": "#cards",
+          "label": "card components",
+          "source": "design system requirement"
+        },
+        {
+          "htmlSrc": "pages/design-system.html",
+          "selector": "#badges",
+          "label": "badges and status indicators",
+          "source": "design system requirement"
+        }
+      ],
+      "hiddenAllowed": [
+        "modal-overlay",
+        "toast-container"
+      ]
+    },
+    "pageCompletenessGate": {
+      "expectedPages": [
+        "design-system"
+      ],
+      "requiredStates": [
+        "dark-default",
+        "light-toggle"
+      ],
+      "requiredInteractions": [
+        "theme-toggle"
+      ],
+      "requiredNavigation": [
+        "section-anchor-nav"
+      ],
+      "missingAllowed": []
+    },
+    "validationHistory": [
+      {
+        "reportPath": "validation-report.json",
+        "reportHash": "ea92288b6dd82b569d538503d4d26bd9614915050133bccd51312409c4987b90",
+        "checkedAt": "2026-09-07T05:21:04.646Z",
+        "success": false,
+        "exitCode": 1,
+        "renderBlockingErrorCount": 7,
+        "repairPlanHints": [
+          "head-infrastructure-missing"
+        ],
+        "errorSignatures": [
+          {
+            "errorClass": "head-infrastructure",
+            "normalized": "[html-infrastructure] [MAIN-AGENT] design-system.html missing <html class=\"light\"> or <html class=\"dark\"> theme mode selector. Impact: CSS variable selectors do not match; all theme colors stop working. Fix: run apply-html-head-contract.mjs <css-path> design-system.html --replace-head",
+            "signature": "147db55364af7790a8bfffedf5ef1d5e26c7741556394f3594a0fa2da6717156"
+          },
+          {
+            "errorClass": "default-deliverable-visibility",
+            "normalized": "[default-deliverable-visibility] pages/design-system.html: required visible selector not found: #section-colors",
+            "signature": "44459fda5bfe13e909dc593eb99c225a2e3c2904457bdbd315ee86ab5328935b"
+          },
+          {
+            "errorClass": "default-deliverable-visibility",
+            "normalized": "[default-deliverable-visibility] pages/design-system.html: required visible selector not found: #section-typography",
+            "signature": "7cd163b724f8a56aa28b583fa126ea583dfe0f837266ef6161da22bc873ab212"
+          },
+          {
+            "errorClass": "default-deliverable-visibility",
+            "normalized": "[default-deliverable-visibility] pages/design-system.html: required visible selector not found: #section-buttons",
+            "signature": "ddb52d392ae7617ab9a9af6953b020a9714caed408f267e172013189013cfc62"
+          },
+          {
+            "errorClass": "default-deliverable-visibility",
+            "normalized": "[default-deliverable-visibility] pages/design-system.html: required visible selector not found: #section-forms",
+            "signature": "bdfb171414c18a6dfef2e8258a96fe7e8045085296145b0d175e4b2e6cb8abd7"
+          },
+          {
+            "errorClass": "default-deliverable-visibility",
+            "normalized": "[default-deliverable-visibility] pages/design-system.html: required visible selector not found: #section-cards",
+            "signature": "a27ce41b75a46f6e6664f233fc17222696d6d35adf76b051408e4c4c4e014b65"
+          },
+          {
+            "errorClass": "default-deliverable-visibility",
+            "normalized": "[default-deliverable-visibility] pages/design-system.html: required visible selector not found: #section-status",
+            "signature": "a99ddadd1481297f6d9465f64cce92bd0a3f72a92c76e77b7117d4ff287a9e12"
+          }
+        ],
+        "terminalState": null
+      }
+    ],
+    "validationRepairLedger": [
+      {
+        "failedReportPath": "validation-report.json",
+        "failedReportHash": "ea92288b6dd82b569d538503d4d26bd9614915050133bccd51312409c4987b90",
+        "repairWorkflowReadPath": "intent-workflows/intent-project-mutation/main-agent-repair-workflow.md",
+        "repairStartedAt": "2026-09-07T05:22:57.037Z",
+        "repairEntryStatus": "started-awaiting-owner-batch-repair",
+        "ownerTriage": [
+          {
+            "owner": "main-agent",
+            "errorClass": "head-infrastructure-missing",
+            "affectedFiles": [
+              "design-system.html"
+            ],
+            "repairScope": "affected-page-head",
+            "strategy": "run_apply_html_head_replace"
+          }
+        ],
+        "repairPlanHints": [
+          {
+            "errorClass": "head-infrastructure-missing",
+            "owner": "main-agent",
+            "repairScope": "affected-page-head",
+            "strategy": "run_apply_html_head_replace",
+            "affectedFiles": [
+              "design-system.html"
+            ],
+            "repairReportPath": null,
+            "repairAlreadyAttempted": false,
+            "allowSourceRead": "no-full-html-read",
+            "maxValidationRuns": 2
+          }
+        ],
+        "repairActions": [],
+        "revalidationReportPath": null,
+        "revalidationReportHash": null,
+        "revalidationSuccess": null,
+        "blockedReason": null
+      }
+    ],
+    "repairEntryEvidence": [
+      {
+        "failedReportPath": "validation-report.json",
+        "failedReportHash": "ea92288b6dd82b569d538503d4d26bd9614915050133bccd51312409c4987b90",
+        "repairWorkflowReadPath": "intent-workflows/intent-project-mutation/main-agent-repair-workflow.md",
+        "repairStartedAt": "2026-09-07T05:22:57.037Z",
+        "ledgerIndex": 0,
+        "ownerTriageCount": 1,
+        "repairActionCount": 0,
+        "revalidationReportPath": null,
+        "revalidationReportHash": null,
+        "revalidationSuccess": null
+      }
+    ]
+  },
+  "pages": [
+    {
+      "nodeId": "page-design-system",
+      "htmlSrc": "pages/design-system.html",
+      "title": "设计系统总览",
+      "stateRole": "base",
+      "writeMode": "SectionPlanThenWrite",
+      "chartsRequired": false
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 2,
+  "slug": "badge",
+  "name": "Badge 徽章",
+  "sourceKind": "structured-spec",
+  "confidence": "high",
+  "semanticTypeCandidates": ["status", "badge"],
+  "variantDimensions": {
+    "variant": ["success", "warning", "danger", "info", "pending"],
+    "size": ["sm", "md"],
+    "shape": ["dot", "pill"]
+  },
+  "representativeVariants": [
+    { "variant": "success", "size": "md", "shape": "pill" },
+    { "variant": "info", "size": "sm", "shape": "dot" }
+  ],
+  "anatomy": ["badge-root", "badge-dot", "badge-text"],
+  "structurePatterns": {
+    "dotOnly": "pure status indicator dot",
+    "withText": "dot + text label"
+  },
+  "usageHints": {
+    "success": "成功状态，青色光感（暗色模式下）",
+    "warning": "警告状态，黄色",
+    "danger": "危险状态，红色",
+    "info": "信息状态，蓝色",
+    "pending": "等待/进行中状态，灰色",
+    "pulseAnimation": "online / active status with subtle cyan breathing animation"
+  },
+  "doNotInvent": ["large colored badge backgrounds", "gradient badges"],
+  "unknowns": []
+}

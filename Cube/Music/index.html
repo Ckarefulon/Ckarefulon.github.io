@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark" data-page-node-id="LhwnGqIGaqN5G3VabaX2Lb">
+<head data-page-node-id="TiE5JHac0NWXvrVIGrxOJP">
+	<meta charset="utf-8" data-page-node-id="7QTiHu6CyI1Lw3vYwS2Wck">
+	<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="kfpBrgdUewqjfd98OWPZe2">
+	<title>魔方音乐</title>
+
+	<link rel="icon" href="/favicon.svg?v=0349" type="image/svg+xml" data-page-node-id="3yetiPeuY8xnKFI0Y8NfAq">
+	<link rel="stylesheet" href="/.UI/colors_and_type.css" data-page-node-id="uB0HRETeZu8BNdowCDzSQg">
+	<link rel="stylesheet" href="music.css?v=1" data-page-node-id="anOv5Jgc7Nh293k3jSSKgz">
+
+	<script src="assets/lib/jquery-4.0.0.min.js"></script>
+	<script src="assets/compat.js?v=1"></script>
+
+	<script src="assets/lib/lzstring.js?v=1" defer></script>
+	<script src="assets/lib/sha256.js?v=1" defer></script>
+	<script src="assets/lib/isaac.js?v=1" defer></script>
+	<script src="assets/mathlib.js?v=1" defer></script>
+	<script src="assets/hardware/bluetooth.js?v=1" defer></script>
+	<script src="assets/hardware/giikercube.js?v=1" defer></script>
+	<script src="assets/hardware/gocube.js?v=1" defer></script>
+	<script src="assets/hardware/gancube.js?v=1" defer></script>
+	<script src="assets/hardware/moyucube.js?v=1" defer></script>
+	<script src="assets/hardware/moyu32cube.js?v=1" defer></script>
+	<script src="assets/hardware/qiyicube.js?v=1" defer></script>
+	<script src="music.js?v=1" defer></script>
+</head>
+<body data-page-node-id="AkOlhJy7yboR0HsWmU9MlL">
+	<main class="stage" data-page-node-id="d4piRoCEIUJLmFGQ0arKIB">
+		<header class="hero" data-page-node-id="kaKKxJoUcmGYj21v00sdB8">
+			<p class="eyebrow" data-page-node-id="OJ4sy1HB500SntLHtsCWt1"><span class="eyebrowDot" data-page-node-id="nPA7jIP7BfOFAp7bNtkTBQ"></span>Cube · Music</p>
+			<h1 class="heroTitle" data-page-node-id="iHJfiHDImiRAyhjARXQc6m">魔方音乐</h1>
+			<p class="heroSub" data-page-node-id="B0QnqLUfSA3aJcmUHxEEKk">连接蓝牙魔方，转动即发声</p>
+		</header>
+
+		<section class="panel connectPanel" aria-label="蓝牙连接" data-page-node-id="wwsnZw3zKBfHpg4PzonKM1">
+			<div class="connInfo" data-page-node-id="7z926xugzkyO17NpFT2r0E">
+				<span id="statusDot" class="statusDot" data-page-node-id="g7oAGXAIfV2lO9l4tLMHWz"></span>
+				<div class="connText" data-page-node-id="9WVxepIkTIKpwMIcuwPFBD">
+					<p id="statusText" class="connStatus" data-page-node-id="cynBKrIxl7vFWrAueQgmkO">未连接</p>
+					<p id="deviceText" class="connDevice" data-page-node-id="BfmD39uQdevIZejIu21Uc7">点击右侧按钮选择设备</p>
+				</div>
+			</div>
+			<button id="connectBtn" class="btn btn--primary btn--md" type="button" data-page-node-id="j4nE4b2fzH43hvQ1GIbUJ6">连接魔方</button>
+		</section>
+
+		<div class="panelRow" data-page-node-id="vBDnBAQCgLgSPjKvN0Eilt">
+			<section class="panel" aria-label="调式设置" data-page-node-id="B8vuzNw2vBNo4vMXNOydR9">
+				<h2 class="panelTitle" data-page-node-id="ey7jIsnX3FLQCwwnO3wnts">音阶</h2>
+
+				<div class="field" data-page-node-id="JvgsExFUB8akcZg0heyDFh">
+					<span class="fieldLabel" data-page-node-id="6RORr0xDXII4KCRojlDECC">调式</span>
+					<div id="modeChips" class="chipRow" role="radiogroup" aria-label="调式" data-page-node-id="ORVi8rm94EPUaGAXf0MXZP"></div>
+				</div>
+
+				<div class="field fieldRow" data-page-node-id="tZlxtKSMHVSIbZdInaOwZw">
+					<label class="fieldLabel" for="tonicSelect" data-page-node-id="YodbBuGLy4qodw3Lxvmi1R">主音</label>
+					<div class="selectWrap" data-page-node-id="WdVdaIsCsFz4RDnq9ZCRKA">
+						<select id="tonicSelect" class="select" data-page-node-id="zKCVbGO4lY14wS9kuGuwJk"></select>
+					</div>
+					<label class="fieldLabel" for="octaveSelect" data-page-node-id="p6IrYBCp7aEWn318e0wFGc">音区</label>
+					<div class="selectWrap selectWrap--sm" data-page-node-id="i6rR3iDjcGvHpAu36yd2St">
+						<select id="octaveSelect" class="select" data-page-node-id="C5E1IpHbN5D1tmZ0LAyVb5"></select>
+					</div>
+				</div>
+
+				<button id="scaleBtn" class="btn btn--ghost btn--sm" type="button" data-page-node-id="tC8kNwDhGpG0XxDw62qSKx">试听音阶</button>
+			</section>
+
+			<section class="panel" aria-label="音色设置" data-page-node-id="wekdOTfFfujOi8sr6Bt6EO">
+				<h2 class="panelTitle" data-page-node-id="YLr9o71ebjzmihrNTBZdK1">音色</h2>
+
+				<div class="field" data-page-node-id="zcThwisDVCFVcZXqhX80yT">
+					<span class="fieldLabel" data-page-node-id="iOj3aMi2ZZDHe5VKe77pNw">乐器</span>
+					<div id="toneChips" class="chipRow" role="radiogroup" aria-label="音色" data-page-node-id="WIss4I2bJnBQHZL0SbCBeW"></div>
+				</div>
+
+				<div class="field" data-page-node-id="PeQBDIglVO3qXxn8fHZMaT">
+					<span class="fieldLabel" data-page-node-id="H8EKYWDTkQv3NKrUFFExPg">音量</span>
+					<input id="volumeRange" class="range" type="range" min="0" max="100" step="1" value="70" data-page-node-id="V9KRvw1Q4bXTZ7LIA7Nbt0">
+				</div>
+
+				<div class="field" data-page-node-id="PVUl1gUPZvQUzY34a4jr62">
+					<span class="fieldLabel" data-page-node-id="wBplZ6XrRp5XliWz1BTqlQ">延音</span>
+					<input id="releaseRange" class="range" type="range" min="20" max="300" step="5" value="120" data-page-node-id="OS8IO5cA5rmgDdQAO89wrW">
+				</div>
+			</section>
+		</div>
+
+		<section class="panel" aria-label="音位表" data-page-node-id="D2EnO8Za95aJAlwjK6ihxl">
+			<div class="panelHead" data-page-node-id="3us6GJSk3VJJdjzD66gu8D">
+				<h2 class="panelTitle" data-page-node-id="YB9wyaNNHStrdzjDTstpFB">音位表</h2>
+				<label class="switch" data-page-node-id="TMODruMtJoASxOll2UkmTO">
+					<input id="sliceToggle" type="checkbox" checked data-page-node-id="P9Iq8Fyjz5ZaxOew7AUHwH">
+					<span class="switchTrack" data-page-node-id="9OA67y3duSk3ZzW813LVSO"><span class="switchKnob" data-page-node-id="CkbDFFxKDXRmhAqTxBLKCt"></span></span>
+					<span class="switchLabel" data-page-node-id="jPJ0CVKJmBDulZQkPwzxB0">识别中层</span>
+				</label>
+			</div>
+
+			<div class="padGroup" data-page-node-id="aZcsJC1dYXpDBDafpBWxUD">
+				<p class="groupLabel" data-page-node-id="xiqxRpCdeTKF5neQ4a989e">外层</p>
+				<div id="padGridFace" class="padGrid" data-page-node-id="c8MCnMNCqFzUWJJEb9o6Gw"></div>
+			</div>
+			<div class="padGroup" data-page-node-id="SXVNQgVBZODmMTtoHGsD0i">
+				<p class="groupLabel" data-page-node-id="1XerI37JR33RgYgbQ3PV7o">中层</p>
+				<div id="padGridSlice" class="padGrid" data-page-node-id="tmC9FgvTCAUzFykhN3aHCD"></div>
+			</div>
+		</section>
+
+		<section class="panel" aria-label="演奏记录" data-page-node-id="WoYFyM3brgZsOsQSDd4Qy0">
+			<div class="panelHead" data-page-node-id="AWAIxiUKmXAgdq84lKHyyr">
+				<h2 class="panelTitle" data-page-node-id="YDNhiSGQ6lxsJ8nBWzQpmi">演奏记录</h2>
+				<button id="clearLogBtn" class="btn btn--ghost btn--sm" type="button" data-page-node-id="9c7o3VgT29ZfDBOBFAApgo">清空</button>
+			</div>
+			<div id="logList" class="logList" data-page-node-id="xKQGWicWh3m0lDJDRTcrQo">
+				<p class="empty" data-page-node-id="s9e7G9FvRSVYAzv0qaAGyL">转动魔方或点击上方音位开始</p>
+			</div>
+		</section>
+	</main>
+</body>
+</html>

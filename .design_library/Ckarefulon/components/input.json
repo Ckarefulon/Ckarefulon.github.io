@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 2,
+  "slug": "input",
+  "name": "Input 输入框",
+  "sourceKind": "structured-spec",
+  "confidence": "high",
+  "semanticTypeCandidates": ["form", "input"],
+  "variantDimensions": {
+    "variant": ["default", "error"],
+    "size": ["sm", "md", "lg"],
+    "state": ["default", "focus", "disabled"]
+  },
+  "representativeVariants": [
+    { "variant": "default", "size": "md", "state": "default" },
+    { "variant": "default", "size": "md", "state": "focus" }
+  ],
+  "anatomy": ["input-wrapper", "input-label", "input-field", "input-icon", "input-hint", "input-error-text"],
+  "structurePatterns": {
+    "hasLabel": "recommended",
+    "hasIcon": "optional (left)",
+    "hasHint": "optional",
+    "focusRing": "cyan accent color (very subtle glow)"
+  },
+  "usageHints": {
+    "focus": "聚焦态用青色边框 + 极淡青色光晕，体现光感",
+    "error": "错误态用红色边框 + 红色提示文字",
+    "disabled": "禁用态降低透明度"
+  },
+  "doNotInvent": ["cyan as default border color", "heavy focus glow"],
+  "unknowns": []
+}

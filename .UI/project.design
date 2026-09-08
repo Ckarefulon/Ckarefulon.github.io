@@ -1,0 +1,32 @@
+{
+  "data": [
+    {
+      "id": "page-design-system",
+      "title": "设计系统总览",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1757231400000,
+      "canvasData": {
+        "x": 0,
+        "y": 0,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 12631,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-5090055e",
+          "measuredAt": 1788794688449
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/design-system.html",
+        "interactions": []
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": true,
+    "deviceType": "desktop",
+    "projectName": "UI 设计系统"
+  }
+}

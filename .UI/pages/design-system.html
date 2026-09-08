@@ -1,0 +1,3952 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>紫青设计系统 · Design System</title>
+    <style id="theme-vars">
+/* ============================================================
+   Design System — Color & Type Tokens
+   Brand prefix: dsk
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---------- Brand Primitive Scales ---------- */
+  /* Purple scale (主品牌色 — 气质、科技、稳定) */
+  --dsk-purple-50:  #efeafb;
+  --dsk-purple-100: #ddd4f6;
+  --dsk-purple-200: #b9a9ed;
+  --dsk-purple-300: #957fe4;
+  --dsk-purple-400: #7a65d0;
+  --dsk-purple-500: #5d4ea8;  /* 品牌主色 */
+  --dsk-purple-600: #4d3f96;
+  --dsk-purple-700: #3e3276;
+  --dsk-purple-800: #2e2556;
+  --dsk-purple-900: #1e1836;
+  --dsk-purple-950: #141026;
+
+  /* Cyan scale (高亮点缀色 — 光感、灵动、仪式感) */
+  --dsk-cyan-50:  #e6fdfc;
+  --dsk-cyan-100: #c5faf7;
+  --dsk-cyan-200: #8cf4ef;
+  --dsk-cyan-300: #52eee7;
+  --dsk-cyan-400: #24f0ea;  /* 高亮点缀主色 */
+  --dsk-cyan-500: #14c9c4;
+  --dsk-cyan-600: #0e9995;
+  --dsk-cyan-700: #0a6e6b;
+  --dsk-cyan-800: #074745;
+  --dsk-cyan-900: #042524;
+
+  /* Neutral scale — cool, with subtle purple undertone */
+  --dsk-slate-50:  #f7f8fc;
+  --dsk-slate-100: #eceef6;
+  --dsk-slate-200: #d5d8e5;
+  --dsk-slate-300: #b5b9cc;
+  --dsk-slate-400: #8a8fa6;
+  --dsk-slate-500: #676c84;
+  --dsk-slate-600: #50556a;
+  --dsk-slate-700: #3e4154;
+  --dsk-slate-800: #2a2c3c;
+  --dsk-slate-900: #1a1b28;
+  --dsk-slate-950: #10101a;
+
+  /* Status colors */
+  --dsk-success: #24f0ea;  /* 暗色模式用青色表成功 */
+  --dsk-success-light: #0e9995;
+  --dsk-danger: #e85d6a;
+  --dsk-warning: #e6b84a;
+  --dsk-info: #6b8cff;
+
+  /* ---------- Semantic Tokens (Dark Mode — Default) ---------- */
+  --dsk-background: #0f0d18;
+  --dsk-background-elevated: #161328;
+  --dsk-foreground: #e8e8f4;
+  --dsk-foreground-muted: #a0a3b8;
+  --dsk-foreground-subtle: #6e7088;
+
+  --dsk-card: #1a1829;
+  --dsk-card-foreground: #ececf6;
+  --dsk-card-muted: #9a9db2;
+  --dsk-card-border: #2a2840;
+
+  --dsk-popover: #1e1c30;
+  --dsk-popover-foreground: #ececf6;
+  --dsk-popover-border: #32304a;
+
+  --dsk-primary: #6b5dc2;
+  --dsk-primary-foreground: #ffffff;
+  --dsk-primary-hover: #7d6fd4;
+  --dsk-primary-active: #5a4db0;
+  --dsk-primary-soft: rgba(107, 93, 194, 0.18);
+  --dsk-primary-ring: rgba(107, 93, 194, 0.4);
+
+  --dsk-accent: #24f0ea;  /* 青色高亮点缀 */
+  --dsk-accent-foreground: #0a1212;
+  --dsk-accent-soft: rgba(36, 240, 234, 0.10);
+  --dsk-accent-ring: rgba(36, 240, 234, 0.35);
+  --dsk-accent-glow: rgba(36, 240, 234, 0.18);
+
+  --dsk-muted: #2a2840;
+  --dsk-muted-foreground: #9a9db2;
+
+  --dsk-border: #2e2c44;
+  --dsk-border-subtle: #222036;
+
+  --dsk-input: #201e32;
+  --dsk-input-foreground: #ececf6;
+  --dsk-ring: rgba(36, 240, 234, 0.4);
+
+  --dsk-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --dsk-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.28);
+  --dsk-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.35);
+
+  /* Page atmosphere — 深紫黑空间中的少量青色电光 */
+  --dsk-page-bg:
+    radial-gradient(ellipse 60% 40% at 12% 0%, rgba(93, 78, 168, 0.22), transparent 60%),
+    radial-gradient(ellipse 50% 35% at 100% 10%, rgba(93, 78, 168, 0.10), transparent 55%),
+    radial-gradient(circle at 85% 90%, rgba(36, 240, 234, 0.04), transparent 40%),
+    linear-gradient(180deg, #12101f 0%, #0b0a14 100%);
+
+  /* ---------- Typography ---------- */
+  --dsk-font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --dsk-font-mono: 'SF Mono', 'Cascadia Mono', 'Consolas', 'Monaco', monospace;
+
+  --dsk-text-xs: 11px;
+  --dsk-text-sm: 13px;
+  --dsk-text-base: 14px;
+  --dsk-text-lg: 16px;
+  --dsk-text-xl: 18px;
+  --dsk-text-2xl: 22px;
+  --dsk-text-3xl: 28px;
+  --dsk-text-4xl: 36px;
+
+  --dsk-leading-tight: 1.2;
+  --dsk-leading-normal: 1.5;
+  --dsk-leading-relaxed: 1.65;
+
+  /* ---------- Radius ---------- */
+  --dsk-radius-sm: 6px;
+  --dsk-radius-md: 8px;
+  --dsk-radius-lg: 12px;
+  --dsk-radius-xl: 16px;
+  --dsk-radius-full: 9999px;
+
+  /* ---------- Spacing ---------- */
+  --dsk-space-1: 4px;
+  --dsk-space-2: 8px;
+  --dsk-space-3: 12px;
+  --dsk-space-4: 16px;
+  --dsk-space-5: 20px;
+  --dsk-space-6: 24px;
+  --dsk-space-8: 32px;
+  --dsk-space-10: 40px;
+}
+
+/* ---------- Light Mode Overrides ---------- */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --dsk-background: #f7f8fc;
+  --dsk-background-elevated: #ffffff;
+  --dsk-foreground: #1e1d2e;
+  --dsk-foreground-muted: #575a6d;
+  --dsk-foreground-subtle: #8a8fa6;
+
+  --dsk-card: #ffffff;
+  --dsk-card-foreground: #1e1d2e;
+  --dsk-card-muted: #575a6d;
+  --dsk-card-border: #e0e2ec;
+
+  --dsk-popover: #ffffff;
+  --dsk-popover-foreground: #1e1d2e;
+  --dsk-popover-border: #d5d8e5;
+
+  --dsk-primary: #5d4ea8;
+  --dsk-primary-foreground: #ffffff;
+  --dsk-primary-hover: #4d3f96;
+  --dsk-primary-active: #3e3276;
+  --dsk-primary-soft: rgba(93, 78, 168, 0.10);
+  --dsk-primary-ring: rgba(93, 78, 168, 0.3);
+
+  --dsk-accent: #14c9c4;
+  --dsk-accent-foreground: #0a2524;
+  --dsk-accent-soft: rgba(20, 201, 196, 0.10);
+  --dsk-accent-ring: rgba(20, 201, 196, 0.35);
+  --dsk-accent-glow: rgba(20, 201, 196, 0.12);
+
+  --dsk-muted: #eceef6;
+  --dsk-muted-foreground: #575a6d;
+
+  --dsk-border: #d5d8e5;
+  --dsk-border-subtle: #e8eaf2;
+
+  --dsk-input: #ffffff;
+  --dsk-input-foreground: #1e1d2e;
+  --dsk-ring: rgba(93, 78, 168, 0.35);
+
+  --dsk-shadow-sm: 0 1px 2px rgba(30, 29, 46, 0.06);
+  --dsk-shadow-md: 0 4px 14px rgba(30, 29, 46, 0.08);
+  --dsk-shadow-lg: 0 12px 40px rgba(30, 29, 46, 0.10);
+
+  --dsk-success: #0e9995;
+
+  /* Page atmosphere — 冷白空间中的雾紫与少量青色光 */
+  --dsk-page-bg:
+    radial-gradient(ellipse 55% 40% at 10% 0%, rgba(93, 78, 168, 0.08), transparent 60%),
+    radial-gradient(ellipse 45% 35% at 95% 5%, rgba(36, 240, 234, 0.06), transparent 50%),
+    linear-gradient(180deg, #fafbff 0%, #f4f6fb 100%);
+}
+
+/* ============================================================
+   Tailwind @theme inline definition
+   ============================================================ */
+@theme inline {
+  --color-background: var(--dsk-background);
+  --color-foreground: var(--dsk-foreground);
+  --color-card: var(--dsk-card);
+  --color-card-foreground: var(--dsk-card-foreground);
+  --color-popover: var(--dsk-popover);
+  --color-popover-foreground: var(--dsk-popover-foreground);
+  --color-primary: var(--dsk-primary);
+  --color-primary-foreground: var(--dsk-primary-foreground);
+  --color-muted: var(--dsk-muted);
+  --color-muted-foreground: var(--dsk-muted-foreground);
+  --color-border: var(--dsk-border);
+  --color-input: var(--dsk-input);
+  --color-ring: var(--dsk-ring);
+  --color-accent: var(--dsk-accent);
+  --color-accent-foreground: var(--dsk-accent-foreground);
+
+  --radius-sm: var(--dsk-radius-sm);
+  --radius-md: var(--dsk-radius-md);
+  --radius-lg: var(--dsk-radius-lg);
+  --radius-xl: var(--dsk-radius-xl);
+  --radius-full: var(--dsk-radius-full);
+
+  --font-sans: var(--dsk-font-sans);
+  --font-mono: var(--dsk-font-mono);
+
+  --shadow-sm: var(--dsk-shadow-sm);
+  --shadow-md: var(--dsk-shadow-md);
+  --shadow-lg: var(--dsk-shadow-lg);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--dsk-background);
+    --color-foreground: var(--dsk-foreground);
+    --color-card: var(--dsk-card);
+    --color-card-foreground: var(--dsk-card-foreground);
+    --color-popover: var(--dsk-popover);
+    --color-popover-foreground: var(--dsk-popover-foreground);
+    --color-primary: var(--dsk-primary);
+    --color-primary-foreground: var(--dsk-primary-foreground);
+    --color-muted: var(--dsk-muted);
+    --color-muted-foreground: var(--dsk-muted-foreground);
+    --color-border: var(--dsk-border);
+    --color-input: var(--dsk-input);
+    --color-ring: var(--dsk-ring);
+    --color-accent: var(--dsk-accent);
+    --color-accent-foreground: var(--dsk-accent-foreground);
+    --radius-sm: var(--dsk-radius-sm);
+    --radius-md: var(--dsk-radius-md);
+    --radius-lg: var(--dsk-radius-lg);
+    --radius-xl: var(--dsk-radius-xl);
+    --radius-full: var(--dsk-radius-full);
+  }
+  @layer base {
+    body { background: var(--dsk-background); color: var(--dsk-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--dsk-background); }
+      .text-background { color: var(--dsk-background); }
+      .border-background { border-color: var(--dsk-background); }
+      .ring-background { --tw-ring-color: var(--dsk-background); }
+      .bg-foreground { background-color: var(--dsk-foreground); }
+      .text-foreground { color: var(--dsk-foreground); }
+      .border-foreground { border-color: var(--dsk-foreground); }
+      .ring-foreground { --tw-ring-color: var(--dsk-foreground); }
+      .bg-card { background-color: var(--dsk-card); }
+      .text-card { color: var(--dsk-card); }
+      .border-card { border-color: var(--dsk-card); }
+      .ring-card { --tw-ring-color: var(--dsk-card); }
+      .bg-card-foreground { background-color: var(--dsk-card-foreground); }
+      .text-card-foreground { color: var(--dsk-card-foreground); }
+      .border-card-foreground { border-color: var(--dsk-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--dsk-card-foreground); }
+      .bg-popover { background-color: var(--dsk-popover); }
+      .text-popover { color: var(--dsk-popover); }
+      .border-popover { border-color: var(--dsk-popover); }
+      .ring-popover { --tw-ring-color: var(--dsk-popover); }
+      .bg-popover-foreground { background-color: var(--dsk-popover-foreground); }
+      .text-popover-foreground { color: var(--dsk-popover-foreground); }
+      .border-popover-foreground { border-color: var(--dsk-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--dsk-popover-foreground); }
+      .bg-primary { background-color: var(--dsk-primary); }
+      .text-primary { color: var(--dsk-primary); }
+      .border-primary { border-color: var(--dsk-primary); }
+      .ring-primary { --tw-ring-color: var(--dsk-primary); }
+      .bg-primary-foreground { background-color: var(--dsk-primary-foreground); }
+      .text-primary-foreground { color: var(--dsk-primary-foreground); }
+      .border-primary-foreground { border-color: var(--dsk-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--dsk-primary-foreground); }
+      .bg-muted { background-color: var(--dsk-muted); }
+      .text-muted { color: var(--dsk-muted); }
+      .border-muted { border-color: var(--dsk-muted); }
+      .ring-muted { --tw-ring-color: var(--dsk-muted); }
+      .bg-muted-foreground { background-color: var(--dsk-muted-foreground); }
+      .text-muted-foreground { color: var(--dsk-muted-foreground); }
+      .border-muted-foreground { border-color: var(--dsk-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--dsk-muted-foreground); }
+      .bg-border { background-color: var(--dsk-border); }
+      .text-border { color: var(--dsk-border); }
+      .border-border { border-color: var(--dsk-border); }
+      .ring-border { --tw-ring-color: var(--dsk-border); }
+      .bg-input { background-color: var(--dsk-input); }
+      .text-input { color: var(--dsk-input); }
+      .border-input { border-color: var(--dsk-input); }
+      .ring-input { --tw-ring-color: var(--dsk-input); }
+      .bg-ring { background-color: var(--dsk-ring); }
+      .text-ring { color: var(--dsk-ring); }
+      .border-ring { border-color: var(--dsk-ring); }
+      .ring-ring { --tw-ring-color: var(--dsk-ring); }
+      .bg-accent { background-color: var(--dsk-accent); }
+      .text-accent { color: var(--dsk-accent); }
+      .border-accent { border-color: var(--dsk-accent); }
+      .ring-accent { --tw-ring-color: var(--dsk-accent); }
+      .bg-accent-foreground { background-color: var(--dsk-accent-foreground); }
+      .text-accent-foreground { color: var(--dsk-accent-foreground); }
+      .border-accent-foreground { border-color: var(--dsk-accent-foreground); }
+      .ring-accent-foreground { --tw-ring-color: var(--dsk-accent-foreground); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body>
+    <main>
+      <!-- ============================================================
+           HEADER
+           ============================================================ -->
+      <header class="ds-header">
+        <div class="ds-container ds-header-inner">
+          <div>
+            <span class="ds-eyebrow">
+              <span class="ds-eyebrow-dot"></span>
+              Design System v1.0
+            </span>
+            <h1 class="ds-title">紫青设计系统</h1>
+            <p class="ds-subtitle">冷静克制的紫青配色，在深空间中以微光点缀。80% 中性色奠定清晰秩序，15% 紫色承载品牌气质，5% 青色赋予瞬间的灵动与仪式感。</p>
+          </div>
+          <button class="ds-theme-toggle" id="themeToggle" aria-label="切换主题">
+            <i data-lucide="moon" id="themeIcon"></i>
+          </button>
+        </div>
+      </header>
+
+      <div class="ds-container ds-main">
+        <!-- ============================================================
+             SIDEBAR NAVIGATION
+             ============================================================ -->
+        <aside class="ds-sidebar">
+          <nav>
+            <ul class="ds-nav-list">
+              <li class="ds-nav-item active" data-nav="colors"><a href="#colors"><i data-lucide="palette" style="width:16px;height:16px;"></i> 色彩系统</a></li>
+              <li class="ds-nav-item" data-nav="typography"><a href="#typography"><i data-lucide="type" style="width:16px;height:16px;"></i> 排版系统</a></li>
+              <li class="ds-nav-item" data-nav="buttons"><a href="#buttons"><i data-lucide="mouse-pointer-click" style="width:16px;height:16px;"></i> 按钮</a></li>
+              <li class="ds-nav-item" data-nav="forms"><a href="#forms"><i data-lucide="form-input" style="width:16px;height:16px;"></i> 表单控件</a></li>
+              <li class="ds-nav-item" data-nav="cards"><a href="#cards"><i data-lucide="layout-dashboard" style="width:16px;height:16px;"></i> 卡片</a></li>
+              <li class="ds-nav-item" data-nav="badges"><a href="#badges"><i data-lucide="tag" style="width:16px;height:16px;"></i> 标签与状态</a></li>
+              <li class="ds-nav-item" data-nav="navigation"><a href="#navigation"><i data-lucide="compass" style="width:16px;height:16px;"></i> 导航</a></li>
+              <li class="ds-nav-item" data-nav="feedback"><a href="#feedback"><i data-lucide="activity" style="width:16px;height:16px;"></i> 反馈</a></li>
+              <li class="ds-nav-item" data-nav="overlays"><a href="#overlays"><i data-lucide="layers" style="width:16px;height:16px;"></i> 浮层组件</a></li>
+              <li class="ds-nav-item" data-nav="others"><a href="#others"><i data-lucide="more-horizontal" style="width:16px;height:16px;"></i> 其他组件</a></li>
+            </ul>
+          </nav>
+        </aside>
+
+        <div class="ds-content">
+          <!-- ============================================================
+               SECTION 1: COLOR PALETTE
+               ============================================================ -->
+          <section class="ds-section" id="colors">
+            <div class="ds-section-header">
+              <div class="ds-section-num">01</div>
+              <h2 class="ds-section-title">色彩系统</h2>
+              <p class="ds-section-desc">紫色构建稳定的品牌基调，青色以微光形式点缀关键交互，中性色带紫调确保整体协调统一。</p>
+            </div>
+
+            <!-- Purple Scale -->
+            <div class="ds-color-group">
+              <h3 class="ds-color-group-title">紫色色阶 <span class="ds-color-tag">主品牌色</span></h3>
+              <div class="ds-swatch-row">
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-purple-50);"></div>
+                  <span class="ds-swatch-name">50</span>
+                  <span class="ds-swatch-hex">#efeafb</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-purple-100);"></div>
+                  <span class="ds-swatch-name">100</span>
+                  <span class="ds-swatch-hex">#ddd4f6</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-purple-200);"></div>
+                  <span class="ds-swatch-name">200</span>
+                  <span class="ds-swatch-hex">#b9a9ed</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-purple-300);"></div>
+                  <span class="ds-swatch-name">300</span>
+                  <span class="ds-swatch-hex">#957fe4</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-purple-400);"></div>
+                  <span class="ds-swatch-name">400</span>
+                  <span class="ds-swatch-hex">#7a65d0</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-purple-500);"></div>
+                  <span class="ds-swatch-name">500</span>
+                  <span class="ds-swatch-hex">#5d4ea8</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-purple-600);"></div>
+                  <span class="ds-swatch-name">600</span>
+                  <span class="ds-swatch-hex">#4d3f96</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-purple-700);"></div>
+                  <span class="ds-swatch-name">700</span>
+                  <span class="ds-swatch-hex">#3e3276</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-purple-800);"></div>
+                  <span class="ds-swatch-name">800</span>
+                  <span class="ds-swatch-hex">#2e2556</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-purple-900);"></div>
+                  <span class="ds-swatch-name">900</span>
+                  <span class="ds-swatch-hex">#1e1836</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cyan Scale -->
+            <div class="ds-color-group">
+              <h3 class="ds-color-group-title">青色色阶 <span class="ds-color-tag" style="background: var(--dsk-accent-soft); color: var(--dsk-accent);">高亮点缀</span></h3>
+              <div class="ds-swatch-row">
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-cyan-50);"></div>
+                  <span class="ds-swatch-name">50</span>
+                  <span class="ds-swatch-hex">#e6fdfc</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-cyan-100);"></div>
+                  <span class="ds-swatch-name">100</span>
+                  <span class="ds-swatch-hex">#c5faf7</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-cyan-200);"></div>
+                  <span class="ds-swatch-name">200</span>
+                  <span class="ds-swatch-hex">#8cf4ef</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-cyan-300);"></div>
+                  <span class="ds-swatch-name">300</span>
+                  <span class="ds-swatch-hex">#52eee7</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box is-accent" style="background: var(--dsk-cyan-400);"></div>
+                  <span class="ds-swatch-name">400</span>
+                  <span class="ds-swatch-hex" style="color: var(--dsk-accent);">#24f0ea</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-cyan-500);"></div>
+                  <span class="ds-swatch-name">500</span>
+                  <span class="ds-swatch-hex">#14c9c4</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-cyan-600);"></div>
+                  <span class="ds-swatch-name">600</span>
+                  <span class="ds-swatch-hex">#0e9995</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-cyan-700);"></div>
+                  <span class="ds-swatch-name">700</span>
+                  <span class="ds-swatch-hex">#0a6e6b</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-cyan-800);"></div>
+                  <span class="ds-swatch-name">800</span>
+                  <span class="ds-swatch-hex">#074745</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-cyan-900);"></div>
+                  <span class="ds-swatch-name">900</span>
+                  <span class="ds-swatch-hex">#042524</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Neutral Scale -->
+            <div class="ds-color-group">
+              <h3 class="ds-color-group-title">中性色色阶 <span class="ds-color-tag" style="background: var(--dsk-muted); color: var(--dsk-muted-foreground);">带紫调</span></h3>
+              <div class="ds-swatch-row">
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-slate-50);"></div>
+                  <span class="ds-swatch-name">50</span>
+                  <span class="ds-swatch-hex">#f7f8fc</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-slate-100);"></div>
+                  <span class="ds-swatch-name">100</span>
+                  <span class="ds-swatch-hex">#eceef6</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-slate-200);"></div>
+                  <span class="ds-swatch-name">200</span>
+                  <span class="ds-swatch-hex">#d5d8e5</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-slate-300);"></div>
+                  <span class="ds-swatch-name">300</span>
+                  <span class="ds-swatch-hex">#b5b9cc</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-slate-400);"></div>
+                  <span class="ds-swatch-name">400</span>
+                  <span class="ds-swatch-hex">#8a8fa6</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-slate-500);"></div>
+                  <span class="ds-swatch-name">500</span>
+                  <span class="ds-swatch-hex">#676c84</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-slate-600);"></div>
+                  <span class="ds-swatch-name">600</span>
+                  <span class="ds-swatch-hex">#50556a</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-slate-700);"></div>
+                  <span class="ds-swatch-name">700</span>
+                  <span class="ds-swatch-hex">#3e4154</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-slate-800);"></div>
+                  <span class="ds-swatch-name">800</span>
+                  <span class="ds-swatch-hex">#2a2c3c</span>
+                </div>
+                <div class="ds-swatch">
+                  <div class="ds-swatch-box" style="background: var(--dsk-slate-900);"></div>
+                  <span class="ds-swatch-name">900</span>
+                  <span class="ds-swatch-hex">#1a1b28</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Semantic Colors -->
+            <div class="ds-color-group">
+              <h3 class="ds-color-group-title">语义色</h3>
+              <div class="ds-semantic-row">
+                <div class="ds-semantic-card">
+                  <div class="ds-semantic-dot" style="background: var(--dsk-success);"></div>
+                  <div class="ds-semantic-info">
+                    <span class="ds-semantic-name">Success</span>
+                    <span class="ds-semantic-hex">--dsk-success</span>
+                  </div>
+                </div>
+                <div class="ds-semantic-card">
+                  <div class="ds-semantic-dot" style="background: var(--dsk-warning);"></div>
+                  <div class="ds-semantic-info">
+                    <span class="ds-semantic-name">Warning</span>
+                    <span class="ds-semantic-hex">--dsk-warning</span>
+                  </div>
+                </div>
+                <div class="ds-semantic-card">
+                  <div class="ds-semantic-dot" style="background: var(--dsk-danger);"></div>
+                  <div class="ds-semantic-info">
+                    <span class="ds-semantic-name">Danger</span>
+                    <span class="ds-semantic-hex">--dsk-danger</span>
+                  </div>
+                </div>
+                <div class="ds-semantic-card">
+                  <div class="ds-semantic-dot" style="background: var(--dsk-info);"></div>
+                  <div class="ds-semantic-info">
+                    <span class="ds-semantic-name">Info</span>
+                    <span class="ds-semantic-hex">--dsk-info</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+               SECTION 2: TYPOGRAPHY
+               ============================================================ -->
+          <section class="ds-section" id="typography">
+            <div class="ds-section-header">
+              <div class="ds-section-num">02</div>
+              <h2 class="ds-section-title">排版系统</h2>
+              <p class="ds-section-desc">清晰的字体层级构建信息秩序，字重对比强化内容层次。</p>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">字体层级</h3>
+              <p class="ds-component-desc">从 Display 到 Caption 的完整字号体系，适用于不同信息密度的场景。</p>
+              <div class="ds-component-preview">
+                <div class="ds-type-scale">
+                  <div class="ds-type-item">
+                    <div class="ds-type-meta">
+                      <strong>Display</strong>
+                      56px / Bold / -0.03em
+                    </div>
+                    <div class="ds-type-display">宇宙星河探索</div>
+                  </div>
+                  <div class="ds-type-item">
+                    <div class="ds-type-meta">
+                      <strong>Heading 1</strong>
+                      36px / Bold / -0.02em
+                    </div>
+                    <div class="ds-type-h1">设计系统概览</div>
+                  </div>
+                  <div class="ds-type-item">
+                    <div class="ds-type-meta">
+                      <strong>Heading 2</strong>
+                      28px / Semibold / -0.01em
+                    </div>
+                    <div class="ds-type-h2">组件规范说明</div>
+                  </div>
+                  <div class="ds-type-item">
+                    <div class="ds-type-meta">
+                      <strong>Heading 3</strong>
+                      22px / Semibold
+                    </div>
+                    <div class="ds-type-h3">表单控件组件</div>
+                  </div>
+                  <div class="ds-type-item">
+                    <div class="ds-type-meta">
+                      <strong>Body</strong>
+                      14px / Regular / 1.6
+                    </div>
+                    <div class="ds-type-body">正文内容用于段落描述和主要阅读文本。保持合适的行高和字间距，确保长时间阅读的舒适度。</div>
+                  </div>
+                  <div class="ds-type-item">
+                    <div class="ds-type-meta">
+                      <strong>Caption</strong>
+                      12px / Regular
+                    </div>
+                    <div class="ds-type-caption">辅助说明文字用于标签、注释和次要信息，颜色使用弱化层级。</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">字重对比</h3>
+              <p class="ds-component-desc">四种字重适用于不同的强调程度。</p>
+              <div class="ds-component-preview">
+                <div class="ds-weights-row">
+                  <div class="ds-weight-item">
+                    <span class="ds-weight-label">Regular (400)</span>
+                    <span class="ds-weight-sample" style="font-weight: 400;">紫青Aa</span>
+                  </div>
+                  <div class="ds-weight-item">
+                    <span class="ds-weight-label">Medium (500)</span>
+                    <span class="ds-weight-sample" style="font-weight: 500;">紫青Aa</span>
+                  </div>
+                  <div class="ds-weight-item">
+                    <span class="ds-weight-label">Semibold (600)</span>
+                    <span class="ds-weight-sample" style="font-weight: 600;">紫青Aa</span>
+                  </div>
+                  <div class="ds-weight-item">
+                    <span class="ds-weight-label">Bold (700)</span>
+                    <span class="ds-weight-sample" style="font-weight: 700;">紫青Aa</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+               SECTION 3: BUTTONS
+               ============================================================ -->
+          <section class="ds-section" id="buttons">
+            <div class="ds-section-header">
+              <div class="ds-section-num">03</div>
+              <h2 class="ds-section-title">按钮</h2>
+              <p class="ds-section-desc">主按钮采用紫色承载稳定的日常操作，青色仅用于 hover 微光和仪式感强调按钮。</p>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">按钮变体</h3>
+              <p class="ds-component-desc">Primary 用于主要操作，Secondary 用于次要操作，Ghost 用于三级操作。</p>
+              <div class="ds-component-preview">
+                <div class="ds-component-row">
+                  <div class="ds-state-grid">
+                    <button class="ds-btn ds-btn-primary ds-btn-md">主按钮</button>
+                    <span class="ds-state-label">Default</span>
+                  </div>
+                  <div class="ds-state-grid">
+                    <button class="ds-btn ds-btn-primary ds-btn-md" style="background: var(--dsk-primary-hover); box-shadow: 0 0 0 1px var(--dsk-accent), 0 0 12px var(--dsk-accent-glow);">主按钮</button>
+                    <span class="ds-state-label">Hover</span>
+                  </div>
+                  <div class="ds-state-grid">
+                    <button class="ds-btn ds-btn-primary ds-btn-md" disabled>主按钮</button>
+                    <span class="ds-state-label">Disabled</span>
+                  </div>
+                  <div class="ds-state-grid">
+                    <button class="ds-btn ds-btn-primary ds-btn-md ds-btn-loading">主按钮</button>
+                    <span class="ds-state-label">Loading</span>
+                  </div>
+                </div>
+                <div style="height: 20px;"></div>
+                <div class="ds-component-row">
+                  <button class="ds-btn ds-btn-secondary ds-btn-md">次按钮</button>
+                  <button class="ds-btn ds-btn-secondary ds-btn-md" style="border-color: var(--dsk-primary); color: var(--dsk-primary);">次按钮 Hover</button>
+                  <button class="ds-btn ds-btn-ghost ds-btn-md">幽灵按钮</button>
+                  <button class="ds-btn ds-btn-ghost ds-btn-md" style="color: var(--dsk-foreground); background: var(--dsk-muted);">幽灵 Hover</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">按钮尺寸</h3>
+              <p class="ds-component-desc">大、中、小三种尺寸适配不同布局密度。</p>
+              <div class="ds-component-preview">
+                <div class="ds-component-row">
+                  <button class="ds-btn ds-btn-primary ds-btn-lg"><i data-lucide="zap" style="width:16px;height:16px;"></i> 大型按钮</button>
+                  <button class="ds-btn ds-btn-primary ds-btn-md"><i data-lucide="zap" style="width:14px;height:14px;"></i> 中型按钮</button>
+                  <button class="ds-btn ds-btn-primary ds-btn-sm"><i data-lucide="zap" style="width:12px;height:12px;"></i> 小型按钮</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">图标按钮</h3>
+              <p class="ds-component-desc">纯图标按钮用于工具栏、表格操作等紧凑场景。</p>
+              <div class="ds-component-preview">
+                <div class="ds-component-row">
+                  <div class="ds-state-grid">
+                    <button class="ds-btn ds-btn-primary ds-btn-icon ds-btn-lg"><i data-lucide="settings" style="width:18px;height:18px;"></i></button>
+                    <span class="ds-state-label">Large</span>
+                  </div>
+                  <div class="ds-state-grid">
+                    <button class="ds-btn ds-btn-primary ds-btn-icon ds-btn-md"><i data-lucide="settings" style="width:16px;height:16px;"></i></button>
+                    <span class="ds-state-label">Medium</span>
+                  </div>
+                  <div class="ds-state-grid">
+                    <button class="ds-btn ds-btn-primary ds-btn-icon ds-btn-sm"><i data-lucide="settings" style="width:14px;height:14px;"></i></button>
+                    <span class="ds-state-label">Small</span>
+                  </div>
+                  <div style="width: 24px;"></div>
+                  <div class="ds-state-grid">
+                    <button class="ds-btn ds-btn-secondary ds-btn-icon ds-btn-md"><i data-lucide="more-horizontal" style="width:16px;height:16px;"></i></button>
+                    <span class="ds-state-label">Secondary</span>
+                  </div>
+                  <div class="ds-state-grid">
+                    <button class="ds-btn ds-btn-ghost ds-btn-icon ds-btn-md"><i data-lucide="x" style="width:16px;height:16px;"></i></button>
+                    <span class="ds-state-label">Ghost</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">重点强调按钮</h3>
+              <p class="ds-component-desc">紫色渐变底 + 青色图标高光，用于关键操作的仪式感表达。</p>
+              <div class="ds-component-preview">
+                <div class="ds-component-row">
+                  <button class="ds-btn ds-btn-accent ds-btn-lg">
+                    <i data-lucide="sparkles" style="width:18px;height:18px;"></i>
+                    立即开始
+                  </button>
+                  <button class="ds-btn ds-btn-accent ds-btn-md">
+                    <i data-lucide="rocket" style="width:16px;height:16px;"></i>
+                    升级计划
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+               SECTION 4: FORM CONTROLS
+               ============================================================ -->
+          <section class="ds-section" id="forms">
+            <div class="ds-section-header">
+              <div class="ds-section-num">04</div>
+              <h2 class="ds-section-title">表单控件</h2>
+              <p class="ds-section-desc">输入框聚焦态使用青色微光做清爽点缀，开关打开时滑块带青色光感。</p>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">输入框 Input</h3>
+              <div class="ds-component-preview">
+                <div class="ds-component-grid" style="grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));">
+                  <div class="ds-input-group">
+                    <label class="ds-input-label">默认状态</label>
+                    <input type="text" class="ds-input" placeholder="请输入内容">
+                    <span class="ds-input-hint">辅助提示文字</span>
+                  </div>
+                  <div class="ds-input-group">
+                    <label class="ds-input-label">聚焦状态</label>
+                    <input type="text" class="ds-input" placeholder="聚焦时青色光晕" style="border-color: var(--dsk-accent); box-shadow: 0 0 0 3px var(--dsk-accent-soft);" value="已聚焦">
+                    <span class="ds-input-hint" style="color: var(--dsk-accent);">青色边框 + 极弱光晕</span>
+                  </div>
+                  <div class="ds-input-group">
+                    <label class="ds-input-label">禁用状态</label>
+                    <input type="text" class="ds-input" placeholder="不可编辑" disabled value="禁用内容">
+                    <span class="ds-input-hint">透明度降低</span>
+                  </div>
+                  <div class="ds-input-group">
+                    <label class="ds-input-label">错误状态</label>
+                    <input type="text" class="ds-input ds-input-error" placeholder="请输入" value="错误内容">
+                    <span class="ds-input-error-text">请输入正确的格式</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">下拉选择 Dropdown</h3>
+              <p class="ds-component-desc">自定义下拉组件，展开时有青色边框高光。支持单选、多选、分组等模式。</p>
+              <div class="ds-component-preview">
+                <div class="ds-component-row" style="align-items: flex-start; flex-wrap: wrap; gap: 24px;">
+                  <!-- 关闭态 -->
+                  <div class="ds-state-grid">
+                    <div class="ds-dropdown" style="width: 240px;">
+                      <div class="ds-dropdown-trigger">
+                        <span class="ds-dropdown-placeholder">请选择选项</span>
+                        <i data-lucide="chevron-down" style="width:16px;height:16px;" class="ds-dropdown-icon"></i>
+                      </div>
+                    </div>
+                    <span class="ds-state-label">默认</span>
+                  </div>
+                  <!-- 选中态 -->
+                  <div class="ds-state-grid">
+                    <div class="ds-dropdown" style="width: 240px;">
+                      <div class="ds-dropdown-trigger ds-dropdown-trigger--selected">
+                        <span class="ds-dropdown-value">选项一</span>
+                        <i data-lucide="chevron-down" style="width:16px;height:16px;" class="ds-dropdown-icon"></i>
+                      </div>
+                    </div>
+                    <span class="ds-state-label">已选中</span>
+                  </div>
+                  <!-- 展开态 -->
+                  <div class="ds-state-grid">
+                    <div class="ds-dropdown ds-dropdown--open" style="width: 240px;">
+                      <div class="ds-dropdown-trigger ds-dropdown-trigger--open">
+                        <span class="ds-dropdown-value">选项二</span>
+                        <i data-lucide="chevron-up" style="width:16px;height:16px;" class="ds-dropdown-icon"></i>
+                      </div>
+                      <div class="ds-dropdown-menu">
+                        <div class="ds-dropdown-item">
+                          <i data-lucide="user" style="width:16px;height:16px;"></i>
+                          <span>选项一</span>
+                        </div>
+                        <div class="ds-dropdown-item ds-dropdown-item--selected">
+                          <i data-lucide="settings" style="width:16px;height:16px;"></i>
+                          <span>选项二</span>
+                          <i data-lucide="check" style="width:14px;height:14px; margin-left: auto; color: var(--dsk-accent);"></i>
+                        </div>
+                        <div class="ds-dropdown-item">
+                          <i data-lucide="bar-chart" style="width:16px;height:16px;"></i>
+                          <span>选项三</span>
+                        </div>
+                        <div class="ds-dropdown-divider"></div>
+                        <div class="ds-dropdown-item ds-dropdown-item--disabled">
+                          <i data-lucide="lock" style="width:16px;height:16px;"></i>
+                          <span>禁用选项</span>
+                        </div>
+                      </div>
+                    </div>
+                    <span class="ds-state-label">展开</span>
+                  </div>
+                  <!-- 带搜索 -->
+                  <div class="ds-state-grid">
+                    <div class="ds-dropdown ds-dropdown--open" style="width: 260px;">
+                      <div class="ds-dropdown-trigger ds-dropdown-trigger--open">
+                        <span class="ds-dropdown-placeholder">搜索或选择</span>
+                        <i data-lucide="search" style="width:14px;height:14px; color: var(--dsk-foreground-subtle);"></i>
+                      </div>
+                      <div class="ds-dropdown-menu">
+                        <div class="ds-dropdown-search">
+                          <i data-lucide="search" style="width:14px;height:14px; color: var(--dsk-foreground-subtle);"></i>
+                          <input type="text" placeholder="搜索..." class="ds-dropdown-search-input">
+                        </div>
+                        <div class="ds-dropdown-item ds-dropdown-item--selected">
+                          <span>搜索结果 A</span>
+                          <i data-lucide="check" style="width:14px;height:14px; margin-left: auto; color: var(--dsk-accent);"></i>
+                        </div>
+                        <div class="ds-dropdown-item">
+                          <span>搜索结果 B</span>
+                        </div>
+                      </div>
+                    </div>
+                    <span class="ds-state-label">可搜索</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">文本域 Textarea</h3>
+              <div class="ds-component-preview">
+                <div style="max-width: 480px;">
+                  <div class="ds-input-group">
+                    <label class="ds-input-label">描述内容</label>
+                    <textarea class="ds-input ds-textarea" placeholder="请输入详细描述..."></textarea>
+                    <span class="ds-input-hint">最多 500 字符</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">复选框 Checkbox</h3>
+              <div class="ds-component-preview">
+                <div class="ds-component-row">
+                  <label class="ds-checkbox">
+                    <input type="checkbox">
+                    <span class="ds-checkbox-box">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </span>
+                    未选中
+                  </label>
+                  <label class="ds-checkbox">
+                    <input type="checkbox" checked>
+                    <span class="ds-checkbox-box">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </span>
+                    已选中
+                  </label>
+                  <label class="ds-checkbox">
+                    <input type="checkbox" disabled>
+                    <span class="ds-checkbox-box">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </span>
+                    禁用未选
+                  </label>
+                  <label class="ds-checkbox">
+                    <input type="checkbox" checked disabled>
+                    <span class="ds-checkbox-box">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </span>
+                    禁用已选
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">开关 Switch</h3>
+              <p class="ds-component-desc">打开状态时滑块带青色光感，体现"电光"效果。</p>
+              <div class="ds-component-preview">
+                <div class="ds-component-row">
+                  <label class="ds-switch">
+                    <input type="checkbox">
+                    <span class="ds-switch-track">
+                      <span class="ds-switch-thumb"></span>
+                    </span>
+                    关闭
+                  </label>
+                  <label class="ds-switch">
+                    <input type="checkbox" checked>
+                    <span class="ds-switch-track">
+                      <span class="ds-switch-thumb"></span>
+                    </span>
+                    打开（青色光感）
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">单选 Radio</h3>
+              <div class="ds-component-preview">
+                <div class="ds-component-row">
+                  <label class="ds-radio">
+                    <input type="radio" name="demo1">
+                    <span class="ds-radio-dot"></span>
+                    选项 A
+                  </label>
+                  <label class="ds-radio">
+                    <input type="radio" name="demo1" checked>
+                    <span class="ds-radio-dot"></span>
+                    选项 B
+                  </label>
+                  <label class="ds-radio">
+                    <input type="radio" name="demo1">
+                    <span class="ds-radio-dot"></span>
+                    选项 C
+                  </label>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+               SECTION 5: CARDS
+               ============================================================ -->
+          <section class="ds-section" id="cards">
+            <div class="ds-section-header">
+              <div class="ds-section-num">05</div>
+              <h2 class="ds-section-title">卡片</h2>
+              <p class="ds-section-desc">卡片保持干净克制，颜色仅出现在图标、细边框、顶部细线和关键数字上。</p>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">基础卡片</h3>
+              <div class="ds-component-preview">
+                <div class="ds-card-grid">
+                  <div class="ds-card">
+                    <h4 class="ds-card-title">基础卡片</h4>
+                    <p class="ds-card-desc">纯色表面配合细边框，承载内容信息。hover 时边框变为紫色并带微光。</p>
+                    <button class="ds-btn ds-btn-primary ds-btn-sm">了解更多</button>
+                  </div>
+                  <div class="ds-card ds-card-icon-top">
+                    <div class="ds-card-icon-wrapper">
+                      <i data-lucide="zap" style="width:20px;height:20px;"></i>
+                    </div>
+                    <h4 class="ds-card-title">图标卡片</h4>
+                    <p class="ds-card-desc">带紫色圆角图标背景，用于功能入口或特性展示。</p>
+                    <button class="ds-btn ds-btn-ghost ds-btn-sm">查看详情 →</button>
+                  </div>
+                  <div class="ds-card ds-card-accent-top">
+                    <h4 class="ds-card-title">高亮卡片</h4>
+                    <p class="ds-card-desc">顶部一条紫青渐变细线，用于突出重要信息或推荐内容。</p>
+                    <button class="ds-btn ds-btn-secondary ds-btn-sm">立即体验</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">左侧强调线卡片</h3>
+              <div class="ds-component-preview">
+                <div class="ds-card-grid">
+                  <div class="ds-card ds-card-accent-left" style="padding-left: 24px;">
+                    <h4 class="ds-card-title">提示信息</h4>
+                    <p class="ds-card-desc">左侧紫色细线用于列表项或提示类内容的视觉引导。</p>
+                  </div>
+                  <div class="ds-card ds-card-accent-left" style="padding-left: 24px;">
+                    <h4 class="ds-card-title">系统通知</h4>
+                    <p class="ds-card-desc">在信息列表中提供清晰的视觉分隔和层级感。</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">数据卡片</h3>
+              <p class="ds-component-desc">大数字用紫色强化视觉焦点，趋势指标颜色表达增减。</p>
+              <div class="ds-component-preview">
+                <div class="ds-card-grid">
+                  <div class="ds-card ds-data-card">
+                    <span class="ds-data-card-label">总用户数</span>
+                    <span class="ds-data-card-value">128,430</span>
+                    <span class="ds-data-card-sub">
+                      <span class="trend-up"><i data-lucide="trending-up" style="width:12px;height:12px;"></i></span>
+                      较上月 +12.5%
+                    </span>
+                  </div>
+                  <div class="ds-card ds-data-card">
+                    <span class="ds-data-card-label">活跃用户</span>
+                    <span class="ds-data-card-value">42,891</span>
+                    <span class="ds-data-card-sub">
+                      <span class="trend-up"><i data-lucide="trending-up" style="width:12px;height:12px;"></i></span>
+                      较上月 +8.3%
+                    </span>
+                  </div>
+                  <div class="ds-card ds-data-card">
+                    <span class="ds-data-card-label">流失率</span>
+                    <span class="ds-data-card-value" style="color: var(--dsk-danger);">3.2%</span>
+                    <span class="ds-data-card-sub">
+                      <span class="trend-down"><i data-lucide="trending-down" style="width:12px;height:12px;"></i></span>
+                      较上月 -0.8%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+               SECTION 6: BADGES & STATUS
+               ============================================================ -->
+          <section class="ds-section" id="badges">
+            <div class="ds-section-header">
+              <div class="ds-section-num">06</div>
+              <h2 class="ds-section-title">标签与状态</h2>
+              <p class="ds-section-desc">状态徽章和标签用于快速识别信息类型，青色用于成功状态的微光表达。</p>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">状态徽章</h3>
+              <div class="ds-component-preview">
+                <div class="ds-component-row">
+                  <span class="ds-badge ds-badge-success">
+                    <span class="ds-badge-dot"></span>
+                    成功
+                  </span>
+                  <span class="ds-badge ds-badge-warning">
+                    <span class="ds-badge-dot"></span>
+                    警告
+                  </span>
+                  <span class="ds-badge ds-badge-danger">
+                    <span class="ds-badge-dot"></span>
+                    错误
+                  </span>
+                  <span class="ds-badge ds-badge-info">
+                    <span class="ds-badge-dot"></span>
+                    信息
+                  </span>
+                  <span class="ds-badge ds-badge-pending">
+                    <span class="ds-badge-dot"></span>
+                    待处理
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">标签 / Chip</h3>
+              <div class="ds-component-preview">
+                <div class="ds-component-row">
+                  <span class="ds-tag ds-tag-primary">紫色标签</span>
+                  <span class="ds-tag ds-tag-default">灰色标签</span>
+                  <span class="ds-tag ds-tag-default">
+                    可关闭标签
+                    <i data-lucide="x" style="width:12px;height:12px;" class="ds-tag-close"></i>
+                  </span>
+                  <span class="ds-tag ds-tag-primary">
+                    <i data-lucide="star" style="width:12px;height:12px;"></i>
+                    精选
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">状态点</h3>
+              <p class="ds-component-desc">纯圆点指示器，在线状态带青色呼吸动画。</p>
+              <div class="ds-component-preview">
+                <div class="ds-component-row">
+                  <div class="ds-status-dot ds-status-online">
+                    <span class="ds-status-dot-dot"></span>
+                    <span>在线</span>
+                  </div>
+                  <div class="ds-status-dot ds-status-away">
+                    <span class="ds-status-dot-dot"></span>
+                    <span>离开</span>
+                  </div>
+                  <div class="ds-status-dot ds-status-busy">
+                    <span class="ds-status-dot-dot"></span>
+                    <span>忙碌</span>
+                  </div>
+                  <div class="ds-status-dot ds-status-offline">
+                    <span class="ds-status-dot-dot"></span>
+                    <span>离线</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+               SECTION 7: NAVIGATION
+               ============================================================ -->
+          <section class="ds-section" id="navigation">
+            <div class="ds-section-header">
+              <div class="ds-section-num">07</div>
+              <h2 class="ds-section-title">导航</h2>
+              <p class="ds-section-desc">导航组件提供清晰的页面层级和路径指引。</p>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">标签页 Tabs</h3>
+              <div class="ds-component-preview">
+                <div class="ds-tabs">
+                  <div class="ds-tab active">概览</div>
+                  <div class="ds-tab">分析</div>
+                  <div class="ds-tab">报告</div>
+                  <div class="ds-tab">设置</div>
+                </div>
+                <div style="padding: 20px 0 0; color: var(--dsk-foreground-muted); font-size: var(--dsk-text-sm);">
+                  选中态用紫色下划线标识，hover 时文字颜色加深。
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">侧边栏导航项</h3>
+              <div class="ds-component-preview">
+                <div class="ds-component-row" style="align-items: flex-start;">
+                  <div style="display: flex; flex-direction: column; gap: 4px; padding: 8px; background: var(--dsk-background-elevated); border-radius: var(--dsk-radius-md); border: 1px solid var(--dsk-border-subtle);">
+                    <div class="ds-sidenav-item">
+                      <i data-lucide="home" style="width:16px;height:16px;"></i>
+                      首页
+                    </div>
+                    <div class="ds-sidenav-item active">
+                      <i data-lucide="layout-dashboard" style="width:16px;height:16px;"></i>
+                      仪表盘
+                    </div>
+                    <div class="ds-sidenav-item">
+                      <i data-lucide="users" style="width:16px;height:16px;"></i>
+                      用户管理
+                    </div>
+                    <div class="ds-sidenav-item">
+                      <i data-lucide="settings" style="width:16px;height:16px;"></i>
+                      系统设置
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">面包屑 Breadcrumb</h3>
+              <div class="ds-component-preview">
+                <div class="ds-breadcrumb">
+                  <span class="ds-breadcrumb-item"><a href="#">首页</a></span>
+                  <span class="ds-breadcrumb-sep">/</span>
+                  <span class="ds-breadcrumb-item"><a href="#">产品中心</a></span>
+                  <span class="ds-breadcrumb-sep">/</span>
+                  <span class="ds-breadcrumb-item"><a href="#">设计系统</a></span>
+                  <span class="ds-breadcrumb-sep">/</span>
+                  <span class="ds-breadcrumb-item current">组件规范</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+               SECTION 8: FEEDBACK
+               ============================================================ -->
+          <section class="ds-section" id="feedback">
+            <div class="ds-section-header">
+              <div class="ds-section-num">08</div>
+              <h2 class="ds-section-title">反馈</h2>
+              <p class="ds-section-desc">进度条、加载、提示等反馈组件，青色在进度条中做高光收尾。</p>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">进度条 Progress</h3>
+              <p class="ds-component-desc">紫色渐变至青色的进度填充，末端带青色微光。</p>
+              <div class="ds-component-preview">
+                <div style="display: flex; flex-direction: column; gap: var(--dsk-space-4); max-width: 480px;">
+                  <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; color: var(--dsk-foreground-muted);">
+                      <span>30%</span>
+                      <span>进行中</span>
+                    </div>
+                    <div class="ds-progress">
+                      <div class="ds-progress-bar" style="width: 30%;"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; color: var(--dsk-foreground-muted);">
+                      <span>65%</span>
+                      <span>处理中</span>
+                    </div>
+                    <div class="ds-progress">
+                      <div class="ds-progress-bar" style="width: 65%;"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; color: var(--dsk-foreground-muted);">
+                      <span>100%</span>
+                      <span style="color: var(--dsk-accent);">已完成</span>
+                    </div>
+                    <div class="ds-progress">
+                      <div class="ds-progress-bar" style="width: 100%;"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">加载 Spinner</h3>
+              <p class="ds-component-desc">紫色圆环配合青色高光点旋转。</p>
+              <div class="ds-component-preview">
+                <div class="ds-component-row">
+                  <div class="ds-state-grid">
+                    <div class="ds-spinner ds-spinner-sm"></div>
+                    <span class="ds-state-label">Small</span>
+                  </div>
+                  <div class="ds-state-grid">
+                    <div class="ds-spinner"></div>
+                    <span class="ds-state-label">Medium</span>
+                  </div>
+                  <div class="ds-state-grid">
+                    <div class="ds-spinner ds-spinner-lg"></div>
+                    <span class="ds-state-label">Large</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">提示条 Alert</h3>
+              <div class="ds-component-preview">
+                <div style="display: flex; flex-direction: column; gap: var(--dsk-space-3);">
+                  <div class="ds-alert ds-alert-info">
+                    <i data-lucide="info" style="width:18px;height:18px;" class="ds-alert-icon"></i>
+                    <div class="ds-alert-content">
+                      <div class="ds-alert-title">信息提示</div>
+                      <div class="ds-alert-desc">这是一条信息提示，用于传达中性的通知内容。</div>
+                    </div>
+                  </div>
+                  <div class="ds-alert ds-alert-success">
+                    <i data-lucide="check-circle" style="width:18px;height:18px;" class="ds-alert-icon"></i>
+                    <div class="ds-alert-content">
+                      <div class="ds-alert-title">操作成功</div>
+                      <div class="ds-alert-desc">操作已成功完成，数据已保存到服务器。</div>
+                    </div>
+                  </div>
+                  <div class="ds-alert ds-alert-warning">
+                    <i data-lucide="alert-triangle" style="width:18px;height:18px;" class="ds-alert-icon"></i>
+                    <div class="ds-alert-content">
+                      <div class="ds-alert-title">注意事项</div>
+                      <div class="ds-alert-desc">请注意检查输入内容，部分字段可能不符合规范。</div>
+                    </div>
+                  </div>
+                  <div class="ds-alert ds-alert-error">
+                    <i data-lucide="x-circle" style="width:18px;height:18px;" class="ds-alert-icon"></i>
+                    <div class="ds-alert-content">
+                      <div class="ds-alert-title">出错了</div>
+                      <div class="ds-alert-desc">操作失败，请检查网络连接后重试。</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">Toast 浮动提示</h3>
+              <div class="ds-component-preview">
+                <div class="ds-toast">
+                  <i data-lucide="check-circle" style="width:18px;height:18px;" class="ds-toast-icon"></i>
+                  <div class="ds-toast-content">
+                    <div class="ds-toast-title">保存成功</div>
+                    <div class="ds-toast-desc">您的设置已成功保存，更改将立即生效。</div>
+                  </div>
+                  <i data-lucide="x" style="width:14px;height:14px;" class="ds-toast-close"></i>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+               SECTION 9: OVERLAYS
+               ============================================================ -->
+          <section class="ds-section" id="overlays">
+            <div class="ds-section-header">
+              <div class="ds-section-num">09</div>
+              <h2 class="ds-section-title">浮层组件</h2>
+              <p class="ds-section-desc">对话框、抽屉、气泡确认等浮层容器，紫色主操作 + 青色确认点缀。</p>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">对话框 Dialog</h3>
+              <p class="ds-component-desc">居中模态框，支持多种按钮布局与状态变体。</p>
+              <div class="ds-component-preview">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 24px; width: 100%;">
+
+                  <!-- 基础确认 — 按钮居右 -->
+                  <div>
+                    <div class="ds-dialog-sub-label">基础确认 · 按钮居右</div>
+                    <div class="ds-dialog-mini-stage">
+                      <div class="ds-dialog-backdrop ds-dialog-backdrop--mini"></div>
+                      <div class="ds-dialog ds-dialog--sm">
+                        <div class="ds-dialog-header">
+                          <h4 class="ds-dialog-title">确认删除</h4>
+                          <button class="ds-dialog-close">
+                            <i data-lucide="x" style="width:16px;height:16px;"></i>
+                          </button>
+                        </div>
+                        <div class="ds-dialog-body">
+                          <p style="margin: 0; color: var(--dsk-foreground-muted); font-size: 14px; line-height: 1.6;">
+                            确定要删除这个项目吗？此操作无法撤销。
+                          </p>
+                        </div>
+                        <div class="ds-dialog-footer">
+                          <button class="ds-btn ds-btn-ghost ds-btn-sm">取消</button>
+                          <button class="ds-btn ds-btn-primary ds-btn-sm">确认删除</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 表单对话框 — 按钮居右 -->
+                  <div>
+                    <div class="ds-dialog-sub-label">表单对话框 · 按钮居右</div>
+                    <div class="ds-dialog-mini-stage">
+                      <div class="ds-dialog-backdrop ds-dialog-backdrop--mini"></div>
+                      <div class="ds-dialog ds-dialog--sm">
+                        <div class="ds-dialog-header">
+                          <h4 class="ds-dialog-title">新建项目</h4>
+                          <button class="ds-dialog-close">
+                            <i data-lucide="x" style="width:16px;height:16px;"></i>
+                          </button>
+                        </div>
+                        <div class="ds-dialog-body">
+                          <div class="ds-input-group" style="margin-bottom: 12px;">
+                            <label class="ds-input-label">项目名称</label>
+                            <input type="text" class="ds-input" placeholder="请输入项目名称" style="height: 34px;">
+                          </div>
+                          <div class="ds-input-group">
+                            <label class="ds-input-label">描述</label>
+                            <input type="text" class="ds-input" placeholder="可选" style="height: 34px;">
+                          </div>
+                        </div>
+                        <div class="ds-dialog-footer">
+                          <button class="ds-btn ds-btn-ghost ds-btn-sm">取消</button>
+                          <button class="ds-btn ds-btn-primary ds-btn-sm">创建</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 警示对话框 — 按钮居左 -->
+                  <div>
+                    <div class="ds-dialog-sub-label">警示对话框 · 按钮居左</div>
+                    <div class="ds-dialog-mini-stage">
+                      <div class="ds-dialog-backdrop ds-dialog-backdrop--mini"></div>
+                      <div class="ds-dialog ds-dialog--sm ds-dialog--danger">
+                        <div class="ds-dialog-header">
+                          <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="ds-dialog-icon-badge ds-dialog-icon-badge--danger">
+                              <i data-lucide="alert-triangle" style="width:18px;height:18px;"></i>
+                            </div>
+                            <h4 class="ds-dialog-title">危险操作</h4>
+                          </div>
+                        </div>
+                        <div class="ds-dialog-body">
+                          <p style="margin: 0; color: var(--dsk-foreground-muted); font-size: 14px; line-height: 1.6;">
+                            此操作将永久删除所有数据，且无法恢复。请谨慎操作。
+                          </p>
+                        </div>
+                        <div class="ds-dialog-footer ds-dialog-footer--left">
+                          <button class="ds-btn ds-btn-danger ds-btn-sm">
+                            <i data-lucide="trash-2" style="width:13px;height:13px;"></i>
+                            确认删除
+                          </button>
+                          <button class="ds-btn ds-btn-ghost ds-btn-sm">取消</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 设置对话框 — 双操作居右 -->
+                  <div>
+                    <div class="ds-dialog-sub-label">设置对话框 · 应用 + 确定</div>
+                    <div class="ds-dialog-mini-stage">
+                      <div class="ds-dialog-backdrop ds-dialog-backdrop--mini"></div>
+                      <div class="ds-dialog ds-dialog--sm">
+                        <div class="ds-dialog-header">
+                          <h4 class="ds-dialog-title">偏好设置</h4>
+                          <button class="ds-dialog-close">
+                            <i data-lucide="x" style="width:16px;height:16px;"></i>
+                          </button>
+                        </div>
+                        <div class="ds-dialog-body">
+                          <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                              <span style="font-size: 13px; color: var(--dsk-foreground);">开启自动保存</span>
+                              <div class="ds-switch ds-switch--on" style="--sw: 36px; --sh: 20px;">
+                                <div class="ds-switch-thumb"></div>
+                              </div>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                              <span style="font-size: 13px; color: var(--dsk-foreground);">深色模式</span>
+                              <div class="ds-switch ds-switch--on" style="--sw: 36px; --sh: 20px;">
+                                <div class="ds-switch-thumb"></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="ds-dialog-footer">
+                          <button class="ds-btn ds-btn-ghost ds-btn-sm">取消</button>
+                          <button class="ds-btn ds-btn-secondary ds-btn-sm">应用</button>
+                          <button class="ds-btn ds-btn-primary ds-btn-sm">确定</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">抽屉 Drawer</h3>
+              <p class="ds-component-desc">从侧边滑出的面板，支持顶部把手与普通两种样式。</p>
+              <div class="ds-component-preview">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; width: 100%;">
+
+                  <!-- 普通抽屉 -->
+                  <div>
+                    <div class="ds-dialog-sub-label">普通抽屉 · 右侧滑出</div>
+                    <div class="ds-drawer-mini-stage">
+                      <div class="ds-dialog-backdrop ds-dialog-backdrop--mini"></div>
+                      <div class="ds-drawer ds-drawer--mini">
+                        <div class="ds-drawer-header">
+                          <h4 class="ds-dialog-title">筛选条件</h4>
+                          <button class="ds-dialog-close">
+                            <i data-lucide="x" style="width:16px;height:16px;"></i>
+                          </button>
+                        </div>
+                        <div class="ds-drawer-body">
+                          <div class="ds-drawer-section">
+                            <div class="ds-drawer-label">状态</div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                              <span class="ds-tag ds-tag-primary">全部</span>
+                              <span class="ds-tag ds-tag-default">进行中</span>
+                              <span class="ds-tag ds-tag-default">已完成</span>
+                            </div>
+                          </div>
+                          <div class="ds-drawer-section">
+                            <div class="ds-drawer-label">时间范围</div>
+                            <div style="display: flex; gap: 8px;">
+                              <input type="text" class="ds-input" placeholder="开始日期" style="height: 32px; font-size: 12px; flex: 1;">
+                              <input type="text" class="ds-input" placeholder="结束日期" style="height: 32px; font-size: 12px; flex: 1;">
+                            </div>
+                          </div>
+                        </div>
+                        <div class="ds-drawer-footer">
+                          <button class="ds-btn ds-btn-ghost ds-btn-sm">重置</button>
+                          <button class="ds-btn ds-btn-primary ds-btn-sm">应用筛选</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 带 handle 的抽屉 -->
+                  <div>
+                    <div class="ds-dialog-sub-label">带把手 · 底部抽屉</div>
+                    <div class="ds-drawer-bottom-stage">
+                      <div class="ds-dialog-backdrop ds-dialog-backdrop--mini"></div>
+                      <div class="ds-drawer ds-drawer--bottom">
+                        <div class="ds-drawer-handle">
+                          <span class="ds-drawer-handle-bar"></span>
+                        </div>
+                        <div class="ds-drawer-header" style="padding-top: 4px;">
+                          <h4 class="ds-dialog-title">操作面板</h4>
+                        </div>
+                        <div class="ds-drawer-body" style="padding-top: 0;">
+                          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                            <div class="ds-action-chip">
+                              <i data-lucide="copy" style="width:18px;height:18px;"></i>
+                              <span>复制</span>
+                            </div>
+                            <div class="ds-action-chip">
+                              <i data-lucide="share-2" style="width:18px;height:18px;"></i>
+                              <span>分享</span>
+                            </div>
+                            <div class="ds-action-chip">
+                              <i data-lucide="download" style="width:18px;height:18px;"></i>
+                              <span>下载</span>
+                            </div>
+                            <div class="ds-action-chip">
+                              <i data-lucide="edit-3" style="width:18px;height:18px;"></i>
+                              <span>编辑</span>
+                            </div>
+                            <div class="ds-action-chip">
+                              <i data-lucide="archive" style="width:18px;height:18px;"></i>
+                              <span>归档</span>
+                            </div>
+                            <div class="ds-action-chip ds-action-chip--danger">
+                              <i data-lucide="trash-2" style="width:18px;height:18px;"></i>
+                              <span>删除</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">气泡确认 Popconfirm</h3>
+              <p class="ds-component-desc">轻量级确认操作，气泡形式出现在触发元素附近。</p>
+              <div class="ds-component-preview">
+                <div class="ds-component-row" style="padding: 20px 40px; flex-wrap: wrap; gap: 40px;">
+                  <!-- 左侧弹出 -->
+                  <div class="ds-popconfirm-wrapper">
+                    <button class="ds-btn ds-btn-secondary ds-btn-sm">删除</button>
+                    <div class="ds-popconfirm ds-popconfirm--bottom">
+                      <div class="ds-popconfirm-arrow"></div>
+                      <div class="ds-popconfirm-content">确定删除这条记录吗？</div>
+                      <div class="ds-popconfirm-actions">
+                        <button class="ds-btn ds-btn-ghost ds-btn-sm" style="height: 28px; padding: 0 10px; font-size: 12px;">取消</button>
+                        <button class="ds-btn ds-btn-primary ds-btn-sm" style="height: 28px; padding: 0 10px; font-size: 12px;">确认</button>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- 顶部弹出 -->
+                  <div class="ds-popconfirm-wrapper">
+                    <button class="ds-btn ds-btn-icon ds-btn-secondary ds-btn-sm">
+                      <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                    </button>
+                    <div class="ds-popconfirm ds-popconfirm--top">
+                      <div class="ds-popconfirm-arrow"></div>
+                      <div class="ds-popconfirm-content">确认要移除吗？</div>
+                      <div class="ds-popconfirm-actions">
+                        <button class="ds-btn ds-btn-ghost ds-btn-sm" style="height: 26px; padding: 0 8px; font-size: 11px;">取消</button>
+                        <button class="ds-btn ds-btn-primary ds-btn-sm" style="height: 26px; padding: 0 8px; font-size: 11px;">确认</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">气泡卡片 Popover</h3>
+              <p class="ds-component-desc">点击触发的浮层卡片，可承载更丰富的内容。</p>
+              <div class="ds-component-preview">
+                <div class="ds-component-row" style="padding: 20px 40px;">
+                  <div class="ds-popover-wrapper">
+                    <button class="ds-btn ds-btn-secondary ds-btn-md">
+                      <i data-lucide="info" style="width:14px;height:14px;"></i>
+                      查看详情
+                    </button>
+                    <div class="ds-popover ds-popover--bottom">
+                      <div class="ds-popover-arrow"></div>
+                      <div class="ds-popover-header">
+                        <div class="ds-avatar ds-avatar-md">LQ</div>
+                        <div style="margin-left: 10px;">
+                          <div class="ds-popover-title">林清晨</div>
+                          <div class="ds-popover-subtitle">高级产品设计师</div>
+                        </div>
+                        <span class="ds-status-dot ds-status-online" style="margin-left: auto; margin-top: 4px;"></span>
+                      </div>
+                      <div class="ds-popover-body">
+                        <div style="display: flex; gap: 20px; font-size: 12px;">
+                          <div>
+                            <div style="color: var(--dsk-foreground-muted);">项目</div>
+                            <div style="font-weight: 600; color: var(--dsk-primary); margin-top: 2px;">12</div>
+                          </div>
+                          <div>
+                            <div style="color: var(--dsk-foreground-muted);">团队</div>
+                            <div style="font-weight: 600; margin-top: 2px;">5</div>
+                          </div>
+                          <div>
+                            <div style="color: var(--dsk-foreground-muted);">完成率</div>
+                            <div style="font-weight: 600; color: var(--dsk-accent); margin-top: 2px;">98%</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="ds-popover-footer">
+                        <button class="ds-btn ds-btn-ghost ds-btn-sm" style="flex: 1;">发消息</button>
+                        <button class="ds-btn ds-btn-primary ds-btn-sm" style="flex: 1;">查看主页</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+               SECTION 10: OTHER COMPONENTS
+               ============================================================ -->
+          <section class="ds-section" id="others">
+            <div class="ds-section-header">
+              <div class="ds-section-num">10</div>
+              <h2 class="ds-section-title">其他组件</h2>
+              <p class="ds-section-desc">头像、分割线、工具提示、空状态、骨架屏等辅助组件。</p>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">头像 Avatar</h3>
+              <p class="ds-component-desc">紫色渐变背景 + 白色首字母。</p>
+              <div class="ds-component-preview">
+                <div class="ds-component-row" style="align-items: center;">
+                  <div class="ds-state-grid">
+                    <div class="ds-avatar ds-avatar-sm">ZQ</div>
+                    <span class="ds-state-label">28px</span>
+                  </div>
+                  <div class="ds-state-grid">
+                    <div class="ds-avatar ds-avatar-md">紫青</div>
+                    <span class="ds-state-label">36px</span>
+                  </div>
+                  <div class="ds-state-grid">
+                    <div class="ds-avatar ds-avatar-lg">DS</div>
+                    <span class="ds-state-label">48px</span>
+                  </div>
+                  <div class="ds-state-grid">
+                    <div class="ds-avatar ds-avatar-xl">设</div>
+                    <span class="ds-state-label">64px</span>
+                  </div>
+                  <div style="width: 24px;"></div>
+                  <div class="ds-state-grid">
+                    <div class="ds-avatar-group">
+                      <div class="ds-avatar ds-avatar-md">A</div>
+                      <div class="ds-avatar ds-avatar-md">B</div>
+                      <div class="ds-avatar ds-avatar-md">C</div>
+                      <div class="ds-avatar ds-avatar-md" style="background: var(--dsk-muted); color: var(--dsk-muted-foreground);">+5</div>
+                    </div>
+                    <span class="ds-state-label">头像组</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">分割线 Divider</h3>
+              <div class="ds-component-preview">
+                <div style="display: flex; flex-direction: column; gap: var(--dsk-space-4);">
+                  <div class="ds-divider">分割线</div>
+                  <div style="text-align: center; color: var(--dsk-foreground-muted); font-size: var(--dsk-text-sm);">
+                    内容区域
+                  </div>
+                  <div class="ds-divider">OR</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">工具提示 Tooltip</h3>
+              <p class="ds-component-desc">鼠标悬停查看效果。</p>
+              <div class="ds-component-preview">
+                <div class="ds-component-row" style="padding: 24px 0;">
+                  <div class="ds-tooltip-wrapper">
+                    <button class="ds-btn ds-btn-secondary ds-btn-md">
+                      悬停查看
+                    </button>
+                    <div class="ds-tooltip">这是一条提示信息</div>
+                  </div>
+                  <div class="ds-tooltip-wrapper">
+                    <button class="ds-btn ds-btn-icon ds-btn-secondary ds-btn-md">
+                      <i data-lucide="help-circle" style="width:16px;height:16px;"></i>
+                    </button>
+                    <div class="ds-tooltip">获取帮助信息</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">空状态 Empty</h3>
+              <p class="ds-component-desc">数据为空时的占位提示，紫色轻量图标 + 中性文字。</p>
+              <div class="ds-component-preview">
+                <div class="ds-component-row" style="flex-wrap: wrap; gap: 32px;">
+                  <!-- 基础空状态 -->
+                  <div class="ds-empty">
+                    <div class="ds-empty-icon">
+                      <i data-lucide="inbox" style="width:40px;height:40px;"></i>
+                    </div>
+                    <div class="ds-empty-title">暂无数据</div>
+                    <div class="ds-empty-desc">当前还没有任何内容，点击下方按钮创建第一条。</div>
+                    <button class="ds-btn ds-btn-primary ds-btn-sm" style="margin-top: 16px;">
+                      <i data-lucide="plus" style="width:14px;height:14px;"></i>
+                      新建项目
+                    </button>
+                  </div>
+                  <!-- 搜索空状态 -->
+                  <div class="ds-empty">
+                    <div class="ds-empty-icon ds-empty-icon--soft">
+                      <i data-lucide="search-x" style="width:36px;height:36px;"></i>
+                    </div>
+                    <div class="ds-empty-title">未找到结果</div>
+                    <div class="ds-empty-desc">尝试更换关键词或筛选条件重新搜索。</div>
+                  </div>
+                  <!-- 错误空状态 -->
+                  <div class="ds-empty">
+                    <div class="ds-empty-icon" style="color: var(--dsk-danger);">
+                      <i data-lucide="wifi-off" style="width:36px;height:36px;"></i>
+                    </div>
+                    <div class="ds-empty-title">网络异常</div>
+                    <div class="ds-empty-desc">请检查网络连接后重试。</div>
+                    <button class="ds-btn ds-btn-secondary ds-btn-sm" style="margin-top: 16px;">
+                      <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
+                      重新加载
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ds-component-block">
+              <h3 class="ds-component-title">骨架屏 Skeleton</h3>
+              <p class="ds-component-desc">内容加载中的占位状态，带微光脉冲动画。</p>
+              <div class="ds-component-preview">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; width: 100%;">
+                  <!-- 卡片骨架 -->
+                  <div class="ds-card" style="padding: 16px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                      <div class="ds-skeleton ds-skeleton-circle" style="width: 40px; height: 40px;"></div>
+                      <div style="flex: 1;">
+                        <div class="ds-skeleton" style="width: 60%; height: 14px; margin-bottom: 8px;"></div>
+                        <div class="ds-skeleton" style="width: 40%; height: 12px;"></div>
+                      </div>
+                    </div>
+                    <div class="ds-skeleton" style="width: 100%; height: 12px; margin-bottom: 8px;"></div>
+                    <div class="ds-skeleton" style="width: 85%; height: 12px; margin-bottom: 8px;"></div>
+                    <div class="ds-skeleton" style="width: 50%; height: 12px;"></div>
+                  </div>
+                  <!-- 列表骨架 -->
+                  <div class="ds-card" style="padding: 16px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+                      <div class="ds-skeleton ds-skeleton-circle" style="width: 32px; height: 32px;"></div>
+                      <div style="flex: 1;">
+                        <div class="ds-skeleton" style="width: 70%; height: 13px; margin-bottom: 6px;"></div>
+                        <div class="ds-skeleton" style="width: 35%; height: 11px;"></div>
+                      </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+                      <div class="ds-skeleton ds-skeleton-circle" style="width: 32px; height: 32px;"></div>
+                      <div style="flex: 1;">
+                        <div class="ds-skeleton" style="width: 55%; height: 13px; margin-bottom: 6px;"></div>
+                        <div class="ds-skeleton" style="width: 45%; height: 11px;"></div>
+                      </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                      <div class="ds-skeleton ds-skeleton-circle" style="width: 32px; height: 32px;"></div>
+                      <div style="flex: 1;">
+                        <div class="ds-skeleton" style="width: 65%; height: 13px; margin-bottom: 6px;"></div>
+                        <div class="ds-skeleton" style="width: 30%; height: 11px;"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- 图文骨架 -->
+                  <div class="ds-card" style="padding: 0; overflow: hidden;">
+                    <div class="ds-skeleton" style="width: 100%; height: 120px; border-radius: 0;"></div>
+                    <div style="padding: 14px 16px 16px;">
+                      <div class="ds-skeleton" style="width: 75%; height: 14px; margin-bottom: 8px;"></div>
+                      <div class="ds-skeleton" style="width: 50%; height: 12px; margin-bottom: 12px;"></div>
+                      <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="ds-skeleton" style="width: 60px; height: 24px; border-radius: 6px;"></div>
+                        <div class="ds-skeleton" style="width: 50px; height: 24px; border-radius: 6px;"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </main>
+
+    <script>
+      // ============================================================
+      // Theme Toggle
+      // ============================================================
+      (function() {
+        const html = document.documentElement;
+        const toggleBtn = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+
+        function updateIcon() {
+          const isLight = html.getAttribute('data-theme') === 'light';
+          if (themeIcon) {
+            themeIcon.setAttribute('data-lucide', isLight ? 'moon' : 'sun');
+          }
+        }
+
+        toggleBtn.addEventListener('click', function() {
+          const isLight = html.getAttribute('data-theme') === 'light';
+          if (isLight) {
+            html.removeAttribute('data-theme');
+          } else {
+            html.setAttribute('data-theme', 'light');
+          }
+          updateIcon();
+          if (window.lucide) {
+            lucide.createIcons();
+          }
+        });
+
+        // Initialize icon (default dark mode)
+        updateIcon();
+      })();
+
+      // ============================================================
+      // Sidebar Active State on Scroll
+      // ============================================================
+      (function() {
+        const sections = document.querySelectorAll('.ds-section');
+        const navItems = document.querySelectorAll('.ds-nav-item');
+
+        function setActiveNav() {
+          let current = '';
+          const scrollPos = window.scrollY + 120;
+
+          sections.forEach(section => {
+            if (section.offsetTop <= scrollPos) {
+              current = section.getAttribute('id');
+            }
+          });
+
+          navItems.forEach(item => {
+            item.classList.remove('active');
+            if (item.getAttribute('data-nav') === current) {
+              item.classList.add('active');
+            }
+          });
+        }
+
+        window.addEventListener('scroll', setActiveNav, { passive: true });
+        setActiveNav();
+      })();
+
+      // ============================================================
+      // Tabs Interactivity
+      // ============================================================
+      (function() {
+        document.querySelectorAll('.ds-tabs').forEach(tabs => {
+          tabs.querySelectorAll('.ds-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+              tabs.querySelectorAll('.ds-tab').forEach(t => t.classList.remove('active'));
+              this.classList.add('active');
+            });
+          });
+        });
+      })();
+
+      // ============================================================
+      // Initialize Lucide Icons
+      // ============================================================
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    </script>
+
+    <style id="ds-custom-styles">
+      * { box-sizing: border-box; }
+
+      html { scroll-behavior: smooth; }
+
+      body {
+        font-family: var(--dsk-font-sans);
+        background: var(--dsk-page-bg);
+        color: var(--dsk-foreground);
+        margin: 0;
+        min-height: 100vh;
+        line-height: var(--dsk-leading-normal);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ---------- Layout ---------- */
+      .ds-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 var(--dsk-space-6);
+      }
+
+      .ds-main {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: var(--dsk-space-10);
+        padding-top: var(--dsk-space-10);
+        padding-bottom: 120px;
+      }
+
+      @media (max-width: 900px) {
+        .ds-main {
+          grid-template-columns: 1fr;
+        }
+        .ds-sidebar {
+          display: none;
+        }
+      }
+
+      /* ---------- Sidebar Navigation ---------- */
+      .ds-sidebar {
+        position: sticky;
+        top: 24px;
+        align-self: start;
+        max-height: calc(100vh - 48px);
+        overflow-y: auto;
+      }
+
+      .ds-nav-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .ds-nav-item a {
+        display: flex;
+        align-items: center;
+        gap: var(--dsk-space-3);
+        padding: 8px 12px;
+        border-radius: var(--dsk-radius-md);
+        color: var(--dsk-foreground-muted);
+        text-decoration: none;
+        font-size: var(--dsk-text-sm);
+        transition: all 0.15s ease;
+        border-left: 2px solid transparent;
+      }
+
+      .ds-nav-item a:hover {
+        color: var(--dsk-foreground);
+        background: var(--dsk-primary-soft);
+      }
+
+      .ds-nav-item.active a {
+        color: var(--dsk-primary);
+        background: var(--dsk-primary-soft);
+        border-left-color: var(--dsk-primary);
+      }
+
+      .ds-nav-section-title {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--dsk-foreground-subtle);
+        padding: 16px 12px 6px;
+      }
+
+      /* ---------- Header ---------- */
+      .ds-header {
+        padding: 60px 0 40px;
+        border-bottom: 1px solid var(--dsk-border-subtle);
+        position: relative;
+      }
+
+      .ds-header-inner {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: var(--dsk-space-6);
+      }
+
+      .ds-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: var(--dsk-text-sm);
+        color: var(--dsk-primary);
+        font-weight: 500;
+        margin-bottom: var(--dsk-space-4);
+        padding: 4px 12px;
+        background: var(--dsk-primary-soft);
+        border-radius: var(--dsk-radius-full);
+      }
+
+      .ds-eyebrow-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--dsk-accent);
+        box-shadow: 0 0 8px var(--dsk-accent-glow);
+      }
+
+      .ds-title {
+        font-size: 44px;
+        font-weight: 700;
+        line-height: 1.15;
+        margin: 0 0 var(--dsk-space-3) 0;
+        letter-spacing: -0.02em;
+        background: linear-gradient(135deg, var(--dsk-foreground) 0%, var(--dsk-primary) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .ds-subtitle {
+        font-size: var(--dsk-text-lg);
+        color: var(--dsk-foreground-muted);
+        margin: 0;
+        max-width: 560px;
+        line-height: 1.6;
+      }
+
+      /* ---------- Theme Toggle ---------- */
+      .ds-theme-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--dsk-radius-md);
+        background: var(--dsk-card);
+        border: 1px solid var(--dsk-card-border);
+        color: var(--dsk-foreground-muted);
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .ds-theme-toggle:hover {
+        color: var(--dsk-foreground);
+        border-color: var(--dsk-accent);
+        box-shadow: 0 0 0 3px var(--dsk-accent-soft);
+      }
+
+      /* ---------- Section ---------- */
+      .ds-section {
+        padding: 48px 0;
+        border-bottom: 1px solid var(--dsk-border-subtle);
+      }
+
+      .ds-section:last-child {
+        border-bottom: none;
+      }
+
+      .ds-section-header {
+        margin-bottom: var(--dsk-space-8);
+      }
+
+      .ds-section-num {
+        font-size: var(--dsk-text-sm);
+        font-weight: 600;
+        color: var(--dsk-accent);
+        margin-bottom: 6px;
+        font-family: var(--dsk-font-mono);
+      }
+
+      .ds-section-title {
+        font-size: var(--dsk-text-3xl);
+        font-weight: 700;
+        margin: 0 0 var(--dsk-space-2) 0;
+        letter-spacing: -0.01em;
+      }
+
+      .ds-section-desc {
+        color: var(--dsk-foreground-muted);
+        font-size: var(--dsk-text-base);
+        margin: 0;
+        max-width: 600px;
+      }
+
+      /* ---------- Component Block ---------- */
+      .ds-component-block {
+        margin-bottom: var(--dsk-space-8);
+      }
+
+      .ds-component-block:last-child {
+        margin-bottom: 0;
+      }
+
+      .ds-component-title {
+        font-size: var(--dsk-text-lg);
+        font-weight: 600;
+        margin: 0 0 var(--dsk-space-2) 0;
+      }
+
+      .ds-component-desc {
+        font-size: var(--dsk-text-sm);
+        color: var(--dsk-foreground-muted);
+        margin: 0 0 var(--dsk-space-4) 0;
+      }
+
+      .ds-component-preview {
+        background: var(--dsk-card);
+        border: 1px solid var(--dsk-card-border);
+        border-radius: var(--dsk-radius-lg);
+        padding: var(--dsk-space-6);
+        margin-bottom: var(--dsk-space-3);
+      }
+
+      .ds-component-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--dsk-space-4);
+        align-items: center;
+      }
+
+      .ds-component-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: var(--dsk-space-4);
+      }
+
+      /* ---------- Color Swatches ---------- */
+      .ds-color-group {
+        margin-bottom: var(--dsk-space-8);
+      }
+
+      .ds-color-group-title {
+        font-size: var(--dsk-text-base);
+        font-weight: 600;
+        margin: 0 0 var(--dsk-space-4) 0;
+        display: flex;
+        align-items: center;
+        gap: var(--dsk-space-2);
+      }
+
+      .ds-color-group-title .ds-color-tag {
+        font-size: 11px;
+        font-weight: 500;
+        padding: 2px 8px;
+        border-radius: var(--dsk-radius-full);
+        background: var(--dsk-primary-soft);
+        color: var(--dsk-primary);
+      }
+
+      .ds-swatch-row {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: var(--dsk-space-2);
+      }
+
+      @media (max-width: 700px) {
+        .ds-swatch-row {
+          grid-template-columns: repeat(5, 1fr);
+        }
+      }
+
+      .ds-swatch {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .ds-swatch-box {
+        aspect-ratio: 1;
+        border-radius: var(--dsk-radius-md);
+        border: 1px solid var(--dsk-border-subtle);
+        position: relative;
+        transition: transform 0.15s ease;
+      }
+
+      .ds-swatch-box:hover {
+        transform: scale(1.05);
+      }
+
+      .ds-swatch-box.is-accent::after {
+        content: '';
+        position: absolute;
+        inset: -2px;
+        border-radius: calc(var(--dsk-radius-md) + 2px);
+        border: 1px solid var(--dsk-accent);
+        opacity: 0.6;
+        pointer-events: none;
+      }
+
+      .ds-swatch-name {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--dsk-foreground);
+      }
+
+      .ds-swatch-hex {
+        font-size: 10px;
+        color: var(--dsk-foreground-subtle);
+        font-family: var(--dsk-font-mono);
+      }
+
+      /* Semantic color swatches */
+      .ds-semantic-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--dsk-space-4);
+      }
+
+      @media (max-width: 600px) {
+        .ds-semantic-row {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      .ds-semantic-card {
+        display: flex;
+        align-items: center;
+        gap: var(--dsk-space-3);
+        padding: var(--dsk-space-4);
+        background: var(--dsk-card);
+        border: 1px solid var(--dsk-card-border);
+        border-radius: var(--dsk-radius-md);
+      }
+
+      .ds-semantic-dot {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--dsk-radius-md);
+        flex-shrink: 0;
+      }
+
+      .ds-semantic-info {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .ds-semantic-name {
+        font-size: var(--dsk-text-sm);
+        font-weight: 600;
+      }
+
+      .ds-semantic-hex {
+        font-size: 11px;
+        color: var(--dsk-foreground-subtle);
+        font-family: var(--dsk-font-mono);
+      }
+
+      /* ---------- Typography ---------- */
+      .ds-type-scale {
+        display: flex;
+        flex-direction: column;
+        gap: var(--dsk-space-6);
+      }
+
+      .ds-type-item {
+        display: grid;
+        grid-template-columns: 140px 1fr;
+        gap: var(--dsk-space-6);
+        align-items: baseline;
+        padding-bottom: var(--dsk-space-4);
+        border-bottom: 1px solid var(--dsk-border-subtle);
+      }
+
+      .ds-type-item:last-child {
+        border-bottom: none;
+      }
+
+      @media (max-width: 600px) {
+        .ds-type-item {
+          grid-template-columns: 1fr;
+          gap: var(--dsk-space-2);
+        }
+      }
+
+      .ds-type-meta {
+        font-size: 11px;
+        color: var(--dsk-foreground-subtle);
+        font-family: var(--dsk-font-mono);
+        line-height: 1.4;
+      }
+
+      .ds-type-meta strong {
+        display: block;
+        font-size: var(--dsk-text-sm);
+        color: var(--dsk-foreground-muted);
+        margin-bottom: 2px;
+        font-family: var(--dsk-font-sans);
+        font-weight: 600;
+      }
+
+      .ds-type-display { font-size: 56px; font-weight: 700; line-height: 1.1; letter-spacing: -0.03em; }
+      .ds-type-h1 { font-size: 36px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
+      .ds-type-h2 { font-size: 28px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; }
+      .ds-type-h3 { font-size: 22px; font-weight: 600; line-height: 1.3; }
+      .ds-type-body { font-size: 14px; font-weight: 400; line-height: 1.6; }
+      .ds-type-caption { font-size: 12px; font-weight: 400; line-height: 1.5; color: var(--dsk-foreground-muted); }
+
+      .ds-weights-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--dsk-space-8);
+        padding: var(--dsk-space-6) 0;
+      }
+
+      .ds-weight-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .ds-weight-label {
+        font-size: 11px;
+        color: var(--dsk-foreground-subtle);
+        font-family: var(--dsk-font-mono);
+      }
+
+      .ds-weight-sample {
+        font-size: 28px;
+        letter-spacing: -0.01em;
+      }
+
+      /* ---------- Buttons ---------- */
+      .ds-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-family: var(--dsk-font-sans);
+        font-weight: 500;
+        border-radius: var(--dsk-radius-md);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        border: 1px solid transparent;
+        white-space: nowrap;
+        user-select: none;
+      }
+
+      .ds-btn:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--dsk-accent-ring);
+      }
+
+      /* Primary */
+      .ds-btn-primary {
+        background: var(--dsk-primary);
+        color: var(--dsk-primary-foreground);
+      }
+      .ds-btn-primary:hover:not(:disabled) {
+        background: var(--dsk-primary-hover);
+        box-shadow: 0 0 0 1px var(--dsk-accent), 0 0 12px var(--dsk-accent-glow);
+      }
+      .ds-btn-primary:active:not(:disabled) {
+        background: var(--dsk-primary-active);
+      }
+      .ds-btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* Secondary */
+      .ds-btn-secondary {
+        background: transparent;
+        color: var(--dsk-foreground);
+        border-color: var(--dsk-border);
+      }
+      .ds-btn-secondary:hover:not(:disabled) {
+        border-color: var(--dsk-primary);
+        color: var(--dsk-primary);
+      }
+      .ds-btn-secondary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* Ghost */
+      .ds-btn-ghost {
+        background: transparent;
+        color: var(--dsk-foreground-muted);
+      }
+      .ds-btn-ghost:hover:not(:disabled) {
+        color: var(--dsk-foreground);
+        background: var(--dsk-muted);
+      }
+
+      /* Danger */
+      .ds-btn-danger {
+        background: var(--dsk-danger);
+        color: var(--dsk-primary-foreground);
+        border-color: var(--dsk-danger);
+      }
+      .ds-btn-danger:hover:not(:disabled) {
+        filter: brightness(1.1);
+      }
+      .ds-btn-danger:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* Accent highlight button (仪式感) */
+      .ds-btn-accent {
+        background: linear-gradient(135deg, var(--dsk-primary) 0%, var(--dsk-purple-600) 100%);
+        color: var(--dsk-primary-foreground);
+        position: relative;
+        overflow: hidden;
+      }
+      .ds-btn-accent::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, var(--dsk-accent-glow), transparent);
+        transition: left 0.4s ease;
+      }
+      .ds-btn-accent:hover::before {
+        left: 100%;
+      }
+      .ds-btn-accent:hover {
+        box-shadow: 0 0 20px var(--dsk-accent-glow), 0 0 0 1px var(--dsk-accent);
+      }
+      .ds-btn-accent i {
+        color: var(--dsk-accent);
+      }
+
+      /* Sizes */
+      .ds-btn-lg { height: 44px; padding: 0 20px; font-size: var(--dsk-text-base); }
+      .ds-btn-md { height: 36px; padding: 0 16px; font-size: var(--dsk-text-sm); }
+      .ds-btn-sm { height: 28px; padding: 0 12px; font-size: var(--dsk-text-xs); }
+
+      /* Icon button */
+      .ds-btn-icon {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        border-radius: var(--dsk-radius-md);
+      }
+
+      .ds-btn-icon.ds-btn-lg { width: 44px; height: 44px; }
+      .ds-btn-icon.ds-btn-sm { width: 28px; height: 28px; }
+
+      /* Loading */
+      .ds-btn-loading {
+        position: relative;
+        color: transparent !important;
+        pointer-events: none;
+      }
+      .ds-btn-loading::after {
+        content: '';
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border: 2px solid currentColor;
+        border-right-color: var(--dsk-accent);
+        border-radius: 50%;
+        animation: ds-spin 0.6s linear infinite;
+        top: 50%;
+        left: 50%;
+        margin: -8px 0 0 -8px;
+      }
+
+      @keyframes ds-spin {
+        to { transform: rotate(360deg); }
+      }
+
+      /* ---------- Form Controls ---------- */
+      .ds-input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 240px;
+      }
+
+      .ds-input-label {
+        font-size: var(--dsk-text-sm);
+        font-weight: 500;
+        color: var(--dsk-foreground);
+      }
+
+      .ds-input {
+        height: 36px;
+        padding: 0 12px;
+        background: var(--dsk-input);
+        border: 1px solid var(--dsk-border);
+        border-radius: var(--dsk-radius-md);
+        color: var(--dsk-input-foreground);
+        font-family: var(--dsk-font-sans);
+        font-size: var(--dsk-text-sm);
+        transition: all 0.15s ease;
+      }
+
+      .ds-input::placeholder {
+        color: var(--dsk-foreground-subtle);
+      }
+
+      .ds-input:hover:not(:disabled):not(.ds-input-error) {
+        border-color: var(--dsk-primary);
+      }
+
+      .ds-input:focus {
+        outline: none;
+        border-color: var(--dsk-accent);
+        box-shadow: 0 0 0 3px var(--dsk-accent-soft);
+      }
+
+      .ds-input:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .ds-input-error {
+        border-color: var(--dsk-danger);
+      }
+      .ds-input-error:focus {
+        box-shadow: 0 0 0 3px rgba(232, 93, 106, 0.2);
+      }
+
+      .ds-input-hint {
+        font-size: 11px;
+        color: var(--dsk-foreground-subtle);
+      }
+
+      .ds-input-error-text {
+        font-size: 11px;
+        color: var(--dsk-danger);
+      }
+
+      /* Textarea */
+      .ds-textarea {
+        min-height: 80px;
+        padding: 10px 12px;
+        resize: vertical;
+        line-height: 1.5;
+      }
+
+      /* Select */
+      .ds-select-wrapper {
+        position: relative;
+        min-width: 240px;
+      }
+
+      .ds-select {
+        width: 100%;
+        height: 36px;
+        padding: 0 36px 0 12px;
+        background: var(--dsk-input);
+        border: 1px solid var(--dsk-border);
+        border-radius: var(--dsk-radius-md);
+        color: var(--dsk-input-foreground);
+        font-family: var(--dsk-font-sans);
+        font-size: var(--dsk-text-sm);
+        appearance: none;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .ds-select:hover {
+        border-color: var(--dsk-primary);
+      }
+
+      .ds-select:focus {
+        outline: none;
+        border-color: var(--dsk-accent);
+        box-shadow: 0 0 0 3px var(--dsk-accent-soft);
+      }
+
+      .ds-select-icon {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--dsk-foreground-subtle);
+        pointer-events: none;
+      }
+
+      /* Checkbox */
+      .ds-checkbox {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+        font-size: var(--dsk-text-sm);
+      }
+
+      .ds-checkbox input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .ds-checkbox-box {
+        width: 18px;
+        height: 18px;
+        border: 1.5px solid var(--dsk-border);
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+        flex-shrink: 0;
+        background: var(--dsk-input);
+      }
+
+      .ds-checkbox:hover .ds-checkbox-box {
+        border-color: var(--dsk-primary);
+      }
+
+      .ds-checkbox input:checked + .ds-checkbox-box {
+        background: var(--dsk-primary);
+        border-color: var(--dsk-primary);
+      }
+
+      .ds-checkbox input:checked + .ds-checkbox-box svg {
+        display: block;
+      }
+
+      .ds-checkbox-box svg {
+        display: none;
+        color: white;
+        width: 12px;
+        height: 12px;
+      }
+
+      .ds-checkbox input:disabled + .ds-checkbox-box {
+        opacity: 0.5;
+      }
+      .ds-checkbox input:disabled {
+        cursor: not-allowed;
+      }
+      .ds-checkbox:has(input:disabled) {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+
+      /* Radio */
+      .ds-radio {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+        font-size: var(--dsk-text-sm);
+      }
+
+      .ds-radio input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .ds-radio-dot {
+        width: 18px;
+        height: 18px;
+        border: 1.5px solid var(--dsk-border);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+        flex-shrink: 0;
+        background: var(--dsk-input);
+      }
+
+      .ds-radio:hover .ds-radio-dot {
+        border-color: var(--dsk-primary);
+      }
+
+      .ds-radio input:checked + .ds-radio-dot {
+        border-color: var(--dsk-primary);
+      }
+
+      .ds-radio input:checked + .ds-radio-dot::after {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--dsk-primary);
+      }
+
+      /* Switch */
+      .ds-switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+        font-size: var(--dsk-text-sm);
+      }
+
+      .ds-switch input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .ds-switch-track {
+        width: 40px;
+        height: 22px;
+        border-radius: 11px;
+        background: var(--dsk-muted);
+        position: relative;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+      }
+
+      .ds-switch-thumb {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--dsk-background-elevated);
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      }
+
+      .ds-switch input:checked + .ds-switch-track {
+        background: var(--dsk-primary-soft);
+      }
+
+      .ds-switch input:checked + .ds-switch-track .ds-switch-thumb {
+        left: 20px;
+        background: var(--dsk-accent);
+        box-shadow: 0 0 8px var(--dsk-accent-glow);
+      }
+
+      /* ---------- Cards ---------- */
+      .ds-card {
+        background: var(--dsk-card);
+        border: 1px solid var(--dsk-card-border);
+        border-radius: var(--dsk-radius-lg);
+        padding: var(--dsk-space-5);
+        transition: all 0.2s ease;
+      }
+
+      .ds-card:hover {
+        border-color: var(--dsk-primary);
+        box-shadow: 0 0 0 1px var(--dsk-primary-soft), var(--dsk-shadow-md);
+      }
+
+      .ds-card-title {
+        font-size: var(--dsk-text-lg);
+        font-weight: 600;
+        margin: 0 0 6px 0;
+      }
+
+      .ds-card-desc {
+        font-size: var(--dsk-text-sm);
+        color: var(--dsk-foreground-muted);
+        margin: 0 0 var(--dsk-space-4) 0;
+        line-height: 1.5;
+      }
+
+      /* Icon card */
+      .ds-card-icon-top {
+        display: flex;
+        flex-direction: column;
+        gap: var(--dsk-space-3);
+      }
+
+      .ds-card-icon-wrapper {
+        width: 44px;
+        height: 44px;
+        border-radius: var(--dsk-radius-md);
+        background: var(--dsk-primary-soft);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--dsk-primary);
+      }
+
+      /* Accent border card */
+      .ds-card-accent-top {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .ds-card-accent-top::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--dsk-primary), var(--dsk-accent));
+      }
+
+      .ds-card-accent-left {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .ds-card-accent-left::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 3px;
+        background: var(--dsk-primary);
+      }
+
+      /* Data card */
+      .ds-data-card {
+        display: flex;
+        flex-direction: column;
+        gap: var(--dsk-space-2);
+      }
+
+      .ds-data-card-label {
+        font-size: var(--dsk-text-sm);
+        color: var(--dsk-foreground-muted);
+      }
+
+      .ds-data-card-value {
+        font-size: 32px;
+        font-weight: 700;
+        color: var(--dsk-primary);
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+      }
+
+      .ds-data-card-sub {
+        font-size: var(--dsk-text-xs);
+        color: var(--dsk-foreground-subtle);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .ds-data-card-sub .trend-up { color: var(--dsk-success); }
+      .ds-data-card-sub .trend-down { color: var(--dsk-danger); }
+
+      .ds-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: var(--dsk-space-4);
+      }
+
+      /* ---------- Badges & Status ---------- */
+      .ds-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 10px;
+        border-radius: var(--dsk-radius-full);
+        font-size: var(--dsk-text-xs);
+        font-weight: 500;
+        line-height: 1.4;
+      }
+
+      .ds-badge-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+
+      .ds-badge-success {
+        background: var(--dsk-accent-soft);
+        color: var(--dsk-accent);
+      }
+      .ds-badge-success .ds-badge-dot {
+        background: var(--dsk-accent);
+        box-shadow: 0 0 6px var(--dsk-accent-glow);
+      }
+
+      .ds-badge-warning {
+        background: rgba(230, 184, 74, 0.12);
+        color: var(--dsk-warning);
+      }
+      .ds-badge-warning .ds-badge-dot { background: var(--dsk-warning); }
+
+      .ds-badge-danger {
+        background: rgba(232, 93, 106, 0.12);
+        color: var(--dsk-danger);
+      }
+      .ds-badge-danger .ds-badge-dot { background: var(--dsk-danger); }
+
+      .ds-badge-info {
+        background: rgba(107, 140, 255, 0.12);
+        color: var(--dsk-info);
+      }
+      .ds-badge-info .ds-badge-dot { background: var(--dsk-info); }
+
+      .ds-badge-pending {
+        background: var(--dsk-muted);
+        color: var(--dsk-muted-foreground);
+      }
+      .ds-badge-pending .ds-badge-dot { background: var(--dsk-muted-foreground); }
+
+      /* Tags / Chips */
+      .ds-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: var(--dsk-radius-md);
+        font-size: var(--dsk-text-sm);
+        font-weight: 500;
+        border: 1px solid transparent;
+      }
+
+      .ds-tag-primary {
+        background: var(--dsk-primary-soft);
+        color: var(--dsk-primary);
+        border-color: var(--dsk-primary);
+      }
+
+      .ds-tag-default {
+        background: var(--dsk-muted);
+        color: var(--dsk-muted-foreground);
+      }
+
+      .ds-tag-close {
+        cursor: pointer;
+        opacity: 0.6;
+        transition: opacity 0.15s;
+      }
+      .ds-tag-close:hover { opacity: 1; }
+
+      /* Status dots */
+      .ds-status-dot {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: var(--dsk-text-sm);
+      }
+
+      .ds-status-dot-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+
+      .ds-status-online .ds-status-dot-dot {
+        background: var(--dsk-accent);
+        box-shadow: 0 0 8px var(--dsk-accent-glow);
+        animation: ds-pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes ds-pulse {
+        0%, 100% { box-shadow: 0 0 8px var(--dsk-accent-glow); }
+        50% { box-shadow: 0 0 16px var(--dsk-accent-glow), 0 0 4px var(--dsk-accent-glow); }
+      }
+
+      .ds-status-away .ds-status-dot-dot { background: var(--dsk-warning); }
+      .ds-status-busy .ds-status-dot-dot { background: var(--dsk-danger); }
+      .ds-status-offline .ds-status-dot-dot { background: var(--dsk-foreground-subtle); }
+
+      /* ---------- Navigation ---------- */
+      /* Tabs */
+      .ds-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--dsk-border);
+        gap: var(--dsk-space-1);
+      }
+
+      .ds-tab {
+        padding: 10px 16px;
+        font-size: var(--dsk-text-sm);
+        font-weight: 500;
+        color: var(--dsk-foreground-muted);
+        cursor: pointer;
+        position: relative;
+        transition: color 0.15s ease;
+        white-space: nowrap;
+      }
+
+      .ds-tab:hover {
+        color: var(--dsk-foreground);
+      }
+
+      .ds-tab.active {
+        color: var(--dsk-primary);
+      }
+
+      .ds-tab.active::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--dsk-primary);
+        border-radius: 2px 2px 0 0;
+      }
+
+      /* Sidebar nav item */
+      .ds-sidenav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: var(--dsk-radius-md);
+        font-size: var(--dsk-text-sm);
+        color: var(--dsk-foreground-muted);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        width: 200px;
+      }
+
+      .ds-sidenav-item:hover {
+        color: var(--dsk-foreground);
+        background: var(--dsk-muted);
+      }
+
+      .ds-sidenav-item.active {
+        color: var(--dsk-primary-foreground);
+        background: var(--dsk-primary);
+      }
+
+      /* Breadcrumb */
+      .ds-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: var(--dsk-text-sm);
+      }
+
+      .ds-breadcrumb-item {
+        color: var(--dsk-foreground-muted);
+      }
+
+      .ds-breadcrumb-item a {
+        color: inherit;
+        text-decoration: none;
+        transition: color 0.15s ease;
+      }
+
+      .ds-breadcrumb-item a:hover {
+        color: var(--dsk-primary);
+      }
+
+      .ds-breadcrumb-item.current {
+        color: var(--dsk-foreground);
+        font-weight: 500;
+      }
+
+      .ds-breadcrumb-sep {
+        color: var(--dsk-foreground-subtle);
+      }
+
+      /* ---------- Feedback ---------- */
+      /* Progress */
+      .ds-progress {
+        width: 100%;
+        height: 6px;
+        background: var(--dsk-muted);
+        border-radius: var(--dsk-radius-full);
+        overflow: hidden;
+        position: relative;
+      }
+
+      .ds-progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, var(--dsk-primary), var(--dsk-accent));
+        border-radius: var(--dsk-radius-full);
+        position: relative;
+        transition: width 0.3s ease;
+      }
+
+      .ds-progress-bar::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 20px;
+        background: linear-gradient(90deg, transparent, var(--dsk-accent-glow));
+      }
+
+      /* Spinner */
+      .ds-spinner {
+        width: 32px;
+        height: 32px;
+        border: 2px solid var(--dsk-primary-soft);
+        border-top-color: var(--dsk-primary);
+        border-right-color: var(--dsk-accent);
+        border-radius: 50%;
+        animation: ds-spin 0.8s linear infinite;
+      }
+
+      .ds-spinner-sm { width: 20px; height: 20px; border-width: 2px; }
+      .ds-spinner-lg { width: 48px; height: 48px; border-width: 3px; }
+
+      /* Alert */
+      .ds-alert {
+        display: flex;
+        gap: 12px;
+        padding: 12px 16px;
+        border-radius: var(--dsk-radius-md);
+        border: 1px solid;
+        min-width: 320px;
+      }
+
+      .ds-alert-icon {
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+
+      .ds-alert-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .ds-alert-title {
+        font-size: var(--dsk-text-sm);
+        font-weight: 600;
+      }
+
+      .ds-alert-desc {
+        font-size: var(--dsk-text-xs);
+        color: var(--dsk-foreground-muted);
+        line-height: 1.5;
+      }
+
+      .ds-alert-info {
+        background: rgba(107, 140, 255, 0.08);
+        border-color: rgba(107, 140, 255, 0.3);
+      }
+      .ds-alert-info .ds-alert-icon { color: var(--dsk-info); }
+      .ds-alert-info .ds-alert-title { color: var(--dsk-info); }
+
+      .ds-alert-success {
+        background: var(--dsk-accent-soft);
+        border-color: var(--dsk-accent-ring);
+      }
+      .ds-alert-success .ds-alert-icon { color: var(--dsk-accent); }
+      .ds-alert-success .ds-alert-title { color: var(--dsk-accent); }
+
+      .ds-alert-warning {
+        background: rgba(230, 184, 74, 0.08);
+        border-color: rgba(230, 184, 74, 0.3);
+      }
+      .ds-alert-warning .ds-alert-icon { color: var(--dsk-warning); }
+      .ds-alert-warning .ds-alert-title { color: var(--dsk-warning); }
+
+      .ds-alert-error {
+        background: rgba(232, 93, 106, 0.08);
+        border-color: rgba(232, 93, 106, 0.3);
+      }
+      .ds-alert-error .ds-alert-icon { color: var(--dsk-danger); }
+      .ds-alert-error .ds-alert-title { color: var(--dsk-danger); }
+
+      /* Toast */
+      .ds-toast {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 16px;
+        background: var(--dsk-popover);
+        border: 1px solid var(--dsk-popover-border);
+        border-radius: var(--dsk-radius-md);
+        box-shadow: var(--dsk-shadow-lg);
+        min-width: 300px;
+        max-width: 400px;
+        position: relative;
+      }
+
+      .ds-toast::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 8px;
+        bottom: 8px;
+        width: 3px;
+        background: var(--dsk-accent);
+        border-radius: 0 2px 2px 0;
+        box-shadow: 0 0 8px var(--dsk-accent-glow);
+      }
+
+      .ds-toast-icon {
+        color: var(--dsk-accent);
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+
+      .ds-toast-content { flex: 1; }
+
+      .ds-toast-title {
+        font-size: var(--dsk-text-sm);
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+
+      .ds-toast-desc {
+        font-size: var(--dsk-text-xs);
+        color: var(--dsk-foreground-muted);
+        line-height: 1.5;
+      }
+
+      .ds-toast-close {
+        color: var(--dsk-foreground-subtle);
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: color 0.15s;
+      }
+      .ds-toast-close:hover { color: var(--dsk-foreground); }
+
+      /* ---------- Other Components ---------- */
+      /* Avatar */
+      .ds-avatar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-weight: 600;
+        color: white;
+        background: linear-gradient(135deg, var(--dsk-primary), var(--dsk-purple-400));
+        flex-shrink: 0;
+        overflow: hidden;
+      }
+
+      .ds-avatar-sm { width: 28px; height: 28px; font-size: 11px; }
+      .ds-avatar-md { width: 36px; height: 36px; font-size: 13px; }
+      .ds-avatar-lg { width: 48px; height: 48px; font-size: 16px; }
+      .ds-avatar-xl { width: 64px; height: 64px; font-size: 22px; }
+
+      .ds-avatar-group {
+        display: flex;
+      }
+
+      .ds-avatar-group .ds-avatar {
+        border: 2px solid var(--dsk-card);
+        margin-left: -8px;
+      }
+      .ds-avatar-group .ds-avatar:first-child {
+        margin-left: 0;
+      }
+
+      /* Divider */
+      .ds-divider {
+        display: flex;
+        align-items: center;
+        gap: var(--dsk-space-4);
+        color: var(--dsk-foreground-subtle);
+        font-size: var(--dsk-text-xs);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 500;
+      }
+
+      .ds-divider::before,
+      .ds-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--dsk-border-subtle);
+      }
+
+      /* Tooltip */
+      .ds-tooltip-wrapper {
+        position: relative;
+        display: inline-block;
+      }
+
+      .ds-tooltip {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 6px 10px;
+        background: var(--dsk-popover);
+        border: 1px solid var(--dsk-popover-border);
+        border-radius: var(--dsk-radius-sm);
+        font-size: 11px;
+        color: var(--dsk-foreground);
+        white-space: nowrap;
+        box-shadow: var(--dsk-shadow-md);
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.15s ease;
+        z-index: 10;
+      }
+
+      .ds-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: var(--dsk-popover-border);
+      }
+
+      .ds-tooltip-wrapper:hover .ds-tooltip {
+        opacity: 1;
+        transform: translateX(-50%) translateY(-2px);
+      }
+
+      /* ---------- Custom Dropdown ---------- */
+      .ds-dropdown {
+        position: relative;
+      }
+
+      .ds-dropdown-trigger {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        height: 38px;
+        padding: 0 12px;
+        background: var(--dsk-input);
+        border: 1px solid var(--dsk-border);
+        border-radius: var(--dsk-radius-md);
+        font-size: 14px;
+        color: var(--dsk-input-foreground);
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .ds-dropdown-trigger:hover {
+        border-color: var(--dsk-primary);
+      }
+
+      .ds-dropdown-trigger--open {
+        border-color: var(--dsk-accent);
+        box-shadow: 0 0 0 3px var(--dsk-accent-soft);
+      }
+
+      .ds-dropdown-trigger--selected .ds-dropdown-value {
+        color: var(--dsk-foreground);
+      }
+
+      .ds-dropdown-placeholder {
+        color: var(--dsk-foreground-subtle);
+      }
+
+      .ds-dropdown-value {
+        color: var(--dsk-foreground);
+      }
+
+      .ds-dropdown-icon {
+        color: var(--dsk-foreground-subtle);
+        transition: transform 0.2s ease;
+      }
+
+      .ds-dropdown-menu {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        background: var(--dsk-popover);
+        border: 1px solid var(--dsk-popover-border);
+        border-radius: var(--dsk-radius-md);
+        padding: 6px;
+        box-shadow: var(--dsk-shadow-lg);
+        z-index: 20;
+        max-height: 280px;
+        overflow-y: auto;
+      }
+
+      .ds-dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        font-size: 13px;
+        color: var(--dsk-popover-foreground);
+        border-radius: var(--dsk-radius-sm);
+        cursor: pointer;
+        transition: background 0.12s ease;
+      }
+
+      .ds-dropdown-item:hover {
+        background: var(--dsk-muted);
+      }
+
+      .ds-dropdown-item--selected {
+        background: var(--dsk-primary-soft);
+        color: var(--dsk-foreground);
+        font-weight: 500;
+      }
+
+      .ds-dropdown-item--disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+
+      .ds-dropdown-divider {
+        height: 1px;
+        background: var(--dsk-border-subtle);
+        margin: 6px 4px;
+      }
+
+      .ds-dropdown-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--dsk-border-subtle);
+        margin: -6px -6px 6px;
+        padding-bottom: 10px;
+      }
+
+      .ds-dropdown-search-input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        outline: none;
+        font-size: 13px;
+        color: var(--dsk-popover-foreground);
+        font-family: inherit;
+      }
+
+      .ds-dropdown-search-input::placeholder {
+        color: var(--dsk-foreground-subtle);
+      }
+
+      /* ---------- Dialog ---------- */
+      .ds-dialog-stage {
+        position: relative;
+        width: 100%;
+        min-height: 340px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--dsk-radius-lg);
+        overflow: hidden;
+      }
+
+      .ds-dialog-mini-stage {
+        position: relative;
+        width: 100%;
+        min-height: 260px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--dsk-radius-md);
+        overflow: hidden;
+        background: var(--dsk-card);
+        border: 1px solid var(--dsk-border-subtle);
+      }
+
+      .ds-dialog-sub-label {
+        font-size: 12px;
+        color: var(--dsk-foreground-muted);
+        margin-bottom: 8px;
+        font-weight: 500;
+      }
+
+      .ds-dialog-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(10, 8, 20, 0.55);
+        backdrop-filter: blur(4px);
+      }
+
+      .ds-dialog-backdrop--mini {
+        background: rgba(10, 8, 20, 0.35);
+        backdrop-filter: blur(2px);
+      }
+
+      .ds-dialog {
+        position: relative;
+        width: 100%;
+        max-width: 420px;
+        background: var(--dsk-card);
+        border: 1px solid var(--dsk-card-border);
+        border-radius: var(--dsk-radius-lg);
+        box-shadow: var(--dsk-shadow-lg);
+        z-index: 2;
+        overflow: hidden;
+      }
+
+      .ds-dialog--sm {
+        max-width: 320px;
+      }
+
+      .ds-dialog--danger {
+        border-color: rgba(232, 93, 106, 0.3);
+      }
+
+      .ds-dialog-icon-badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--dsk-radius-md);
+      }
+
+      .ds-dialog-icon-badge--danger {
+        background: rgba(232, 93, 106, 0.15);
+        color: var(--dsk-danger);
+      }
+
+      .ds-dialog-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        padding: 18px 18px 14px;
+      }
+
+      .ds-dialog-title {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--dsk-card-foreground);
+      }
+
+      .ds-dialog-close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        background: transparent;
+        border: none;
+        color: var(--dsk-foreground-muted);
+        border-radius: var(--dsk-radius-sm);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        flex-shrink: 0;
+      }
+
+      .ds-dialog-close:hover {
+        background: var(--dsk-muted);
+        color: var(--dsk-foreground);
+      }
+
+      .ds-dialog-body {
+        padding: 0 18px 16px;
+      }
+
+      .ds-dialog-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 12px 18px 18px;
+        border-top: 1px solid var(--dsk-border-subtle);
+      }
+
+      .ds-dialog-footer--left {
+        justify-content: flex-start;
+      }
+
+      /* ---------- Drawer ---------- */
+      .ds-drawer-mini-stage,
+      .ds-drawer-bottom-stage {
+        position: relative;
+        width: 100%;
+        min-height: 320px;
+        border-radius: var(--dsk-radius-md);
+        overflow: hidden;
+        background: var(--dsk-card);
+        border: 1px solid var(--dsk-border-subtle);
+      }
+
+      .ds-drawer {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 280px;
+        background: var(--dsk-card);
+        border-left: 1px solid var(--dsk-card-border);
+        box-shadow: -8px 0 24px rgba(0, 0, 0, 0.15);
+        display: flex;
+        flex-direction: column;
+        z-index: 2;
+      }
+
+      .ds-drawer--mini {
+        width: 260px;
+      }
+
+      .ds-drawer--bottom {
+        top: auto;
+        right: 0;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        height: 220px;
+        border-left: none;
+        border-top: 1px solid var(--dsk-card-border);
+        box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.15);
+        border-radius: var(--dsk-radius-lg) var(--dsk-radius-lg) 0 0;
+      }
+
+      .ds-drawer-handle {
+        display: flex;
+        justify-content: center;
+        padding: 10px 0 6px;
+      }
+
+      .ds-drawer-handle-bar {
+        width: 36px;
+        height: 4px;
+        background: var(--dsk-border);
+        border-radius: 2px;
+      }
+
+      .ds-drawer-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--dsk-border-subtle);
+      }
+
+      .ds-drawer-body {
+        flex: 1;
+        padding: 16px;
+        overflow-y: auto;
+      }
+
+      .ds-drawer-section {
+        margin-bottom: 16px;
+      }
+
+      .ds-drawer-section:last-child {
+        margin-bottom: 0;
+      }
+
+      .ds-drawer-label {
+        font-size: 12px;
+        color: var(--dsk-foreground-subtle);
+        margin-bottom: 6px;
+      }
+
+      .ds-drawer-value {
+        font-size: 14px;
+        color: var(--dsk-card-foreground);
+        display: flex;
+        align-items: center;
+      }
+
+      .ds-drawer-footer {
+        display: flex;
+        gap: 8px;
+        padding: 12px 16px;
+        border-top: 1px solid var(--dsk-border-subtle);
+      }
+
+      .ds-drawer-footer .ds-btn {
+        flex: 1;
+      }
+
+      .ds-action-chip {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 14px 8px;
+        background: var(--dsk-muted);
+        border-radius: var(--dsk-radius-md);
+        font-size: 12px;
+        color: var(--dsk-foreground);
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .ds-action-chip:hover {
+        background: var(--dsk-primary-soft);
+        color: var(--dsk-primary);
+      }
+
+      .ds-action-chip--danger:hover {
+        background: rgba(232, 93, 106, 0.12);
+        color: var(--dsk-danger);
+      }
+
+      /* ---------- Popconfirm ---------- */
+      .ds-popconfirm-wrapper {
+        position: relative;
+        display: inline-block;
+      }
+
+      .ds-popconfirm {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        min-width: 180px;
+        background: var(--dsk-popover);
+        border: 1px solid var(--dsk-popover-border);
+        border-radius: var(--dsk-radius-md);
+        padding: 12px;
+        box-shadow: var(--dsk-shadow-md);
+        z-index: 20;
+      }
+
+      .ds-popconfirm--bottom {
+        top: calc(100% + 10px);
+      }
+
+      .ds-popconfirm--top {
+        bottom: calc(100% + 10px);
+      }
+
+      .ds-popconfirm-arrow {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 10px;
+        height: 10px;
+        background: var(--dsk-popover);
+        border-left: 1px solid var(--dsk-popover-border);
+        border-top: 1px solid var(--dsk-popover-border);
+      }
+
+      .ds-popconfirm--bottom .ds-popconfirm-arrow {
+        top: -6px;
+        transform: translateX(-50%) rotate(45deg);
+      }
+
+      .ds-popconfirm--top .ds-popconfirm-arrow {
+        bottom: -6px;
+        transform: translateX(-50%) rotate(225deg);
+      }
+
+      .ds-popconfirm-content {
+        font-size: 13px;
+        color: var(--dsk-popover-foreground);
+        margin-bottom: 10px;
+        line-height: 1.5;
+      }
+
+      .ds-popconfirm-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+      }
+
+      /* ---------- Popover ---------- */
+      .ds-popover-wrapper {
+        position: relative;
+        display: inline-block;
+      }
+
+      .ds-popover {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        top: calc(100% + 12px);
+        width: 260px;
+        background: var(--dsk-popover);
+        border: 1px solid var(--dsk-popover-border);
+        border-radius: var(--dsk-radius-lg);
+        box-shadow: var(--dsk-shadow-lg);
+        z-index: 20;
+        overflow: hidden;
+      }
+
+      .ds-popover--bottom .ds-popover-arrow {
+        position: absolute;
+        top: -6px;
+        left: 50%;
+        transform: translateX(-50%) rotate(45deg);
+        width: 10px;
+        height: 10px;
+        background: var(--dsk-popover);
+        border-left: 1px solid var(--dsk-popover-border);
+        border-top: 1px solid var(--dsk-popover-border);
+      }
+
+      .ds-popover-header {
+        display: flex;
+        align-items: center;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--dsk-border-subtle);
+      }
+
+      .ds-popover-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--dsk-popover-foreground);
+      }
+
+      .ds-popover-subtitle {
+        font-size: 12px;
+        color: var(--dsk-foreground-muted);
+        margin-top: 2px;
+      }
+
+      .ds-popover-body {
+        padding: 14px 16px;
+      }
+
+      .ds-popover-footer {
+        display: flex;
+        gap: 8px;
+        padding: 10px 16px 14px;
+      }
+
+      /* ---------- Empty State ---------- */
+      .ds-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 30px 20px;
+        width: 220px;
+      }
+
+      .ds-empty-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 72px;
+        height: 72px;
+        background: var(--dsk-primary-soft);
+        color: var(--dsk-primary);
+        border-radius: 50%;
+        margin-bottom: 16px;
+      }
+
+      .ds-empty-icon--soft {
+        background: var(--dsk-muted);
+        color: var(--dsk-foreground-muted);
+      }
+
+      .ds-empty-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--dsk-foreground);
+        margin-bottom: 6px;
+      }
+
+      .ds-empty-desc {
+        font-size: 13px;
+        color: var(--dsk-foreground-muted);
+        line-height: 1.5;
+        max-width: 200px;
+      }
+
+      /* ---------- Skeleton ---------- */
+      .ds-skeleton {
+        background: var(--dsk-muted);
+        border-radius: var(--dsk-radius-sm);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .ds-skeleton::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(255, 255, 255, 0.05) 50%,
+          transparent 100%
+        );
+        animation: ds-skeleton-shimmer 1.8s ease-in-out infinite;
+      }
+
+      :root[data-theme="light"] .ds-skeleton::after {
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(255, 255, 255, 0.4) 50%,
+          transparent 100%
+        );
+      }
+
+      @keyframes ds-skeleton-shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+
+      .ds-skeleton-circle {
+        border-radius: 50%;
+      }
+
+      /* ---------- State labels ---------- */
+      .ds-state-label {
+        font-size: 11px;
+        color: var(--dsk-foreground-subtle);
+        margin-top: 6px;
+        text-align: center;
+      }
+
+      .ds-state-grid {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+    </style>
+</body>
+</html>
