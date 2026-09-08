@@ -239,14 +239,19 @@
 		return moves;
 	}
 
-	/* 生成一次训练：colorFace 十字颜色、crossFace 十字所在面、steps 解法步数 */
+	/* 生成一次训练：colorFace 十字颜色、crossFace 十字所在面、steps 解法步数（以复原态为起点） */
 	function generate(colorFace, crossFace, steps, rng, opts) {
+		return generateFrom(solvedFacelets(), colorFace, crossFace, steps, rng, opts);
+	}
+
+	/* 同 generate，但以给定状态 facelets 为打乱起点（魔方未还原时用其当前状态） */
+	function generateFrom(facelets, colorFace, crossFace, steps, rng, opts) {
 		opts = opts || {};
 		rng = rng || Math.random;
 		var solver = getSolver(colorFace, crossFace);
 		if (steps > solver.maxDist) { steps = solver.maxDist; }
-		// 真实魔方从复原态出发（复原态未必等于目标态，例如白十字做在底面）
-		var startCode = codeFromFacelets(solvedFacelets(), solver.blocks);
+		// 起点状态未必是复原态（复原态也未必等于目标态，例如白十字做在底面）
+		var startCode = codeFromFacelets(facelets, solver.blocks);
 		for (var attempt = 0; attempt < 60; attempt++) {
 			var prefix = randomScramble(rng, 16 + ((rng() * 6) | 0));
 			var code = applyCodeMoves(startCode, prefix);
@@ -261,16 +266,17 @@
 				var sb = b.map(function (m) { return MOVE_NAMES[m]; }).join(' ');
 				return sa < sb ? -1 : sa > sb ? 1 : 0;
 			});
-			var facelets = applyFaceletMoves(solvedFacelets(), scramble);
+			var endFacelets = applyFaceletMoves(facelets, scramble);
 			return {
 				colorFace: colorFace,
 				crossFace: crossFace,
 				steps: steps,
+				baseFacelets: facelets,
 				scramble: scramble,
 				scrambleText: movesToText(scramble),
 				solutions: solutions,
 				solutionTexts: solutions.map(function (s) { return movesToText(s); }),
-				scrambleFacelets: facelets,
+				scrambleFacelets: endFacelets,
 				stateCode: fix.code
 			};
 		}
@@ -309,6 +315,90 @@
 		}
 		return stack.map(function (s) { return s[0] * 3 + (s[1] === 1 ? 0 : s[1] === 2 ? 1 : 2); });
 	}
+	/* ---------------- 硬件状态接入 ---------------- */
+	var COLOR_CHARS = { U: 0, R: 1, F: 2, D: 3, L: 4, B: 5 };
+
+	/* 颜色数组（标准 URFDLB 面序，值 0-5 = U R F D L B）→ 内部 facelet 置换表示。
+	   逐块匹配：中心按颜色；棱/角按该块当前颜色组合反查它原本是哪一块、朝向如何。 */
+	function faceletsFromColors(colors) {
+		if (!colors || colors.length < 54) { return null; }
+		var f = new Array(54), i;
+		for (i = 0; i < 54; i++) {
+			var c = colors[i];
+			if (!(c >= 0 && c <= 5)) { return null; }
+		}
+		for (var face = 0; face < 6; face++) {
+			f[face * 9 + 4] = colors[face * 9 + 4] * 9 + 4;
+		}
+		for (var p = 0; p < 12; p++) {
+			var s0 = EF[p][0], s1 = EF[p][1];
+			var e = -1, flip = 0, e2;
+			for (e2 = 0; e2 < 12; e2++) {
+				var a = faceOfFacelet(EF[e2][0]), b = faceOfFacelet(EF[e2][1]);
+				if (a === colors[s0] && b === colors[s1]) { e = e2; flip = 0; break; }
+				if (b === colors[s0] && a === colors[s1]) { e = e2; flip = 1; break; }
+			}
+			if (e < 0) { return null; }
+			f[s0] = EF[e][flip];
+			f[s1] = EF[e][1 - flip];
+		}
+		for (var q = 0; q < 8; q++) {
+			var t0 = CF[q][0], t1 = CF[q][1], t2 = CF[q][2];
+			var hit = -1, ori = 0, c2, o;
+			for (c2 = 0; c2 < 8 && hit < 0; c2++) {
+				for (o = 0; o < 3; o++) {
+					if (faceOfFacelet(CF[c2][o]) === colors[t0] &&
+						faceOfFacelet(CF[c2][(o + 1) % 3]) === colors[t1] &&
+						faceOfFacelet(CF[c2][(o + 2) % 3]) === colors[t2]) { hit = c2; ori = o; break; }
+				}
+			}
+			if (hit < 0) { return null; }
+			f[t0] = CF[hit][ori];
+			f[t1] = CF[hit][(ori + 1) % 3];
+			f[t2] = CF[hit][(ori + 2) % 3];
+		}
+		return f;
+	}
+
+	/* 硬件上报的 facelet 串（"UUUUURRRR…"，URFDLB 面序）→ 内部表示 */
+	function faceletsFromColorString(str) {
+		if (!str) { return null; }
+		var arr = typeof str === 'string' ? str.split('') : str;
+		if (arr.length < 54) { return null; }
+		var colors = new Array(54);
+		for (var i = 0; i < 54; i++) {
+			var c = COLOR_CHARS[String(arr[i]).toUpperCase()];
+			if (c === undefined) { return null; }
+			colors[i] = c;
+		}
+		return faceletsFromColors(colors);
+	}
+
+	/* ---------------- 从任意状态重算解法 ---------------- */
+	function sortSolutions(solutions) {
+		solutions.sort(function (a, b) {
+			var sa = a.map(function (m) { return MOVE_NAMES[m]; }).join(' ');
+			var sb = b.map(function (m) { return MOVE_NAMES[m]; }).join(' ');
+			return sa < sb ? -1 : sa > sb ? 1 : 0;
+		});
+		return solutions;
+	}
+
+	/* 把给定状态当作「打乱后状态」，重新枚举全部最短解（步数 = 该状态的实际距离） */
+	function rebuildSolutions(facelets, colorFace, crossFace, limit) {
+		var solver = getSolver(colorFace, crossFace);
+		var code = codeFromFacelets(facelets, solver.blocks);
+		var d = solver.dist[code];
+		var solutions = d > 0 ? allShortestSolutions(solver, code, limit || 200) : [];
+		return {
+			steps: d,
+			solutions: sortSolutions(solutions),
+			solutionTexts: solutions.map(function (s) { return movesToText(s); }),
+			scrambleFacelets: facelets,
+			stateCode: code
+		};
+	}
+
 	/* 判断当前 facelet 状态是否已完成指定颜色在指定面上的十字 */
 	function isCrossDone(facelets, colorFace, crossFace, blocks) {
 		var solver = getSolver(colorFace, crossFace);
@@ -333,6 +423,10 @@
 		applyCodeMoves: applyCodeMoves,
 		allShortestSolutions: allShortestSolutions,
 		generate: generate,
+		generateFrom: generateFrom,
+		faceletsFromColors: faceletsFromColors,
+		faceletsFromColorString: faceletsFromColorString,
+		rebuildSolutions: rebuildSolutions,
 		movesToText: movesToText,
 		textToMoves: textToMoves,
 		invertMoves: invertMoves,

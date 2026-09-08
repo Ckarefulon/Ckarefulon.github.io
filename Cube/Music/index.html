@@ -7,7 +7,7 @@
 
 	<link rel="icon" href="/favicon.svg?v=0349" type="image/svg+xml" data-page-node-id="3yetiPeuY8xnKFI0Y8NfAq">
 	<link rel="stylesheet" href="/.UI/colors_and_type.css" data-page-node-id="uB0HRETeZu8BNdowCDzSQg">
-	<link rel="stylesheet" href="music.css?v=1" data-page-node-id="anOv5Jgc7Nh293k3jSSKgz">
+	<link rel="stylesheet" href="music.css?v=3" data-page-node-id="anOv5Jgc7Nh293k3jSSKgz">
 
 	<script src="assets/lib/jquery-4.0.0.min.js"></script>
 	<script src="assets/compat.js?v=1"></script>
@@ -23,7 +23,7 @@
 	<script src="assets/hardware/moyucube.js?v=1" defer></script>
 	<script src="assets/hardware/moyu32cube.js?v=1" defer></script>
 	<script src="assets/hardware/qiyicube.js?v=1" defer></script>
-	<script src="music.js?v=1" defer></script>
+	<script src="music.js?v=6" defer></script>
 </head>
 <body data-page-node-id="AkOlhJy7yboR0HsWmU9MlL">
 	<main class="stage" data-page-node-id="d4piRoCEIUJLmFGQ0arKIB">
@@ -44,57 +44,70 @@
 			<button id="connectBtn" class="btn btn--primary btn--md" type="button" data-page-node-id="j4nE4b2fzH43hvQ1GIbUJ6">连接魔方</button>
 		</section>
 
-		<div class="panelRow" data-page-node-id="vBDnBAQCgLgSPjKvN0Eilt">
-			<section class="panel" aria-label="调式设置" data-page-node-id="B8vuzNw2vBNo4vMXNOydR9">
-				<h2 class="panelTitle" data-page-node-id="ey7jIsnX3FLQCwwnO3wnts">音阶</h2>
+		<section class="panel" aria-label="调式设置" data-page-node-id="B8vuzNw2vBNo4vMXNOydR9">
+			<h2 class="panelTitle" data-page-node-id="ey7jIsnX3FLQCwwnO3wnts">音阶</h2>
 
-				<div class="field" data-page-node-id="JvgsExFUB8akcZg0heyDFh">
-					<span class="fieldLabel" data-page-node-id="6RORr0xDXII4KCRojlDECC">调式</span>
-					<div id="modeChips" class="chipRow" role="radiogroup" aria-label="调式" data-page-node-id="ORVi8rm94EPUaGAXf0MXZP"></div>
+			<div class="field" data-page-node-id="JvgsExFUB8akcZg0heyDFh">
+				<span class="fieldLabel" data-page-node-id="6RORr0xDXII4KCRojlDECC">调式</span>
+				<div id="modeChips" class="chipRow" role="radiogroup" aria-label="调式" data-page-node-id="ORVi8rm94EPUaGAXf0MXZP"></div>
+			</div>
+
+			<div class="field fieldRow" data-page-node-id="tZlxtKSMHVSIbZdInaOwZw">
+				<label class="fieldLabel" for="tonicSelect" data-page-node-id="YodbBuGLy4qodw3Lxvmi1R">主音</label>
+				<div class="selectWrap" data-page-node-id="WdVdaIsCsFz4RDnq9ZCRKA">
+					<select id="tonicSelect" class="select" data-page-node-id="zKCVbGO4lY14wS9kuGuwJk"></select>
 				</div>
-
-				<div class="field fieldRow" data-page-node-id="tZlxtKSMHVSIbZdInaOwZw">
-					<label class="fieldLabel" for="tonicSelect" data-page-node-id="YodbBuGLy4qodw3Lxvmi1R">主音</label>
-					<div class="selectWrap" data-page-node-id="WdVdaIsCsFz4RDnq9ZCRKA">
-						<select id="tonicSelect" class="select" data-page-node-id="zKCVbGO4lY14wS9kuGuwJk"></select>
-					</div>
-					<label class="fieldLabel" for="octaveSelect" data-page-node-id="p6IrYBCp7aEWn318e0wFGc">音区</label>
-					<div class="selectWrap selectWrap--sm" data-page-node-id="i6rR3iDjcGvHpAu36yd2St">
-						<select id="octaveSelect" class="select" data-page-node-id="C5E1IpHbN5D1tmZ0LAyVb5"></select>
-					</div>
+				<label class="fieldLabel" for="octaveSelect" data-page-node-id="p6IrYBCp7aEWn318e0wFGc">音区</label>
+				<div class="selectWrap selectWrap--sm" data-page-node-id="i6rR3iDjcGvHpAu36yd2St">
+					<select id="octaveSelect" class="select" data-page-node-id="C5E1IpHbN5D1tmZ0LAyVb5"></select>
 				</div>
+			</div>
 
-				<button id="scaleBtn" class="btn btn--ghost btn--sm" type="button" data-page-node-id="tC8kNwDhGpG0XxDw62qSKx">试听音阶</button>
-			</section>
+			<button id="scaleBtn" class="btn btn--ghost btn--sm" type="button" data-page-node-id="tC8kNwDhGpG0XxDw62qSKx">试听音阶</button>
+		</section>
 
-			<section class="panel" aria-label="音色设置" data-page-node-id="wekdOTfFfujOi8sr6Bt6EO">
-				<h2 class="panelTitle" data-page-node-id="YLr9o71ebjzmihrNTBZdK1">音色</h2>
+		<section class="panel" aria-label="音色设置" data-page-node-id="wekdOTfFfujOi8sr6Bt6EO">
+			<h2 class="panelTitle" data-page-node-id="YLr9o71ebjzmihrNTBZdK1">音色</h2>
 
-				<div class="field" data-page-node-id="zcThwisDVCFVcZXqhX80yT">
-					<span class="fieldLabel" data-page-node-id="iOj3aMi2ZZDHe5VKe77pNw">乐器</span>
-					<div id="toneChips" class="chipRow" role="radiogroup" aria-label="音色" data-page-node-id="WIss4I2bJnBQHZL0SbCBeW"></div>
-				</div>
+			<div class="field" data-page-node-id="zcThwisDVCFVcZXqhX80yT">
+				<span class="fieldLabel" data-page-node-id="iOj3aMi2ZZDHe5VKe77pNw">乐器</span>
+				<div id="toneChips" class="chipRow" role="radiogroup" aria-label="音色" data-page-node-id="WIss4I2bJnBQHZL0SbCBeW"></div>
+			</div>
 
-				<div class="field" data-page-node-id="PeQBDIglVO3qXxn8fHZMaT">
+			<div class="fieldRow" data-page-node-id="PeQBDIglVO3qXxn8fHZMaT">
+				<div class="field" data-page-node-id="volFieldKeep">
 					<span class="fieldLabel" data-page-node-id="H8EKYWDTkQv3NKrUFFExPg">音量</span>
 					<input id="volumeRange" class="range" type="range" min="0" max="100" step="1" value="70" data-page-node-id="V9KRvw1Q4bXTZ7LIA7Nbt0">
 				</div>
 
-				<div class="field" data-page-node-id="PVUl1gUPZvQUzY34a4jr62">
+				<div class="field" data-page-node-id="relFieldKeep">
 					<span class="fieldLabel" data-page-node-id="wBplZ6XrRp5XliWz1BTqlQ">延音</span>
 					<input id="releaseRange" class="range" type="range" min="20" max="300" step="5" value="120" data-page-node-id="OS8IO5cA5rmgDdQAO89wrW">
 				</div>
-			</section>
-		</div>
+			</div>
+		</section>
 
 		<section class="panel" aria-label="音位表" data-page-node-id="D2EnO8Za95aJAlwjK6ihxl">
 			<div class="panelHead" data-page-node-id="3us6GJSk3VJJdjzD66gu8D">
 				<h2 class="panelTitle" data-page-node-id="YB9wyaNNHStrdzjDTstpFB">音位表</h2>
-				<label class="switch" data-page-node-id="TMODruMtJoASxOll2UkmTO">
-					<input id="sliceToggle" type="checkbox" checked data-page-node-id="P9Iq8Fyjz5ZaxOew7AUHwH">
-					<span class="switchTrack" data-page-node-id="9OA67y3duSk3ZzW813LVSO"><span class="switchKnob" data-page-node-id="CkbDFFxKDXRmhAqTxBLKCt"></span></span>
-					<span class="switchLabel" data-page-node-id="jPJ0CVKJmBDulZQkPwzxB0">识别中层</span>
-				</label>
+				<div class="headTools" data-page-node-id="kZ0tC4eFwD7iBlMnPq2RsV">
+					<button id="mapSettingsBtn" class="iconBtn" type="button" aria-label="音位表设置" title="音位表设置" data-page-node-id="la1uD5fGxE8jCmNoQr3StW">
+						<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<circle cx="12" cy="12" r="3.2"></circle>
+							<path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.08a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.08a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.05z"></path>
+						</svg>
+					</button>
+					<label class="switch" data-page-node-id="mb2vE6gHyF9kDnOpRs4TuX">
+						<input id="splitToggle" type="checkbox" checked data-page-node-id="nc3wF7hIzG0lEoPqSt5UvY">
+						<span class="switchTrack" data-page-node-id="od4xG8iJaH1mFpQrTu6VwZ"><span class="switchKnob" data-page-node-id="pe5yH9jKbI2nGqRsUv7WxA"></span></span>
+						<span class="switchLabel" data-page-node-id="qf6zI0kLcJ3oHrStVw8XyB">正逆异音</span>
+					</label>
+					<label class="switch" data-page-node-id="TMODruMtJoASxOll2UkmTO">
+						<input id="sliceToggle" type="checkbox" checked data-page-node-id="P9Iq8Fyjz5ZaxOew7AUHwH">
+						<span class="switchTrack" data-page-node-id="9OA67y3duSk3ZzW813LVSO"><span class="switchKnob" data-page-node-id="CkbDFFxKDXRmhAqTxBLKCt"></span></span>
+						<span class="switchLabel" data-page-node-id="jPJ0CVKJmBDulZQkPwzxB0">识别中层</span>
+					</label>
+				</div>
 			</div>
 
 			<div class="padGroup" data-page-node-id="aZcsJC1dYXpDBDafpBWxUD">

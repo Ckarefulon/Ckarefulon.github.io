@@ -11,7 +11,6 @@
 	var el = {};
 	var state = {
 		colorFace: 0,
-		pos: 'D',
 		steps: 5,
 		puzzle: null,
 		userMoves: [],
@@ -23,11 +22,28 @@
 		connected: false,
 		deviceName: '',
 		lastPrevMoves: [],
-		ignoreMoves: true
+		ignoreMoves: true,
+		realFacelets: null,   // 硬件上报的真实状态（权威），未连接时为 null
+		pendingRealSync: false, // 连上后等待首次真实状态，拿到即按当前状态重新出题
+		drift: 0              // 真实状态与推演连续不符的次数
 	};
 
 	function $(id) { return document.getElementById(id); }
-	function crossFace() { return state.pos === 'D' ? 3 : 0; }
+	function crossFace() { return state.colorFace; }
+	/* 是否完全还原（所有贴片归位） */
+	function isSolvedState(f) {
+		for (var i = 0; i < f.length; i++) { if (f[i] !== i) { return false; } }
+		return true;
+	}
+	function sameFacelets(a, b) {
+		if (!a || !b || a.length !== b.length) { return false; }
+		for (var i = 0; i < a.length; i++) { if (a[i] !== b[i]) { return false; } }
+		return true;
+	}
+	/* 真实状态可用时它才是权威；否则按虚拟推演 */
+	function realState() {
+		return (state.connected && state.realFacelets) ? state.realFacelets : null;
+	}
 
 	/* ---------------- 设置 ---------------- */
 	function loadSettings() {
@@ -36,22 +52,20 @@
 			if (raw) {
 				var s = JSON.parse(raw);
 				if (typeof s.colorFace === 'number') { state.colorFace = s.colorFace; }
-				if (s.pos === 'U' || s.pos === 'D') { state.pos = s.pos; }
 				if (typeof s.steps === 'number') { state.steps = s.steps; }
 			}
 		} catch (e) { /* ignore */ }
-		// URL 参数优先：?color=0-5&pos=U|D&steps=1-8
+		// URL 参数优先：?color=0-5&steps=1-8
 		try {
 			var q = new URLSearchParams(location.search);
 			if (q.has('color')) { state.colorFace = Math.max(0, Math.min(5, Number(q.get('color')) || 0)); }
-			if (q.get('pos') === 'U' || q.get('pos') === 'D') { state.pos = q.get('pos'); }
 			if (q.has('steps')) { state.steps = Math.max(1, Math.min(8, Number(q.get('steps')) || 5)); }
 		} catch (e) { /* ignore */ }
 	}
 	function saveSettings() {
 		try {
 			localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-				colorFace: state.colorFace, pos: state.pos, steps: state.steps
+				colorFace: state.colorFace, steps: state.steps
 			}));
 		} catch (e) { /* ignore */ }
 	}
@@ -94,15 +108,6 @@
 				sp.appendChild(b);
 			})(i);
 		}
-
-		Array.prototype.forEach.call(el.posSeg.querySelectorAll('button'), function (b) {
-			b.addEventListener('click', function () {
-				state.pos = b.dataset.pos;
-				syncPickers();
-				saveSettings();
-				newPuzzle();
-			});
-		});
 	}
 
 	function syncPickers() {
@@ -112,11 +117,7 @@
 		Array.prototype.forEach.call(el.stepsPicker.children, function (b) {
 			b.classList.toggle('isActive', Number(b.dataset.step) === state.steps);
 		});
-		Array.prototype.forEach.call(el.posSeg.querySelectorAll('button'), function (b) {
-			b.classList.toggle('isActive', b.dataset.pos === state.pos);
-		});
-		el.crossTargetHint.textContent = '目标：' + COLOR_NAME[state.colorFace] + '十字 · ' +
-			(state.pos === 'D' ? '底面' : '顶面');
+		el.crossTargetHint.textContent = '目标：' + COLOR_NAME[state.colorFace] + '十字';
 	}
 
 	/* ---------------- 魔方展开图 ---------------- */
@@ -155,7 +156,13 @@
 	/* ---------------- 生成题目 ---------------- */
 	function newPuzzle() {
 		var t0 = performance.now();
-		var p = E.generate(state.colorFace, crossFace(), state.steps, Math.random, { limit: 1200 });
+		/* 只有拿到蓝牙真实状态才能「从当前状态」出题；否则无从得知魔方实况，按复原态生成 */
+		var real = realState();
+		var cur = real || currentFacelets();
+		var fromCurrent = !!real && !isSolvedState(real);
+		var p = fromCurrent
+			? E.generateFrom(cur, state.colorFace, crossFace(), state.steps, Math.random, { limit: 1200 })
+			: E.generate(state.colorFace, crossFace(), state.steps, Math.random, { limit: 1200 });
 		if (!p) {
 			el.scrambleText.textContent = '生成失败，请重试';
 			return;
@@ -170,10 +177,10 @@
 		state.lastPrevMoves = [];
 		el.revealAll.dataset.all = '';
 		el.revealAll.textContent = '看答案';
-		el.solCount.textContent = '（' + p.solutions.length + ' 条 · ' + state.steps + ' 步）';
+		el.solCount.textContent = '（' + p.solutions.length + ' 条 · ' + p.steps + ' 步）';
 		renderScrambleSteps();
 		el.scrambleMeta.textContent = p.scramble.length + ' 步打乱 · ' +
-			(performance.now() - t0).toFixed(0) + 'ms';
+			(performance.now() - t0).toFixed(0) + 'ms' + (fromCurrent ? ' · 从当前状态' : '');
 		renderSolutions();
 		renderMoves();
 		renderCubeNet(currentFacelets());
@@ -187,6 +194,7 @@
 	 * - 已匹配部分：半透明（已打乱）
 	 * - 未匹配余项（转错/进行中）：取逆作为「修正步」插入公式（青底），与原剩余首步同面时自动合并
 	 * - 原剩余部分：紫（待打乱）
+	 * - 青色当前步：有且仅有一个，位于半透明与紫的交界（打乱完成时无）
 	 * 任何状态按当前公式继续转，最终都到达目标打乱状态。
 	 */
 	function computeScrambleView() {
@@ -214,11 +222,11 @@
 				}
 			}
 			for (i = 0; i < corr.length; i++) {
-				items.push({ text: MOVES[corr[i]], cls: 'scStep isFix' + (i === 0 ? ' isCurrent' : '') });
+				items.push({ text: MOVES[corr[i]], cls: 'scStep' + (i === 0 ? ' isFix isCurrent' : ' isPending') });
 			}
 			for (i = ri; i < rest.length; i++) { items.push({ text: MOVES[rest[i]], cls: 'scStep isPending' }); }
 		} else {
-			for (i = k; i < p.scramble.length; i++) { items.push({ text: MOVES[p.scramble[i]], cls: 'scStep isPending' }); }
+			for (i = k; i < p.scramble.length; i++) { items.push({ text: MOVES[p.scramble[i]], cls: 'scStep isPending' + (i === k ? ' isCurrent' : '') }); }
 		}
 		return {
 			items: items,
@@ -258,16 +266,47 @@
 		if (view.done) {
 			state.phase = 'solve';
 			state.userMoves = [];
+			adoptRealAsScrambled();
 			renderMoves();
 			flash(el.phaseChip);
 		}
 	}
 
+	/* 以真实状态为准重算解法：蓝牙漏步/错位导致与预期打乱态不符时，
+	   直接把魔方实际状态当作「打乱后状态」，保证给出的解法真能做出十字 */
+	function adoptRealAsScrambled() {
+		var p = state.puzzle;
+		var real = realState();
+		if (!p || !real) { return false; }
+		if (sameFacelets(real, p.scrambleFacelets)) { return false; }
+		var rebuilt = E.rebuildSolutions(real, state.colorFace, crossFace(), 1200);
+		p.scrambleFacelets = real;
+		p.steps = rebuilt.steps;
+		p.solutions = rebuilt.solutions;
+		p.solutionTexts = rebuilt.solutionTexts;
+		p.stateCode = rebuilt.stateCode;
+		state.userMoves = [];
+		state.revealed = {};
+		state.done = {};
+		el.revealAll.dataset.all = '';
+		el.revealAll.textContent = '看答案';
+		el.solCount.textContent = '（' + p.solutions.length + ' 条 · ' + p.steps + ' 步）';
+		renderSolutions();
+		el.matchInfo.textContent = p.steps > 0
+			? '已按魔方实际状态更新解法（' + p.steps + ' 步）'
+			: '魔方当前已完成十字，无需再解';
+		return true;
+	}
+
 	function currentFacelets() {
+		var real = realState();
+		if (real) { return real; }
 		var p = state.puzzle;
 		if (!p) { return E.solvedFacelets(); }
 		if (state.phase === 'scramble') {
-			return E.applyFaceletMoves(E.solvedFacelets(), state.allMoves);
+			/* 打乱阶段的实时状态 = 本题起点（可能非复原态）+ 已做转动 */
+			var base = p.baseFacelets || E.solvedFacelets();
+			return E.applyFaceletMoves(base, state.allMoves);
 		}
 		return E.applyFaceletMoves(p.scrambleFacelets, state.userMoves);
 	}
@@ -317,8 +356,26 @@
 	}
 
 	/* ---------------- 用户转动 ---------------- */
+	/* 真实状态与推演不符（漏步、中途手动改动）：连续两次确认后按实际状态重算解法 */
+	function checkDrift() {
+		var p = state.puzzle, real = realState();
+		if (!p || !real) { state.drift = 0; return false; }
+		if (sameFacelets(real, E.applyFaceletMoves(p.scrambleFacelets, state.userMoves))) {
+			state.drift = 0;
+			return false;
+		}
+		state.drift = (state.drift || 0) + 1;
+		if (state.drift < 2) { return false; }
+		state.drift = 0;
+		return adoptRealAsScrambled();
+	}
+
 	function addUserMove(m) {
 		state.userMoves.push(m);
+		if (checkDrift()) {
+			renderMoves();
+			return;
+		}
 		evaluate();
 	}
 
@@ -428,6 +485,8 @@
 			if (info === 'disconnect') {
 				state.connected = false;
 				state.phase = 'solve';
+				state.realFacelets = null;
+				state.pendingRealSync = false;
 				el.connectBtn.textContent = '连接魔方';
 				el.connectBtn.classList.remove('isActive');
 				setBtStatus('已断开', 'off');
@@ -454,6 +513,7 @@
 			state.connected = true;
 			state.allMoves = [];
 			state.scrambleProgress = 0;
+			state.pendingRealSync = true; // 等首次真实状态到手再重新出题
 			state.phase = state.puzzle ? 'scramble' : 'solve';
 			el.connectBtn.textContent = '断开';
 			el.connectBtn.classList.add('isActive');
@@ -474,13 +534,19 @@
 		return idx;
 	}
 
-	/* 从硬件上报的历史里取出新增的转动（历史数组最新在前） */
-	function extractNewMoves(prevMoves) {
+	/* 硬件历史（最新在前）→ move 索引数组 */
+	function parseHistory(prevMoves) {
 		var cur = [];
 		for (var i = 0; prevMoves && i < prevMoves.length; i++) {
 			var m = normMove(prevMoves[i]);
 			if (m >= 0) { cur.push(m); }
 		}
+		return cur;
+	}
+
+	/* 从硬件上报的历史里取出新增的转动（历史数组最新在前） */
+	function extractNewMoves(prevMoves) {
+		var cur = parseHistory(prevMoves);
 		if (!cur.length) { return []; }
 		var last = state.lastPrevMoves;
 		state.lastPrevMoves = cur.slice(0, 12);
@@ -494,9 +560,36 @@
 		return cur.slice(0, n).reverse();
 	}
 
+	/* 同步硬件上报的真实状态。返回 true 表示本次回调已被消费（不应再补记转动） */
+	function syncRealFacelets(real, prevMoves) {
+		if (!real) { return false; }
+		var first = !state.realFacelets;
+		state.realFacelets = real;
+		if (state.pendingRealSync) {
+			state.pendingRealSync = false;
+			state.lastPrevMoves = parseHistory(prevMoves).slice(0, 12);
+			/* 连上的魔方多半不在复原态：按它的真实状态重新出题 */
+			newPuzzle();
+			renderCubeNet(currentFacelets());
+			return true;
+		}
+		if (first) { renderCubeNet(real); }
+		/* 真实状态已到达目标打乱态：直接判定完成，不受累积转动记录是否完整影响 */
+		var p = state.puzzle;
+		if (state.connected && p && state.phase === 'scramble' && sameFacelets(real, p.scrambleFacelets)) {
+			state.allMoves = p.scramble.slice();
+			updateScrambleProgress();
+			renderScrambleSteps();
+			updatePhaseChip();
+		}
+		return false;
+	}
+
 	function onCubeCallback(facelet, prevMoves, lastTs, hardware) {
 		if (hardware) { state.deviceName = String(hardware); }
-		if (state.ignoreMoves) {
+		/* 真实状态永远优先同步（即便此刻还在忽略转动的窗口内） */
+		var consumed = syncRealFacelets(E.faceletsFromColorString(facelet), prevMoves);
+		if (state.ignoreMoves || consumed) {
 			state.lastPrevMoves = [];
 			return;
 		}
@@ -533,8 +626,10 @@
 			state.userMoves = [];
 			state.allMoves = [];
 			state.scrambleProgress = 0;
-			if (state.connected) { state.phase = 'scramble'; }
 			el.matchInfo.textContent = '';
+			/* 连着魔方时「清空」= 以魔方实际状态重新来一道 */
+			if (state.connected && state.realFacelets) { newPuzzle(); return; }
+			if (state.connected) { state.phase = 'scramble'; }
 			renderMoves();
 			renderScrambleSteps();
 			renderCubeNet(currentFacelets());
@@ -626,7 +721,7 @@
 
 	/* ---------------- 初始化 ---------------- */
 	function init() {
-		['colorPicker', 'posSeg', 'stepsPicker', 'scrambleText', 'scrambleMeta', 'copyScramble',
+		['colorPicker', 'stepsPicker', 'scrambleText', 'scrambleMeta', 'copyScramble',
 			'newScramble', 'cubeNet', 'cubeTitle', 'crossTargetHint', 'cubeBtn', 'cubePopWrap', 'cubePop', 'solutions', 'solCount', 'revealAll',
 			'undoMoves', 'copyUndo', 'moveInput', 'applyMoves', 'resetMoves',
 			'phaseChip', 'matchInfo', 'connectBtn', 'btStatus', 'btDot'].forEach(function (id) {
@@ -742,7 +837,10 @@
 		}
 	}
 
-	window.CrossApp = { initBluetooth: initBluetooth, state: state, newPuzzle: newPuzzle, applyInputText: applyInputText, E: E };
+	window.CrossApp = {
+		initBluetooth: initBluetooth, state: state, newPuzzle: newPuzzle, applyInputText: applyInputText, E: E,
+		onCubeCallback: onCubeCallback, syncRealFacelets: syncRealFacelets, adoptRealAsScrambled: adoptRealAsScrambled
+	};
 
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', init);

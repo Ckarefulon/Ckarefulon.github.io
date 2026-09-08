@@ -122,7 +122,6 @@ body {
 .settings { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.625rem 1rem; }
 .setRow { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 .setLabel { font-size: 0.75rem; color: var(--dsk-muted); width: 3.75rem; flex: none; }
-.setLabelInline { width: auto; margin-left: 8px; }
 .spacer { flex: 1; }
 .btStatus { font-size: 0.75rem; color: var(--dsk-muted); }
 .btDot {
@@ -156,15 +155,6 @@ body {
 .swatch[data-color="3"] { background: #f5c518; }
 .swatch[data-color="4"] { background: #ef6c1a; }
 .swatch[data-color="5"] { background: #1565c0; }
-
-.seg { display: inline-flex; border: 1px solid var(--dsk-border); border-radius: var(--dsk-radius-md); overflow: hidden; }
-.seg button {
-	font: inherit; font-size: 0.75rem;
-	background: transparent; border: 0; color: var(--dsk-muted);
-	padding: 0.3125rem 0.6875rem; cursor: pointer;
-}
-.seg button:hover { background: var(--dsk-primary-soft); color: var(--dsk-foreground); }
-.seg button.isActive { background: var(--dsk-primary); color: #fff; }
 
 .steps { display: flex; gap: 0.3125rem; flex-wrap: wrap; }
 .stepChip {

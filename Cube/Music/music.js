@@ -30,6 +30,19 @@
 		{ move: "E'", deg: 6, oct: -2, slice: true }
 	];
 
+	// 正逆同音映射（关闭「正逆异音」开关时使用）：正逆转动共用同一个音
+	var SAME_MAP = [
+		{ move: "R", deg: 1, oct: 0, slice: false },
+		{ move: "U", deg: 5, oct: 0, slice: false },
+		{ move: "F", deg: 3, oct: 0, slice: false },
+		{ move: "L", deg: 2, oct: 0, slice: false },
+		{ move: "B", deg: 6, oct: 0, slice: false },
+		{ move: "D", deg: 6, oct: -1, slice: false },
+		{ move: "M", deg: 5, oct: -1, slice: true },
+		{ move: "S", deg: 1, oct: 1, slice: true },
+		{ move: "E", deg: 2, oct: 1, slice: true }
+	];
+
 	// 调式：degree -> 相对主音的半音数
 	var MODES = [
 		{ id: "gong", label: "宫", deg: { 1: 0, 2: 2, 3: 4, 5: 7, 6: 9 } },
@@ -42,6 +55,23 @@
 	];
 
 	var TONES = [
+		// 国风音色（置顶）
+		{ id: "guzheng", label: "古筝" },
+		{ id: "pipa", label: "琵琶" },
+		{ id: "konghou", label: "箜篌" },
+		{ id: "yangqin", label: "扬琴" },
+		{ id: "dizi", label: "笛子" },
+		{ id: "erhu", label: "二胡" },
+		{ id: "xiao", label: "箫" },
+		{ id: "xun", label: "埙" },
+		{ id: "guqin", label: "古琴" },
+		{ id: "suona", label: "唢呐" },
+		{ id: "sheng", label: "笙" },
+		{ id: "hulusi", label: "葫芦丝" },
+		{ id: "ruan", label: "中阮" },
+		{ id: "liuqin", label: "柳琴" },
+		{ id: "bianzhong", label: "编钟" },
+		// 原有音色
 		{ id: "piano", label: "钢琴" },
 		{ id: "musicbox", label: "音乐盒" },
 		{ id: "bell", label: "钟琴" },
@@ -51,6 +81,31 @@
 		{ id: "square", label: "方波" },
 		{ id: "sawtooth", label: "锯齿" }
 	];
+
+	// 国风拨弦类（Karplus-Strong 变体参数）
+	// smooth 初始噪声平滑 / damp 弦阻尼 / tone 衰减速率 / cut cutMax 低通亮度 / decayMul maxLife 余韵 / bend 起音滑音
+	var PLUCK_PRESETS = {
+		guzheng: { smooth: 0.34, damp: 0.9975, tone: 3.6, cut: 12, cutMax: 11000, level: 0.8, decayMul: 1.3, maxLife: 4.5, bend: [0.982, 0.07] },
+		pipa: { smooth: 0.5, damp: 0.996, tone: 5.2, cut: 9, cutMax: 9000, level: 0.75, decayMul: 1.0, maxLife: 2.8 },
+		konghou: { smooth: 0.72, damp: 0.996, tone: 2.6, cut: 6.5, cutMax: 6000, level: 0.75, decayMul: 1.5, maxLife: 4 },
+		guqin: { smooth: 0.88, damp: 0.9985, tone: 1.5, cut: 4, cutMax: 2600, level: 0.8, decayMul: 2.6, maxLife: 6.5, bend: [0.99, 0.5] },
+		ruan: { smooth: 0.62, damp: 0.9965, tone: 3.4, cut: 6, cutMax: 5000, level: 0.78, decayMul: 1.2, maxLife: 3.5 },
+		liuqin: { smooth: 0.3, damp: 0.997, tone: 4.8, cut: 11, cutMax: 10000, level: 0.7, decayMul: 1.0, maxLife: 2.6 }
+	};
+
+	// 国风长音类（吹奏 / 拉弦 / 簧管）：
+	// parts 泛音列 [波形, 倍率, 电平] / cut 低通 / peak 共振峰 [倍率, dB]
+	// vibRate vibDepth vibRamp 颤音（吟弦、气震音）：速率、幅度（音分）、随时间加深的时长
+	// breath 气声噪声强度 / attack 起音
+	var SUSTAIN_PRESETS = {
+		dizi: { parts: [["sine", 1, 0.20], ["square", 1, 0.05], ["sine", 2, 0.055], ["sine", 3, 0.028]], cut: 5200, level: 0.34, attack: 0.045, vibRate: 5.2, vibDepth: 14, vibRamp: 0.3, breath: 0.035 },
+		erhu: { parts: [["sine", 1, 0.11], ["sawtooth", 1, 0.05], ["sine", 2, 0.05], ["sine", 3, 0.032], ["sine", 4, 0.018]], cut: 4200, level: 0.32, attack: 0.07, vibRate: 5.6, vibDepth: 26, vibRamp: 0.32, breath: 0.014, peak: [2.8, 7] },
+		xiao: { parts: [["sine", 1, 0.20], ["sine", 2, 0.022], ["sine", 3, 0.01]], cut: 2200, level: 0.34, attack: 0.09, vibRate: 4.6, vibDepth: 10, vibRamp: 0.55, breath: 0.055 },
+		xun: { parts: [["sine", 1, 0.22], ["sine", 2, 0.016], ["sine", 3, 0.008]], cut: 1700, level: 0.36, attack: 0.075, vibRate: 4.2, vibDepth: 8, vibRamp: 0.5, breath: 0.04 },
+		suona: { parts: [["square", 1, 0.045], ["sine", 1, 0.13], ["sine", 2, 0.06], ["sine", 3, 0.05], ["sine", 4, 0.028]], cut: 8500, level: 0.3, attack: 0.03, vibRate: 5.6, vibDepth: 18, vibRamp: 0.12, breath: 0.012, peak: [2.4, 8] },
+		sheng: { parts: [["sine", 1, 0.17], ["square", 1, 0.022], ["sine", 2, 0.03], ["sine", 3, 0.014]], cut: 3000, level: 0.32, attack: 0.06, vibRate: 5.0, vibDepth: 6, vibRamp: 0.4, breath: 0.02 },
+		hulusi: { parts: [["sine", 1, 0.19], ["sine", 2, 0.032], ["sine", 3, 0.014]], cut: 2600, level: 0.34, attack: 0.065, vibRate: 4.8, vibDepth: 10, vibRamp: 0.45, breath: 0.05 }
+	};
 
 	// 中层切片：由两个外层转动组合识别（顺序无关）
 	var SLICE_PAIRS = [
@@ -68,6 +123,47 @@
 		MOVE_INDEX[item.move] = item;
 	});
 
+	// 音位自定义可选项：五声 degrees × 八度偏移（低二 ~ 高二）
+	var NOTE_OPTIONS = [];
+	[-2, -1, 0, 1, 2].forEach(function (oct) {
+		[1, 2, 3, 5, 6].forEach(function (deg) {
+			var marks = "";
+			for (var i = 0; i < Math.abs(oct); i++) {
+				marks += oct > 0 ? "^" : "_";
+			}
+			NOTE_OPTIONS.push({ deg: deg, oct: oct, label: String(deg) + marks });
+		});
+	});
+
+	var ACTIVE_INDEX = {};
+
+	/** 当前生效的映射表：默认表 + 用户自定义覆盖 */
+	function activeMap() {
+		var base = settings.split ? MOVE_MAP : SAME_MAP;
+		var custom = settings.split ? settings.customSplit : settings.customSame;
+		if (!custom) return base;
+		return base.map(function (item) {
+			var c = custom[item.move];
+			return c ? { move: item.move, deg: c[0], oct: c[1], slice: item.slice } : item;
+		});
+	}
+
+	function rebuildActive() {
+		ACTIVE_INDEX = {};
+		activeMap().forEach(function (item) {
+			ACTIVE_INDEX[item.move] = item;
+		});
+	}
+
+	/** 取某转动的音位；同音模式下逆时针回落到同面顺时针（R' 按 R） */
+	function noteFor(move) {
+		var item = ACTIVE_INDEX[move];
+		if (!item && !settings.split) {
+			item = ACTIVE_INDEX[String(move).replace("'", "")];
+		}
+		return item;
+	}
+
 	/* ============================================================
 	   设置
 	   ============================================================ */
@@ -79,7 +175,10 @@
 		tone: "piano",
 		volume: 70,
 		release: 120,
-		slice: true
+		slice: true,
+		split: true,
+		customSplit: null,
+		customSame: null
 	};
 
 	function loadSettings() {
@@ -92,6 +191,13 @@
 					settings[key] = saved[key];
 				}
 			});
+			var known = {};
+			TONES.forEach(function (tone) {
+				known[tone.id] = 1;
+			});
+			if (!known[settings.tone]) {
+				settings.tone = "piano";
+			}
 		} catch (error) {
 			/* 忽略损坏的配置 */
 		}
@@ -136,6 +242,8 @@
 	var Audio = {
 		ctx: null,
 		master: null,
+		voice: null,    // 当前长音（单声部：下一音起时收束）
+		noiseBuf: null, // 气声共用白噪
 
 		init: function () {
 			if (!this.ctx) {
@@ -173,6 +281,18 @@
 			var life = Math.max(0.12, dur || 1.2);
 			var t = ctx.currentTime + 0.002;
 
+			// 长音单声部：新音起，旧音收（结束时间为下一音响起或到达最长时长）
+			if (this.voice) this.killVoice(0.08);
+
+			if (PLUCK_PRESETS[toneId]) {
+				this.pluck(ctx, t, freq, life, PLUCK_PRESETS[toneId]);
+				return;
+			}
+			if (SUSTAIN_PRESETS[toneId]) {
+				this.sustained(ctx, t, freq, life, SUSTAIN_PRESETS[toneId]);
+				return;
+			}
+
 			switch (toneId) {
 				case "piano":
 					this.piano(ctx, t, freq, life);
@@ -185,6 +305,12 @@
 					break;
 				case "guitar":
 					this.guitar(ctx, t, freq, life);
+					break;
+				case "yangqin":
+					this.yangqin(ctx, t, freq, life);
+					break;
+				case "bianzhong":
+					this.bianzhong(ctx, t, freq, life);
 					break;
 				default:
 					this.basic(ctx, t, freq, life, toneId);
@@ -335,6 +461,208 @@
 			filter.connect(gain);
 			gain.connect(this.master);
 			src.start(t);
+		},
+
+		/** 收束当前长音：快速淡出并停掉全部节点 */
+		killVoice: function (fade) {
+			if (!this.voice || !this.ctx) return;
+			var v = this.voice;
+			this.voice = null;
+			var now = this.ctx.currentTime;
+			try {
+				v.gain.gain.cancelScheduledValues(now);
+				v.gain.gain.setValueAtTime(Math.max(v.gain.gain.value, 0.0001), now);
+				v.gain.gain.exponentialRampToValueAtTime(0.0001, now + fade * 4);
+			} catch (error) {
+				/* 忽略收束异常 */
+			}
+			for (var i = 0; i < v.nodes.length; i++) {
+				try {
+					v.nodes[i].stop(now + fade * 4 + 0.02);
+				} catch (error) {
+					/* 忽略 */
+				}
+			}
+		},
+
+		/** 气声共用白噪（1 秒循环） */
+		getNoise: function (ctx) {
+			if (!this.noiseBuf || this.noiseBuf.sampleRate !== ctx.sampleRate) {
+				var len = ctx.sampleRate;
+				var buf = ctx.createBuffer(1, len, ctx.sampleRate);
+				var data = buf.getChannelData(0);
+				for (var i = 0; i < len; i++) {
+					data[i] = Math.random() * 2 - 1;
+				}
+				this.noiseBuf = buf;
+			}
+			return this.noiseBuf;
+		},
+
+		/** 国风拨弦通用（Karplus-Strong 变体） */
+		pluck: function (ctx, t, freq, dur, o) {
+			var rate = ctx.sampleRate;
+			var n = Math.max(2, Math.round(rate / freq));
+			var life = Math.min(dur * (o.decayMul || 1.15), o.maxLife || 4);
+			var len = Math.max(64, Math.ceil(rate * life));
+			var buffer = ctx.createBuffer(1, len, rate);
+			var data = buffer.getChannelData(0);
+
+			var ring = new Float32Array(n);
+			var i;
+			for (i = 0; i < n; i++) {
+				ring[i] = Math.random() * 2 - 1;
+			}
+			var smooth = 0;
+			var k = o.smooth;
+			for (i = 0; i < n; i++) {
+				smooth = smooth * (1 - k) + ring[i] * k;
+				ring[i] = smooth;
+			}
+
+			var idx = 0;
+			var decayStep = Math.exp(-(o.tone || 3) / len);
+			var amp = 1;
+			for (i = 0; i < len; i++) {
+				var cur = ring[idx];
+				var next = ring[(idx + 1) % n];
+				data[i] = cur * amp * (o.level || 0.8);
+				ring[idx] = (cur + next) * 0.5 * (o.damp || 0.996);
+				idx = (idx + 1) % n;
+				amp *= decayStep;
+			}
+
+			var src = ctx.createBufferSource();
+			src.buffer = buffer;
+			// 起音滑音（古筝按滑、古琴进复）
+			if (o.bend) {
+				src.playbackRate.setValueAtTime(o.bend[0], t);
+				src.playbackRate.linearRampToValueAtTime(1, t + o.bend[1]);
+			}
+
+			var filter = ctx.createBiquadFilter();
+			filter.type = "lowpass";
+			filter.frequency.value = Math.min(freq * (o.cut || 10), o.cutMax || 9000);
+
+			var gain = ctx.createGain();
+			gain.gain.value = 1;
+
+			src.connect(filter);
+			filter.connect(gain);
+			gain.connect(this.master);
+			src.start(t);
+		},
+
+		/** 国风长音通用：颤音（吟弦、气震音）随时间加深 + 气声噪声层 + 单声部收束 */
+		sustained: function (ctx, t, freq, dur, o) {
+			// 到达最长时长自动收束；被下一音打断时由 killVoice 立即收束
+			var max = Math.max(1.0, Math.min(3.4, 0.55 + dur * 1.15));
+			var attack = o.attack || 0.05;
+			var peak = o.level || 0.32;
+
+			var gain = ctx.createGain();
+			gain.gain.setValueAtTime(0.0001, t);
+			gain.gain.linearRampToValueAtTime(peak, t + attack);
+			gain.gain.linearRampToValueAtTime(peak * 0.8, t + attack + 0.3);
+			gain.gain.setTargetAtTime(0.0001, t + max, 0.18);
+			gain.connect(this.master);
+
+			var filter = ctx.createBiquadFilter();
+			filter.type = "lowpass";
+			filter.frequency.value = o.cut || 5000;
+			filter.Q.value = 0.5;
+			filter.connect(gain);
+
+			var tail = filter;
+			if (o.peak) {
+				// 共振峰（二胡琴筒、唢呐喇叭）
+				var formant = ctx.createBiquadFilter();
+				formant.type = "peaking";
+				formant.frequency.value = freq * o.peak[0];
+				formant.gain.value = o.peak[1];
+				formant.Q.value = 1.1;
+				formant.connect(filter);
+				tail = formant;
+			}
+
+			var nodes = [];
+
+			// 吟弦 / 气震音：LFO 调制所有泛音 detune（音分）。
+			// 只加在长音上：音符存活超过 0.45s（未被下一音收束）才从零渐入，短音保持干净
+			var vib = ctx.createOscillator();
+			vib.type = "sine";
+			vib.frequency.value = o.vibRate || 5;
+			var vibGain = ctx.createGain();
+			vibGain.gain.setValueAtTime(0.0001, t);
+			vibGain.gain.setValueAtTime(0.0001, t + 0.45);
+			vibGain.gain.linearRampToValueAtTime(o.vibDepth || 12, t + 0.45 + (o.vibRamp || 0.35));
+			vib.connect(vibGain);
+			nodes.push(vib);
+
+			var i, p, osc, og;
+			for (i = 0; i < o.parts.length; i++) {
+				p = o.parts[i];
+				osc = ctx.createOscillator();
+				osc.type = p[0];
+				osc.frequency.value = freq * p[1];
+				og = ctx.createGain();
+				og.gain.value = p[2];
+				vibGain.connect(osc.detune);
+				osc.connect(og);
+				og.connect(tail);
+				nodes.push(osc);
+			}
+
+			// 气声：起音略强，随后稳定，随长音收束
+			if (o.breath) {
+				var noise = ctx.createBufferSource();
+				noise.buffer = this.getNoise(ctx);
+				noise.loop = true;
+				var nf = ctx.createBiquadFilter();
+				nf.type = "bandpass";
+				nf.frequency.value = Math.min(freq * 2.2, 6500);
+				nf.Q.value = 0.7;
+				var ng = ctx.createGain();
+				ng.gain.setValueAtTime(o.breath * 2, t);
+				ng.gain.linearRampToValueAtTime(o.breath, t + 0.2);
+				ng.gain.setTargetAtTime(0.0001, t + max, 0.15);
+				noise.connect(nf);
+				nf.connect(ng);
+				ng.connect(gain);
+				nodes.push(noise);
+			}
+
+			for (i = 0; i < nodes.length; i++) {
+				nodes[i].start(t);
+				nodes[i].stop(t + max + 1.2);
+			}
+
+			this.voice = { gain: gain, nodes: nodes };
+		},
+
+		/** 扬琴：击弦，双弦微失谐 + 非谐泛音 */
+		yangqin: function (ctx, t, freq, dur) {
+			this.partials(ctx, t, freq, dur, [
+				[1, 0.18, 1],
+				[2.0, 0.06, 0.55],
+				[2.76, 0.05, 0.45],
+				[5.4, 0.022, 0.22]
+			]);
+			this.partials(ctx, t, freq * 1.004, dur, [
+				[1, 0.10, 0.8],
+				[2.76, 0.03, 0.35]
+			]);
+		},
+
+		/** 编钟：青铜钟非谐泛音，长余韵 */
+		bianzhong: function (ctx, t, freq, dur) {
+			this.partials(ctx, t, freq, dur, [
+				[1, 0.17, 1.5],
+				[2.0, 0.05, 0.9],
+				[2.4, 0.07, 1.1],
+				[3.2, 0.03, 0.6],
+				[4.5, 0.018, 0.4]
+			]);
 		}
 	};
 
@@ -349,6 +677,7 @@
 
 	var els = {};
 	var logEntries = [];
+	var logSeq = 0;
 
 	function $(id) {
 		return document.getElementById(id);
@@ -418,9 +747,11 @@
 	function renderPadNotes() {
 		var pads = document.querySelectorAll(".pad");
 		for (var i = 0; i < pads.length; i++) {
-			var item = MOVE_INDEX[pads[i].dataset.move];
+			var item = noteFor(pads[i].dataset.move);
+			var deg = pads[i].querySelector(".padDeg");
 			var note = pads[i].querySelector(".padNote");
-			if (item && note) {
+			if (item && deg && note) {
+				deg.innerHTML = degHtml(item.deg, item.oct);
 				note.textContent = noteName(midiOf(item.deg, item.oct));
 			}
 		}
@@ -440,7 +771,8 @@
 	}
 
 	function pushLog(move, midi) {
-		logEntries.unshift({ move: move, note: noteName(midi) });
+		logSeq++;
+		logEntries.unshift({ id: logSeq, move: move, note: noteName(midi) });
 		if (logEntries.length > 24) {
 			logEntries.length = 24;
 		}
@@ -449,6 +781,13 @@
 
 	function renderLog() {
 		var box = els.logList;
+		// FLIP：先记录每条旧记录的位置，重建后从旧位置平滑移动到新位置
+		var prevRects = {};
+		var oldChips = box.querySelectorAll(".logChip");
+		for (var i = 0; i < oldChips.length; i++) {
+			prevRects[oldChips[i].dataset.id] = oldChips[i].getBoundingClientRect();
+		}
+
 		box.innerHTML = "";
 		if (!logEntries.length) {
 			var empty = document.createElement("p");
@@ -457,9 +796,12 @@
 			box.appendChild(empty);
 			return;
 		}
+
+		var moved = [];
 		logEntries.forEach(function (entry, index) {
 			var chip = document.createElement("span");
 			chip.className = "logChip" + (index === 0 ? " is-new" : "");
+			chip.dataset.id = entry.id;
 			var move = document.createElement("span");
 			move.className = "logMove";
 			move.textContent = entry.move;
@@ -469,7 +811,29 @@
 			chip.appendChild(move);
 			chip.appendChild(note);
 			box.appendChild(chip);
+
+			var old = prevRects[entry.id];
+			if (old) {
+				var rect = chip.getBoundingClientRect();
+				var dx = old.left - rect.left;
+				var dy = old.top - rect.top;
+				if (dx || dy) {
+					chip.style.transition = "none";
+					chip.style.transform = "translate(" + dx + "px, " + dy + "px)";
+					moved.push(chip);
+				}
+			}
 		});
+
+		if (moved.length) {
+			void box.offsetWidth; // 强制回流，确保起点生效
+			requestAnimationFrame(function () {
+				moved.forEach(function (chip) {
+					chip.style.transition = "transform 0.24s ease";
+					chip.style.transform = "";
+				});
+			});
+		}
 	}
 
 	function updateStatus(kind, text, device) {
@@ -481,7 +845,7 @@
 	}
 
 	function trigger(move) {
-		var item = MOVE_INDEX[move];
+		var item = noteFor(move);
 		if (!item) return;
 		var midi = midiOf(item.deg, item.oct);
 		Audio.play(midi, settings.tone, settings.release / 100);
@@ -499,12 +863,146 @@
 	}
 
 	/* ============================================================
+	   音位表设置弹窗
+	   ============================================================ */
+
+	var mapDialog = null;
+
+	function ensureMapDialog() {
+		if (mapDialog) return mapDialog;
+		var overlay = document.createElement("div");
+		overlay.className = "modalOverlay";
+		overlay.hidden = true;
+		overlay.innerHTML =
+			'<div class="modalDialog" role="dialog" aria-modal="true" aria-label="音位表设置">' +
+				'<div class="modalHead">' +
+					'<h3 class="modalTitle">音位表设置</h3>' +
+					'<button type="button" class="modalClose" aria-label="关闭">&#10005;</button>' +
+				'</div>' +
+				'<div class="mapRows"></div>' +
+				'<div class="modalFoot">' +
+					'<button type="button" class="btn btn--ghost btn--sm" data-map="reset">恢复默认</button>' +
+					'<button type="button" class="btn btn--primary btn--sm" data-map="done">完成</button>' +
+				'</div>' +
+			'</div>';
+		document.body.appendChild(overlay);
+		overlay.addEventListener("click", function (event) {
+			if (event.target === overlay) {
+				closeMapDialog();
+			}
+		});
+		overlay.querySelector(".modalClose").addEventListener("click", closeMapDialog);
+		overlay.querySelector('[data-map="done"]').addEventListener("click", closeMapDialog);
+		overlay.querySelector('[data-map="reset"]').addEventListener("click", function () {
+			if (settings.split) {
+				settings.customSplit = null;
+			} else {
+				settings.customSame = null;
+			}
+			rebuildActive();
+			renderPadNotes();
+			saveSettings();
+			buildMapRows();
+		});
+		document.addEventListener("keydown", function (event) {
+			if (event.key === "Escape" && mapDialog && !mapDialog.hidden) {
+				closeMapDialog();
+			}
+		});
+		mapDialog = overlay;
+		return overlay;
+	}
+
+	function openMapDialog() {
+		var overlay = ensureMapDialog();
+		buildMapRows();
+		overlay.hidden = false;
+	}
+
+	function closeMapDialog() {
+		if (mapDialog) {
+			mapDialog.hidden = true;
+		}
+	}
+
+	/** 开关切换时若弹窗已打开，同步重建行 */
+	function refreshMapRows() {
+		if (mapDialog && !mapDialog.hidden) {
+			buildMapRows();
+		}
+	}
+
+	function buildMapRows() {
+		var box = mapDialog.querySelector(".mapRows");
+		box.innerHTML = "";
+		var items = activeMap();
+		[["外层", false], ["中层", true]].forEach(function (group) {
+			var list = items.filter(function (item) {
+				return item.slice === group[1];
+			});
+			if (!list.length) return;
+			var label = document.createElement("p");
+			label.className = "groupLabel";
+			label.textContent = group[0];
+			box.appendChild(label);
+			var grid = document.createElement("div");
+			grid.className = "mapGrid";
+			list.forEach(function (item) {
+				grid.appendChild(buildMapRow(item));
+			});
+			box.appendChild(grid);
+		});
+	}
+
+	function buildMapRow(item) {
+		var row = document.createElement("label");
+		row.className = "mapRow";
+		var move = document.createElement("span");
+		move.className = "mapMove";
+		move.textContent = item.move;
+		var wrap = document.createElement("div");
+		wrap.className = "selectWrap";
+		var select = document.createElement("select");
+		select.className = "select";
+		NOTE_OPTIONS.forEach(function (opt) {
+			var option = document.createElement("option");
+			option.value = opt.deg + ":" + opt.oct;
+			option.textContent = opt.label;
+			select.appendChild(option);
+		});
+		select.value = item.deg + ":" + item.oct;
+		select.addEventListener("change", function () {
+			var parts = select.value.split(":");
+			applyMapOverride(item.move, Number(parts[0]), Number(parts[1]));
+		});
+		wrap.appendChild(select);
+		row.appendChild(move);
+		row.appendChild(wrap);
+		return row;
+	}
+
+	/** 修改某转动音位：写入当前模式的自定义表，立即生效并发声反馈 */
+	function applyMapOverride(move, deg, oct) {
+		var key = settings.split ? "customSplit" : "customSame";
+		if (!settings[key]) {
+			settings[key] = {};
+		}
+		settings[key][move] = [deg, oct];
+		rebuildActive();
+		renderPadNotes();
+		saveSettings();
+		Audio.init();
+		Audio.play(midiOf(deg, oct), settings.tone, settings.release / 100);
+	}
+
+	/* ============================================================
 	   蓝牙魔方
 	   ============================================================ */
 
 	var cube = {
 		connected: false,
 		hasBaseline: false,
+		solved: false,
 		history: [],
 		pending: null,
 		pendingTimer: null,
@@ -590,8 +1088,39 @@
 		trigger(token);
 	}
 
+	/** 复原尾音：主和弦琶音上行，高音主音收束，避免终曲悬停感 */
+	function playEnding() {
+		Audio.init();
+		var steps = [
+			{ deg: 1, oct: 0, delay: 0.16, dur: 0.45 },
+			{ deg: 3, oct: 0, delay: 0.32, dur: 0.45 },
+			{ deg: 5, oct: 0, delay: 0.48, dur: 0.45 },
+			{ deg: 1, oct: 1, delay: 0.64, dur: 2.6 }
+		];
+		steps.forEach(function (step) {
+			setTimeout(function () {
+				Audio.play(midiOf(step.deg, step.oct), settings.tone, step.dur);
+			}, step.delay * 1000);
+		});
+	}
+
+	/** 判定 54 面贴是否复原：每面 9 格同色；格式未知返回 null */
+	function isSolvedFacelets(facelet) {
+		if (!facelet || typeof facelet !== "string" || facelet.length !== 54) {
+			return null;
+		}
+		for (var f = 0; f < 6; f++) {
+			var face = facelet.substr(f * 9, 9);
+			for (var i = 1; i < 9; i++) {
+				if (face.charAt(i) !== face.charAt(0)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	function onCubeCallback(facelet, prevMoves, lastTs, hardware) {
-		void facelet;
 		void lastTs;
 		if (hardware) {
 			setDeviceInfo(hardware, null);
@@ -604,6 +1133,10 @@
 		if (!cube.hasBaseline) {
 			cube.hasBaseline = true;
 			cube.history = list.slice();
+			var first = isSolvedFacelets(facelet);
+			if (first !== null) {
+				cube.solved = first;
+			}
 			return;
 		}
 		var news = diffMoves(list, cube.history);
@@ -612,6 +1145,16 @@
 		var now = Date.now();
 		for (var k = 0; k < news.length; k++) {
 			feedMove(news[k], now);
+		}
+		// 由乱到复：播放收束尾音
+		if (news.length > 0) {
+			var solved = isSolvedFacelets(facelet);
+			if (solved !== null) {
+				if (solved && !cube.solved) {
+					playEnding();
+				}
+				cube.solved = solved;
+			}
 		}
 	}
 
@@ -741,6 +1284,17 @@
 			saveSettings();
 		});
 
+		els.splitToggle.checked = !!settings.split;
+		els.splitToggle.addEventListener("change", function () {
+			settings.split = els.splitToggle.checked;
+			rebuildActive();
+			renderPadNotes();
+			saveSettings();
+			refreshMapRows();
+		});
+
+		els.mapSettingsBtn.addEventListener("click", openMapDialog);
+
 		els.scaleBtn.addEventListener("click", function () {
 			Audio.init();
 			playScale();
@@ -782,6 +1336,8 @@
 			volumeRange: $("volumeRange"),
 			releaseRange: $("releaseRange"),
 			sliceToggle: $("sliceToggle"),
+			splitToggle: $("splitToggle"),
+			mapSettingsBtn: $("mapSettingsBtn"),
 			scaleBtn: $("scaleBtn"),
 			clearLogBtn: $("clearLogBtn"),
 			padGridFace: $("padGridFace"),
@@ -790,6 +1346,7 @@
 		};
 
 		loadSettings();
+		rebuildActive();
 		buildPads();
 		renderLog();
 		bindControls();

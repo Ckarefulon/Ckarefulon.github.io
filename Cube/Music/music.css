@@ -577,12 +577,12 @@ body {
 	background: var(--dsk-input);
 	border: 1px solid var(--dsk-border);
 	border-radius: var(--dsk-radius-full);
-	animation: chipIn 0.24s ease;
 }
 
 .logChip.is-new {
 	border-color: var(--dsk-accent);
 	color: var(--dsk-card-foreground);
+	animation: chipIn 0.24s ease;
 }
 
 .logChip .logMove {
@@ -597,6 +597,180 @@ body {
 
 @keyframes chipIn {
 	from { opacity: 0; transform: translateY(-4px); }
+	to { opacity: 1; transform: none; }
+}
+
+/* ---------- Panel head tools ---------- */
+.headTools {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px 16px;
+}
+
+.iconBtn {
+	width: 30px;
+	height: 30px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-sm);
+	color: var(--dsk-foreground-muted);
+	cursor: pointer;
+	transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.iconBtn:hover {
+	background: var(--dsk-muted);
+	color: var(--dsk-foreground);
+	border-color: var(--dsk-foreground-subtle);
+}
+
+.iconBtn:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 3px var(--dsk-accent-ring);
+}
+
+/* ---------- Modal ---------- */
+.modalOverlay {
+	position: fixed;
+	inset: 0;
+	z-index: 2100;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	background: rgba(0, 0, 0, 0.55);
+	backdrop-filter: blur(4px);
+	animation: overlayIn 0.18s ease;
+}
+
+.modalOverlay[hidden] {
+	display: none;
+}
+
+.modalDialog {
+	width: min(560px, 100%);
+	max-height: min(640px, calc(100vh - 40px));
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	padding: 20px;
+	background: var(--dsk-popover);
+	border: 1px solid var(--dsk-card-border);
+	border-radius: var(--dsk-radius-lg);
+	overflow: auto;
+	animation: dialogIn 0.2s ease;
+}
+
+.modalHead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.modalTitle {
+	margin: 0;
+	font-size: var(--dsk-text-lg);
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	color: var(--dsk-popover-foreground);
+}
+
+.modalClose {
+	width: 28px;
+	height: 28px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: none;
+	border-radius: var(--dsk-radius-sm);
+	color: var(--dsk-foreground-subtle);
+	font-size: 13px;
+	line-height: 1;
+	cursor: pointer;
+	transition: background 0.16s ease, color 0.16s ease;
+}
+
+.modalClose:hover {
+	background: var(--dsk-muted);
+	color: var(--dsk-foreground);
+}
+
+.modalClose:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 3px var(--dsk-accent-ring);
+}
+
+/* ---------- 音位表设置行 ---------- */
+.mapRows {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.mapGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: 8px;
+}
+
+.mapRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 4px 6px 4px 10px;
+	background: var(--dsk-input);
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-md);
+	cursor: pointer;
+	transition: border-color 0.16s ease;
+}
+
+.mapRow:hover {
+	border-color: var(--dsk-foreground-subtle);
+}
+
+.mapRow:focus-within {
+	border-color: var(--dsk-primary);
+}
+
+.mapMove {
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-sm);
+	font-weight: 600;
+	color: var(--dsk-popover-foreground);
+}
+
+.mapRow .select {
+	height: 26px;
+	min-width: 74px;
+	font-size: var(--dsk-text-xs);
+}
+
+.mapRow .selectWrap::after {
+	right: 9px;
+	transform: translateY(-1px) rotate(45deg) scale(0.9);
+}
+
+.modalFoot {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	padding-top: 2px;
+}
+
+@keyframes overlayIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+@keyframes dialogIn {
+	from { opacity: 0; transform: translateY(8px) scale(0.985); }
 	to { opacity: 1; transform: none; }
 }
 
