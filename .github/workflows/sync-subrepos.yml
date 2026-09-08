@@ -8,6 +8,7 @@ on:
       - '*'
       - '[a-z]*/**'
       - 'Tools/Relay/**'
+      - 'Cube/Cross/**'
       - 'Cube/Formula/**'
       - 'Cube/Music/**'
       - 'Tools/KGenesis/**'
@@ -22,6 +23,8 @@ jobs:
         include:
           - target_repo: Tools-Relay
             source_path: Tools/Relay
+          - target_repo: Cube-Cross
+            source_path: Cube/Cross
           - target_repo: Cube-Formula
             source_path: Cube/Formula
           - target_repo: Cube-Music
