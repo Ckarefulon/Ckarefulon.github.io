@@ -5,7 +5,15 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="qz66ezzxH0V6HlWP4xryh4">
 	<title>Cross 训练 · 智能魔方</title>
 	<link rel="icon" href="/favicon.svg" type="image/svg+xml" data-page-node-id="SGI9tMjOe2eZAWgJkSGLpj">
-	<link rel="stylesheet" href="cross.css?v=11" data-page-node-id="cGMKbHBoFi4OXcPWKCl2dg">
+	<link rel="stylesheet" href="cross.css?v=16" data-page-node-id="cGMKbHBoFi4OXcPWKCl2dg">
+	<!-- 站点导航栏（登录态由 nav 触发 authManager.init，必须先于云同步） -->
+	<link rel="stylesheet" href="/nav/nav.css?v=8">
+	<script src="/nav/nav.js?v=8" defer></script>
+	<!-- 云同步（Supabase，登录态与 Formula 共享） -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+	<script src="/supabase/supabase-config.js?v=0618" defer></script>
+	<script src="/supabase/supabase-client.js?v=0618" defer></script>
+	<script src="/supabase/auth-manager.js?v=0677" defer></script>
 </head>
 <body data-page-node-id="bhMyOb7XuaXotrOotIkj9G">
 	<div class="page" data-page-node-id="Grn0Eeg9HyRTf66VfwBVC0">
@@ -66,6 +74,23 @@
 			<div class="emptyHint" id="solHint" data-page-node-id="HXvlNeQLpFYBnC43BaJAJi">打乱完成后，做出任意一条解法即自动点亮，其余保持模糊。</div>
 		</section>
 
+		<section class="card areaRecords">
+			<div class="cardHead">
+				<h2>记录<span class="headCount" id="recCount"></span></h2>
+				<span class="recScore" id="recScore">—</span>
+			</div>
+			<div class="recToolbar">
+				<div class="recFilters" id="recFilters"></div>
+				<span class="recCloud" id="recCloud">本地</span>
+			</div>
+			<div class="recList" id="recList"></div>
+			<div class="recStarsHead">
+				<span>星标</span>
+				<span class="recStarsCount" id="recStarsCount"></span>
+			</div>
+			<div class="recStars" id="recStars"></div>
+		</section>
+
 		<section class="card areaMoves" data-page-node-id="Tc2oCFAElUum94tlkuzJsV">
 			<div class="cardHead" data-page-node-id="RHgDLPlbSJghatIdRTA3jC">
 				<h2 data-page-node-id="1fjTOteUhqjKtKR9e7yqF5">我的转动</h2>
@@ -86,12 +111,32 @@
 		</section>
 	</div>
 
+	<div class="recModal" id="recModal" aria-hidden="true">
+		<div class="recModalMask" id="recModalMask"></div>
+		<div class="recModalBox" role="dialog" aria-modal="true" aria-label="解法预览">
+			<div class="recModalHead">
+				<span class="recModalTitle">解法</span>
+				<span class="recModalMoves" id="recModalMoves"></span>
+				<span class="spacer"></span>
+				<button class="btn btnGhost btnSm" id="recModalToggle" type="button">显示全部</button>
+				<button class="btn btnGhost btnSm" id="recModalClose" type="button">关闭</button>
+			</div>
+			<div class="recModalStage" id="recModalStage"></div>
+			<div class="recModalHint">连接魔方后，转动会同步到这里的虚拟魔方</div>
+		</div>
+	</div>
+
 	<script src="cross-tables.js?v=1"></script>
 	<script src="cross-engine.js?v=4"></script>
-	<script src="cross-app.js?v=9" defer></script>
+	<script src="cross-app.js?v=15" defer></script>
 	<!-- 智能魔方蓝牙栈（复用 Formula，依赖链：jquery 同步在前 → compat → lzstring/sha256/isaac/mathlib → hardware） -->
 	<script src="../Formula/assets/lib/jquery-4.0.0.min.js"></script>
 	<script src="../Formula/assets/app/compat.js" defer></script>
+	<!-- 3D 魔方（复用 Formula 的 twisty：pnltri → three → twisty → twistynnn） -->
+	<script src="../Formula/assets/lib/pnltri.js" defer></script>
+	<script src="../Formula/assets/lib/threemin.js" defer></script>
+	<script src="../Formula/assets/twisty/twisty.js" defer></script>
+	<script src="../Formula/assets/twisty/twistynnn.js" defer></script>
 	<script src="../Formula/assets/lib/lzstring.js" defer></script>
 	<script src="../Formula/assets/lib/sha256.js" defer></script>
 	<script src="../Formula/assets/lib/isaac.js" defer></script>

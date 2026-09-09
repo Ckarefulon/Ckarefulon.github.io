@@ -21,6 +21,9 @@
 	--dsk-radius-lg: 12px;
 	--dsk-font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
 	--dsk-font-mono: 'SF Mono', 'Cascadia Mono', 'Consolas', 'Monaco', monospace;
+	/* nav（站点导航栏）所需的实底变量：背景不透明、分割线同主题 */
+	--surfaceSolid: #1a1829;
+	--line: #2e2c44;
 }
 
 * { box-sizing: border-box; }
@@ -41,14 +44,14 @@ body {
 	-webkit-font-smoothing: antialiased;
 }
 
-/* ---------- 一屏网格：左列（设置+打乱+转动），右列（解法） ---------- */
+/* ---------- 一屏网格：左列（设置+打乱+转动），中列（解法），右列（记录） ---------- */
 .page {
-	height: 100vh;
+	height: calc(100vh - var(--site-nav-height, 44px));  /* nav.css 顶栏 44px + body padding-top */
 	width: 100vw;
 	margin: 0;
 	padding: clamp(0.625rem, 1.5vh, 1.125rem);
 	display: grid;
-	grid-template-columns: minmax(480px, 44%) 1fr;
+	grid-template-columns: minmax(480px, 44%) 1fr 1fr;
 	grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
 	gap: clamp(0.5rem, 1.2vh, 0.875rem);
 	overflow: hidden;
@@ -60,6 +63,7 @@ body {
 .areaMoves .cardHead, .areaMoves .inputRow, .areaMoves .rowActions { flex: none; }
 .areaMoves .moveRow { flex: 1; min-height: 0; overflow-y: auto; align-items: center; }
 .areaSolutions { grid-column: 2; grid-row: 2 / span 2; display: flex; flex-direction: column; min-height: 0; }
+.areaRecords { grid-column: 3; grid-row: 2 / span 2; display: flex; flex-direction: column; min-height: 0; }
 
 /* ---------- buttons ---------- */
 .btn {
@@ -198,8 +202,6 @@ body {
 .scStep.isFix {
 	color: var(--dsk-accent);                     /* 修正步：青色系 */
 	background: var(--dsk-accent-soft);
-	border-bottom: 2px solid var(--dsk-accent-ring);
-	margin-bottom: -2px;
 }
 .rowActions { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
 .metaText { font-size: 0.6875rem; color: var(--dsk-subtle); }
@@ -279,8 +281,139 @@ body {
 	box-shadow: 0 0 12px var(--dsk-accent-ring);
 }
 .solItem.isDone::after { content: " ✓"; }
+/* 看着答案做出来的：紫色，不算成功 */
+.solItem.isHinted {
+	filter: none;
+	border-color: var(--dsk-primary);
+	color: var(--dsk-primary-hover);
+	background: var(--dsk-primary-soft);
+}
+.solItem.isHinted::after { content: " ✓"; }
 .solMore { font-size: 0.6875rem; color: var(--dsk-subtle); padding: 0.375rem 0.125rem; width: 100%; }
 .emptyHint { font-size: 0.6875rem; color: var(--dsk-subtle); margin-top: 0.5rem; flex: none; }
+
+/* ---------- 记录（历史） ---------- */
+.recScore {
+	font-size: 0.8125rem; color: var(--dsk-accent);
+	font-variant-numeric: tabular-nums; letter-spacing: .3px;
+}
+.recToolbar { display: flex; align-items: center; gap: 0.5rem; flex: none; margin-bottom: 0.5rem; }
+.recFilters { display: flex; gap: 0.25rem; flex-wrap: wrap; flex: 1; min-width: 0; }
+.recChip {
+	font: inherit; font-size: 0.6875rem; font-variant-numeric: tabular-nums;
+	min-width: 1.5625rem; padding: 0.1875rem 0; text-align: center;
+	background: var(--dsk-card-2); border: 1px solid var(--dsk-border);
+	color: var(--dsk-muted); border-radius: var(--dsk-radius-sm); cursor: pointer;
+}
+.recChip:hover { background: var(--dsk-primary-soft); color: var(--dsk-foreground); }
+.recChip.isActive { background: var(--dsk-accent); border-color: transparent; color: #06110f; font-weight: 650; }
+.recCloud { font-size: 0.6875rem; color: var(--dsk-subtle); flex: none; }
+.recList {
+	flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px;
+	display: flex; flex-direction: column; gap: 0.4375rem;
+}
+.recEmpty { font-size: 0.75rem; color: var(--dsk-subtle); padding: 0.25rem 0.125rem; }
+.recItem {
+	flex: none; background: var(--dsk-card-2);
+	border: 1px solid var(--dsk-border); border-radius: var(--dsk-radius-md);
+	overflow: hidden;
+}
+.recItemHead {
+	display: flex; align-items: center; gap: 0.5625rem;
+	padding: 0.4063rem 0.625rem; cursor: pointer; user-select: none;
+	transition: background .15s;
+}
+.recItemHead:hover { background: var(--dsk-primary-soft); }
+.recTime { font-size: 0.6875rem; color: var(--dsk-subtle); font-variant-numeric: tabular-nums; }
+.recSteps { font-size: 0.6875rem; color: var(--dsk-muted); }
+.recRatio { font-size: 0.6875rem; color: var(--dsk-accent); font-variant-numeric: tabular-nums; }
+.recChevron { margin-left: auto; font-size: 0.625rem; color: var(--dsk-subtle); transition: transform .15s; }
+.recItem.isExpanded .recChevron { transform: rotate(180deg); }
+.recDelBtn {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	margin-left: 8px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--dsk-subtle);
+	border-radius: 50%;
+	cursor: pointer;
+	opacity: 0.45;
+	transition: opacity .15s, background .15s, color .15s;
+}
+.recItemHead:hover .recDelBtn { opacity: 1; }
+.recDelBtn.isArm { background: rgba(232, 93, 106, 0.16); color: var(--dsk-danger); opacity: 1; }
+.recSols { display: none; flex-direction: column; padding: 0.25rem 0.4375rem 0.4375rem; border-top: 1px solid var(--dsk-border); }
+.recItem.isExpanded .recSols { display: flex; }
+.recSol { display: flex; align-items: center; gap: 0.375rem; padding: 0.1875rem 0.25rem; border-radius: 4px; }
+.recSolText {
+	font-family: var(--dsk-font-mono); font-size: 0.75rem;
+	color: var(--dsk-foreground); cursor: pointer; white-space: nowrap;
+	transition: color .15s;
+}
+.recSolText:hover { color: var(--dsk-accent); }
+.recSol.isDone .recSolText { color: var(--dsk-accent); }
+.recSol.isDone .recSolText::after { content: " ✓"; }
+.recSol.isHinted .recSolText { color: var(--dsk-primary-hover); }
+.recSol.isHinted .recSolText::after { content: " ✓"; }
+.recStarBtn {
+	font: inherit; font-size: 0.75rem; line-height: 1;
+	background: none; border: 0; padding: 0 0.1875rem;
+	color: var(--dsk-subtle); cursor: pointer; margin-left: auto; flex: none;
+	transition: color .15s, transform .12s;
+}
+.recStarBtn:hover { transform: scale(1.15); color: #f5c518; }
+.recStarBtn.isActive { color: #f5c518; }
+.recStarsHead { display: flex; align-items: baseline; gap: 0.375rem; flex: none; margin: 0.5625rem 0 0.375rem; }
+.recStarsHead span:first-child { font-size: 0.8125rem; font-weight: 620; letter-spacing: .4px; color: var(--dsk-foreground); }
+.recStarsCount { font-size: 0.6875rem; color: var(--dsk-subtle); }
+.recStars {
+	flex: none; max-height: clamp(5rem, 22vh, 12rem); overflow-y: auto; padding-right: 4px;
+	display: grid; grid-template-columns: 1fr 1fr; gap: 0.375rem;
+	align-content: start;
+}
+.recStarItem {
+	font: inherit; font-family: var(--dsk-font-mono); font-size: 0.6875rem;
+	text-align: left; min-width: 0;
+	background: var(--dsk-card-2); border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-sm); color: #f5c518;
+	padding: 0.3125rem 0.5rem; cursor: pointer;
+	white-space: nowrap; overflow: hidden;
+	transition: background .15s, border-color .15s;
+}
+.recStarItem:hover { background: var(--dsk-primary-soft); border-color: #3a3760; }
+.recStarItem.isFull { grid-column: 1 / -1; }
+
+/* ---------- 记录 3D 预览弹窗 ---------- */
+.recModal { position: fixed; inset: 0; z-index: 2100; display: none; }
+.recModal[data-open="1"] { display: block; }
+.recModalMask { position: absolute; inset: 0; background: rgba(6, 5, 12, 0.72); }
+.recModalBox {
+	position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+	width: min(620px, 92vw); height: min(560px, 84vh);
+	background: var(--dsk-card); border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-lg);
+	box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+	display: flex; flex-direction: column;
+	padding: 0.875rem 1rem;
+}
+.recModalHead { display: flex; align-items: center; gap: 0.5625rem; flex: none; margin-bottom: 0.625rem; }
+.recModalTitle { font-size: 0.875rem; font-weight: 620; }
+.recModalMoves {
+	font-family: var(--dsk-font-mono); font-size: 0.75rem; color: var(--dsk-accent);
+	flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.recModalStage {
+	flex: 1; min-height: 0; position: relative;
+	background: var(--dsk-card-2); border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-md); overflow: hidden;
+}
+.recModalHint { flex: none; font-size: 0.6875rem; color: var(--dsk-subtle); margin-top: 0.5rem; }
 
 /* ---------- moves ---------- */
 .moveRow { display: flex; align-items: flex-start; gap: 0.625rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
@@ -320,6 +453,7 @@ body {
 		grid-template-rows: auto;
 		padding: 0.875rem;
 	}
-	.areaSettings, .areaScramble, .areaSolutions, .areaMoves { grid-column: 1; grid-row: auto; }
+	.areaSettings, .areaScramble, .areaSolutions, .areaRecords, .areaMoves { grid-column: 1; grid-row: auto; }
 	.solutions { max-height: 18.75rem; }
+	.recList { max-height: 18.75rem; }
 }

@@ -19,6 +19,9 @@
 		scrambleProgress: 0, // 已确认完成的打乱步数
 			revealed: {},        // 手动点开的解法
 		done: {},            // 已完成的解法
+		hinted: {},          // 完成时已处于显示状态的解法（紫色，不算成功）
+		fixDone: [],         // 已完成的修正步（按插入位置保留显示，半透明）
+		prevCorr: [],        // 上一帧的修正步序列（用于检测修正步被做掉）
 		connected: false,
 		deviceName: '',
 		lastPrevMoves: [],
@@ -173,6 +176,10 @@
 		state.scrambleProgress = 0;
 		state.revealed = {};
 		state.done = {};
+		state.hinted = {};
+		state.fixDone = [];
+		state.prevCorr = [];
+		recState.currentId = null;
 		state.phase = state.connected ? 'scramble' : 'solve';
 		state.lastPrevMoves = [];
 		el.revealAll.dataset.all = '';
@@ -197,19 +204,31 @@
 	 * - 青色当前步：有且仅有一个，位于半透明与紫的交界（打乱完成时无）
 	 * 任何状态按当前公式继续转，最终都到达目标打乱状态。
 	 */
+	/* 检测被做掉的修正步：corr 序列恰好从上一帧的前缀缩短 = 前缀里的修正步已被做掉，
+	   按插入位置记入 fixDone，列表里保留显示（半透明，同普通已完成步） */
+	function collectDoneFixes(newCorr, k) {
+		var prev = state.prevCorr;
+		state.prevCorr = newCorr.slice();
+		if (!prev || !prev.length || newCorr.length >= prev.length) { return; }
+		var off = prev.length - newCorr.length;
+		for (var i = 0; i < newCorr.length; i++) {
+			if (prev[off + i] !== newCorr[i]) { return; } /* 非单纯缩短（如中途新增错拧），不记账 */
+		}
+		for (i = 0; i < off; i++) { state.fixDone.push({ pos: k, m: prev[i] }); }
+	}
+
 	function computeScrambleView() {
 		var p = state.puzzle;
 		var simp = E.simplifyMoves(state.allMoves);
 		var k = 0;
 		while (k < simp.length && k < p.scramble.length && simp[k] === p.scramble[k]) { k++; }
 		var extra = simp.slice(k);
-		var items = [], i;
-		for (i = 0; i < k; i++) { items.push({ text: MOVES[p.scramble[i]], cls: 'scStep isDone' }); }
 		var correcting = extra.length > 0 && k < p.scramble.length;
+		var corr = [], rest = null, ri = 0;
 		if (correcting) {
-			var corr = E.invertMoves(extra);
-			var rest = p.scramble.slice(k);
-			var ri = 0, changed = true;
+			corr = E.invertMoves(extra);
+			rest = p.scramble.slice(k);
+			var changed = true;
 			while (changed && corr.length && ri < rest.length) {
 				changed = false;
 				var last = corr[corr.length - 1];
@@ -221,12 +240,29 @@
 					changed = true;
 				}
 			}
+		}
+		collectDoneFixes(corr, k);
+		var items = [], i, fi = 0, fixes = state.fixDone;
+		/* 已完成修正步按插入位置插回列表（pos = 插入时所处的打乱进度） */
+		var flush = function (pos) {
+			while (fi < fixes.length && fixes[fi].pos === pos) {
+				items.push({ text: MOVES[fixes[fi].m], cls: 'scStep isDone' });
+				fi++;
+			}
+		};
+		if (correcting) {
+			for (i = 0; i < k; i++) { flush(i); items.push({ text: MOVES[p.scramble[i]], cls: 'scStep isDone' }); }
+			flush(k);
 			for (i = 0; i < corr.length; i++) {
 				items.push({ text: MOVES[corr[i]], cls: 'scStep' + (i === 0 ? ' isFix isCurrent' : ' isPending') });
 			}
 			for (i = ri; i < rest.length; i++) { items.push({ text: MOVES[rest[i]], cls: 'scStep isPending' }); }
 		} else {
-			for (i = k; i < p.scramble.length; i++) { items.push({ text: MOVES[p.scramble[i]], cls: 'scStep isPending' + (i === k ? ' isCurrent' : '') }); }
+			for (i = 0; i < p.scramble.length; i++) {
+				flush(i);
+				items.push({ text: MOVES[p.scramble[i]], cls: 'scStep' + (i < k ? ' isDone' : ' isPending' + (i === k ? ' isCurrent' : '')) });
+			}
+			flush(p.scramble.length);
 		}
 		return {
 			items: items,
@@ -267,6 +303,7 @@
 			state.phase = 'solve';
 			state.userMoves = [];
 			adoptRealAsScrambled();
+			ensureRecord();  // 打乱成功即计入记录（可能 0 条做对）
 			renderMoves();
 			flash(el.phaseChip);
 		}
@@ -288,6 +325,10 @@
 		state.userMoves = [];
 		state.revealed = {};
 		state.done = {};
+		state.hinted = {};
+		state.fixDone = [];
+		state.prevCorr = [];
+		recState.currentId = null;
 		el.revealAll.dataset.all = '';
 		el.revealAll.textContent = '看答案';
 		el.solCount.textContent = '（' + p.solutions.length + ' 条 · ' + p.steps + ' 步）';
@@ -325,7 +366,7 @@
 				item.className = 'solItem';
 				item.textContent = list[idx];
 				item.dataset.index = idx;
-				if (state.done[idx]) { item.classList.add('isDone'); }
+				if (state.done[idx]) { item.classList.add(state.hinted[idx] ? 'isHinted' : 'isDone'); }
 				else if (state.revealed[idx]) { item.classList.add('isRevealed'); }
 				item.addEventListener('click', function () {
 					if (state.done[idx]) { return; }
@@ -343,13 +384,15 @@
 		}
 	}
 
-	function markSolutionDone(idx) {
+	function markSolutionDone(idx, hinted) {
 		if (state.done[idx]) { return; }
 		state.done[idx] = true;
+		if (hinted) { state.hinted[idx] = true; }
+		var cls = hinted ? 'isHinted' : 'isDone';
 		var items = el.solutions.querySelectorAll('.solItem');
 		for (var i = 0; i < items.length; i++) {
 			if (Number(items[i].dataset.index) === idx) {
-				items[i].classList.add('isDone');
+				items[i].classList.add(cls);
 				items[i].scrollIntoView({ block: 'nearest' });
 			}
 		}
@@ -389,6 +432,7 @@
 			addUserMove(m);
 		}
 		renderCubeNet(currentFacelets());
+		syncRecordCubeMove(m);
 	}
 
 	function evaluate() {
@@ -401,7 +445,10 @@
 			if (p.solutionTexts[i] === text) { hit = i; break; }
 		}
 		if (hit >= 0) {
-			markSolutionDone(hit);
+			/* 完成时该解法已处于显示状态 → 紫色标记，记录里算普通未完成解法 */
+			var wasRevealed = !!state.revealed[hit];
+			markSolutionDone(hit, wasRevealed);
+			markRecordResult(p.solutionTexts[hit], wasRevealed);
 		}
 		// 兜底：步数相同且十字已完成（解法过多被截断时）
 		if (hit < 0 && simp.length === state.steps && E.isCrossDone(currentFacelets(), state.colorFace, crossFace())) {
@@ -467,6 +514,20 @@
 		el.btDot.dataset.state = kind || 'off';
 	}
 
+	/* 断开清理：硬件掉线（事件回调）与主动断开共用。
+	   注意 GiikerCube.stop() 会先摘掉 gattserverdisconnected 监听再断开，
+	   事件回调不会派发 → 主动断开必须手动调这里 */
+	function handleBtDisconnected() {
+		state.connected = false;
+		state.phase = 'solve';
+		state.realFacelets = null;
+		state.pendingRealSync = false;
+		el.connectBtn.textContent = '连接魔方';
+		el.connectBtn.classList.remove('isActive');
+		setBtStatus('已断开', 'off');
+		updatePhaseChip();
+	}
+
 	function initBluetooth() {
 		if (!window.GiikerCube) {
 			// 硬件脚本尚未就绪时等 load 事件再试一次
@@ -482,16 +543,7 @@
 		if (el.connectBtn.disabled && !state.connected) { el.connectBtn.disabled = false; }
 		window.GiikerCube.setCallback(onCubeCallback);
 		window.GiikerCube.setEventCallback(function (info) {
-			if (info === 'disconnect') {
-				state.connected = false;
-				state.phase = 'solve';
-				state.realFacelets = null;
-				state.pendingRealSync = false;
-				el.connectBtn.textContent = '连接魔方';
-				el.connectBtn.classList.remove('isActive');
-				setBtStatus('已断开', 'off');
-				updatePhaseChip();
-			}
+			if (info === 'disconnect') { handleBtDisconnected(); }
 		});
 		if (!navigator.bluetooth) {
 			setBtStatus('当前环境不支持 Web Bluetooth', 'err');
@@ -503,17 +555,20 @@
 		if (!window.GiikerCube) { return; }
 		if (state.connected) {
 			window.GiikerCube.stop();
+			handleBtDisconnected(); /* stop() 不派发 disconnect 事件，必须手动清理 */
 			return;
 		}
 		el.connectBtn.disabled = true;
 		setBtStatus('等待选择设备…', 'off');
 		state.ignoreMoves = true;
 		state.lastPrevMoves = [];
+		/* 必须提前：连接成功后硬件 readValue 的状态回调可能先于 init() 的 then 到达，
+		   若到时 pendingRealSync/connected 还没置位，「重新出题」会推迟到转第一下才发生 */
+		state.pendingRealSync = true;
+		state.connected = true;
 		window.GiikerCube.init().then(function () {
-			state.connected = true;
 			state.allMoves = [];
 			state.scrambleProgress = 0;
-			state.pendingRealSync = true; // 等首次真实状态到手再重新出题
 			state.phase = state.puzzle ? 'scramble' : 'solve';
 			el.connectBtn.textContent = '断开';
 			el.connectBtn.classList.add('isActive');
@@ -523,6 +578,9 @@
 			renderScrambleSteps();
 			updatePhaseChip();
 		})['catch'](function (err) {
+			state.connected = false;
+			state.pendingRealSync = false;
+			state.ignoreMoves = false;
 			el.connectBtn.disabled = false;
 			setBtStatus('连接失败：' + String((err && err.message) || err), 'err');
 		});
@@ -581,6 +639,12 @@
 			updateScrambleProgress();
 			renderScrambleSteps();
 			updatePhaseChip();
+			/* 本事件被消费、不再走 addRawMove → 网格要在这里补画，
+			   否则打乱尾步的实时状态上不了屏，网格会停在倒数第二步 */
+			renderCubeNet(currentFacelets());
+			/* 本事件（打乱尾步）已消费：phase 已切 solve，
+			   不能再 return false 让 extractNewMoves 把它记进「我的转动」 */
+			return true;
 		}
 		return false;
 	}
@@ -626,6 +690,8 @@
 			state.userMoves = [];
 			state.allMoves = [];
 			state.scrambleProgress = 0;
+			state.fixDone = [];
+			state.prevCorr = [];
 			el.matchInfo.textContent = '';
 			/* 连着魔方时「清空」= 以魔方实际状态重新来一道 */
 			if (state.connected && state.realFacelets) { newPuzzle(); return; }
@@ -641,12 +707,17 @@
 			if (tag === 'input' || tag === 'textarea') { return; }
 			if (ev.metaKey || ev.ctrlKey || ev.altKey) { return; }
 			var k = ev.key;
-			if (k === ' ') {
+			if (k === 'Escape' && recCube.open) {
+				ev.preventDefault();
+				closeRecordCube();
+				return;
+			}
+			if (k === ' ' && !recCube.open) {
 				ev.preventDefault();
 				newPuzzle();
 				return;
 			}
-			if (k === 'Backspace') {
+			if (k === 'Backspace' && !recCube.open) {
 				ev.preventDefault();
 				state.userMoves.pop();
 				renderMoves();
@@ -719,12 +790,583 @@
 		pop.style.top = top + 'px';
 	}
 
+	/* ---------------- 记录（历史） ---------------- */
+	var RECORDS_KEY = 'crossRecords';
+	var RECORD_SCOPE = 'Cube-Cross';
+	var recState = {
+		list: [],        // 全部记录
+		filter: 0,       // 0 = 全部，1-8 = 按步数筛选
+		expanded: {},    // 展开的记录 id（仅本页会话）
+		currentId: null, // 当前题对应的记录 id
+		cloudOn: false,  // 已登录（可云同步）
+		pushTimer: 0
+	};
+
+	function findRecord(id) {
+		for (var i = 0; i < recState.list.length; i++) {
+			if (recState.list[i].id === id) { return recState.list[i]; }
+		}
+		return null;
+	}
+
+	/* 垃圾桶图标：确认态与普通态同图标，仅颜色不同（isArm 红） */
+	var TRASH_SVG = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+
+	function loadRecords() {
+		try {
+			var raw = localStorage.getItem(RECORDS_KEY);
+			var list = raw ? JSON.parse(raw) : [];
+			recState.list = Array.isArray(list) ? list : [];
+		} catch (e) { recState.list = []; }
+	}
+
+	function saveRecords(cloud) {
+		try { localStorage.setItem(RECORDS_KEY, JSON.stringify(recState.list)); } catch (e) { /* ignore */ }
+		if (cloud) { pushRecords(); }
+	}
+
+	function filteredRecords() {
+		var out = [];
+		for (var i = 0; i < recState.list.length; i++) {
+			if (recState.list[i].del) { continue; } // 已删除（墓碑）：不展示、不计分，但保留参与云同步
+			if (!recState.filter || recState.list[i].steps === recState.filter) { out.push(recState.list[i]); }
+		}
+		out.sort(function (a, b) { return (b.mut || 0) - (a.mut || 0); });
+		return out;
+	}
+
+	/* 打乱成功即给当前题建档：只记解法文本与标记，不记打乱和朝向 */
+	function ensureRecord() {
+		var p = state.puzzle;
+		if (!p) { return null; }
+		var rec = recState.currentId ? findRecord(recState.currentId) : null;
+		if (rec) { return rec; }
+		rec = {
+			id: 'r' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36),
+			ts: Date.now(),
+			mut: Date.now(),
+			steps: p.steps,
+			color: state.colorFace,
+			solutions: p.solutionTexts.slice(),
+			done: [],
+			hinted: [],
+			starred: []
+		};
+		recState.list.push(rec);
+		recState.currentId = rec.id;
+		saveRecords(true);
+		renderRecords();
+		return rec;
+	}
+
+	/* 完成解法：成功（青✓计分）或看答案做出（紫✓不计分） */
+	function markRecordResult(text, hinted) {
+		var rec = ensureRecord();
+		if (!rec) { return; }
+		var doneAt = rec.done.indexOf(text);
+		var hintAt = (rec.hinted || []).indexOf(text);
+		if (hinted && hintAt < 0) {
+			if (doneAt >= 0) { rec.done.splice(doneAt, 1); }
+			rec.hinted.push(text);
+			rec.mut = Date.now();
+			saveRecords(true);
+			renderRecords();
+		} else if (!hinted && doneAt < 0) {
+			if (hintAt >= 0) { rec.hinted.splice(hintAt, 1); }
+			rec.done.push(text);
+			rec.mut = Date.now();
+			saveRecords(true);
+			renderRecords();
+		}
+	}
+
+	function toggleRecordStar(recId, text) {
+		var rec = findRecord(recId);
+		if (!rec) { return; }
+		var at = rec.starred.indexOf(text);
+		if (at >= 0) { rec.starred.splice(at, 1); } else { rec.starred.push(text); }
+		rec.mut = Date.now();
+		saveRecords(true);
+		renderRecords();
+	}
+
+	function fmtRecTime(ts) {
+		var d = new Date(ts);
+		var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+		return p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+	}
+
+	function renderRecFilters() {
+		var box = el.recFilters;
+		box.innerHTML = '';
+		var mk = function (label, value) {
+			var b = document.createElement('button');
+			b.type = 'button';
+			b.className = 'recChip';
+			b.textContent = label;
+			b.classList.toggle('isActive', recState.filter === value);
+			b.addEventListener('click', function () {
+				recState.filter = value;
+				renderRecords();
+			});
+			box.appendChild(b);
+		};
+		mk('全部', 0);
+		for (var n = 1; n <= 8; n++) { mk(String(n), n); }
+	}
+
+	function renderRecScore() {
+		var list = filteredRecords();
+		var total = 0, score = 0;
+		for (var i = 0; i < list.length; i++) {
+			total += list[i].solutions.length * list[i].steps;
+			score += list[i].done.length * list[i].steps;
+		}
+		el.recScore.textContent = total
+			? score + '/' + total + ' ' + Math.round(score / total * 100) + '%'
+			: '—';
+	}
+
+	function renderRecList() {
+		var box = el.recList;
+		box.innerHTML = '';
+		var alive = 0;
+		for (var k = 0; k < recState.list.length; k++) { if (!recState.list[k].del) { alive++; } }
+		el.recCount.textContent = alive ? '（' + alive + '）' : '';
+		var list = filteredRecords();
+		if (!list.length) {
+			var empty = document.createElement('div');
+			empty.className = 'recEmpty';
+			empty.textContent = '打乱成功后自动记录';
+			box.appendChild(empty);
+			return;
+		}
+		for (var i = 0; i < list.length; i++) { box.appendChild(buildRecItem(list[i])); }
+	}
+
+	function buildRecItem(rec) {
+		var item = document.createElement('div');
+		item.className = 'recItem' + (recState.expanded[rec.id] ? ' isExpanded' : '');
+
+		var head = document.createElement('div');
+		head.className = 'recItemHead';
+		var time = document.createElement('span');
+		time.className = 'recTime';
+		time.textContent = fmtRecTime(rec.ts);
+		var steps = document.createElement('span');
+		steps.className = 'recSteps';
+		steps.textContent = rec.steps + '步';
+		var ratio = document.createElement('span');
+		ratio.className = 'recRatio';
+		ratio.textContent = rec.done.length + '/' + rec.solutions.length;
+		var chevron = document.createElement('span');
+		chevron.className = 'recChevron';
+		chevron.textContent = '▾';
+		head.appendChild(time);
+		head.appendChild(steps);
+		head.appendChild(ratio);
+		head.appendChild(chevron);
+		/* 删除：首次点击进入确认态（✓ 红），再次点击才删；2.5s 后自动解除 */
+		var del = document.createElement('button');
+		del.type = 'button';
+		del.className = 'recDelBtn';
+		del.innerHTML = TRASH_SVG;
+		del.title = '删除记录';
+		del.addEventListener('click', function (ev) {
+			ev.stopPropagation();
+			if (del.dataset.arm !== '1') {
+				del.dataset.arm = '1';
+				del.classList.add('isArm');
+				window.setTimeout(function () {
+					if (del.isConnected && del.dataset.arm === '1') {
+						del.dataset.arm = '';
+						del.classList.remove('isArm');
+					}
+				}, 2500);
+				return;
+			}
+			rec.del = 1;
+			rec.mut = Date.now();
+			if (recState.currentId === rec.id) { recState.currentId = null; }
+			saveRecords(true);
+			renderRecords();
+		});
+		head.appendChild(del);
+		head.addEventListener('click', function () {
+			recState.expanded[rec.id] = !recState.expanded[rec.id];
+			item.classList.toggle('isExpanded', !!recState.expanded[rec.id]);
+		});
+		item.appendChild(head);
+
+		var sols = document.createElement('div');
+		sols.className = 'recSols';
+		for (var i = 0; i < rec.solutions.length; i++) {
+			(function (text) {
+				var row = document.createElement('div');
+				if (rec.done.indexOf(text) >= 0) { row.className = 'recSol isDone'; }
+				else if ((rec.hinted || []).indexOf(text) >= 0) { row.className = 'recSol isHinted'; }
+				else { row.className = 'recSol'; }
+				var txt = document.createElement('span');
+				txt.className = 'recSolText';
+				txt.textContent = text;
+				txt.title = '查看 3D 状态';
+				txt.addEventListener('click', function () { openRecordCube(rec, text); });
+				var star = document.createElement('button');
+				star.type = 'button';
+				star.className = 'recStarBtn' + (rec.starred.indexOf(text) >= 0 ? ' isActive' : '');
+				star.textContent = rec.starred.indexOf(text) >= 0 ? '★' : '☆';
+				star.title = '星标';
+				star.addEventListener('click', function (ev) {
+					ev.stopPropagation();
+					toggleRecordStar(rec.id, text);
+				});
+				row.appendChild(txt);
+				row.appendChild(star);
+				sols.appendChild(row);
+			})(rec.solutions[i]);
+		}
+		item.appendChild(sols);
+		return item;
+	}
+
+	function renderRecStars() {
+		var box = el.recStars;
+		box.innerHTML = '';
+		var list = filteredRecords();
+		var items = [];
+		for (var i = 0; i < list.length; i++) {
+			for (var j = 0; j < list[i].starred.length; j++) {
+				items.push({ rec: list[i], text: list[i].starred[j] });
+			}
+		}
+		el.recStarsCount.textContent = items.length ? '（' + items.length + '）' : '';
+		for (var k = 0; k < items.length; k++) {
+			(function (it) {
+				var b = document.createElement('button');
+				b.type = 'button';
+				b.className = 'recStarItem';
+				b.textContent = '★ ' + it.text;
+				b.title = '查看 3D 状态';
+				b.addEventListener('click', function () { openRecordCube(it.rec, it.text); });
+				box.appendChild(b);
+			})(items[k]);
+		}
+		if (window.requestAnimationFrame) { window.requestAnimationFrame(layoutRecStars); }
+	}
+
+	/* 星标两栏：某条在一栏里放不下，就独占一整行 */
+	function layoutRecStars() {
+		var items = el.recStars.querySelectorAll('.recStarItem');
+		for (var i = 0; i < items.length; i++) {
+			items[i].classList.remove('isFull');
+			if (items[i].scrollWidth > items[i].clientWidth + 1) {
+				items[i].classList.add('isFull');
+			}
+		}
+	}
+
+	function renderRecords() {
+		renderRecFilters();
+		renderRecScore();
+		renderRecList();
+		renderRecStars();
+	}
+
+	/* ---------------- 记录云同步（Supabase user_data · site_scope=Cube-Cross） ---------------- */
+	function setRecCloud(text) {
+		if (el.recCloud) { el.recCloud.textContent = text; }
+	}
+
+	function initRecordCloud() {
+		if (!window.authManager) { setRecCloud('本地'); return; }
+		window.authManager.onAuthStateChange(function (user) {
+			recState.cloudOn = !!user;
+			if (user) {
+				setRecCloud('云端');
+				pullRecords();
+			} else {
+				setRecCloud('本地');
+			}
+		});
+	}
+
+	function pullRecords() {
+		var client = window.supabaseClient;
+		var user = window.authManager && window.authManager.getUser();
+		if (!client || !user) { return; }
+		client.from('user_data')
+			.select('data')
+			.eq('user_id', user.id)
+			.eq('site_scope', RECORD_SCOPE)
+			.maybeSingle()
+			.then(function (result) {
+				if (result.error || !result.data || !result.data.data) { return; }
+				var cloudList = result.data.data.records;
+				if (Array.isArray(cloudList)) { mergeRecords(cloudList); }
+			})['catch'](function () { /* ignore */ });
+	}
+
+	function mergeRecords(cloudList) {
+		var byId = {};
+		var i;
+		for (i = 0; i < recState.list.length; i++) { byId[recState.list[i].id] = recState.list[i]; }
+		var changed = false;
+		for (i = 0; i < cloudList.length; i++) {
+			var r = cloudList[i];
+			if (!r || !r.id) { continue; }
+			if (!byId[r.id] || (r.mut || 0) > (byId[r.id].mut || 0)) {
+				byId[r.id] = r;
+				changed = true;
+			}
+		}
+		if (changed) {
+			recState.list = Object.keys(byId).map(function (k) { return byId[k]; });
+			saveRecords(false);
+			renderRecords();
+		}
+	}
+
+	function pushRecords() {
+		if (!recState.cloudOn || !window.supabaseClient || !window.authManager) { return; }
+		var user = window.authManager.getUser();
+		if (!user) { return; }
+		if (recState.pushTimer) { window.clearTimeout(recState.pushTimer); }
+		recState.pushTimer = window.setTimeout(function () {
+			recState.pushTimer = 0;
+			window.supabaseClient
+				.from('user_data')
+				.upsert({
+					user_id: user.id,
+					site_scope: RECORD_SCOPE,
+					data: { version: 1, exportedAt: new Date().toISOString(), records: recState.list },
+					updated_at: new Date().toISOString()
+				}, { onConflict: 'user_id,site_scope' })
+				.then(function (result) {
+					setRecCloud(result.error ? '未同步' : '云端');
+				})['catch'](function () { setRecCloud('未同步'); });
+		}, 800);
+	}
+
+	/* ---------------- 记录 3D 预览（复用 Formula 的 twisty） ---------------- */
+	var recCube = { open: false, scene: null, showAll: false, color: 0 };
+
+	function twistyMove(m) {
+		var face = E.FACES[(m / 3) | 0];                    // 'U''R''F''D''L''B'
+		var pow = (m % 3 === 0) ? 1 : (m % 3 === 1 ? 2 : -1); // 顺 / 180 / 逆
+		return [1, 1, face, pow];
+	}
+
+	function resizeSceneToStage(scene, stage) {
+		if (!scene || !stage) { return; }
+		var rect = stage.getBoundingClientRect();
+		var child = stage.firstElementChild;
+		if (child) {
+			child.style.width = rect.width + 'px';
+			child.style.height = rect.height + 'px';
+		}
+		if (scene.resize) { scene.resize(); }
+	}
+
+	function prepareStickerScene(scene) {
+		if (!scene || !scene.getTwisty) { return; }
+		var twisty = scene.getTwisty();
+		if (!twisty || !twisty.cubePieces) { return; }
+		var dimension = twisty.options.dimension;
+		scene._customCubieByFacelet = {};
+		for (var faceIndex = 0; faceIndex < twisty.cubePieces.length; faceIndex++) {
+			var face = twisty.cubePieces[faceIndex];
+			for (var stickerIndex = 0; stickerIndex < face.length; stickerIndex++) {
+				var sticker = face[stickerIndex];
+				var mesh = sticker[1].children[0];
+				var fi = matrixToFaceletIndex(sticker[0], dimension);
+				sticker[1]._customFaceletIndex = fi;
+				sticker[1]._customCubieKey = cubieKeyOfMatrix(sticker[0], dimension);
+				scene._customCubieByFacelet[fi] = sticker[1]._customCubieKey;
+				mesh._customColoredMaterial = mesh.materials[0];
+			}
+		}
+	}
+
+	function matrixToFaceletIndex(matrix, dimension) {
+		var xyXchg = [1, 0, 0, 1, 0, 0];
+		var xInv = [1, -1, -1, -1, -1, -1];
+		var yInv = [1, -1, 1, 1, 1, -1];
+		var coord = [Math.round(matrix.n24), Math.round(matrix.n14), Math.round(matrix.n34)];
+		var coordIndex = coord.indexOf(dimension) + coord.indexOf(-dimension) + 1;
+		var axis = coordIndex + (coord[coordIndex] > 0 ? 0 : 3);
+		coord.splice(coordIndex, 1);
+		var xy = xyXchg[axis];
+		var x = (coord[xy] * xInv[axis] + dimension - 1) / 2;
+		var y = (coord[1 - xy] * yInv[axis] + dimension - 1) / 2;
+		return axis * dimension * dimension + x * dimension + y;
+	}
+
+	/* 贴纸所在块的中心坐标（把法向分量从 ±dimension 收回到块中心） */
+	function cubieKeyOfMatrix(matrix, dimension) {
+		var c = [Math.round(matrix.n14), Math.round(matrix.n24), Math.round(matrix.n34)];
+		for (var i = 0; i < 3; i++) {
+			if (c[i] === dimension) { c[i] = dimension - 1; }
+			else if (c[i] === -dimension) { c[i] = -(dimension - 1); }
+		}
+		return c.join(',');
+	}
+
+	/* 只显示 5 个方块：十字面中心 + 4 条十字棱块（整块，含侧面色），共 9 个色块 */
+	function crossPiecesMask(colorFace, scene) {
+		var byFacelet = scene && scene._customCubieByFacelet;
+		if (!byFacelet) { return crossColorMask(colorFace); }
+		var edgeKeys = [];
+		for (var p = 0; p < 9; p++) {
+			if (p !== 4 && p % 2 === 1) {  // 十字面的 4 个棱位：1/3/5/7
+				var key = byFacelet[colorFace * 9 + p];
+				if (key) { edgeKeys.push(key); }
+			}
+		}
+		var centerIndex = colorFace * 9 + 4;
+		var mask = {};
+		for (var i = 0; i < 54; i++) {
+			var key = byFacelet[i];
+			mask[i] = !(i === centerIndex || (key && edgeKeys.indexOf(key) >= 0));
+		}
+		return mask;
+	}
+
+	/* 兜底：按颜色隐藏（只看十字面色） */
+	function crossColorMask(colorFace) {
+		var mask = {};
+		for (var i = 0; i < 54; i++) {
+			if (((i / 9) | 0) !== colorFace) { mask[i] = true; }
+		}
+		return mask;
+	}
+
+	function applyHiddenMask(scene, mask) {
+		if (!scene || !scene.getTwisty) { return; }
+		var twisty = scene.getTwisty();
+		if (!twisty || !twisty.cubePieces) { return; }
+		if (!scene._customHiddenMaterial) {
+			scene._customHiddenMaterial = new THREE.MeshBasicMaterial({
+				color: 0x9aa0aa, opacity: 0.28, transparent: true
+			});
+		}
+		for (var faceIndex = 0; faceIndex < twisty.cubePieces.length; faceIndex++) {
+			var face = twisty.cubePieces[faceIndex];
+			for (var stickerIndex = 0; stickerIndex < face.length; stickerIndex++) {
+				var sticker = face[stickerIndex][1];
+				var mesh = sticker.children[0];
+				if (mask && mask[sticker._customFaceletIndex]) {
+					mesh.materials[0] = scene._customHiddenMaterial;
+				} else if (mesh._customColoredMaterial) {
+					mesh.materials[0] = mesh._customColoredMaterial;
+				}
+			}
+		}
+		if (scene.render) { scene.render(); }
+	}
+
+	/* 通过解法反推状态：复原态 + 解法的逆 = 该解法的起点（与智能魔方状态无关） */
+	function openRecordCube(rec, text) {
+		if (!window.twistyjs || !window.THREE) { return; }
+		recCube.open = true;
+		recCube.showAll = false;
+		recCube.color = rec.color;
+		el.recModal.dataset.open = '1';
+		el.recModal.setAttribute('aria-hidden', 'false');
+		el.recModalMoves.textContent = text;
+		el.recModalToggle.textContent = '显示全部';
+		el.recModalToggle.classList.remove('isActive');
+
+		el.recModalStage.innerHTML = '';
+		var scene = new window.twistyjs.TwistyScene();
+		recCube.scene = scene;
+		el.recModalStage.appendChild(scene.getDomElement());
+		scene.initializeTwisty({
+			type: 'cube',
+			dimension: 3,
+			stickerWidth: 1.72,
+			scale: 0.96,
+			allowDragging: false,
+			faceColors: [0xffffff, 0xf05a3b, 0x2dbb70, 0xffd447, 0xff941f, 0x2f69df]
+		});
+		prepareStickerScene(scene);
+		var inv = E.invertMoves(E.textToMoves(text));
+		var moves = [];
+		for (var i = 0; i < inv.length; i++) { moves.push(twistyMove(inv[i])); }
+		if (moves.length) { scene.applyMoves(moves); }
+		applyHiddenMask(scene, crossPiecesMask(rec.color, scene));
+		resizeSceneToStage(scene, el.recModalStage);
+	}
+
+	function closeRecordCube() {
+		recCube.open = false;
+		recCube.scene = null;
+		el.recModal.dataset.open = '';
+		el.recModal.setAttribute('aria-hidden', 'true');
+		el.recModalStage.innerHTML = '';
+	}
+
+	function toggleRecordCubeAll() {
+		recCube.showAll = !recCube.showAll;
+		el.recModalToggle.textContent = recCube.showAll ? '只看十字' : '显示全部';
+		el.recModalToggle.classList.toggle('isActive', recCube.showAll);
+		if (recCube.scene) {
+			applyHiddenMask(recCube.scene, recCube.showAll ? {} : crossPiecesMask(recCube.color, recCube.scene));
+		}
+	}
+
+	/* 智能魔方 / 键盘的转动同步到预览魔方 */
+	function syncRecordCubeMove(m) {
+		if (!recCube.open || !recCube.scene) { return; }
+		recCube.scene.addMoves([twistyMove(m)]);
+	}
+
+	/* 拖动旋转视角（参考 Formula 的 customCube 拖动实现） */
+	function bindRecordCubeDrag() {
+		var stage = el.recModalStage;
+		var drag = { active: false, x: 0, y: 0, yaw: 0, pitch: 0 };
+		stage.addEventListener('pointerdown', function (event) {
+			if (event.button !== 0 || !recCube.scene || !recCube.scene.setViewDrag) { return; }
+			drag.active = true;
+			drag.x = event.clientX;
+			drag.y = event.clientY;
+			var vs = recCube.scene.getViewState ? recCube.scene.getViewState() : { dragTheta: 0, dragPhi: 0 };
+			drag.yaw = vs.dragTheta;
+			drag.pitch = vs.dragPhi;
+			if (stage.setPointerCapture) {
+				try { stage.setPointerCapture(event.pointerId); } catch (e) { /* ignore */ }
+			}
+			event.preventDefault();
+		});
+		stage.addEventListener('pointermove', function (event) {
+			if (!drag.active || !recCube.scene || !recCube.scene.setViewDrag) { return; }
+			var dx = event.clientX - drag.x;
+			var dy = event.clientY - drag.y;
+			var rect = stage.getBoundingClientRect();
+			var scale = (Math.PI / 4) / Math.max(140, Math.min(rect.width, rect.height) * 0.45);
+			var yaw = drag.yaw - dx * scale;
+			var pitch = drag.pitch + dy * scale;
+			var length = Math.sqrt(yaw * yaw + pitch * pitch);
+			var limit = Math.PI / 4;
+			if (length > limit) {
+				yaw = yaw / length * limit;
+				pitch = pitch / length * limit;
+			}
+			recCube.scene.setViewDrag(yaw, pitch);
+			event.preventDefault();
+		});
+		var finish = function () { drag.active = false; };
+		stage.addEventListener('pointerup', finish);
+		stage.addEventListener('pointercancel', finish);
+	}
+
 	/* ---------------- 初始化 ---------------- */
 	function init() {
 		['colorPicker', 'stepsPicker', 'scrambleText', 'scrambleMeta', 'copyScramble',
 			'newScramble', 'cubeNet', 'cubeTitle', 'crossTargetHint', 'cubeBtn', 'cubePopWrap', 'cubePop', 'solutions', 'solCount', 'revealAll',
 			'undoMoves', 'copyUndo', 'moveInput', 'applyMoves', 'resetMoves',
-			'phaseChip', 'matchInfo', 'connectBtn', 'btStatus', 'btDot'].forEach(function (id) {
+			'phaseChip', 'matchInfo', 'connectBtn', 'btStatus', 'btDot',
+			'recCount', 'recScore', 'recFilters', 'recCloud', 'recList', 'recStars', 'recStarsCount',
+			'recModal', 'recModalMask', 'recModalStage', 'recModalMoves', 'recModalToggle', 'recModalClose'].forEach(function (id) {
 				el[id] = $(id);
 			});
 
@@ -733,6 +1375,13 @@
 		syncPickers();
 		buildCubeNet();
 		bindInput();
+		loadRecords();
+		renderRecords();
+		/* 站点导航栏：authManager.init 由 nav 触发，须在记录云同步之前 */
+		if (window.siteNav && typeof window.siteNav.init === 'function') {
+			window.siteNav.init({});
+		}
+		initRecordCloud();
 
 		el.newScramble.addEventListener('click', function () { newPuzzle(); });
 		el.scrambleText.addEventListener('dblclick', function () { newPuzzle(); });
@@ -750,7 +1399,12 @@
 		});
 		window.addEventListener('resize', function () {
 			if (el.cubePopWrap.classList.contains('isPinned')) { positionCubePop(); }
+			if (recCube.open) { resizeSceneToStage(recCube.scene, el.recModalStage); layoutRecStars(); }
 		});
+		el.recModalClose.addEventListener('click', closeRecordCube);
+		el.recModalMask.addEventListener('click', closeRecordCube);
+		el.recModalToggle.addEventListener('click', toggleRecordCubeAll);
+		bindRecordCubeDrag();
 		el.copyUndo.addEventListener('click', function () {
 			copyText(currentUndoText(), el.copyUndo);
 		});
@@ -839,7 +1493,9 @@
 
 	window.CrossApp = {
 		initBluetooth: initBluetooth, state: state, newPuzzle: newPuzzle, applyInputText: applyInputText, E: E,
-		onCubeCallback: onCubeCallback, syncRealFacelets: syncRealFacelets, adoptRealAsScrambled: adoptRealAsScrambled
+		onCubeCallback: onCubeCallback, syncRealFacelets: syncRealFacelets, adoptRealAsScrambled: adoptRealAsScrambled,
+		recState: recState, recCube: recCube, openRecordCube: openRecordCube, closeRecordCube: closeRecordCube,
+		toggleRecordStar: toggleRecordStar, renderRecords: renderRecords
 	};
 
 	if (document.readyState === 'loading') {
