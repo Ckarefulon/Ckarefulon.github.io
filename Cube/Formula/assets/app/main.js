@@ -4680,7 +4680,7 @@
 						return;
 					}
 					if (this.pendingCubeMove && this.isCloseCubeMove(timestamp, this.pendingCubeMove.timestamp)) {
-						var slice = this.getSliceFromCubePair(this.pendingCubeMove.prepared.text, prepared.text);
+						var slice = this.getSliceFromCubePair(this.pendingCubeMove.prepared.cubeText || this.pendingCubeMove.prepared.text, prepared.cubeText || prepared.text);
 						if (slice) {
 							var pending = this.pendingCubeMove;
 							this.clearPendingCubeMove(false);
@@ -4689,7 +4689,7 @@
 						}
 					}
 					this.flushPendingCubeMove();
-					if (this.canStartSlicePair(prepared.text)) {
+					if (this.canStartSlicePair(prepared.cubeText || prepared.text)) {
 						this.holdCubeMove(rawMove, prepared, source, timestamp, facelet);
 						return;
 					}
@@ -5168,6 +5168,17 @@
 					}[face] || face;
 				},
 
+				unmapUiFace: function(face) {
+					return {
+						U: "U",
+						B: "R",
+						R: "F",
+						D: "D",
+						F: "L",
+						L: "B"
+					}[face] || face;
+				},
+
 				applyOrientationMove: function(move, options) {
 					options = options || {};
 					if (!options.noAnimation) {
@@ -5197,6 +5208,7 @@
 					}
 					var targetFace = this.faceFromNormal(this.matrixVectorMultiply(this.orientationMatrix, this.faceNormal(move.face)));
 					if (!targetFace) {
+						move.cubeText = move.text;
 						return move;
 					}
 					var transformed = this.matrixMultiply(
@@ -5205,11 +5217,13 @@
 					);
 					var pows = Math.abs(move.pow) === 2 ? [2] : [move.pow, -move.pow];
 					var layerEnd = move.wide ? 2 : 1;
-					var displayFace = move.wide ? targetFace.toLowerCase() : targetFace;
+					var uiFace = this.unmapUiFace(targetFace);
+					var displayFace = move.wide ? uiFace.toLowerCase() : uiFace;
 					for (var i = 0; i < pows.length; i++) {
 						if (this.matrixEquals(transformed, this.rotationMatrix(targetFace, pows[i]))) {
 							return {
 								text: this.formatMoveText(displayFace, pows[i]),
+								cubeText: this.formatMoveText(targetFace, pows[i]),
 								type: "face",
 								face: targetFace,
 								wide: move.wide,
@@ -5220,6 +5234,7 @@
 					}
 					return {
 						text: this.formatMoveText(displayFace, move.pow),
+						cubeText: this.formatMoveText(targetFace, move.pow),
 						type: "face",
 						face: targetFace,
 						wide: move.wide,
