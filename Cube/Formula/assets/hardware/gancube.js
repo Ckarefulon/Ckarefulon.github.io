@@ -557,6 +557,27 @@ execMain(function() {
 		parseV2Data(value);
 	}
 
+	// 陀螺仪位串解析：bitOffs 起 w/x/y/z 四个 16 位有符号定点（1 符号 + 15 位幅值），
+	// 物理帧为右手系 +X 红、+Y 蓝、+Z 白（Gen2 与 Gen4 包结构一致，仅位偏移不同）
+	function parseGyroBits(value, bitOffs) {
+		function q(i) {
+			var v = parseInt(value.slice(bitOffs + i * 16, bitOffs + i * 16 + 16), 2);
+			return (1 - (v >> 15) * 2) * (v & 0x7FFF) / 0x7FFF;
+		}
+		var w = q(0);
+		var x = q(1);
+		var y = q(2);
+		var z = q(3);
+		var n = Math.sqrt(w * w + x * x + y * y + z * z);
+		if (n > 0) {
+			w /= n;
+			x /= n;
+			y /= n;
+			z /= n;
+		}
+		GiikerCube.gyro(x, y, z, w, deviceName);
+	}
+
 	function parseV2Data(value) {
 		var locTime = Date.now();
 		value = decode(value);
@@ -566,6 +587,7 @@ execMain(function() {
 		value = value.join('');
 		var mode = parseInt(value.slice(0, 4), 2);
 		if (mode == 1) { // gyro
+			parseGyroBits(value, 4);
 		} else if (mode == 2) { // cube move
 			giikerutil.log('[gancube]', 'v2 received move event', value);
 			moveCnt = parseInt(value.slice(4, 12), 2);
@@ -1027,6 +1049,7 @@ execMain(function() {
 			giikerutil.log('[gancube]', 'v4 battery level', batteryLevel);
 			giikerutil.updateBattery([batteryLevel, deviceName + '*']);
 		} else if (mode == 0xEC) { // gyro
+			parseGyroBits(value, 16);
 		} else {
 			giikerutil.log('[gancube]', 'v4 received unknown event', mode, value);
 		}

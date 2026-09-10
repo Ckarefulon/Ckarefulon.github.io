@@ -34,16 +34,16 @@
 	<script src="assets/twisty/twisty.js?v=1034" defer></script>
 	<script src="assets/twisty/twistynnn.js?v=0484" defer></script>
 
-	<script src="assets/hardware/bluetooth.js?v=0286" defer></script>
+	<script src="assets/hardware/bluetooth.js?v=1072" defer></script>
 	<script src="assets/hardware/giikercube.js?v=0286" defer></script>
 	<script src="assets/hardware/gocube.js?v=0286" defer></script>
-	<script src="assets/hardware/gancube.js?v=0286" defer></script>
-	<script src="assets/hardware/moyucube.js?v=0286" defer></script>
-	<script src="assets/hardware/moyu32cube.js?v=0286" defer></script>
+	<script src="assets/hardware/gancube.js?v=1072" defer></script>
+	<script src="assets/hardware/moyucube.js?v=1072" defer></script>
+	<script src="assets/hardware/moyu32cube.js?v=1072" defer></script>
 	<script src="assets/hardware/qiyicube.js?v=0286" defer></script>
 
 	<link rel="stylesheet" href="assets/memory/memory.css?v=1597">
-	<script src="assets/app/main.js?v=1666" defer></script>
+	<script src="assets/app/main.js?v=1702" defer></script>
 	<script src="assets/app/ui.js?v=1543" defer></script>
 	<script src="assets/app/swipe.js?v=1526" defer></script>
 	<script src="assets/memory/memory.js?v=1597" defer></script>
@@ -51,7 +51,7 @@
 	<script src="assets/app/input.js?v=1526" defer></script>
 
 	<title>魔方训练</title>
-	<link rel="stylesheet" href="assets/app.css?v=1597">
+	<link rel="stylesheet" href="assets/app.css?v=1072">
 </head>
 <body>
 	<main class="appShell">
@@ -119,6 +119,7 @@
 			<div class="panelMain">
 			<header class="panelHead">
 				<button id="seamlessToggleBtn" class="seamlessToggle" type="button" title="切换无缝模式：色块变大无空隙，隐藏色块显示为不透明灰色"></button>
+				<button id="gyroToggleBtn" class="seamlessToggle gyroToggle" type="button" title="开启后虚拟魔方跟随实体魔方的整体转动（需魔方支持陀螺仪）"></button>
 				<button id="connectBtn" class="connectPill" type="button" title="点击连接或断开魔方"><span class="connectLabel">连接魔方</span></button><span id="statusPill" class="visuallyHidden" data-state="idle"></span>
 			</header>
 			<div class="panelContent">

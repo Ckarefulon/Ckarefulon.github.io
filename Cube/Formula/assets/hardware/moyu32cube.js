@@ -124,6 +124,14 @@ execMain(function() {
 		return sendSimpleRequest(164);
 	}
 
+	function requestCubeGyro() {
+		// opcode 172 + payload[2]=1：开启陀螺仪通知（WCU 协议）
+		var req = mathlib.valuedArray(20, 0);
+		req[0] = 172;
+		req[2] = 1;
+		return sendRequest(req);
+	}
+
 	function getManufacturerDataBytes(mfData) {
 		if (mfData instanceof DataView) { // this is workaround for Bluefy browser
 			return new DataView(mfData.buffer.slice(2));
@@ -230,6 +238,8 @@ execMain(function() {
 			return requestCubeStatus();
 		}).then(function () {
 			return requestCubePower();
+		}).then(function () {
+			return requestCubeGyro();
 		});
 	}
 
@@ -258,6 +268,10 @@ execMain(function() {
 	function parseData(value) {
 		var locTime = Date.now();
 		value = decode(value);
+		if (value[0] == 171) { // gyro
+			parseGyroData(value);
+			return;
+		}
 		for (var i = 0; i < value.length; i++) {
 			value[i] = (value[i] + 256).toString(2).slice(1);
 		}
@@ -304,6 +318,30 @@ execMain(function() {
 			}
 		// } else if (msgType == 171) { // gyro
 		}
+	}
+
+	function readInt32LE(data, off) {
+		return data[off] | data[off + 1] << 8 | data[off + 2] << 16 | data[off + 3] << 24;
+	}
+
+	function parseGyroData(data) {
+		if (data.length < 17) {
+			return;
+		}
+		// 包结构：字节 0 = 171，随后 w/x/y/z 四个 Int32（小端，2^30 定点）
+		var scale = 1073741824;
+		var qw = readInt32LE(data, 1) / scale;
+		var qx = readInt32LE(data, 5) / scale;
+		var qy = readInt32LE(data, 9) / scale;
+		var qz = readInt32LE(data, 13) / scale;
+		var n = Math.sqrt(qw * qw + qx * qx + qy * qy + qz * qz);
+		if (n > 0) {
+			qw /= n;
+			qx /= n;
+			qy /= n;
+			qz /= n;
+		}
+		GiikerCube.gyro(qx, qy, qz, qw, deviceName);
 	}
 
 	function updateMoveTimes(locTime) {

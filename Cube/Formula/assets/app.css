@@ -2797,6 +2797,9 @@
 		.panelHead .seamlessToggle::after {
 			content: "无缝";
 		}
+		.panelHead .gyroToggle::after {
+			content: "陀螺仪";
+		}
 		.visuallyHidden { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; padding:0; margin:-1px; }
 		.panelHead .connectPill {
 			min-height: 34px;

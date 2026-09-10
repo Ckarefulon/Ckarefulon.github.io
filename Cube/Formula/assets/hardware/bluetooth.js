@@ -153,6 +153,7 @@ function BtDeviceGroupFactory() {
 
 	var callback = function() {};
 	var evtCallback = function() {};
+	var gyroCallback = function() {};
 
 	return {
 		init: init,
@@ -165,6 +166,13 @@ function BtDeviceGroupFactory() {
 		},
 		setEventCallback: function(func) {
 			evtCallback = func;
+		},
+		// gyro(x, y, z, w, deviceName)：物理朝向四元数（右手系，+X 红、+Y 蓝、+Z 白）
+		setGyroCallback: function(func) {
+			gyroCallback = func || gyroCallback;
+		},
+		gyro: function() {
+			return gyroCallback.apply(null, arguments);
 		},
 		getCube: function() {
 			return cube || (DEBUGBL && {

@@ -52,6 +52,16 @@ execMain(function() {
 	function onGyroEvent(event) {
 		var value = event.target.value;
 		giikerutil.log('[moyucube] Received gyro event', value);
+		if (value.byteLength < 20) {
+			return;
+		}
+		// 包结构：4 字节头 + w/x/y/z 四个 Float32（小端）；y 取反后归一到 GAN 同款物理帧（+X 红、+Y 蓝、+Z 白）
+		var fw = value.getFloat32(4, true);
+		var fx = value.getFloat32(8, true);
+		var fy = value.getFloat32(12, true);
+		var fz = value.getFloat32(16, true);
+		var n = Math.sqrt(fw * fw + fx * fx + fy * fy + fz * fz) || 1;
+		GiikerCube.gyro(fx / n, -fy / n, fz / n, fw / n, _deviceName);
 	}
 
 	function onTurnEvent(event) {

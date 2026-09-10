@@ -74,6 +74,12 @@
 				manualMoveHistory: [],
 				viewYaw: 0,
 				viewPitch: 0,
+				gyroFollow: false,
+				gyroTargetQ: null,
+				gyroCurrentQ: null,
+				gyroYawOffset: 0,
+				gyroAnimFrame: null,
+				gyroLastT: 0,
 				hiddenStickerMask: {},
 				seamlessMode: false,
 				customCubeScene: null,
@@ -204,6 +210,7 @@
 						modeLabel: document.getElementById("modeLabel"),
 						modeMenu: document.getElementById("modeMenu"),
 						connectBtn: document.getElementById("connectBtn"),
+						gyroToggleBtn: document.getElementById("gyroToggleBtn"),
 						resetBtn: document.getElementById("resetBtn"),
 						seamlessToggleBtn: document.getElementById("seamlessToggleBtn"),
 						exportFormulaBtn: document.getElementById("exportFormulaBtn"),
@@ -281,6 +288,11 @@
 						this.syncHiddenLook();
 					}
 					this.resizeTwisty();
+					// 场景重建后（重置视图/切模式），陀螺仪跟随从正面向目标姿态平滑恢复；校准角不清空
+					if (this.gyroFollow && this.gyroTargetQ) {
+						this.gyroCurrentQ = [0, 0, 0, 1];
+						this.startGyroAnimation();
+					}
 				},
 
 				resizeSceneToStage: function(scene, stage) {
@@ -1130,6 +1142,11 @@
 						if (self.seamlessMode) {
 							element.classList.add("isActive");
 						}
+					});
+					this.bindOnce(this.elements.gyroToggleBtn, "smartBound", function(element) {
+						element.addEventListener("click", function() {
+							self.toggleGyroFollow();
+						});
 					});
 					this.bindOnce(this.elements.customFinalStateBtn, "smartBound", function(element) {
 						element.addEventListener("click", function() {
@@ -4467,6 +4484,10 @@
 						if (!move) {
 							continue;
 						}
+						if (this.gyroFollow && move.type === "orientation") {
+							// 陀螺仪跟随开启时，x/y/z 不产生任何作用（含状态恢复/公式回放路径）
+							continue;
+						}
 						move = this.mapManualMove(move);
 						moves.push(move.twisty);
 						if (trackVirtualState) {
@@ -4489,20 +4510,40 @@
 						yaw: 0,
 						pitch: 0
 					};
+					// 陀螺仪开启时的校准拖动：只水平、无角度限制，调的是偏航校准角
+					var cal = {
+						active: false,
+						x: 0,
+						offset: 0
+					};
 					this.elements.cubeStage.addEventListener("pointerdown", function(event) {
 						if (event.button !== 0) {
 							return;
 						}
-						drag.active = true;
-						drag.x = event.clientX;
-						drag.y = event.clientY;
-						drag.yaw = self.viewYaw;
-						drag.pitch = self.viewPitch;
+						if (self.gyroFollow) {
+							cal.active = true;
+							cal.x = event.clientX;
+							cal.offset = self.gyroYawOffset;
+						} else {
+							drag.active = true;
+							drag.x = event.clientX;
+							drag.y = event.clientY;
+							drag.yaw = self.viewYaw;
+							drag.pitch = self.viewPitch;
+						}
 						self.elements.cubeStage.classList.add("isDragging");
 						self.elements.cubeStage.setPointerCapture(event.pointerId);
 						event.preventDefault();
 					});
 					this.elements.cubeStage.addEventListener("pointermove", function(event) {
+						if (cal.active) {
+							var calRect = self.elements.cubeStage.getBoundingClientRect();
+							var calSpan = Math.max(140, Math.min(calRect.width, calRect.height) * 0.45);
+							self.gyroYawOffset = cal.offset + (event.clientX - cal.x) * ((Math.PI / 4) / calSpan);
+							self.startGyroAnimation();
+							event.preventDefault();
+							return;
+						}
 						if (!drag.active) {
 							return;
 						}
@@ -4515,10 +4556,11 @@
 					});
 					["pointerup", "pointercancel", "pointerleave"].forEach(function(type) {
 						self.elements.cubeStage.addEventListener(type, function(event) {
-							if (!drag.active) {
+							if (!drag.active && !cal.active) {
 								return;
 							}
 							drag.active = false;
+							cal.active = false;
 							self.elements.cubeStage.classList.remove("isDragging");
 							try {
 								self.elements.cubeStage.releasePointerCapture(event.pointerId);
@@ -4557,6 +4599,151 @@
 					}
 				},
 
+				toggleGyroFollow: function() {
+					this.gyroFollow = !this.gyroFollow;
+					if (this.elements.gyroToggleBtn) {
+						this.elements.gyroToggleBtn.classList.toggle("isActive", this.gyroFollow);
+					}
+					if (this.gyroFollow) {
+						// 从当前正面向已收到的姿态平滑过渡；校准角在连接期间一直保留
+						if (this.gyroTargetQ) {
+							this.gyroCurrentQ = [0, 0, 0, 1];
+							this.startGyroAnimation();
+						}
+					} else {
+						this.resetGyroRotation();
+					}
+					this.log("bluetooth", this.gyroFollow ? "陀螺仪跟随已开启" : "陀螺仪跟随已关闭");
+				},
+
+				resetGyroRotation: function() {
+					this.stopGyroAnimation();
+					this.gyroCurrentQ = null;
+					var twisty = this.twistyScene && this.twistyScene.getTwisty ? this.twistyScene.getTwisty() : null;
+					if (!twisty || !twisty._3d) {
+						return;
+					}
+					twisty._3d.useQuaternion = true;
+					twisty._3d.quaternion.set(0, 0, 0, 1);
+					if (this.twistyScene.render) {
+						this.twistyScene.render();
+					}
+				},
+
+				// 断开连接：姿态目标与校准角一并失效（只在连接期间记忆）
+				clearGyroSession: function() {
+					this.gyroTargetQ = null;
+					this.gyroCurrentQ = null;
+					this.gyroYawOffset = 0;
+				},
+
+				// 物理帧四元数（+X 红、+Y 蓝、+Z 白）→ 场景帧（R=+X、U=+Y、F=+Z）：
+				// 轴对应 x→x、z→y、y→−z，共轭化简后向量部分直接置换 (x, y, z, w) → (x, z, −y, w)，
+				// 再左乘校准偏航（绕场景竖直轴，水平拖动设定，不限角度）
+				computeGyroSceneQuat: function() {
+					var q = this.gyroTargetQ;
+					var sx = q[0];
+					var sy = q[2];
+					var sz = -q[1];
+					var sw = q[3];
+					if (this.gyroYawOffset) {
+						var half = this.gyroYawOffset / 2;
+						var c = Math.cos(half);
+						var s = Math.sin(half);
+						return [
+							c * sx + s * sz,
+							c * sy + s * sw,
+							c * sz - s * sx,
+							c * sw - s * sy
+						];
+					}
+					return [sx, sy, sz, sw];
+				},
+
+				slerpQuat: function(a, b, t) {
+					var dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+					var bx = b[0];
+					var by = b[1];
+					var bz = b[2];
+					var bw = b[3];
+					if (dot < 0) {
+						bx = -bx;
+						by = -by;
+						bz = -bz;
+						bw = -bw;
+						dot = -dot;
+					}
+					var k0;
+					var k1;
+					if (dot > 0.9995) {
+						k0 = 1 - t;
+						k1 = t;
+					} else {
+						var theta = Math.acos(Math.min(1, dot));
+						var sinTheta = Math.sin(theta);
+						k0 = Math.sin((1 - t) * theta) / sinTheta;
+						k1 = Math.sin(t * theta) / sinTheta;
+					}
+					return [
+						a[0] * k0 + bx * k1,
+						a[1] * k0 + by * k1,
+						a[2] * k0 + bz * k1,
+						a[3] * k0 + bw * k1
+					];
+				},
+
+				startGyroAnimation: function() {
+					if (this.gyroAnimFrame || !this.gyroTargetQ) {
+						return;
+					}
+					var self = this;
+					var step = function(now) {
+						self.gyroAnimFrame = null;
+						var twisty = self.twistyScene && self.twistyScene.getTwisty ? self.twistyScene.getTwisty() : null;
+						var target = self.gyroTargetQ && self.gyroFollow ? self.computeGyroSceneQuat() : null;
+						if (!twisty || !twisty._3d || !target) {
+							return;
+						}
+						if (!self.gyroCurrentQ) {
+							self.gyroCurrentQ = [0, 0, 0, 1];
+						}
+						var cur = self.gyroCurrentQ;
+						var dot = cur[0] * target[0] + cur[1] * target[1] + cur[2] * target[2] + cur[3] * target[3];
+						if (Math.abs(dot) > 0.99995) {
+							// 已收敛：贴住目标并停止动画，等下一包/拖动再启动
+							self.gyroCurrentQ = [target[0], target[1], target[2], target[3]];
+						} else {
+							var dt = self.gyroLastT ? Math.min(0.05, (now - self.gyroLastT) / 1000) : 0.016;
+							var k = 1 - Math.exp(-dt * 16);
+							self.gyroCurrentQ = self.slerpQuat(cur, target, k);
+							self.gyroLastT = now;
+							self.gyroAnimFrame = window.requestAnimationFrame(step);
+						}
+						twisty._3d.useQuaternion = true;
+						twisty._3d.quaternion.set(self.gyroCurrentQ[0], self.gyroCurrentQ[1], self.gyroCurrentQ[2], self.gyroCurrentQ[3]);
+						if (self.twistyScene.render) {
+							self.twistyScene.render();
+						}
+					};
+					this.gyroLastT = 0;
+					this.gyroAnimFrame = window.requestAnimationFrame(step);
+				},
+
+				stopGyroAnimation: function() {
+					if (this.gyroAnimFrame) {
+						window.cancelAnimationFrame(this.gyroAnimFrame);
+						this.gyroAnimFrame = null;
+					}
+				},
+
+				onCubeGyro: function(x, y, z, w) {
+					if (!this.gyroFollow) {
+						return;
+					}
+					this.gyroTargetQ = [x, y, z, w];
+					this.startGyroAnimation();
+				},
+
 				connect: function() {
 					var self = this;
 					if (!window.GiikerCube) {
@@ -4574,6 +4761,9 @@
 					GiikerCube.setCallback(function(facelet, prevMoves, lastTs, hardware) {
 						self.onCubeCallback(facelet, prevMoves, lastTs, hardware);
 					});
+					GiikerCube.setGyroCallback(function(x, y, z, w, hardware) {
+						self.onCubeGyro(x, y, z, w, hardware);
+					});
 					GiikerCube.setEventCallback(function(info) {
 						if (info === "disconnect") {
 							self.connected = false;
@@ -4583,6 +4773,12 @@
 							self.setConnectLabel("连接魔方");
 							self.elements.connectBtn.classList.remove("isActive");
 							self.setStatus("idle", "已断开");
+							self.gyroFollow = false;
+							if (self.elements.gyroToggleBtn) {
+								self.elements.gyroToggleBtn.classList.remove("isActive");
+							}
+							self.clearGyroSession();
+							self.resetGyroRotation();
 							self.log("bluetooth", "设备连接已断开");
 						}
 					});
@@ -4618,6 +4814,12 @@
 						self.elements.connectBtn.classList.remove("isActive");
 						self.elements.connectBtn.disabled = false;
 						self.setStatus("idle", "未连接");
+						self.gyroFollow = false;
+						if (self.elements.gyroToggleBtn) {
+							self.elements.gyroToggleBtn.classList.remove("isActive");
+						}
+						self.clearGyroSession();
+						self.resetGyroRotation();
 					});
 				},
 
@@ -4792,11 +4994,14 @@
 				},
 
 				playCubeSliceMove: function(slice, rawMoves, source, timestamp, facelet) {
+					// 陀螺仪跟随下：整体转体由陀螺仪呈现，动画按两个外层转动播放，
+					// 与陀螺仪转体合成完整的中层效果（记录仍为中层 M/S/E）；普通模式播中层动画不变
+					var sliceAnimation = !this.gyroFollow;
 					for (var i = 0; i < rawMoves.length; i++) {
 						this.playMove(rawMoves[i], source, timestamp, {
 							fromCube: true,
 							silent: true,
-							noAnimation: true,
+							noAnimation: sliceAnimation,
 							noHistory: true,
 							noFormula: true,
 							noCount: true
@@ -4810,7 +5015,8 @@
 						noCount: true
 					});
 					this.displaySliceMove(this.normalizeMove(slice.text), source, timestamp, {
-						fromCube: true
+						fromCube: true,
+						noAnimation: this.gyroFollow
 					});
 					this.updateSolveDetection(facelet, true);
 				},
@@ -4914,6 +5120,10 @@
 						move = this.mapManualMove(move);
 					}
 					if (move.type === "orientation") {
+						if (this.gyroFollow) {
+							// 陀螺仪跟随开启时，x/y/z 整体转动完全失效（无动画、无朝向、无记录），朝向由陀螺仪接管
+							return null;
+						}
 						this.applyOrientationMove(move, options);
 						if (!options.noHistory && !options.silent) {
 							this.pushHistory(move.text, source, timestamp);
