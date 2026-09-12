@@ -1,8 +1,17 @@
 <!DOCTYPE html>
-<html lang="zh-CN" class="light">
+<html lang="zh-CN" class="light" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="/nav/nav.css?v=8">
+    <script src="/nav/nav.js?v=8" defer></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+    <script src="/supabase/supabase-config.js?v=0618" defer></script>
+    <script src="/supabase/supabase-client.js?v=0618" defer></script>
+    <script src="/supabase/auth-manager.js?v=0677" defer></script>
+
     <title>紫青设计系统 · Design System</title>
     <style id="theme-vars">
 /* ============================================================
@@ -65,6 +74,10 @@
   --dsk-foreground: #e8e8f4;
   --dsk-foreground-muted: #a0a3b8;
   --dsk-foreground-subtle: #6e7088;
+
+  /* Site nav tokens */
+  --surfaceSolid: #161328;
+  --line: #2e2c44;
 
   --dsk-card: #1a1829;
   --dsk-card-foreground: #ececf6;
@@ -147,6 +160,10 @@
 /* ---------- Light Mode Overrides ---------- */
 :root[data-theme="light"] {
   color-scheme: light;
+
+  /* Site nav tokens */
+  --surfaceSolid: #ffffff;
+  --line: #d5d8e5;
 
   --dsk-background: #f7f8fc;
   --dsk-background-elevated: #ffffff;
@@ -1871,26 +1888,44 @@
 
         function updateIcon() {
           const isLight = html.getAttribute('data-theme') === 'light';
-          if (themeIcon) {
-            themeIcon.setAttribute('data-lucide', isLight ? 'moon' : 'sun');
+          // lucide 会把 <i> 替换为 <svg>（id 保留），每次需按 id 重新取节点
+          const icon = document.getElementById('themeIcon');
+          if (icon) {
+            icon.setAttribute('data-lucide', isLight ? 'moon' : 'sun');
+          }
+        }
+
+        function applyTheme(theme) {
+          // 深色也要显式标记：nav.js 以 data-theme 缺失=浅色 来判断切换方向
+          html.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
+          updateIcon();
+          const navThemeBtn = document.getElementById('siteThemeToggle');
+          if (navThemeBtn) {
+            navThemeBtn.textContent = theme === 'light' ? '☾' : '☀';
+          }
+          if (window.lucide) {
+            lucide.createIcons();
           }
         }
 
         toggleBtn.addEventListener('click', function() {
-          const isLight = html.getAttribute('data-theme') === 'light';
-          if (isLight) {
-            html.removeAttribute('data-theme');
-          } else {
-            html.setAttribute('data-theme', 'light');
-          }
-          updateIcon();
-          if (window.lucide) {
-            lucide.createIcons();
-          }
+          applyTheme(html.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
         });
 
         // Initialize icon (default dark mode)
         updateIcon();
+
+        // Site nav（与顶栏主题切换联动）
+        function initSiteNav() {
+          if (window.siteNav && typeof window.siteNav.init === 'function') {
+            window.siteNav.init({ setTheme: applyTheme });
+          }
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initSiteNav);
+        } else {
+          initSiteNav();
+        }
       })();
 
       // ============================================================
@@ -1949,6 +1984,8 @@
 
       html { scroll-behavior: smooth; }
 
+      [id] { scroll-margin-top: calc(var(--site-nav-height, 44px) + 16px); }
+
       body {
         font-family: var(--dsk-font-sans);
         background: var(--dsk-page-bg);
@@ -1986,9 +2023,9 @@
       /* ---------- Sidebar Navigation ---------- */
       .ds-sidebar {
         position: sticky;
-        top: 24px;
+        top: calc(var(--site-nav-height, 44px) + 24px);
         align-self: start;
-        max-height: calc(100vh - 48px);
+        max-height: calc(100vh - var(--site-nav-height, 44px) - 48px);
         overflow-y: auto;
       }
 

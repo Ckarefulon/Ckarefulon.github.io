@@ -792,7 +792,9 @@
 
 	/* ---------------- 记录（历史） ---------------- */
 	var RECORDS_KEY = 'crossRecords';
-	var RECORD_SCOPE = 'Cube-Cross';
+	function recordScope() {
+		return window.getCurrentSiteScope ? window.getCurrentSiteScope() : 'Cube-Cross';
+	}
 	var recState = {
 		list: [],        // 全部记录
 		filter: 0,       // 0 = 全部，1-8 = 按步数筛选
@@ -1072,7 +1074,7 @@
 		renderRecStars();
 	}
 
-	/* ---------------- 记录云同步（Supabase user_data · site_scope=Cube-Cross） ---------------- */
+	/* ---------------- 记录云同步（Supabase user_data · site_scope 由共享 site-scope 提供） ---------------- */
 	function setRecCloud(text) {
 		if (el.recCloud) { el.recCloud.textContent = text; }
 	}
@@ -1097,7 +1099,7 @@
 		client.from('user_data')
 			.select('data')
 			.eq('user_id', user.id)
-			.eq('site_scope', RECORD_SCOPE)
+			.eq('site_scope', recordScope())
 			.maybeSingle()
 			.then(function (result) {
 				if (result.error || !result.data || !result.data.data) { return; }
@@ -1137,7 +1139,7 @@
 				.from('user_data')
 				.upsert({
 					user_id: user.id,
-					site_scope: RECORD_SCOPE,
+					site_scope: recordScope(),
 					data: { version: 1, exportedAt: new Date().toISOString(), records: recState.list },
 					updated_at: new Date().toISOString()
 				}, { onConflict: 'user_id,site_scope' })

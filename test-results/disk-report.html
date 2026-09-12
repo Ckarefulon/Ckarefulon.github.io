@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C 盘空间诊断报告</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d2129; --line:#2a2f3a;
+    --txt:#e6e9ef; --dim:#9aa3b2; --dim2:#6b7484;
+    --red:#ff5f56; --amber:#f5a524; --green:#3ddc84; --blue:#4b9fff;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--txt);
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    line-height:1.6; padding:32px 20px 64px;
+  }
+  .wrap{max-width:960px;margin:0 auto}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:.5px}
+  .sub{color:var(--dim);font-size:14px;margin-bottom:28px}
+  .verdict{
+    background:linear-gradient(135deg,#2a1618,#1d2129);
+    border:1px solid #4a2226; border-left:4px solid var(--red);
+    border-radius:12px; padding:20px 22px; margin-bottom:26px;
+  }
+  .verdict h2{margin:0 0 10px;font-size:17px;color:#ffb3ae}
+  .verdict p{margin:0;color:#e8d9d8;font-size:15px}
+  .verdict b{color:#fff}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:28px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card .k{color:var(--dim);font-size:12px;letter-spacing:1px;text-transform:uppercase}
+  .card .v{font-size:26px;font-weight:600;margin-top:4px}
+  .card .n{color:var(--dim2);font-size:12px;margin-top:2px}
+  .bar{
+    height:10px;border-radius:6px;background:#232830;overflow:hidden;margin-top:10px;display:flex
+  }
+  .bar i{display:block;height:100%}
+  h3{font-size:16px;margin:30px 0 14px;padding-left:10px;border-left:3px solid var(--blue)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:left;color:var(--dim);font-weight:500;font-size:12px;letter-spacing:.5px;padding:8px 10px;border-bottom:1px solid var(--line)}
+  td{padding:9px 10px;border-bottom:1px solid #20242c;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  .num{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--txt)}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;white-space:nowrap}
+  .t-red{background:#3a1b1e;color:#ff8b84;border:1px solid #5a2a2e}
+  .t-amber{background:#3a2e15;color:#f5c26b;border:1px solid #5c4620}
+  .t-green{background:#16301f;color:#6ee7a0;border:1px solid #27543a}
+  .t-blue{background:#162b40;color:#7cb8ff;border:1px solid #24486b}
+  .t-gray{background:#242832;color:#9aa3b2;border:1px solid #343a45}
+  .track{background:#232830;border-radius:6px;height:8px;position:relative;min-width:90px}
+  .track i{position:absolute;left:0;top:0;height:100%;border-radius:6px;background:linear-gradient(90deg,#4b9fff,#7cb8ff)}
+  .track.hot i{background:linear-gradient(90deg,#ff5f56,#ff9a94)}
+  .track.warm i{background:linear-gradient(90deg,#f5a524,#f5c26b)}
+  .tl{position:relative;padding-left:26px;margin-top:8px}
+  .tl:before{content:"";position:absolute;left:7px;top:6px;bottom:6px;width:2px;background:var(--line)}
+  .tl .it{position:relative;margin-bottom:16px}
+  .tl .it:before{content:"";position:absolute;left:-23px;top:7px;width:10px;height:10px;border-radius:50%;background:var(--blue);box-shadow:0 0 0 3px #162b40}
+  .tl .d{font-size:12px;color:var(--dim2)}
+  .tl .m{font-size:14px}
+  .note{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:14px;color:var(--dim);margin-top:14px}
+  .note b{color:var(--txt)}
+  code{background:#0b0d11;border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:13px;color:#c9d4e4;font-family:Consolas,Menlo,monospace}
+  .foot{margin-top:36px;color:var(--dim2);font-size:12px;border-top:1px solid var(--line);padding-top:14px}
+  ul{margin:8px 0 0;padding-left:20px;color:var(--dim);font-size:14px}
+  li{margin-bottom:6px}
+  li b{color:var(--txt)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>C 盘空间诊断报告</h1>
+  <div class="sub">扫描时间 2026-09-10 23:4x &nbsp;·&nbsp; 范围 <code>C:\</code> &nbsp;·&nbsp; 只读扫描，未改动任何文件</div>
+
+  <div class="verdict">
+    <h2>结论：不是被谁"偷偷塞了东西"，是 Windows 自己在升级</h2>
+    <p>过去两周里，系统在准备一次 <b>Windows 11 功能更新（Insider Dev 通道）</b>，把 <b>约 33 GB</b> 的安装包铺在了两个系统缓存目录里。你的 C 盘只有 278 GB，这 33 GB 就是"突然变红"的直接原因。</p>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="k">总容量</div>
+      <div class="v">278.3 <span style="font-size:14px;color:var(--dim)">GB</span></div>
+      <div class="n">C: 分区</div>
+    </div>
+    <div class="card">
+      <div class="k">剩余</div>
+      <div class="v" style="color:var(--red)">15.5 <span style="font-size:14px;color:var(--dim)">GB</span></div>
+      <div class="n">低于 10% 安全线</div>
+    </div>
+    <div class="card">
+      <div class="k">已用</div>
+      <div class="v" style="color:var(--amber)">94.4%</div>
+      <div class="bar">
+        <i style="width:94.4%;background:linear-gradient(90deg,#f5a524,#ff5f56)"></i>
+      </div>
+      <div class="n">所以资源管理器里显示红色</div>
+    </div>
+    <div class="card">
+      <div class="k">近两周新增</div>
+      <div class="v" style="color:var(--red)">~33 <span style="font-size:14px;color:var(--dim)">GB</span></div>
+      <div class="n">全部来自系统升级</div>
+    </div>
+  </div>
+
+  <h3>占用排行（可释放空间标红）</h3>
+  <table>
+    <thead>
+      <tr><th style="width:44%">位置</th><th style="width:12%">大小</th><th style="width:16%">占比</th><th>性质</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>C:\$WINDOWS.~BT</code></td>
+        <td class="num" style="color:#ff8b84;font-weight:600">23.56 GB</td>
+        <td><div class="track hot"><i style="width:100%"></i></div></td>
+        <td><span class="tag t-red">元凶 · 升级暂存</span></td>
+      </tr>
+      <tr>
+        <td><code>C:\Users\Vxiao\CrossDevice\荣耀600 元气版</code></td>
+        <td class="num" style="color:#ff8b84;font-weight:600">15.72 GB</td>
+        <td><div class="track hot"><i style="width:67%"></i></div></td>
+        <td><span class="tag t-red">手机传输残留</span></td>
+      </tr>
+      <tr>
+        <td><code>C:\Windows\SoftwareDistribution\Download</code></td>
+        <td class="num" style="color:#ff8b84;font-weight:600">10.16 GB</td>
+        <td><div class="track hot"><i style="width:43%"></i></div></td>
+        <td><span class="tag t-red">元凶 · 更新下载缓存</span></td>
+      </tr>
+      <tr>
+        <td><code>C:\$Recycle.Bin</code>（回收站）</td>
+        <td class="num" style="color:#f5c26b;font-weight:600">9.47 GB</td>
+        <td><div class="track warm"><i style="width:40%"></i></div></td>
+        <td><span class="tag t-amber">已删除未清空</span></td>
+      </tr>
+      <tr>
+        <td><code>C:\Program Files</code></td>
+        <td class="num">35.84 GB</td>
+        <td><div class="track"><i style="width:100%"></i></div></td>
+        <td><span class="tag t-gray">正常安装的软件</span></td>
+      </tr>
+      <tr>
+        <td><code>C:\Windows</code></td>
+        <td class="num">34.31 GB</td>
+        <td><div class="track"><i style="width:96%"></i></div></td>
+        <td><span class="tag t-gray">系统本体</span></td>
+      </tr>
+      <tr>
+        <td><code>C:\ProgramData</code></td>
+        <td class="num">9.12 GB</td>
+        <td><div class="track"><i style="width:26%"></i></div></td>
+        <td><span class="tag t-gray">公共数据</span></td>
+      </tr>
+      <tr>
+        <td><code>C:\Program Files (x86)</code></td>
+        <td class="num">11.51 GB</td>
+        <td><div class="track"><i style="width:32%"></i></div></td>
+        <td><span class="tag t-gray">32 位软件</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>时间线：它是怎么长出来的</h3>
+  <div class="tl">
+    <div class="it"><div class="d">8 月 29 日</div><div class="m">Windows 开始下载功能更新，<code>$WINDOWS.~BT</code> 被创建（bootmgr、setup.exe 落地）</div></div>
+    <div class="it"><div class="d">9 月 9 日 14:43 – 15:48</div><div class="m">升级进入部署阶段：扫描、迁移日志、写入 <code>NewOS</code>（21.45 GB）</div></div>
+    <div class="it"><div class="d">9 月 9 日 14:33</div><div class="m">更新包 <code>professional_zh-cn.esd</code>（0.67 GB）下载到 SoftwareDistribution</div></div>
+    <div class="it"><div class="d">9 月 10 日 21:14</div><div class="m">再次写入 <code>NewSystem.dat</code>、刷新日志 —— 升级流程仍在推进</div></div>
+    <div class="it"><div class="d">现在</div><div class="m">系统处于 <b style="color:#f5c26b">等待重启完成更新</b> 状态（RebootRequired = True）</div></div>
+  </div>
+
+  <div class="note">
+    <b>系统版本：</b>Microsoft Windows 11 专业版 <b>Insider Preview</b>（Dev 通道，Build 29648）<br>
+    <b>注意：</b>这是 Insider 预览版，功能更新频繁且体积大，<code>$WINDOWS.~BT</code> 会反复出现。
+  </div>
+
+  <h3>关于你说的「回收站里一堆 __PS 什么什么的」</h3>
+  <div class="note" style="border-color:#27543a;background:#131d17">
+    <b>它是什么：</b>全名 <code>__PSScriptPolicyTest_xxxxxxxx.xxxx.ps1</code> / <code>.psm1</code>。<br>
+    PowerShell 每次执行脚本前，会先写一个空文件去"试探"本机的执行策略，试探完本该自动删除 —— 偶尔删不掉，就留在了临时目录，最后被你清进了回收站。<br><br>
+    <b>它是垃圾吗：</b>是，100% 无害，不含任何你的数据。<br>
+    <b>数量：</b>回收站里共 <b>1082 个</b><br>
+    <b>总体积：</b><b style="color:#f5c26b">63.4 KB</b>
+  </div>
+  <div class="note">
+    ⚠️ <b>但删了它，对红盘毫无帮助</b> —— 1082 个文件加起来只有 63 KB。真正吃空间的是上面表格里标红的三项。我还没有动手删除任何东西。
+  </div>
+
+  <h3>建议处置（按性价比排序）</h3>
+  <table>
+    <thead><tr><th style="width:38%">动作</th><th style="width:14%">可释放</th><th>风险 / 说明</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>让更新装完（重启）</b><br><span style="color:var(--dim2);font-size:12px">然后清理升级残留</span></td>
+        <td class="num" style="color:#6ee7a0;font-weight:600">~23.6 GB</td>
+        <td><span class="tag t-green">推荐</span> 系统已等重启。装完后 <code>$WINDOWS.~BT</code> 会自动被回收</td>
+      </tr>
+      <tr>
+        <td><b>清空回收站</b></td>
+        <td class="num" style="color:#6ee7a0;font-weight:600">~9.5 GB</td>
+        <td><span class="tag t-amber">不可逆</span> 里面多为已删的 OneDrive 旧文件；确认不需要再清</td>
+      </tr>
+      <tr>
+        <td><b>删手机传输目录</b><br><span style="color:var(--dim2);font-size:12px">CrossDevice / 荣耀600 元气版</span></td>
+        <td class="num" style="color:#6ee7a0;font-weight:600">~15.7 GB</td>
+        <td><span class="tag t-amber">先确认</span> 建议先看看有没有要留的照片/视频</td>
+      </tr>
+      <tr>
+        <td><b>清理 Windows Update 缓存</b></td>
+        <td class="num" style="color:#6ee7a0;font-weight:600">~10 GB</td>
+        <td><span class="tag t-red">需先取消更新</span> 升级完之前别动，否则更新会重下</td>
+      </tr>
+      <tr>
+        <td>删除那 1082 个 <code>__PS</code> 垃圾</td>
+        <td class="num" style="color:var(--dim2)">63 KB</td>
+        <td><span class="tag t-gray">象征意义</span> 纯属让回收站干净一点</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="foot">
+    本报告由只读扫描生成，未移动、重命名或删除任何文件。<br>
+    所有删除动作都会在你明确确认后才执行。
+  </div>
+
+</div>
+</body>
+</html>

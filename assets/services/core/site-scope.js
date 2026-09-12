@@ -2,11 +2,12 @@
 	"use strict";
 
 	/**
-	 * siteScope - ͳһվ��������
+	 * siteScope - 统一站点作用域
 	 *
-	 * ��ǰվ��ᰴ·��ӳ�䵽��Ӧ�� site scope��
-	 * Cube/Formula �� Cube/Formula/Beta ���� Cube-Formula��
-	 * Tools/Relay ���� Tools-Relay��
+	 * 当前站点按路径映射到对应的 site scope。
+	 * Cube/Formula 及 Cube/Formula/Beta 归入 Cube-Formula。
+	 * Cube/Analyzer 归入 Cube-Analyzer，Cube/Cross 归入 Cube-Cross。
+	 * Tools/Relay 归入 Tools-Relay，Tools/Pulse 归入 Tools-Pulse。
 	 */
 
 	function normalizePathname(pathname) {
@@ -21,6 +22,12 @@
 		if (path.indexOf("/Tools/Relay") === 0) {
 			return "Tools-Relay";
 		}
+		if (path.indexOf("/Cube/Cross") === 0) {
+			return "Cube-Cross";
+		}
+		if (path.indexOf("/Cube/Analyzer") === 0) {
+			return "Cube-Analyzer";
+		}
 		if (path === "/Cube/Formula" || path === "/Cube/Formula/Beta") {
 			return "Cube-Formula";
 		}
@@ -34,6 +41,12 @@
 		}
 		if (path.indexOf("/Tools/Relay") === 0) {
 			return "/Tools/Relay";
+		}
+		if (path.indexOf("/Cube/Cross") === 0) {
+			return "/Cube/Cross";
+		}
+		if (path.indexOf("/Cube/Analyzer") === 0) {
+			return "/Cube/Analyzer";
 		}
 		if (path === "/Cube/Formula" || path === "/Cube/Formula/Beta") {
 			return "/Cube/Formula";
