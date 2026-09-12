@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自习打卡</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="focus.css?v=1">
+<!-- 站点导航栏（登录态由 nav 触发 authManager.init，必须先于云同步） -->
+<link rel="stylesheet" href="/nav/nav.css?v=8">
+<script src="/nav/nav.js?v=8" defer></script>
+<!-- 云同步（Supabase，登录态与 Formula 共享） -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+<script src="/supabase/supabase-config.js?v=0618" defer></script>
+<script src="/supabase/supabase-client.js?v=0618" defer></script>
+<script src="/supabase/auth-manager.js?v=0677" defer></script>
+<script src="/assets/services/core/site-scope.js?v=0912" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">自习打卡</div>
+    <div class="headRight">
+      <span class="cloudTag" id="cloudState" data-state="local">本地</span>
+      <span class="streak">连续 <b id="streakNum">0</b> 天</span>
+    </div>
+  </header>
+
+  <section class="card hero">
+    <div class="status" id="statusText">准备开始</div>
+    <div class="big" id="bigTime">00:00:00</div>
+    <div class="sub" id="subText">今日已自习</div>
+    <div class="actions">
+      <button id="btnStart" class="btn primary">开始自习</button>
+      <button id="btnEnd" class="btn danger hidden">结束自习</button>
+      <button id="btnGiveup" class="btn ghost hidden">放弃</button>
+    </div>
+    <div class="goalbar">
+      <div class="goalbar-track"><div class="goalbar-fill" id="goalFill"></div></div>
+      <div class="goalbar-text" id="goalText">今日 0 分钟 · 目标 <span class="goal-edit" id="goalEdit" title="点击调整每日目标">2 小时</span><input type="number" id="goalInput" class="hidden" min="15" max="720" step="5"></div>
+    </div>
+  </section>
+
+  <section class="stats">
+    <div class="stat"><div class="v" id="stToday">0分</div><div class="l">今日</div></div>
+    <div class="stat"><div class="v" id="stWeek">0分</div><div class="l">本周</div></div>
+    <div class="stat"><div class="v" id="stMonth">0分</div><div class="l">本月</div></div>
+    <div class="stat"><div class="v" id="stTotal">0分</div><div class="l">累计</div></div>
+    <div class="stat"><div class="v" id="stDays">0</div><div class="l">天数</div></div>
+  </section>
+
+  <section class="card">
+    <div class="cal-head">
+      <button class="navbtn" id="calPrev">&lsaquo;</button>
+      <div class="cal-title" id="calTitle"></div>
+      <button class="navbtn" id="calNext">&rsaquo;</button>
+    </div>
+    <div class="cal-week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="day-detail">
+      <div class="divider"></div>
+      <div id="dayDetail"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="chart-head">近 7 天</div>
+    <div class="chart" id="chart"></div>
+  </section>
+
+  <section class="card tools">
+    <button class="tool" id="btnExport">导出数据</button>
+    <button class="tool" id="btnImport">导入数据</button>
+    <button class="tool" id="btnClear">清空数据</button>
+    <input type="file" id="fileImport" accept=".json,application/json" hidden>
+  </section>
+</div>
+<div id="toast"></div>
+
+<script src="focus-app.js?v=3" defer></script>
+</body>
+</html>

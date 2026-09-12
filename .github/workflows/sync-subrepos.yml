@@ -10,9 +10,11 @@ on:
       - 'Tools/Relay/**'
       - 'Cube/Cross/**'
       - 'Cube/Formula/**'
+      - 'Cube/Analyzer/**'
       - 'Cube/Music/**'
       - 'Tools/KGenesis/**'
       - 'Tools/Pulse/**'
+      - 'Study/Focus**'
 
 jobs:
   sync:
@@ -27,12 +29,16 @@ jobs:
             source_path: Cube/Cross
           - target_repo: Cube-Formula
             source_path: Cube/Formula
+          - target_repo: Cube-Analyzer
+            source_path: Cube/Analyzer
           - target_repo: Cube-Music
             source_path: Cube/Music
           - target_repo: Tools-KGenesis
             source_path: Tools/KGenesis
           - target_repo: Tools-Pulse
             source_path: Tools/Pulse
+          - target_repo: Study-Focus
+            source_path: Study/Focus
 
     steps:
       - name: Checkout source repository
