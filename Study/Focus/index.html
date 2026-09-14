@@ -69,14 +69,41 @@
   </section>
 
   <section class="card tools">
+    <button class="tool" id="btnManual">手动补录</button>
     <button class="tool" id="btnExport">导出数据</button>
     <button class="tool" id="btnImport">导入数据</button>
     <button class="tool" id="btnClear">清空数据</button>
     <input type="file" id="fileImport" accept=".json,application/json" hidden>
   </section>
 </div>
+
+<div class="editModal" id="editModal" aria-hidden="true">
+  <div class="editModalMask" id="editModalMask"></div>
+  <div class="editModalBox" role="dialog" aria-modal="true" aria-label="记录时间">
+    <div class="editModalHead"><span id="editTitle">补录记录</span></div>
+    <label class="editField">
+      <span>开始时间</span>
+      <input type="datetime-local" id="editStart">
+    </label>
+    <label class="editField">
+      <span>结束时间</span>
+      <input type="datetime-local" id="editEnd">
+    </label>
+    <div class="editQuick">
+      <button class="qbtn" type="button" data-min="30">30 分</button>
+      <button class="qbtn" type="button" data-min="60">1 小时</button>
+      <button class="qbtn" type="button" data-min="90">1.5 小时</button>
+      <button class="qbtn" type="button" data-min="120">2 小时</button>
+    </div>
+    <div class="editErr" id="editErr"></div>
+    <div class="editActions">
+      <button class="btn ghost" type="button" id="editCancel">取消</button>
+      <button class="btn primary" type="button" id="editSave">保存</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 
-<script src="focus-app.js?v=3" defer></script>
+<script src="focus-app.js?v=4" defer></script>
 </body>
 </html>

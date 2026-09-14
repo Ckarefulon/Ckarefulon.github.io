@@ -15,6 +15,8 @@ on:
       - 'Tools/KGenesis/**'
       - 'Tools/Pulse/**'
       - 'Study/Focus**'
+      - 'Study/Timer**'
+      - 'Study/Question**'
 
 jobs:
   sync:
@@ -39,6 +41,10 @@ jobs:
             source_path: Tools/Pulse
           - target_repo: Study-Focus
             source_path: Study/Focus
+          - target_repo: Study-Timer
+            source_path: Study/Timer
+          - target_repo: Study-Question
+            source_path: Study/Question
 
     steps:
       - name: Checkout source repository

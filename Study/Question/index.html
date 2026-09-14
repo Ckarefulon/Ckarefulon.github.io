@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<link rel="icon" href="/favicon.svg?v=7" type="image/svg+xml">
+
+	<!-- 设计令牌（dsk-*），必须先于页面样式 -->
+	<link rel="stylesheet" href="/.UI/colors_and_type.css">
+	<link rel="stylesheet" href="/nav/nav.css?v=8">
+	<link rel="stylesheet" href="question.css?v=6">
+
+	<script src="/nav/nav.js?v=8" defer></script>
+
+	<!-- 站点作用域（必须先于云同步定义） -->
+	<script src="/assets/services/core/site-scope.js?v=0914" defer></script>
+
+	<!-- 云同步（Supabase，登录态与 Formula 共享） -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+	<script src="/supabase/supabase-config.js?v=0618" defer></script>
+	<script src="/supabase/supabase-client.js?v=0618" defer></script>
+	<script src="/supabase/auth-manager.js?v=0677" defer></script>
+
+	<title>Question — 问题清单</title>
+</head>
+<body>
+	<div class="qPage">
+
+		<!-- 顶部固定：列表选择 + 统计筛选 + 搜索 -->
+		<div class="qFixed">
+			<div class="qFixedInner">
+				<div class="listBar" id="listBar">
+					<div class="listSelector" id="listSelector">
+						<button class="listCurrent" id="listCurrent" type="button" aria-haspopup="true" aria-expanded="false">
+							<span class="listCurrentText" id="listCurrentText">主清单</span>
+							<span class="listCurrentCount" id="listCurrentCount"></span>
+							<span class="listChevron" aria-hidden="true"></span>
+						</button>
+						<div class="listMenu" id="listMenu" role="menu"></div>
+					</div>
+
+					<input class="listNameInput" id="listNameInput" type="text" maxlength="30" placeholder="清单名称" autocomplete="off">
+
+					<button class="iconBtn iconBtnAdd" id="listAddBtn" type="button" title="新建清单" aria-label="新建清单">
+						<svg class="iPlus" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+					</button>
+
+					<button class="iconBtn iconBtnEdit" id="listEditBtn" type="button" title="重命名清单" aria-label="重命名清单">
+						<svg class="iPencil" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+					</button>
+
+					<button class="iconBtn iconBtnDel" id="listDelBtn" type="button" title="删除清单" aria-label="删除清单">
+						<svg class="iTrash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+						<svg class="iClose" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+					</button>
+				</div>
+
+				<div class="qStats">
+					<div class="qStatLine" id="qStatLine">共 0 条 · 未获答案 <b>0</b> · 已获答案 <i>0</i></div>
+					<input class="qSearchInput" id="qSearchInput" type="search" placeholder="搜索" autocomplete="off">
+					<div class="qFilter" id="qFilter" role="group" aria-label="筛选">
+						<button class="qFilterBtn isActive" type="button" data-filter="all">全部</button>
+						<button class="qFilterBtn" type="button" data-filter="open">未解</button>
+						<button class="qFilterBtn" type="button" data-filter="solved">已解</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- 可滚动：条目列表 -->
+		<div class="qScroll" id="qScroll">
+			<div class="qList" id="qList"></div>
+			<div class="emptyHint" id="emptyHint" hidden></div>
+		</div>
+
+		<!-- 底部固定：加号 / 收起 / 管理 -->
+		<div class="qFoot">
+			<div class="qFootInner">
+				<button class="fab" id="btnAdd" type="button" title="记下一个问题" aria-label="记下一个问题">
+					<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+				</button>
+				<button class="fab fabGhost" id="btnFold" type="button" title="收起全部答案" aria-label="收起全部答案">
+					<svg id="foldIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9L12 15L18 9"/></svg>
+				</button>
+				<span class="footSpacer"></span>
+				<span class="cloudTag" id="cloudState" data-state="local">本地</span>
+				<button class="fab fabGhost" id="btnManage" type="button" title="管理" aria-label="管理">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="6" r="2" fill="var(--dsk-input)"/><circle cx="15" cy="12" r="2" fill="var(--dsk-input)"/><circle cx="7" cy="18" r="2" fill="var(--dsk-input)"/></svg>
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- 管理面板 -->
+	<div class="manageOverlay" id="manageOverlay" aria-hidden="true">
+		<div class="manageSheet" role="dialog" aria-modal="true" aria-label="管理">
+			<div class="manageHead">
+				<div class="manageTitle">管理</div>
+				<button class="manageClose" id="manageClose" type="button" title="关闭" aria-label="关闭">&times;</button>
+			</div>
+
+			<div class="manageSection" style="margin-top:0;padding-top:0;border-top:0;">
+				<div class="manageSectionTitle">清单</div>
+				<div id="manageList"></div>
+			</div>
+
+			<div class="manageSection">
+				<div class="manageSectionTitle">数据</div>
+				<div class="manageHint">自动存在本机，登录后同步云端。</div>
+				<div class="manageBtns">
+					<button class="miniBtn" id="btnExport" type="button">导出</button>
+					<button class="miniBtn" id="btnImport" type="button">导入</button>
+					<button class="miniBtn" id="btnClearItems" type="button">清空本清单</button>
+					<button class="miniBtn" id="btnReset" type="button">清空全部</button>
+					<input type="file" id="fileImport" accept=".json,application/json" hidden>
+				</div>
+			</div>
+
+			<div class="manageSection">
+				<div class="manageSectionTitle">上手</div>
+				<div class="manageHint">
+					改完点别处即自动保存 · <b>Esc</b> 取消 · <b>N</b> 新问题 · 答案留空即未解
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div id="toast"></div>
+
+	<script src="question-app.js?v=4" defer></script>
+</body>
+</html>

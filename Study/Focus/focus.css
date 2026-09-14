@@ -120,6 +120,11 @@ header{display:flex;align-items:baseline;justify-content:space-between;margin:0 
 .sess .dur{font-weight:600}
 .sess .grow{flex:1}
 .sess .running-tag{color:var(--cyan);font-size:12px}
+.sess-act{
+  appearance:none;border:none;background:transparent;color:var(--faint);
+  cursor:pointer;font-size:13px;padding:2px 6px;border-radius:6px;
+}
+.sess-act:hover{color:var(--cyan)}
 .sess-del{
   appearance:none;border:none;background:transparent;color:var(--faint);
   cursor:pointer;font-size:13px;padding:2px 6px;border-radius:6px;
@@ -127,6 +132,40 @@ header{display:flex;align-items:baseline;justify-content:space-between;margin:0 
 .sess-del:hover{color:var(--danger)}
 .sess-del.armed{background:var(--danger);color:#fff}
 .dd-empty{color:var(--faint);font-size:13px;padding:6px 2px}
+.dd-add{
+  appearance:none;border:none;background:var(--panel2);color:var(--dim);
+  font-size:12px;padding:7px 14px;border-radius:999px;cursor:pointer;margin-top:4px;
+}
+.dd-add:hover{color:var(--cyan)}
+
+/* ---------- 记录时间弹窗 ---------- */
+.editModal{position:fixed;inset:0;z-index:2200;display:none}
+.editModal[data-open="1"]{display:block}
+.editModalMask{position:absolute;inset:0;background:rgba(6,5,12,.72)}
+.editModalBox{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(400px,92vw);background:var(--panel);border:1px solid var(--line);
+  border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.55);
+  padding:20px;
+}
+.editModalHead{font-size:15px;font-weight:600;margin-bottom:14px}
+.editField{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.editField span{font-size:13px;color:var(--dim);width:66px;flex:none}
+.editField input{
+  flex:1;min-width:0;background:var(--panel2);border:1px solid transparent;border-radius:9px;
+  color:var(--text);font-size:13px;padding:9px 11px;outline:none;
+  font-family:inherit;font-variant-numeric:tabular-nums;color-scheme:dark;
+}
+.editField input:focus{border-color:var(--purple)}
+.editQuick{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 4px}
+.qbtn{
+  appearance:none;border:none;background:var(--panel2);color:var(--dim);
+  font-size:12px;padding:6px 12px;border-radius:999px;cursor:pointer;
+}
+.qbtn:hover{color:var(--cyan)}
+.editErr{min-height:16px;font-size:12px;color:var(--danger);margin-top:6px}
+.editActions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
+.editActions .btn{padding:10px 26px;font-size:14px}
 
 /* ---------- 图表 ---------- */
 .chart-head{font-size:14px;font-weight:600;margin-bottom:14px}

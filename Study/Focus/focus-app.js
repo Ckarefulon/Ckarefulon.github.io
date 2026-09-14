@@ -252,7 +252,9 @@ function renderDetail(totals){
   }
   list.sort(function(a,b){ return a.start-b.start; });
   if (!list.length && !(data.current && dayKey(data.current.start)===selectedKey)){
-    box.innerHTML = html + '<div class="dd-empty">这一天还没有记录</div>';
+    box.innerHTML = html + '<div class="dd-empty">这一天还没有记录</div>'
+          + '<button class="dd-add" id="ddAdd">+ 补录一条</button>';
+    syncAddBtn();
     return;
   }
   function hm(ts){
@@ -264,6 +266,7 @@ function renderDetail(totals){
     var s2 = list[j];
     html += '<div class="sess"><span class="range">'+hm(s2.start)+' – '+hm(s2.end)+'</span>'
           + '<span class="dur">'+fmtDur(s2.end-s2.start)+'</span><span class="grow"></span>'
+          + '<button class="sess-act" data-act="edit" data-id="'+s2.id+'">编辑</button>'
           + '<button class="sess-del" data-id="'+s2.id+'">删除</button></div>';
   }
   if (data.current && dayKey(data.current.start)===selectedKey){
@@ -271,7 +274,15 @@ function renderDetail(totals){
           + '<span class="running-tag">进行中</span><span class="grow"></span></div>';
   }
   html += '</div>';
+  html += '<button class="dd-add" id="ddAdd">+ 补录一条</button>';
   box.innerHTML = html;
+  syncAddBtn();
+}
+
+/* 补录按钮：把选中日期带进弹窗默认值 */
+function syncAddBtn(){
+  var b = $('ddAdd');
+  if (b) b.setAttribute('data-day', selectedKey);
 }
 
 function renderChart(totals){
@@ -418,6 +429,107 @@ function pushFocus(){
   }, 800);
 }
 
+/* ================= 手动补录 / 编辑记录时间 ================= */
+var editingId = null;
+function pad2(n){ return String(n).padStart(2,'0'); }
+function toInputValue(ts){
+  var d = new Date(ts);
+  return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())
+       + 'T'+pad2(d.getHours())+':'+pad2(d.getMinutes());
+}
+function fromInputValue(v){
+  if (!v) return NaN;
+  var t = new Date(v).getTime();
+  return isFinite(t) ? t : NaN;
+}
+function roundToMinute(ts){
+  var d = new Date(ts);
+  d.setSeconds(0,0);
+  return d.getTime();
+}
+function openEdit(id){
+  var s = null;
+  if (id){
+    for (var i=0;i<data.sessions.length;i++){
+      if (data.sessions[i].id===id && !data.sessions[i].del){ s = data.sessions[i]; break; }
+    }
+    if (!s){ toast('找不到这条记录'); return; }
+  }
+  editingId = id || null;
+  $('editTitle').textContent = id ? '编辑记录时间' : '补录记录';
+  $('editErr').textContent = '';
+  if (s){
+    $('editStart').value = toInputValue(s.start);
+    $('editEnd').value = toInputValue(s.end);
+  }else{
+    var parts = selectedKey.split('-');
+    var base = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+    var end = roundToMinute(Date.now());
+    var sameDay = dayKey(end) === selectedKey;
+    var endStr = sameDay ? toInputValue(end) : toInputValue(base.getTime()+12*3600000);
+    var endTs = fromInputValue(endStr);
+    $('editStart').value = toInputValue(endTs - 3600000);
+    $('editEnd').value = endStr;
+  }
+  var m = $('editModal');
+  m.dataset.open = '1';
+  m.setAttribute('aria-hidden','false');
+  $('editStart').focus();
+}
+function closeEdit(){
+  var m = $('editModal');
+  m.dataset.open = '';
+  m.setAttribute('aria-hidden','true');
+  editingId = null;
+}
+function saveEdit(){
+  var err = $('editErr');
+  var s = fromInputValue($('editStart').value);
+  var e = fromInputValue($('editEnd').value);
+  if (!isFinite(s) || !isFinite(e)){ err.textContent = '请填写完整的开始和结束时间'; return; }
+  if (e <= s){ err.textContent = '结束时间要晚于开始时间'; return; }
+  if (e - s < 60000){ err.textContent = '时长至少 1 分钟'; return; }
+  if (e > Date.now() + 60000){ err.textContent = '结束时间不能超过当前时间'; return; }
+  var now = Date.now();
+  if (editingId){
+    for (var i=0;i<data.sessions.length;i++){
+      if (data.sessions[i].id===editingId){
+        data.sessions[i].start = s;
+        data.sessions[i].end = e;
+        data.sessions[i].mut = now;
+        data.sessions[i].del = false;
+        break;
+      }
+    }
+    closeEdit();
+    selectedKey = dayKey(s);
+    save(true); renderAll();
+    toast('已更新为 '+fmtDur(e-s));
+    return;
+  }
+  data.sessions.push({id:genId(), start:s, end:e, mut:now});
+  closeEdit();
+  selectedKey = dayKey(s);
+  save(true); renderAll();
+  toast('已补录 '+fmtDur(e-s));
+}
+$('editSave').addEventListener('click', saveEdit);
+$('editCancel').addEventListener('click', closeEdit);
+$('editModalMask').addEventListener('click', closeEdit);
+$('btnManual').addEventListener('click', function(){ openEdit(null); });
+document.addEventListener('keydown', function(ev){
+  if (ev.key==='Escape' && $('editModal').dataset.open==='1') closeEdit();
+  if (ev.key==='Enter' && $('editModal').dataset.open==='1') saveEdit();
+});
+$('editModal').addEventListener('click', function(ev){
+  var q = ev.target.closest('.qbtn');
+  if (!q) return;
+  var start = fromInputValue($('editStart').value);
+  if (!isFinite(start)) start = roundToMinute(Date.now());
+  $('editEnd').value = toInputValue(start + Number(q.getAttribute('data-min'))*60000);
+  $('editErr').textContent = '';
+});
+
 /* ================= 动作 ================= */
 $('btnStart').addEventListener('click', function(){
   if (data.current){ toast('已经在自习中了'); return; }
@@ -479,8 +591,12 @@ $('calGrid').addEventListener('click', function(ev){
   renderDetail(computeTotals());
 });
 
-/* 删除某条记录（二次确认；墓碑标记，云同步新者胜） */
+/* 详情区：补录 / 编辑 / 删除某条记录（删除二次确认；墓碑标记，云同步新者胜） */
 $('dayDetail').addEventListener('click', function(ev){
+  var addBtn = ev.target.closest('#ddAdd');
+  if (addBtn){ openEdit(null); return; }
+  var editBtn = ev.target.closest('.sess-act');
+  if (editBtn){ openEdit(editBtn.getAttribute('data-id')); return; }
   var btn = ev.target.closest('.sess-del');
   if (!btn) return;
   armConfirm(btn, function(){
