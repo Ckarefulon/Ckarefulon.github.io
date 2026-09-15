@@ -1147,7 +1147,7 @@
 		return window.getCurrentSiteScope ? window.getCurrentSiteScope() : 'Study/Question';
 	}
 
-	var cloud = { on: false, pushTimer: 0 };
+	var cloud = { on: false, pushTimer: 0, aligned: false };
 
 	function setCloud(text, state) {
 		var el = $('cloudState');
@@ -1179,9 +1179,19 @@
 			.eq('site_scope', questionScope())
 			.maybeSingle()
 			.then(function (result) {
-				if (result.error || !result.data || !result.data.data) return;
-				mergeFromCloud(result.data.data);
-			})['catch'](function () { /* ignore */ });
+				/* 拉取失败就只标记未同步，不拿本地去覆盖云端 */
+				if (result.error) { setCloud('未同步', 'err'); return; }
+				if (result.data && result.data.data) mergeFromCloud(result.data.data);
+				alignPush();
+			})['catch'](function () { setCloud('未同步', 'err'); });
+	}
+
+	/* 登录对齐：首次拉取合并后主动上传一次，保证云端一定存有这份数据
+	 * （否则纯登录、不改动任何条目时，云端那一行永远不会被创建） */
+	function alignPush() {
+		if (cloud.aligned) return;
+		cloud.aligned = true;
+		pushCloud();
 	}
 
 	function mergeFromCloud(cd) {

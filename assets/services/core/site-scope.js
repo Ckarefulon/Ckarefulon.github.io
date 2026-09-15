@@ -8,7 +8,8 @@
 	 * Cube/Formula 及 Cube/Formula/Beta 归入 Cube-Formula。
 	 * Cube/Analyzer 归入 Cube-Analyzer，Cube/Cross 归入 Cube-Cross。
 	 * Tools/Relay 归入 Tools-Relay，Tools/Pulse 归入 Tools-Pulse。
-	 * Study/Focus 归入 Study/Focus。
+	 * Study/Focus 归入 Study/Focus，Study/Timer 归入 Study/Timer，
+	 * Study/Question 归入 Study/Question。
 	 */
 
 	function normalizePathname(pathname) {
@@ -19,6 +20,12 @@
 		var path = normalizePathname(window.location.pathname);
 		if (path === "/Study/Focus" || path.indexOf("/Study/Focus/") === 0) {
 			return "Study/Focus";
+		}
+		if (path === "/Study/Timer" || path.indexOf("/Study/Timer/") === 0) {
+			return "Study/Timer";
+		}
+		if (path === "/Study/Question" || path.indexOf("/Study/Question/") === 0) {
+			return "Study/Question";
 		}
 		if (path.indexOf("/Tools/Pulse") === 0) {
 			return "Tools-Pulse";
@@ -42,6 +49,12 @@
 		var path = normalizePathname(window.location.pathname);
 		if (path === "/Study/Focus" || path.indexOf("/Study/Focus/") === 0) {
 			return "/Study/Focus";
+		}
+		if (path === "/Study/Timer" || path.indexOf("/Study/Timer/") === 0) {
+			return "/Study/Timer";
+		}
+		if (path === "/Study/Question" || path.indexOf("/Study/Question/") === 0) {
+			return "/Study/Question";
 		}
 		if (path.indexOf("/Tools/Pulse") === 0) {
 			return "/Tools/Pulse";
