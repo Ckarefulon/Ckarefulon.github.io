@@ -335,18 +335,39 @@ function renderAll(){
 }
 
 /* ================= 云同步（Supabase user_data · scope=Study/Focus） ================= */
+/* 站点作用域：一律由 site-scope.js 按路径计算；算不出来就返回空串，
+ * 此时禁止任何云端读写（绝不兜底到 Cube-Formula，那会覆盖别站点数据） */
 function focusScope(){
-  return window.getCurrentSiteScope ? window.getCurrentSiteScope() : 'Study/Focus';
+  return window.getCurrentSiteScope ? window.getCurrentSiteScope() : '';
 }
-var cloud = { on:false, pushTimer:0, aligned:false };
+var cloud = { on:false, pushTimer:0, aligned:false, blocked:false };
 function setCloud(text, state){
   var el = $('cloudState');
   if (!el) return;
   el.textContent = text;
   el.setAttribute('data-state', state || 'local');
 }
+
+/* 云端那一行是不是本应用写的：靠 data.app 认领
+ * 有内容但没有 app 标记（= 别的站点写的）一律视为「不是我们的」，拒绝上传以防覆盖 */
+function isOwnCloudRow(cd, app){
+  if (!cd || typeof cd !== 'object') return true;   // 空行可占用
+  if (!cd.app) return false;
+  return cd.app === app;
+}
+function setScopeConflict(cd){
+  cloud.blocked = true;
+  setCloud('作用域冲突', 'err');
+  console.error('[Focus] 云端作用域「' + focusScope() + '」里已有其他站点的数据（app=' + (cd && cd.app ? cd.app : '未标记') + '），已拒绝上传以防覆盖');
+  toast('云端该作用域已有其他站点的数据，已停止上传');
+}
 function initCloud(){
   if (!window.authManager){ setCloud('本地'); return; }
+  if (!focusScope()){
+    setCloud('无作用域', 'err');
+    console.warn('[Focus] 当前路径没有可用的站点作用域，已禁用云端同步：' + window.location.pathname);
+    return;
+  }
   window.authManager.onAuthStateChange(function(user){
     cloud.on = !!user;
     if (user){
@@ -361,15 +382,19 @@ function pullFocus(){
   var client = window.supabaseClient;
   var user = window.authManager && window.authManager.getUser();
   if (!client || !user) return;
+  var sc = focusScope();
+  if (!sc){ setCloud('无作用域', 'err'); return; }
   client.from('user_data')
     .select('data')
     .eq('user_id', user.id)
-    .eq('site_scope', focusScope())
+    .eq('site_scope', sc)
     .maybeSingle()
     .then(function(result){
       /* 拉取失败就只标记未同步，不拿本地去覆盖云端 */
       if (result.error){ setCloud('未同步','err'); return; }
-      if (result.data && result.data.data) mergeFromCloud(result.data.data);
+      var cd = (result.data && result.data.data) ? result.data.data : null;
+      if (!isOwnCloudRow(cd, 'study-focus')){ setScopeConflict(cd); return; }
+      if (cd) mergeFromCloud(cd);
       alignPush();
     })['catch'](function(){ setCloud('未同步','err'); });
 }
@@ -411,8 +436,11 @@ function mergeFromCloud(cd){
 }
 function pushFocus(){
   if (!cloud.on || !window.supabaseClient || !window.authManager) return;
+  if (cloud.blocked){ setCloud('作用域冲突', 'err'); return; }
   var user = window.authManager.getUser();
   if (!user) return;
+  var sc = focusScope();
+  if (!sc){ setCloud('无作用域', 'err'); return; }
   if (cloud.pushTimer) window.clearTimeout(cloud.pushTimer);
   setCloud('同步中', 'sync');
   cloud.pushTimer = window.setTimeout(function(){
@@ -421,7 +449,7 @@ function pushFocus(){
       .from('user_data')
       .upsert({
         user_id: user.id,
-        site_scope: focusScope(),
+        site_scope: sc,
         data: {
           version: 1,
           app: 'study-focus',

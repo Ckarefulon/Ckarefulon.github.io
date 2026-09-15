@@ -6,14 +6,30 @@
 	var RELAY_INTERVAL_KEY = "relay_interval_seconds";
 	var LOCAL_STORAGE_PREFIX = "relay_";
 
+	/* 没有可用站点作用域时的统一提示：宁可不同步，也不准写到别的作用域 */
+	var NO_SCOPE_MESSAGE = "当前路径没有可用的站点作用域，已阻止云端读写";
+
+	/**
+	 * 取当前站点作用域；取不到返回 ""
+	 * 绝不兜底到 Cube-Formula —— 那会覆盖别站点的数据
+	 * @returns {string}
+	 */
+	function resolveScope() {
+		var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "";
+		if (!scope) {
+			console.warn("[RelayCloud] " + NO_SCOPE_MESSAGE + "：" + (window.location.pathname || ""));
+		}
+		return scope || "";
+	}
+
 	var cloudSyncManager = {
 		isReady: function() {
 			return !!(window.supabaseClient && window.authManager && window.authManager.isLoggedIn());
 		},
 
 		buildLocalPayload: function() {
-			var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Tools-Relay";
-			var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "/Tools/Relay";
+			var scope = resolveScope();
+			var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "";
 			var text = window.storageManager ? window.storageManager.getItem(LOCAL_STORAGE_PREFIX + RELAY_DATA_KEY, "") : "";
 			var realtimeEnabled = window.storageManager ? window.storageManager.getItem(LOCAL_STORAGE_PREFIX + RELAY_REALTIME_KEY, "false") === "true" : false;
 			var intervalSeconds = window.storageManager ? parseInt(window.storageManager.getItem(LOCAL_STORAGE_PREFIX + RELAY_INTERVAL_KEY, "0"), 10) : 0;
@@ -39,7 +55,10 @@
 			}
 
 			var user = window.authManager.getUser();
-			var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Tools-Relay";
+			var scope = resolveScope();
+			if (!scope) {
+				return Promise.resolve({ success: false, message: NO_SCOPE_MESSAGE, hasData: false, cloudData: null });
+			}
 
 			return window.supabaseClient
 				.from("user_data")
@@ -75,7 +94,10 @@
 			}
 
 			var user = window.authManager.getUser();
-			var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Tools-Relay";
+			var scope = resolveScope();
+			if (!scope) {
+				return Promise.resolve({ success: false, message: NO_SCOPE_MESSAGE });
+			}
 			var payload = cloudSyncManager.buildLocalPayload();
 
 			return window.supabaseClient
@@ -140,7 +162,10 @@
 			}
 
 			var user = window.authManager.getUser();
-			var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Tools-Relay";
+			var scope = resolveScope();
+			if (!scope) {
+				return Promise.resolve({ success: false, message: NO_SCOPE_MESSAGE });
+			}
 
 			return window.supabaseClient
 				.from("user_data")

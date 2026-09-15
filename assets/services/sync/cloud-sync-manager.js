@@ -11,9 +11,26 @@
 	 * smartCubeStateImportText 已合并到 cube_memory_progress 中（planText 字段）。
 	 */
 
+	/* 没有可用站点作用域时的统一提示：宁可不同步，也不准写到别的作用域 */
+	var NO_SCOPE_MESSAGE = "当前路径没有可用的站点作用域，已阻止云端读写";
+
+	/**
+	 * 取当前站点作用域；取不到返回 ""
+	 * 绝不兜底到 Cube-Formula —— 那会覆盖别站点的数据
+	 * @returns {string}
+	 */
+	function resolveScope() {
+		var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "";
+		if (!scope) {
+			console.warn("[CloudSync] " + NO_SCOPE_MESSAGE + "：" + (window.location.pathname || ""));
+		}
+		return scope || "";
+	}
+
 	var cloudSyncManager = {
 		/**
-		 * 判断是否就绪：已登录 + Supabase 可用 + siteScope 可用
+		 * 判断是否就绪：已登录 + Supabase 可用
+		 * 注意：是否具备站点作用域请单独用 hasScope() 判断（读写前都会强制校验）
 		 * @returns {boolean}
 		 */
 		isReady: function() {
@@ -21,12 +38,20 @@
 		},
 
 		/**
+		 * 当前路径是否具备可用的站点作用域
+		 * @returns {boolean}
+		 */
+		hasScope: function() {
+			return !!resolveScope();
+		},
+
+		/**
 		 * 从本地构建上传数据负载
 		 * @returns {object}
 		 */
 		buildLocalPayload: function() {
-			var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Cube-Formula";
-			var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "/Cube/Formula";
+			var scope = resolveScope();
+			var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "";
 			var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress", null) : null;
 			var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
 			var practiceStats = window.storageManager ? window.storageManager.getJson("smartCubePracticeStats", null) : null;
@@ -55,7 +80,10 @@
 			}
 
 			var user = window.authManager.getUser();
-			var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Cube-Formula";
+			var scope = resolveScope();
+			if (!scope) {
+				return Promise.resolve({ success: false, message: NO_SCOPE_MESSAGE, hasData: false, cloudData: null });
+			}
 
 			return window.supabaseClient
 				.from("user_data")
@@ -95,7 +123,10 @@
 			}
 
 			var user = window.authManager.getUser();
-			var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Cube-Formula";
+			var scope = resolveScope();
+			if (!scope) {
+				return Promise.resolve({ success: false, message: NO_SCOPE_MESSAGE });
+			}
 			var payload = cloudSyncManager.buildLocalPayload();
 
 			return window.supabaseClient
@@ -169,7 +200,10 @@
 			}
 
 			var user = window.authManager.getUser();
-			var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Cube-Formula";
+			var scope = resolveScope();
+			if (!scope) {
+				return Promise.resolve({ success: false, message: NO_SCOPE_MESSAGE, data: null });
+			}
 
 			return window.supabaseClient
 				.from("user_data")

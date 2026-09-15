@@ -3,7 +3,9 @@
 
 	function detectSiteScope() {
 		if (window.getCurrentSiteScope) {
-			return window.getCurrentSiteScope();
+			var scope = window.getCurrentSiteScope();
+			// 拿不到作用域时不要直接返回空（会让本地存储键退化、互相串），继续按路径兜底命名
+			if (scope) return scope;
 		}
 		var path = window.location.pathname || "/";
 		var segments = path.split("/").filter(function(s) { return s && s !== "index.html"; });
@@ -537,8 +539,8 @@
 		if (window.cloudSyncManager && typeof window.cloudSyncManager.buildLocalPayload === "function") {
 			return window.cloudSyncManager.buildLocalPayload();
 		}
-		var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "Cube-Formula";
-		var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "/Cube/Formula";
+		var scope = window.getCurrentSiteScope ? window.getCurrentSiteScope() : "";
+		var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "";
 		var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress", null) : null;
 		var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
 		var stateImportText = window.storageManager ? window.storageManager.getItem("smartCubeStateImportText", "") : "";
@@ -812,6 +814,11 @@
 		if (_menuLocked) return;
 		if (!window.authManager || !window.authManager.isLoggedIn()) {
 			setCloudDetectionStatus("游客模式：数据仅保存在本地", "");
+			refreshRollbackAvailability(false);
+			return;
+		}
+		if (window.getCurrentSiteScope && !window.getCurrentSiteScope()) {
+			setCloudDetectionStatus("当前路径没有站点作用域，已禁用云端同步", "Warning");
 			refreshRollbackAvailability(false);
 			return;
 		}

@@ -793,7 +793,8 @@
 	/* ---------------- 记录（历史） ---------------- */
 	var RECORDS_KEY = 'crossRecords';
 	function recordScope() {
-		return window.getCurrentSiteScope ? window.getCurrentSiteScope() : 'Cube-Cross';
+		/* 站点作用域一律由 site-scope.js 按路径计算；算不出来返回空串，禁止云端读写 */
+		return window.getCurrentSiteScope ? window.getCurrentSiteScope() : '';
 	}
 	var recState = {
 		list: [],        // 全部记录
@@ -1096,10 +1097,12 @@
 		var client = window.supabaseClient;
 		var user = window.authManager && window.authManager.getUser();
 		if (!client || !user) { return; }
+		var sc = recordScope();
+		if (!sc) { setRecCloud('无作用域'); return; }
 		client.from('user_data')
 			.select('data')
 			.eq('user_id', user.id)
-			.eq('site_scope', recordScope())
+			.eq('site_scope', sc)
 			.maybeSingle()
 			.then(function (result) {
 				if (result.error || !result.data || !result.data.data) { return; }
@@ -1132,6 +1135,8 @@
 		if (!recState.cloudOn || !window.supabaseClient || !window.authManager) { return; }
 		var user = window.authManager.getUser();
 		if (!user) { return; }
+		var sc = recordScope();
+		if (!sc) { setRecCloud('无作用域'); return; }
 		if (recState.pushTimer) { window.clearTimeout(recState.pushTimer); }
 		recState.pushTimer = window.setTimeout(function () {
 			recState.pushTimer = 0;
@@ -1139,7 +1144,7 @@
 				.from('user_data')
 				.upsert({
 					user_id: user.id,
-					site_scope: recordScope(),
+					site_scope: sc,
 					data: { version: 1, exportedAt: new Date().toISOString(), records: recState.list },
 					updated_at: new Date().toISOString()
 				}, { onConflict: 'user_id,site_scope' })

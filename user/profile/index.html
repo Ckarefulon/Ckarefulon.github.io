@@ -7,7 +7,10 @@
 
 	<link rel="stylesheet" href="/nav/nav.css?v=20260707">
 
-	<script src="/nav/nav.js?v=20260707" defer></script>
+	<script src="/nav/nav.js?v=9" defer></script>
+
+	<!-- 站点作用域（必须先于云同步定义；没有它的页面一律禁止云端作用域读写） -->
+	<script src="/assets/services/core/site-scope.js?v=0915a" defer></script>
 
 	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
 	<script src="/supabase/supabase-config.js?v=0618" defer></script>
