@@ -44,8 +44,16 @@
 	letter-spacing: 0.01em;
 }
 
+/* 品牌：链接回首页 /（配色沿用站名的 --ink，不跟面包屑的灰） */
 .siteHeaderBrand {
 	white-space: nowrap;
+	color: inherit;
+	text-decoration: none;
+	transition: color 0.15s ease;
+}
+
+.siteHeaderBrand:hover {
+	color: var(--dsk-primary, var(--accent, currentColor));
 }
 
 /* 站点路径（Ckarefulon 之后），如 "/Cube/Formula"
@@ -84,6 +92,17 @@
 .siteHeaderCrumbSep {
 	margin: 0 1px;
 	color: var(--dsk-foreground-subtle, var(--muted, color-mix(in srgb, currentColor 46%, transparent)));
+}
+
+/* 可点的层级：颜色继承本级面包屑，去掉下划线，hover 走 primary（照 /ui 的 .ds-breadcrumb-item a） */
+.siteHeaderCrumb a {
+	color: inherit;
+	text-decoration: none;
+	transition: color 0.15s ease;
+}
+
+.siteHeaderCrumb a:hover {
+	color: var(--dsk-primary, var(--accent, currentColor));
 }
 
 .siteHeaderCrumb.isCurrent {

@@ -29,28 +29,34 @@
 	 *    Netlify 会把 URL 路径强制小写（/Cube/Formula/ → /cube/formula/），
 	 *    照抄网址就会把 "Cube/Formula" 显示成 "cube/formula"。
 	 * 所以这里以「真实目录名（含大小写）」为准登记，键为路径小写形式（便于与网址对照）。
-	 * **只登记真实目录名里含大写的路径**；目录本身就是小写的（linkage、user/profile）
-	 * 不必写进来，交给回退规则按实际路径段原样显示即可。
-	 * 新增子站时在这里补一行。
+	 * **只登记真实目录名里含大写的路径**（含模块层 /Cube/、/Study/、/Tools/ 这种只有一段的）；
+	 * 目录本身就是小写的（linkage、user/profile、jump/OneDrive 的 jump 段）不必单独登记，
+	 * 交给回退规则按实际路径段原样显示即可。新增子站时在这里补一行。
+	 *
+	 * 顶栏的层级链接用**真实大小写**拼 href（/Cube/Formula/），不用小写：
+	 * Netlify 上多一次 301 无所谓，而 GitHub Pages 是区分大小写的，写小写会直接 404。
 	 *
 	 * ⚠️ 站点的「作用域」（云端数据用，"-" 连接）另有一张表：
 	 *    /assets/services/core/site-scope.js 的 SCOPE_REGISTRY。
 	 *    两张表的大小写必须一致；新增子站时两处都要补。
 	 */
 	var PATH_LABELS = {
+		"cube": "Cube",
 		"cube/formula": "Cube/Formula",
 		"cube/formula/classic": "Cube/Formula/Classic",
+		"cube/formula - 副本": "Cube/Formula - 副本",
 		"cube/analyzer": "Cube/Analyzer",
 		"cube/cross": "Cube/Cross",
 		"cube/music": "Cube/Music",
+		"study": "Study",
 		"study/focus": "Study/Focus",
 		"study/question": "Study/Question",
 		"study/timer": "Study/Timer",
+		"tools": "Tools",
 		"tools/kgenesis": "Tools/KGenesis",
 		"tools/pulse": "Tools/Pulse",
 		"tools/relay": "Tools/Relay",
-		"music/chord/diatonic": "Music/Chord/Diatonic",
-		"jump/onedrive": "Jump/OneDrive"
+		"jump/onedrive": "jump/OneDrive"
 	};
 
 	/** 切出路径中的目录段：丢掉空段与 index.html，遇到带扩展名的文件段即停 */
@@ -69,9 +75,16 @@
 	/**
 	 * 当前页面在顶栏显示的路径段（不含 "Ckarefulon" 前缀）；根路径返回空数组。
 	 * 登记表命中则用登记的真实大小写；否则原样用路径段（小写目录名即保持小写）。
+	 * 路径段先解码（%20 → 空格），只作显示与拼链接用。
 	 */
 	function getCurrentPathSegments() {
-		var segs = pathSegments(window.location.pathname || "/");
+		var segs = pathSegments(window.location.pathname || "/").map(function(s) {
+			try {
+				return decodeURIComponent(s);
+			} catch (e) {
+				return s;
+			}
+		});
 		if (!segs.length) return [];
 		var label = PATH_LABELS[segs.join("/").toLowerCase()];
 		return label ? label.split("/") : segs;
@@ -87,7 +100,7 @@
 		'<header class="siteHeader">',
 		'	<div class="siteHeaderLeft">',
 		'		<img class="siteHeaderLogo" src="/favicon.svg?v=0349" alt="Logo" aria-hidden="true">',
-		'		<span class="siteHeaderName"><span class="siteHeaderBrand">Ckarefulon</span><span class="siteHeaderPath" id="siteHeaderPath" hidden><span class="siteHeaderPathInner" id="siteHeaderPathInner" dir="ltr"></span></span></span>',
+		'		<span class="siteHeaderName"><a class="siteHeaderBrand" href="/">Ckarefulon</a><span class="siteHeaderPath" id="siteHeaderPath" hidden><span class="siteHeaderPathInner" id="siteHeaderPathInner" dir="ltr"></span></span></span>',
 		'	</div>',
 		'	<div class="siteHeaderRight">',
 		'		<button id="siteThemeToggle" class="siteHeaderBtn siteHeaderBtnTheme" type="button" title="切换主题">☀</button>',
@@ -197,7 +210,8 @@
 
 	/**
 	 * 把当前页面路径写进顶栏（"Ckarefulon" 之后），根路径下留空。
-	 * 结构照 /ui 设计系统的 Breadcrumb：普通项 + "/" 分隔符 + 末项 current。
+	 * 结构照 /ui 设计系统的 Breadcrumb：普通项是链接（点进对应层级）、"/" 分隔符用 subtle 色、
+	 * 末项 current 是纯文本（规范里 current 不是链接）。
 	 */
 	function renderPathLabel() {
 		var el = document.getElementById("siteHeaderPath");
@@ -213,11 +227,17 @@
 		}
 
 		var html = "";
+		var acc = "";
 		for (var i = 0; i < segs.length; i++) {
-			var isCurrent = i === segs.length - 1;
+			acc += "/" + encodeURIComponent(segs[i]);
 			html += '<span class="siteHeaderCrumbSep">/</span>';
-			html += '<span class="siteHeaderCrumb' + (isCurrent ? " isCurrent" : "") + '">'
-				+ escapeHtml(segs[i]) + "</span>";
+			if (i === segs.length - 1) {
+				html += '<span class="siteHeaderCrumb isCurrent" aria-current="page">'
+					+ escapeHtml(segs[i]) + "</span>";
+			} else {
+				html += '<span class="siteHeaderCrumb"><a href="' + escapeHtml(acc) + '/">'
+					+ escapeHtml(segs[i]) + "</a></span>";
+			}
 		}
 		box.innerHTML = html;
 		el.hidden = false;

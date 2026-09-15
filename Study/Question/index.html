@@ -7,10 +7,10 @@
 
 	<!-- 设计令牌（dsk-*），必须先于页面样式 -->
 	<link rel="stylesheet" href="/ui/colors_and_type.css">
-	<link rel="stylesheet" href="/nav/nav.css?v=10">
-	<link rel="stylesheet" href="question.css?v=6">
+	<link rel="stylesheet" href="/nav/nav.css?v=11">
+	<link rel="stylesheet" href="question.css?v=7">
 
-	<script src="/nav/nav.js?v=10" defer></script>
+	<script src="/nav/nav.js?v=11" defer></script>
 
 	<!-- 站点作用域（必须先于云同步定义） -->
 	<script src="/assets/services/core/site-scope.js?v=0915b" defer></script>
@@ -84,7 +84,7 @@
 				</button>
 				<span class="footSpacer"></span>
 				<span class="cloudTag" id="cloudState" data-state="local">本地</span>
-				<button class="fab fabGhost" id="btnManage" type="button" title="管理" aria-label="管理">
+				<button class="fab fabGhost" id="btnManage" type="button" title="整理" aria-label="整理">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="6" r="2" fill="var(--dsk-input)"/><circle cx="15" cy="12" r="2" fill="var(--dsk-input)"/><circle cx="7" cy="18" r="2" fill="var(--dsk-input)"/></svg>
 				</button>
 			</div>
@@ -93,13 +93,19 @@
 
 	<!-- 管理面板 -->
 	<div class="manageOverlay" id="manageOverlay" aria-hidden="true">
-		<div class="manageSheet" role="dialog" aria-modal="true" aria-label="管理">
+		<div class="manageSheet" role="dialog" aria-modal="true" aria-label="整理">
 			<div class="manageHead">
-				<div class="manageTitle">管理</div>
+				<div class="manageTitle">整理</div>
 				<button class="manageClose" id="manageClose" type="button" title="关闭" aria-label="关闭">&times;</button>
 			</div>
 
 			<div class="manageSection" style="margin-top:0;padding-top:0;border-top:0;">
+				<div class="manageSectionTitle">条目</div>
+				<div class="manageHint">↑↓ 调整顺序（列表自上而下）· 删除需二次确认。</div>
+				<div id="manageItems"></div>
+			</div>
+
+			<div class="manageSection">
 				<div class="manageSectionTitle">清单</div>
 				<div id="manageList"></div>
 			</div>
@@ -127,6 +133,6 @@
 
 	<div id="toast"></div>
 
-	<script src="question-app.js?v=6" defer></script>
+	<script src="question-app.js?v=7" defer></script>
 </body>
 </html>

@@ -315,15 +315,9 @@
 	function visibleItems() {
 		var cur = getActiveList();
 		if (!cur) return [];
+		/* 顺序 = 条目建立顺序（数组原序），已获得答案不移位、编号稳定。
+		   排序只在「整理」面板手动进行 */
 		var all = itemsOf(cur.id);
-		/* 未解在前，同组内新建的在下 */
-		all.sort(function (a, b) {
-			var sa = isSolved(a) ? 1 : 0, sb = isSolved(b) ? 1 : 0;
-			if (sa !== sb) return sa - sb;
-			var ca = a.createdAt || 0, cb = b.createdAt || 0;
-			if (ca !== cb) return ca - cb;
-			return String(a.id) < String(b.id) ? -1 : 1;
-		});
 		var f = view.filter;
 		if (f === 'open') all = all.filter(function (it) { return !isSolved(it); });
 		else if (f === 'solved') all = all.filter(function (it) { return isSolved(it); });
@@ -355,7 +349,12 @@
 		if (view.editingId === it.id) {
 			h += editorHtml(it);          /* 编辑态只留编辑器，问题文本不再重复一遍 */
 		} else {
+			/* 头行：问题在左，「编辑」按钮贴最右；删除/复制/未解按钮已移入整理面板 */
+			h += '<div class="itemHead">';
 			h += '<div class="qText">' + esc(it.question) + '</div>';
+			h += '<span class="actMeta">' + esc(fmtShort(it.createdAt)) + '</span>';
+			h += '<button class="actBtn actEdit" type="button">编辑</button>';
+			h += '</div>';
 			if (solved && answerVisible(it)) {
 				h += '<div class="aBlock isFilled"><div class="aText">' + esc(it.answer) + '</div></div>';
 			} else if (solved) {
@@ -363,15 +362,6 @@
 			} else {
 				h += '<div class="aBlock isCollapsed"><button class="collapseBtn actSolve" type="button">＋ 答案</button></div>';
 			}
-
-			h += '<div class="itemActions">';
-			h += '<span class="actMeta">' + esc(fmtShort(it.createdAt)) + '</span>';
-			h += '<span class="actSpacer"></span>';
-			h += '<button class="actBtn actEdit" type="button">编辑</button>';
-			if (solved) h += '<button class="actBtn actReopen" type="button">未解</button>';
-			h += '<button class="actBtn actCopy" type="button">复制</button>';
-			h += '<button class="actBtn actDel" type="button">删除</button>';
-			h += '</div>';
 		}
 
 		h += '</div></article>';
@@ -415,8 +405,9 @@
 		var scroll = $('qScroll');
 		var keepTop = scroll ? scroll.scrollTop : 0;
 		var list = visibleItems();
-		var html = view.draft != null ? draftHtml() : '';
-		html += list.map(function (it, i) { return itemHtml(it, i); }).join('');
+		/* 新建草稿固定在列表最底端 */
+		var html = list.map(function (it, i) { return itemHtml(it, i); }).join('');
+		if (view.draft != null) html += draftHtml();
 		$('qList').innerHTML = html;
 
 		var hint = $('emptyHint');
@@ -478,6 +469,7 @@
 		renderList();
 		renderFoldIcon();
 		renderManage();
+		renderItemsPanel();
 	}
 
 	/* ================= 条目操作 ================= */
@@ -498,6 +490,8 @@
 		view.editingId = null;
 		view.draft = { question: '', answer: '' };
 		renderList();
+		var sc = $('qScroll');
+		if (sc) sc.scrollTop = sc.scrollHeight;   /* 草稿在最底端，滚下去 */
 		focusEditor('.edQ');
 	}
 
@@ -643,18 +637,7 @@
 		focusEditor('.editor[data-editor="' + cssEsc(id) + '"] .edA');
 	}
 
-	function reopenItem(id) {
-		var it = findItem(id);
-		if (!it) return;
-		it.answer = '';
-		delete it.solvedAt;
-		it.mut = Date.now();
-		data.itemsMut = it.mut;
-		view.editingId = null;
-		save(true);
-		renderAll();
-		toast('已标为未解');
-	}
+	/* ================= 条目删除 / 整理面板（排序、删除） ================= */
 
 	function deleteItem(id) {
 		var it = findItem(id);
@@ -665,41 +648,83 @@
 		it.mut = now;
 		data.itemsMut = now;
 		save(true);
-		renderStats();
-		renderListBar();
 		if (el) {
 			el.classList.add('isLeaving');
 			setTimeout(function () {
-				renderList();
-				renderManage();
+				renderAll();
 				toast('已删除');
 			}, 200);
 		} else {
-			renderList();
-			renderManage();
+			renderAll();
 			toast('已删除');
 		}
 	}
 
-	function copyItem(id) {
+	/* 整理面板里上下移动条目：交换 data.items 中相邻两个同清单条目的位置 */
+	function moveItem(id, dir) {
 		var it = findItem(id);
 		if (!it) return;
-		var text = it.question + (it.answer ? '\n\n答案：\n' + it.answer : '');
-		if (navigator.clipboard && navigator.clipboard.writeText) {
-			navigator.clipboard.writeText(text).then(function () { toast('已复制'); }, function () { fallbackCopy(text); });
-		} else {
-			fallbackCopy(text);
-		}
+		var seq = itemsOf(it.listId);            /* 本清单现有条目，按数组顺序 */
+		var i = -1;
+		for (var k = 0; k < seq.length; k++) { if (seq[k].id === id) { i = k; break; } }
+		var j = i + dir;
+		if (i < 0 || j < 0 || j >= seq.length) return;
+		var a = seq[i], b = seq[j];
+		var ia = data.items.indexOf(a), ib = data.items.indexOf(b);
+		if (ia < 0 || ib < 0) return;
+		data.items[ia] = b;
+		data.items[ib] = a;
+		var now = Date.now();
+		a.mut = now; b.mut = now;                /* 顺序变更也走 mut 新者胜，同步到云端 */
+		data.itemsMut = now;
+		view.editingId = null;
+		save(true);
+		renderAll();
 	}
-	function fallbackCopy(text) {
-		var ta = document.createElement('textarea');
-		ta.value = text;
-		ta.style.position = 'fixed';
-		ta.style.opacity = '0';
-		document.body.appendChild(ta);
-		ta.select();
-		try { document.execCommand('copy'); toast('已复制'); } catch (e) { toast('复制失败', 'warn'); }
-		ta.remove();
+
+	/* 整理面板「条目」区：按当前顺序列出，可 ↑↓ 排序、删除 */
+	function renderItemsPanel() {
+		var host = $('manageItems');
+		if (!host) return;
+		var cur = getActiveList();
+		var seq = cur ? itemsOf(cur.id) : [];
+		if (!seq.length) {
+			host.innerHTML = '<div class="manageHint">当前清单还没有条目</div>';
+			return;
+		}
+		host.innerHTML = seq.map(function (it, i) {
+			return '<div class="manageRow" data-item-id="' + esc(it.id) + '">'
+				+ '<span class="manageRowIdx">' + (i + 1) + '</span>'
+				+ '<span class="manageRowName">' + esc(it.question || '（无问题文本）') + '</span>'
+				+ '<button class="miniBtn mgoUp" type="button" title="上移"' + (i === 0 ? ' disabled' : '') + '>↑</button>'
+				+ '<button class="miniBtn mgoDown" type="button" title="下移"' + (i === seq.length - 1 ? ' disabled' : '') + '>↓</button>'
+				+ '<button class="miniBtn mgoDelItem" type="button">删除</button>'
+				+ '</div>';
+		}).join('');
+	}
+
+	function bindItemsPanel() {
+		$('manageItems').addEventListener('click', function (e) {
+			var row = e.target.closest('.manageRow[data-item-id]');
+			if (!row) return;
+			var id = row.getAttribute('data-item-id');
+			if (e.target.closest('.mgoUp')) { moveItem(id, -1); return; }
+			if (e.target.closest('.mgoDown')) { moveItem(id, 1); return; }
+			var del = e.target.closest('.mgoDelItem');
+			if (del) {
+				/* 行内二确认（不复用 armConfirm，避免文案冲突） */
+				if (del.__armed) {
+					disarmRow(del);
+					deleteItem(id);
+					return;
+				}
+				del.__armed = true;
+				del.classList.add('armed');
+				del.textContent = '确认删除';
+				toast('再点一次确认', 'warn');
+				del.__t = setTimeout(function () { disarmRow(del); }, CONFIRM_MS);
+			}
+		});
 	}
 
 	/* ================= 事件绑定 ================= */
@@ -818,7 +843,11 @@
 	function bindList() {
 		$('qList').addEventListener('click', function (e) {
 			var card = e.target.closest('.item');
-			if (!card) return;
+			if (!card) {
+				/* 点在列表空白处：若有落盘欠下的重绘，必须还上 */
+				if (takeRenderOwed()) renderAll();
+				return;
+			}
 			var id = card.getAttribute('data-item-id');
 
 			/* 本次点击会重绘列表，先把打开中的编辑器落盘（只写数据） */
@@ -826,20 +855,10 @@
 
 			if (e.target.closest('.actSolve') || e.target.closest('.actExpand')) { solveInline(id); return; }
 			if (e.target.closest('.actEdit')) { startEdit(id); return; }
-			if (e.target.closest('.actReopen')) { reopenItem(id); return; }
-			if (e.target.closest('.actCopy')) { copyItem(id); if (flushed) renderAll(); return; }
-			var del = e.target.closest('.actDel');
-			if (del) {
-				/* 若刚才有编辑器被落盘，先重绘再用新节点重新进入待确认 */
-				if (flushed) {
-					renderAll();
-					var fresh = document.querySelector('.item[data-item-id="' + cssEsc(id) + '"] .actDel');
-					if (fresh) fresh.click();
-					return;
-				}
-				armConfirm(del, function () { deleteItem(id); });
-				return;
-			}
+
+			/* 没有按钮命中（点在卡片空白处）：编辑器已落盘，欠下的重绘必须补上。
+			   否则界面停留在旧文本，看起来就像「失焦没保存」 */
+			if (flushed) renderAll();
 		});
 
 		/* 失焦自动保存：焦点移出编辑器即落盘。
@@ -897,6 +916,7 @@
 
 	function openManage() {
 		renderManage();
+		renderItemsPanel();
 		$('manageOverlay').classList.add('isOpen');
 		$('manageOverlay').setAttribute('aria-hidden', 'false');
 	}
@@ -1326,6 +1346,7 @@
 	bindList();
 	bindFoot();
 	bindManage();
+	bindItemsPanel();
 
 	$('btnExport').addEventListener('click', exportData);
 	$('btnImport').addEventListener('click', function () { $('fileImport').click(); });

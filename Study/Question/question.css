@@ -430,6 +430,26 @@ button, input, textarea, select { font-family: inherit; letter-spacing: inherit;
 	overflow-wrap: anywhere;
 }
 
+/* ---------- 问题头行：问题在左，「编辑」贴最右 ---------- */
+.itemHead {
+	display: flex;
+	align-items: center;
+	gap: var(--dsk-space-2);
+}
+
+.itemHead .qText {
+	flex: 1 1 auto;
+}
+
+.itemHead .actMeta {
+	flex: 0 0 auto;
+	margin-right: 0;
+}
+
+.itemHead .actEdit {
+	flex: 0 0 auto;
+}
+
 /* ---------- 答案块 ---------- */
 .aBlock {
 	position: relative;
@@ -513,17 +533,7 @@ button, input, textarea, select { font-family: inherit; letter-spacing: inherit;
 
 .aBlock.isFilled .aText { color: var(--dsk-foreground); }
 
-/* ---------- 条目操作（含内联 meta） ---------- */
-.itemActions {
-	display: flex;
-	align-items: center;
-	gap: var(--dsk-space-1);
-	margin-top: var(--dsk-space-3);
-	padding-top: var(--dsk-space-2);
-	border-top: 1px dashed var(--dsk-border-subtle);
-	flex-wrap: wrap;
-}
-
+/* ---------- 条目操作（编辑钮在问题头行内；meta 时间） ---------- */
 .actMeta {
 	display: inline-flex;
 	align-items: center;
@@ -553,17 +563,6 @@ button, input, textarea, select { font-family: inherit; letter-spacing: inherit;
 }
 
 .actBtn:hover { color: var(--dsk-foreground); background: var(--dsk-primary-soft); border-color: var(--dsk-primary); }
-
-.actBtn.actSolve { color: var(--dsk-accent); border-color: color-mix(in srgb, var(--dsk-accent) 45%, transparent); }
-.actBtn.actSolve:hover { background: var(--dsk-accent-soft); border-color: var(--dsk-accent); color: var(--dsk-accent); }
-
-.actBtn.actReopen { color: var(--dsk-primary-hover); border-color: color-mix(in srgb, var(--dsk-primary) 45%, transparent); }
-.actBtn.actReopen:hover { background: var(--dsk-primary-soft); border-color: var(--dsk-primary); color: var(--dsk-primary-hover); }
-
-.actBtn.actDel:hover { color: var(--dsk-danger); border-color: var(--dsk-danger); background: transparent; }
-.actBtn.actDel.armed { background: var(--dsk-danger); border-color: var(--dsk-danger); color: #fff; }
-
-.actSpacer { flex: 1 1 auto; }
 
 /* ---------- 内联编辑器（无按钮：失焦即存） ---------- */
 .editor {
@@ -820,6 +819,19 @@ button, input, textarea, select { font-family: inherit; letter-spacing: inherit;
 
 .miniBtn:hover { color: var(--dsk-foreground); background: var(--dsk-primary-soft); border-color: var(--dsk-primary); }
 .miniBtn.armed { background: var(--dsk-danger); border-color: var(--dsk-danger); color: #fff; }
+.miniBtn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+
+/* 整理面板：条目序号 */
+.manageRowIdx {
+	flex: 0 0 auto;
+	min-width: 22px;
+	text-align: center;
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-xs);
+	font-weight: 700;
+	color: var(--dsk-foreground-subtle);
+	font-variant-numeric: tabular-nums;
+}
 
 .manageBtns { display: flex; align-items: center; gap: var(--dsk-space-2); flex-wrap: wrap; }
 
