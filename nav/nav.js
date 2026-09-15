@@ -197,7 +197,7 @@
 
 	/**
 	 * 把当前页面路径写进顶栏（"Ckarefulon" 之后），根路径下留空。
-	 * 结构照 /.UI 设计系统的 Breadcrumb：普通项 + "/" 分隔符 + 末项 current。
+	 * 结构照 /ui 设计系统的 Breadcrumb：普通项 + "/" 分隔符 + 末项 current。
 	 */
 	function renderPathLabel() {
 		var el = document.getElementById("siteHeaderPath");

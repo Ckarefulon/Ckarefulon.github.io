@@ -49,9 +49,9 @@
 }
 
 /* 站点路径（Ckarefulon 之后），如 "/Cube/Formula"
-   配色/字号照 /.UI/pages/design-system.html 的 Breadcrumb 规范：
+   配色/字号照 /ui/pages/design-system.html 的 Breadcrumb 规范：
    普通项 --dsk-foreground-muted、分隔符 --dsk-foreground-subtle、当前项 --dsk-foreground + 500、
-   字号 --dsk-text-sm。⚠️ 令牌由 /.UI/colors_and_type.css 提供；未加载该表的页面回退到页面自己的
+   字号 --dsk-text-sm。⚠️ 令牌由 /ui/colors_and_type.css 提供；未加载该表的页面回退到页面自己的
    --muted/--ink（见下方 var() 第二、三档），避免出现无色的裸文本。 */
 .siteHeaderPath {
 	display: inline-block;
