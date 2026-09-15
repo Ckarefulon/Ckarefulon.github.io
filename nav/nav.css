@@ -35,11 +35,60 @@
 }
 
 .siteHeaderName {
+	display: flex;
+	align-items: baseline;
+	min-width: 0;
 	font-size: 14px;
 	font-weight: 600;
 	color: var(--ink);
-	white-space: nowrap;
 	letter-spacing: 0.01em;
+}
+
+.siteHeaderBrand {
+	white-space: nowrap;
+}
+
+/* 站点路径（Ckarefulon 之后），如 "/Cube/Formula"
+   配色/字号照 /.UI/pages/design-system.html 的 Breadcrumb 规范：
+   普通项 --dsk-foreground-muted、分隔符 --dsk-foreground-subtle、当前项 --dsk-foreground + 500、
+   字号 --dsk-text-sm。⚠️ 令牌由 /.UI/colors_and_type.css 提供；未加载该表的页面回退到页面自己的
+   --muted/--ink（见下方 var() 第二、三档），避免出现无色的裸文本。 */
+.siteHeaderPath {
+	display: inline-block;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--dsk-text-sm, 13px);
+	/* 兜底链：设计令牌 → 页面自己的 --muted → 正文色的半透明版。
+	   最后一档用 currentColor 派生而不是写死颜色：写死浅色值在深色页上看不见、写死深色值在浅色页上
+	   看不见，派生色则永远跟着页面正文色走（浏览器不支持 color-mix 时整条失效→继承，也一样安全）。 */
+	color: var(--dsk-foreground-muted, var(--muted, color-mix(in srgb, currentColor 66%, transparent)));
+	/* 空间不足时从「前端」省略，保留信息量最大的末级目录（…/Formula/Classic）；
+	   内层 [dir=ltr] 保证路径本身仍按 LTR 正常排列 */
+	direction: rtl;
+	text-align: left;
+}
+
+/* 根路径等无路径可显示时不占位（需显式覆盖上面的 display） */
+.siteHeaderPath[hidden] {
+	display: none;
+}
+
+/* 内层保持纯 inline：让外层容器拿到连续的行内内容，text-overflow 的省略号才能正常渲染
+   （用 inline-flex 会变成原子行内盒，省略号会被压成一条缝） */
+.siteHeaderPathInner {
+	direction: ltr;
+}
+
+.siteHeaderCrumbSep {
+	margin: 0 1px;
+	color: var(--dsk-foreground-subtle, var(--muted, color-mix(in srgb, currentColor 46%, transparent)));
+}
+
+.siteHeaderCrumb.isCurrent {
+	font-weight: 500;
+	color: var(--dsk-foreground, var(--ink, inherit));
 }
 
 .siteHeaderRight {

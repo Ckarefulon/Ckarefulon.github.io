@@ -1,0 +1,600 @@
+/* ==========================================================
+   Timer — 倒计时
+   设计令牌沿用 /.UI/colors_and_type.css（dsk-* 前缀）
+   另保留 nav 顶栏所需的兼容别名（--surfaceSolid / --line 等）
+   ========================================================== */
+
+/* ---------- 兼容层：让 /nav/nav.css 能取到本站的颜色 ---------- */
+:root {
+	color-scheme: dark;
+	--surfaceSolid: var(--dsk-card);
+	--surface: var(--dsk-card);
+	--ink: var(--dsk-foreground);
+	--muted: var(--dsk-foreground-muted);
+	--faint: var(--dsk-foreground-subtle);
+	--line: var(--dsk-border);
+	--panel: var(--dsk-card);
+	--panel2: var(--dsk-muted);
+	--accent: var(--dsk-primary);
+	--accentSoft: var(--dsk-primary-soft);
+	--cyan: var(--dsk-accent);
+	--good: var(--dsk-success);
+	--red: var(--dsk-danger);
+	--orange: var(--dsk-warning);
+	--primaryBg: var(--dsk-primary);
+	--primaryHoverBg: var(--dsk-primary-hover);
+	--primaryText: var(--dsk-primary-foreground);
+	--primaryBorder: var(--dsk-primary);
+	--controlBg: var(--dsk-input);
+	--controlText: var(--dsk-input-foreground);
+	--controlBorder: var(--dsk-border);
+	--controlHoverBg: var(--dsk-primary-soft);
+	--dialTrack: var(--dsk-muted);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+	background: var(--dsk-page-bg);
+	background-color: var(--dsk-background);
+	color: var(--dsk-foreground);
+	font: var(--dsk-text-base) / var(--dsk-leading-normal) var(--dsk-font-sans);
+	letter-spacing: normal;
+	overflow: hidden;
+	transition: background 0.22s ease, color 0.22s ease;
+}
+
+button, input { font-family: inherit; letter-spacing: inherit; }
+
+.timerPage {
+	height: calc(100dvh - var(--site-nav-height, 44px));
+	margin-top: var(--site-nav-height, 44px);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+/* ---------- 固定区（不随列表滚动） ---------- */
+.timerFixed {
+	flex-shrink: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--dsk-space-3);
+	padding: var(--dsk-space-3) var(--dsk-space-4) var(--dsk-space-3);
+	background: var(--dsk-background-elevated);
+	border-bottom: 1px solid var(--dsk-border);
+	z-index: 2;
+}
+
+/* ---------- 列表区顶部操作条（吸顶）：终点预留 + 添加节点 ---------- */
+.listBar {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	gap: var(--dsk-space-3);
+	flex-wrap: wrap;
+	max-width: 720px;
+	margin: 0 auto var(--dsk-space-3);
+	padding: var(--dsk-space-2) 0;
+	background: var(--dsk-background);
+}
+
+.setupField {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--dsk-space-2);
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-muted);
+}
+
+.setupField label { white-space: nowrap; }
+
+.setupField input {
+	width: 58px;
+	height: 32px;
+	padding: 0 var(--dsk-space-2);
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-md);
+	background: var(--dsk-input);
+	color: var(--dsk-input-foreground);
+	font-size: var(--dsk-text-sm);
+	font-variant-numeric: tabular-nums;
+	text-align: center;
+	outline: none;
+	transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.setupField input:focus {
+	border-color: var(--dsk-primary);
+	box-shadow: 0 0 0 3px var(--dsk-primary-ring);
+}
+
+.setupField input:disabled { opacity: 0.5; }
+
+.setupField .unit { font-size: var(--dsk-text-xs); color: var(--dsk-foreground-subtle); }
+
+/* ---------- 按钮 ---------- */
+.btn {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 32px;
+	padding: 0 var(--dsk-space-4);
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-md);
+	background: var(--dsk-input);
+	color: var(--dsk-input-foreground);
+	font-size: var(--dsk-text-sm);
+	font-weight: 500;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.08s;
+}
+
+.btn:hover { background: var(--dsk-primary-soft); border-color: var(--dsk-primary); }
+.btn:active { transform: scale(0.97); }
+
+.btnPrimary {
+	background: var(--dsk-primary);
+	border-color: var(--dsk-primary);
+	color: var(--dsk-primary-foreground);
+	font-weight: 600;
+}
+
+.btnPrimary:hover { background: var(--dsk-primary-hover); border-color: var(--dsk-primary-hover); }
+
+.btnGhost { background: transparent; color: var(--dsk-foreground-muted); border-color: transparent; letter-spacing: normal; }
+.btnGhost:hover { color: var(--dsk-foreground); background: var(--dsk-primary-soft); border-color: transparent; }
+
+.btnDanger { background: var(--dsk-danger); border-color: var(--dsk-danger); color: #fff; font-weight: 600; }
+.btnDanger:hover { background: var(--dsk-danger); border-color: var(--dsk-danger); filter: brightness(1.08); }
+
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+/* ---------- 大圆盘 ----------
+   旋转只作用于需要 dash 起点 12 点的两个 circle（HTML 里 transform="rotate(-90 100 100)"），
+   其余图层（预留段/刻度/节点标记）直接用屏幕坐标（12 点 = 0°，顺时针）计算，不再整体旋转。 */
+.dialWrap {
+	position: relative;
+	width: min(44vh, 300px);
+	height: min(44vh, 300px);
+	flex-shrink: 0;
+}
+
+.dial {
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+}
+
+/* ---------- 圆盘：四层结构 ----------
+   ① dialTrack  底槽（淡）
+   ② dialPreLayer 节点前预留段（紫→青渐变）
+   ③ dialCount  倒计时主体（紫色，开始时满圈，随剩余时间从尾端缩短褪去；自带 rotate(-90) 属性）
+   ④ dialMarks  刻度 + 节点青色标记
+*/
+.dialTrack {
+	fill: none;
+	stroke: var(--dsk-muted);
+	stroke-width: 12;
+}
+
+/* 倒计时主体：紫色，从 12 点顺时针覆盖剩余；剩余减少时流逝端沿逆时针退向 12 点 */
+.dialCount {
+	fill: none;
+	stroke: url(#dialArc);
+	stroke-width: 12;
+	stroke-linecap: butt;
+	transition: stroke-dasharray 0.4s linear;
+}
+
+.dial.done .dialCount { stroke: url(#dialArcDone); }
+
+/* 预留段层：节点前 pre 分钟与终点收尾带，紫→青逐段渐变 + 青色高光；叠在紫弧之上 */
+.dialPreLayer { pointer-events: none; }
+
+/* 退去为几何收缩（renderDial 只缩 dasharray，d 与渐变端点不动），不用透明度 */
+.dialPreArc {
+	fill: none;
+	stroke-width: 12;
+	stroke-linecap: butt;
+	filter: drop-shadow(0 0 3px var(--dsk-accent-glow));
+}
+
+.dialMarks { pointer-events: none; }
+
+/* 刻度 */
+.dialTickLine { stroke: var(--dsk-border-subtle); stroke-width: 1; }
+
+.dialTickText {
+	fill: var(--dsk-foreground-subtle);
+	font-family: var(--dsk-font-sans);
+	font-size: 8px;
+	font-weight: 500;
+	text-anchor: middle;
+	dominant-baseline: middle;
+}
+
+/* 节点标记：横跨环宽的一道青色刻线 + 外延细线 + 时间标签 */
+.dialNodeTick {
+	stroke: var(--dsk-accent);
+	stroke-width: 3;
+	stroke-linecap: round;
+}
+
+.dialNodeTick.isHot { filter: drop-shadow(0 0 5px var(--dsk-accent-glow)); }
+.dialNodeTick.isPassed { opacity: 0.45; }
+
+.dialNodeStem {
+	stroke: var(--dsk-accent);
+	stroke-width: 1;
+	opacity: 0.55;
+}
+
+.dialNodeStem.isPassed { opacity: 0.25; }
+
+.dialNodeLabel {
+	fill: var(--dsk-accent);
+	font-family: var(--dsk-font-sans);
+	font-size: 10px;
+	font-weight: 700;
+	text-anchor: middle;
+	dominant-baseline: middle;
+	paint-order: stroke;
+	stroke: var(--dsk-background);
+	stroke-width: 3;
+	stroke-linejoin: round;
+}
+
+.dialNodeLabel.isPassed { fill: var(--dsk-foreground-subtle); }
+
+.dialCenter {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--dsk-space-1);
+	pointer-events: none;
+}
+
+.dialTime {
+	font-family: var(--dsk-font-mono);
+	font-size: clamp(30px, 7.5vh, 48px);
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	font-variant-numeric: tabular-nums;
+	line-height: var(--dsk-leading-tight);
+	color: var(--dsk-foreground);
+}
+
+/* 待开始状态：点击盘心时间 = 编辑总时长（失焦即生效） */
+.dialWrap.isIdle .dialTime {
+	pointer-events: auto;
+	cursor: pointer;
+	border-bottom: 1px dashed transparent;
+	transition: color 0.15s, border-color 0.15s;
+}
+
+.dialWrap.isIdle .dialTime:hover {
+	color: var(--dsk-primary-hover);
+	border-bottom-color: var(--dsk-primary);
+}
+
+#dialTimeEdit {
+	width: 132px;
+	font-family: var(--dsk-font-mono);
+	font-size: clamp(26px, 6vh, 40px);
+	font-weight: 700;
+	text-align: center;
+	color: var(--dsk-foreground);
+	background: transparent;
+	border: none;
+	border-bottom: 2px solid var(--dsk-primary);
+	outline: none;
+	font-variant-numeric: tabular-nums;
+}
+
+#dialTimeEdit::-webkit-outer-spin-button,
+#dialTimeEdit::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.dialSub {
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-muted);
+	letter-spacing: 0.04em;
+}
+
+.dialWrap.isRunning .dialTime { color: var(--dsk-primary-hover); }
+.dialWrap.isDone .dialTime { color: var(--dsk-danger); }
+
+.dialActions {
+	display: flex;
+	gap: var(--dsk-space-3);
+	align-items: center;
+}
+
+/* ---------- 滚动区 ---------- */
+.timerScroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
+	padding: var(--dsk-space-4) var(--dsk-space-4) 72px;
+}
+
+.nodeList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--dsk-space-3);
+	max-width: 720px;
+	margin: 0 auto;
+}
+
+/* ---------- 节点卡片 ---------- */
+.nodeCard {
+	border: 1px solid var(--dsk-card-border);
+	border-radius: var(--dsk-radius-lg);
+	background: var(--dsk-card);
+	padding: var(--dsk-space-3) var(--dsk-space-4);
+	transition: border-color 0.25s, opacity 0.25s;
+}
+
+.nodeCard.isHot { border-color: color-mix(in srgb, var(--dsk-accent) 50%, var(--dsk-card-border)); }
+.nodeCard.isPassed { opacity: 0.6; border-color: var(--dsk-border-subtle); }
+
+.nodeHead {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--dsk-space-2);
+	margin-bottom: var(--dsk-space-2);
+}
+
+.nodeTitle {
+	display: flex;
+	align-items: baseline;
+	gap: var(--dsk-space-2);
+	min-width: 0;
+}
+
+.nodeTime {
+	font-size: var(--dsk-text-lg);
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	color: var(--dsk-card-foreground);
+}
+
+.nodeTime .at { color: var(--dsk-foreground-subtle); font-weight: 400; font-size: var(--dsk-text-xs); }
+
+.nodeBadge {
+	font-size: var(--dsk-text-xs);
+	padding: 2px var(--dsk-space-2);
+	border-radius: var(--dsk-radius-full);
+	background: var(--dsk-muted);
+	color: var(--dsk-muted-foreground);
+	white-space: nowrap;
+}
+
+.nodeBadge.badgePre { color: var(--dsk-accent); background: color-mix(in srgb, var(--dsk-accent) 14%, transparent); }
+.nodeBadge.badgeDone { color: var(--dsk-success); background: color-mix(in srgb, var(--dsk-success) 14%, transparent); }
+
+.nodeRight {
+	display: flex;
+	align-items: center;
+	gap: var(--dsk-space-2);
+	flex-shrink: 0;
+}
+
+.nodeCount {
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-sm);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	color: var(--dsk-card-muted);
+}
+
+.nodeCount.isHot { color: var(--dsk-accent); }
+.nodeCount.isDone { color: var(--dsk-success); }
+
+.iconBtn {
+	appearance: none;
+	border: none;
+	background: transparent;
+	color: var(--dsk-foreground-subtle);
+	font-size: var(--dsk-text-sm);
+	line-height: 1;
+	padding: var(--dsk-space-1) var(--dsk-space-2);
+	border-radius: var(--dsk-radius-sm);
+	cursor: pointer;
+	transition: color 0.15s, background 0.15s;
+}
+
+.iconBtn:hover { color: var(--dsk-danger); background: var(--dsk-primary-soft); }
+.iconBtn.armed { background: var(--dsk-danger); color: #fff; }
+
+/* 进度条：整段 = 节点区段；彩条 = 预留窗口进度（窗口前恒为满） */
+.barOuter {
+	position: relative;
+	height: 10px;
+	border-radius: var(--dsk-radius-full);
+	background: var(--dsk-muted);
+	overflow: hidden;
+}
+
+/* 彩条：紫(左) → 青(右) 的完整渐变固定铺满整段，可见长度由 clip-path 从左侧裁掉
+   ⇒ 左端先消失、右端（青，贴节点）是锚点，渐变起点/终点全程不变，色条一点点消失。
+   圆角写在 inset(... round 5px)：5px = 条高一半，可见段两端都是圆角。 */
+.barInner {
+	position: absolute;
+	inset: 0;
+	border-radius: var(--dsk-radius-full);
+	background: linear-gradient(90deg, var(--dsk-primary), var(--dsk-accent));
+	clip-path: inset(0 0 0 0% round 5px);
+	transition: clip-path 0.25s linear, background 0.3s;
+}
+
+/* 预留中不再另调彩条颜色：整条恒为紫→青（活动感由卡片描边 + 徽标给出） */
+.nodeCard.isPassed .barInner { background: var(--dsk-foreground-subtle); }
+
+/* 无预留节点：不显示进度条 */
+.barAbsent {
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+	padding: var(--dsk-space-2) 0 var(--dsk-space-1);
+	border-top: 1px dashed var(--dsk-border-subtle);
+}
+
+.nodeFoot {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--dsk-space-2);
+	margin-top: var(--dsk-space-2);
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+	font-variant-numeric: tabular-nums;
+}
+
+.nodeFoot .fire { white-space: nowrap; }
+
+/* 卡片内编辑器 */
+.nodeEditor {
+	display: flex;
+	align-items: center;
+	gap: var(--dsk-space-2);
+	flex-wrap: wrap;
+	margin-top: var(--dsk-space-3);
+	padding-top: var(--dsk-space-3);
+	border-top: 1px dashed var(--dsk-border-subtle);
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-muted);
+}
+
+.nodeEditor input {
+	width: 52px;
+	height: 28px;
+	padding: 0 var(--dsk-space-1);
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-sm);
+	background: var(--dsk-input);
+	color: var(--dsk-input-foreground);
+	font-size: var(--dsk-text-xs);
+	text-align: center;
+	outline: none;
+	font-variant-numeric: tabular-nums;
+	transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.nodeEditor input:focus {
+	border-color: var(--dsk-primary);
+	box-shadow: 0 0 0 3px var(--dsk-primary-ring);
+}
+
+.emptyHint {
+	text-align: center;
+	color: var(--dsk-foreground-subtle);
+	font-size: var(--dsk-text-sm);
+	padding: var(--dsk-space-6) var(--dsk-space-3);
+	max-width: 720px;
+	margin: 0 auto;
+}
+
+/* ---------- 底部工具 ---------- */
+.scrollTools {
+	display: flex;
+	align-items: center;
+	gap: var(--dsk-space-2);
+	flex-wrap: wrap;
+	justify-content: center;
+	max-width: 720px;
+	margin: var(--dsk-space-5) auto 0;
+	padding-top: var(--dsk-space-4);
+	border-top: 1px solid var(--dsk-border-subtle);
+}
+
+.cloudTag {
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+	background: var(--dsk-muted);
+	padding: 3px var(--dsk-space-3);
+	border-radius: var(--dsk-radius-full);
+	transition: color 0.2s;
+}
+
+.cloudTag[data-state="cloud"] { color: var(--dsk-accent); }
+.cloudTag[data-state="sync"] { color: var(--dsk-foreground-muted); }
+.cloudTag[data-state="err"] { color: var(--dsk-danger); }
+
+.btnTool {
+	appearance: none;
+	height: 28px;
+	padding: 0 var(--dsk-space-3);
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-full);
+	background: transparent;
+	color: var(--dsk-foreground-muted);
+	font-size: var(--dsk-text-xs);
+	cursor: pointer;
+	transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.btnTool:hover { color: var(--dsk-foreground); background: var(--dsk-primary-soft); border-color: var(--dsk-primary); }
+.btnTool.armed { background: var(--dsk-danger); border-color: var(--dsk-danger); color: #fff; }
+
+/* ---------- Toast ---------- */
+#toast {
+	position: fixed;
+	left: 50%;
+	bottom: var(--dsk-space-6);
+	transform: translateX(-50%) translateY(18px);
+	background: var(--dsk-popover);
+	border: 1px solid var(--dsk-popover-border);
+	color: var(--dsk-popover-foreground);
+	font-size: var(--dsk-text-sm);
+	padding: var(--dsk-space-3) var(--dsk-space-4);
+	border-radius: var(--dsk-radius-lg);
+	box-shadow: var(--dsk-shadow-lg);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.22s, transform 0.22s;
+	max-width: 78vw;
+	text-align: center;
+	z-index: 2000;
+}
+
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.warn { border-color: color-mix(in srgb, var(--dsk-accent) 55%, var(--dsk-popover-border)); }
+#toast.alert { border-color: color-mix(in srgb, var(--dsk-danger) 65%, var(--dsk-popover-border)); }
+
+/* 到点脉冲 */
+@keyframes dialPulse {
+	0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--dsk-danger) 42%, transparent); }
+	100% { box-shadow: 0 0 0 24px transparent; }
+}
+
+.dialWrap.isFlashing .dial {
+	border-radius: 50%;
+	animation: dialPulse 1s ease-out 3;
+}
+
+/* ---------- 窄屏 ---------- */
+@media (max-width: 560px) {
+	.timerFixed { padding: var(--dsk-space-2) var(--dsk-space-2) var(--dsk-space-2); gap: var(--dsk-space-2); }
+	.dialWrap { width: min(36vh, 230px); height: min(36vh, 230px); }
+	.setupField input { width: 48px; }
+	.timerScroll { padding: var(--dsk-space-3) var(--dsk-space-2) var(--dsk-space-6); }
+	.nodeTime { font-size: var(--dsk-text-base); }
+	.dialTime { font-size: 30px; }
+}
+
+@media (max-height: 660px) {
+	.dialWrap { width: min(30vh, 180px); height: min(30vh, 180px); }
+	.dialTime { font-size: 26px; }
+}

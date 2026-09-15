@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<link rel="icon" href="/favicon.svg?v=7" type="image/svg+xml">
+
+	<!-- 设计令牌（dsk-*），必须先于页面样式 -->
+	<link rel="stylesheet" href="/.UI/colors_and_type.css">
+	<link rel="stylesheet" href="/nav/nav.css?v=10">
+	<link rel="stylesheet" href="timer.css?v=8">
+
+	<script src="/nav/nav.js?v=10" defer></script>
+
+	<!-- 站点作用域（必须先于云同步定义） -->
+	<script src="/assets/services/core/site-scope.js?v=0915b" defer></script>
+
+	<!-- 云同步（Supabase，登录态与 Formula 共享） -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+	<script src="/supabase/supabase-config.js?v=0618" defer></script>
+	<script src="/supabase/supabase-client.js?v=0618" defer></script>
+	<script src="/supabase/auth-manager.js?v=0677" defer></script>
+
+	<title>Timer — 倒计时</title>
+</head>
+<body>
+	<div class="timerPage">
+		<!-- 顶部固定：大圆盘（不随列表滚动）。总时长点击盘心时间设置；节点在下方列表添加 -->
+		<div class="timerFixed">
+			<div class="dialWrap">
+				<svg class="dial" id="dial" viewBox="0 0 200 200" aria-hidden="true">
+					<defs id="dialDefs">
+						<!-- 倒计时弧：整体紫色 -->
+						<linearGradient id="dialArc" x1="0" y1="0" x2="1" y2="1">
+							<stop offset="0%" stop-color="var(--dsk-purple-400)"></stop>
+							<stop offset="100%" stop-color="var(--dsk-primary)"></stop>
+						</linearGradient>
+						<linearGradient id="dialArcDone" x1="0" y1="0" x2="1" y2="1">
+							<stop offset="0%" stop-color="var(--dsk-danger)"></stop>
+							<stop offset="100%" stop-color="var(--dsk-danger)"></stop>
+						</linearGradient>
+						<!-- 节点预留段 / 终点收尾带的渐变由 JS 逐段生成（userSpaceOnUse，青端贴节点） -->
+					</defs>
+
+				<!-- ① 底槽 -->
+				<circle class="dialTrack" cx="100" cy="100" r="80"></circle>
+				<!-- ② 倒计时主体：紫色，随剩余时间从尾端缩短（rotate(-90) 让 dash 起点落在 12 点，只转这两个 circle，不转整盘） -->
+				<circle class="dialCount" id="dialCount" cx="100" cy="100" r="80" transform="rotate(-90 100 100)"></circle>
+					<!-- ③ 节点前预留段（紫→青），叠在紫弧之上 -->
+					<g class="dialPreLayer" id="dialPreLayer"></g>
+					<!-- ④ 刻度与节点标记 -->
+					<g class="dialMarks" id="dialMarks"></g>
+				</svg>
+				<div class="dialCenter">
+					<div class="dialTime" id="dialTime">40:00</div>
+					<div class="dialSub" id="dialSub">准备开始</div>
+				</div>
+			</div>
+
+			<div class="dialActions">
+				<button class="btn btnPrimary" id="btnStart" type="button">开始</button>
+				<button class="btn" id="btnPause" type="button" hidden>暂停</button>
+				<button class="btn btnGhost" id="btnReset" type="button">重置</button>
+			</div>
+		</div>
+
+		<!-- 可滚动：列表操作条 + 节点进度条列表 -->
+		<div class="timerScroll" id="timerScroll">
+			<div class="listBar">
+				<div class="setupField">
+					<label for="endPreInput">终点预留</label>
+					<input type="number" id="endPreInput" min="0" max="120" step="1" value="5">
+					<span class="unit">分钟</span>
+				</div>
+				<span style="flex:1"></span>
+				<button class="btn btnPrimary" id="addNodeBtn" type="button">添加节点</button>
+			</div>
+			<div class="nodeList" id="nodeList"></div>
+			<div class="emptyHint" id="emptyHint" hidden>还没有节点，点「添加节点」加一个。</div>
+
+			<div class="scrollTools">
+				<span class="cloudTag" id="cloudState" data-state="local">本地</span>
+				<button class="btnTool" id="btnExport" type="button">导出</button>
+				<button class="btnTool" id="btnImport" type="button">导入</button>
+				<button class="btnTool" id="btnClear" type="button">清空节点</button>
+				<input type="file" id="fileImport" accept=".json,application/json" hidden>
+			</div>
+		</div>
+	</div>
+	<div id="toast"></div>
+
+	<script src="timer-app.js?v=8" defer></script>
+</body>
+</html>

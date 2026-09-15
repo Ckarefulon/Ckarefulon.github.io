@@ -1,26 +1,93 @@
 (function() {
 	"use strict";
 
+	/**
+	 * 站点作用域：一律取 site-scope.js 登记表的结果（"-" 连接、真实大小写）。
+	 * **不用 location.pathname 推导** —— 网址会被 Netlify 强制小写，算出来是 study-focus，
+	 * 跟云端已有的 Study-Focus 对不上；也绝不兜底到 Cube-Formula（会覆盖别站点数据）。
+	 * 未登记路径返回 ""，云端读写会被闸门拦住。
+	 */
 	function detectSiteScope() {
-		if (window.getCurrentSiteScope) {
-			var scope = window.getCurrentSiteScope();
-			// 拿不到作用域时不要直接返回空（会让本地存储键退化、互相串），继续按路径兜底命名
-			if (scope) return scope;
+		return (window.getCurrentSiteScope && window.getCurrentSiteScope()) || "";
+	}
+
+	/**
+	 * 仅用于 localStorage 命名空间：作用域为空时也得有个稳定的键，
+	 * 免得不同页面互相串。只影响本机键名，不参与云端读写。
+	 */
+	function localScopeKey() {
+		var scope = detectSiteScope();
+		if (scope) return scope;
+		var segs = pathSegments(window.location.pathname || "/");
+		return segs.length ? "local-" + segs.join("-").toLowerCase() : "local-home";
+	}
+
+	/**
+	 * 顶栏路径显示名登记表。
+	 *
+	 * ⚠️ 不能直接拿 location.pathname 当显示名：
+	 *    Netlify 会把 URL 路径强制小写（/Cube/Formula/ → /cube/formula/），
+	 *    照抄网址就会把 "Cube/Formula" 显示成 "cube/formula"。
+	 * 所以这里以「真实目录名（含大小写）」为准登记，键为路径小写形式（便于与网址对照）。
+	 * **只登记真实目录名里含大写的路径**；目录本身就是小写的（linkage、user/profile）
+	 * 不必写进来，交给回退规则按实际路径段原样显示即可。
+	 * 新增子站时在这里补一行。
+	 *
+	 * ⚠️ 站点的「作用域」（云端数据用，"-" 连接）另有一张表：
+	 *    /assets/services/core/site-scope.js 的 SCOPE_REGISTRY。
+	 *    两张表的大小写必须一致；新增子站时两处都要补。
+	 */
+	var PATH_LABELS = {
+		"cube/formula": "Cube/Formula",
+		"cube/formula/classic": "Cube/Formula/Classic",
+		"cube/analyzer": "Cube/Analyzer",
+		"cube/cross": "Cube/Cross",
+		"cube/music": "Cube/Music",
+		"study/focus": "Study/Focus",
+		"study/question": "Study/Question",
+		"study/timer": "Study/Timer",
+		"tools/kgenesis": "Tools/KGenesis",
+		"tools/pulse": "Tools/Pulse",
+		"tools/relay": "Tools/Relay",
+		"music/chord/diatonic": "Music/Chord/Diatonic",
+		"jump/onedrive": "Jump/OneDrive"
+	};
+
+	/** 切出路径中的目录段：丢掉空段与 index.html，遇到带扩展名的文件段即停 */
+	function pathSegments(pathname) {
+		var raw = String(pathname || "").replace(/\/+$/, "").split("/");
+		var segs = [];
+		for (var i = 0; i < raw.length; i++) {
+			var s = raw[i];
+			if (!s || s === "index.html") continue;
+			if (s.indexOf(".") >= 0) break;
+			segs.push(s);
 		}
-		var path = window.location.pathname || "/";
-		var segments = path.split("/").filter(function(s) { return s && s !== "index.html"; });
-		if (segments.length === 0) {
-			return "home";
-		}
-		var scopeSegments = segments.slice(0, 2);
-		return scopeSegments.join("-");
+		return segs;
+	}
+
+	/**
+	 * 当前页面在顶栏显示的路径段（不含 "Ckarefulon" 前缀）；根路径返回空数组。
+	 * 登记表命中则用登记的真实大小写；否则原样用路径段（小写目录名即保持小写）。
+	 */
+	function getCurrentPathSegments() {
+		var segs = pathSegments(window.location.pathname || "/");
+		if (!segs.length) return [];
+		var label = PATH_LABELS[segs.join("/").toLowerCase()];
+		return label ? label.split("/") : segs;
+	}
+
+	function escapeHtml(s) {
+		return String(s).replace(/[&<>"']/g, function(c) {
+			return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+		});
 	}
 
 	var NAV_HTML = [
 		'<header class="siteHeader">',
 		'	<div class="siteHeaderLeft">',
 		'		<img class="siteHeaderLogo" src="/favicon.svg?v=0349" alt="Logo" aria-hidden="true">',
-		'		<span class="siteHeaderName">Ckarefulon</span>',
+		'		<span class="siteHeaderName"><span class="siteHeaderBrand">Ckarefulon</span><span class="siteHeaderPath" id="siteHeaderPath" hidden><span class="siteHeaderPathInner" id="siteHeaderPathInner" dir="ltr"></span></span></span>',
 		'	</div>',
 		'	<div class="siteHeaderRight">',
 		'		<button id="siteThemeToggle" class="siteHeaderBtn siteHeaderBtnTheme" type="button" title="切换主题">☀</button>',
@@ -116,16 +183,45 @@
 	].join("");
 
 	function renderNav() {
-		if (document.querySelector(".siteHeader")) {
+		if (!document.querySelector(".siteHeader")) {
+			var wrapper = document.createElement("div");
+			var fragment = document.createDocumentFragment();
+			wrapper.innerHTML = NAV_HTML;
+			while (wrapper.firstChild) {
+				fragment.appendChild(wrapper.firstChild);
+			}
+			document.body.insertBefore(fragment, document.body.firstChild);
+		}
+		renderPathLabel();
+	}
+
+	/**
+	 * 把当前页面路径写进顶栏（"Ckarefulon" 之后），根路径下留空。
+	 * 结构照 /.UI 设计系统的 Breadcrumb：普通项 + "/" 分隔符 + 末项 current。
+	 */
+	function renderPathLabel() {
+		var el = document.getElementById("siteHeaderPath");
+		var box = document.getElementById("siteHeaderPathInner");
+		if (!el || !box) return;
+
+		var segs = getCurrentPathSegments();
+		if (!segs.length) {
+			box.textContent = "";
+			el.hidden = true;
+			el.removeAttribute("title");
 			return;
 		}
-		var wrapper = document.createElement("div");
-		var fragment = document.createDocumentFragment();
-		wrapper.innerHTML = NAV_HTML;
-		while (wrapper.firstChild) {
-			fragment.appendChild(wrapper.firstChild);
+
+		var html = "";
+		for (var i = 0; i < segs.length; i++) {
+			var isCurrent = i === segs.length - 1;
+			html += '<span class="siteHeaderCrumbSep">/</span>';
+			html += '<span class="siteHeaderCrumb' + (isCurrent ? " isCurrent" : "") + '">'
+				+ escapeHtml(segs[i]) + "</span>";
 		}
-		document.body.insertBefore(fragment, document.body.firstChild);
+		box.innerHTML = html;
+		el.hidden = false;
+		el.title = segs.join("/");
 	}
 
 	function init(app) {
@@ -450,7 +546,7 @@
 		var _cloudReadyRetries = 0;
 
 	function getSiteStorageKey(prefix) {
-		return prefix + encodeURIComponent(detectSiteScope());
+		return prefix + encodeURIComponent(localScopeKey());
 	}
 
 	function loadSyncState() {

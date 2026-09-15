@@ -1141,7 +1141,7 @@
 		toast('已清空全部数据');
 	}
 
-	/* ================= 云同步（Supabase user_data · scope=Study/Question） ================= */
+	/* ================= 云同步（Supabase user_data · scope=Study-Question） ================= */
 
 	/* 站点作用域：一律由 site-scope.js 按路径计算；算不出来就返回空串，
 	 * 此时禁止任何云端读写（绝不兜底到 Cube-Formula，那会覆盖别站点数据） */

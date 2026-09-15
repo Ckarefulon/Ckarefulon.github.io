@@ -4,35 +4,49 @@
 	/**
 	 * siteScope - 统一站点作用域
 	 *
-	 * 作用域一律由「当前路径」自动计算，**不再有任何兜底默认值**。
-	 * 绝对不允许出现「路径没配上 → 落到 Cube-Formula」的情况：那会把别的站点的数据覆盖掉。
+	 * 作用域 = 登记表里登记的「站点名」，用 "-" 连接（例：Study-Focus、Cube-Formula）。
 	 *
-	 * 计算规则：
-	 * 1) 别名表 SCOPE_ALIASES：少数历史命名需要把多个路径合并成同一份数据
-	 *    （例如 Cube/Formula 与 Cube/Formula/Beta、Cube/Formula/Classic 共用一份）。
-	 *    别名里的 scope 字符串与历史保持一致，避免已有云端数据被割裂成两份。
-	 * 2) 其余全部按路径推导：取前两段目录 → "模块/子模块"
-	 *    /Study/Focus/        → Study/Focus
-	 *    /Study/Question/     → Study/Question
-	 *    /Tools/SomeNew/      → Tools/SomeNew（新增页面自动获得自己的作用域，无需登记）
-	 * 3) 路径不足以判定具体页面时返回空字符串 ""（根路径、只到模块层、非目录形态的路径）：
-	 *    调用方必须据此**放弃云端读写**，宁可不同步，也不能写错作用域。
+	 * 三条铁律：
+	 * 1) **大小写以登记表为准，绝不用 location.pathname 推导。**
+	 *    Netlify 会把 URL 强制小写（/Cube/Formula/ → /cube/formula/），
+	 *    照抄网址会算成 cube-formula，与已有云端数据 Cube-Formula 对不上。
+	 * 2) **没有兜底默认值。** 未登记的路径一律返回 ""，调用方必须放弃云端读写。
+	 *    绝对不允许「路径没配上 → 落到 Cube-Formula」：那会把别的站点的数据覆盖掉。
+	 * 3) 新增子站时在下面的 SCOPE_REGISTRY 补一行（与 nav.js 的 PATH_LABELS 同步）。
+	 *
+	 * 键   = 网址路径的小写形式（便于跟地址栏对照；网址本身就是小写）
+	 * 值   = { scope: 作用域名（"-" 连接，含真实大小写）, path: 站点根路径（含真实大小写） }
+	 *
+	 * 取前两段作为作用域名（与 nav 顶栏显示口径一致）：
+	 *    /study/focus/        → Study-Focus
+	 *    /tools/kgenesis/     → Tools-KGenesis
+	 *    /music/chord/diatonic/ → Music-Chord
+	 * 需要把多个路径合并成同一份数据的（历史命名），显式写同一个 scope：
+	 *    cube/formula 与 cube/formula/classic → Cube-Formula
 	 */
 
-	/* 历史命名别名：前缀匹配，把同一份数据的多个路径合并到一个 scope */
-	var SCOPE_ALIASES = [
-		{ prefix: "/Cube/Formula", scope: "Cube-Formula" },
-		{ prefix: "/Cube/Analyzer", scope: "Cube-Analyzer" },
-		{ prefix: "/Cube/Cross", scope: "Cube-Cross" },
-		{ prefix: "/Tools/Pulse", scope: "Tools-Pulse" },
-		{ prefix: "/Tools/Relay", scope: "Tools-Relay" }
-	];
-
-	/* 非页面目录：这些路径下不会有页面，直接判定为「无作用域」，避免凭空造出 assets/xxx 之类的假作用域 */
-	var NON_PAGE_DIRS = ["assets", "nav", "supabase", ".UI", ".github", ".workbuddy", ".temp", "test-results", "node_modules"];
+	var SCOPE_REGISTRY = {
+		"cube/formula":         { scope: "Cube-Formula",   path: "/Cube/Formula" },
+		"cube/formula/classic": { scope: "Cube-Formula",   path: "/Cube/Formula/Classic" },
+		"cube/analyzer":        { scope: "Cube-Analyzer",  path: "/Cube/Analyzer" },
+		"cube/cross":           { scope: "Cube-Cross",     path: "/Cube/Cross" },
+		"cube/music":           { scope: "Cube-Music",     path: "/Cube/Music" },
+		"study/focus":          { scope: "Study-Focus",    path: "/Study/Focus" },
+		"study/question":       { scope: "Study-Question", path: "/Study/Question" },
+		"study/timer":          { scope: "Study-Timer",    path: "/Study/Timer" },
+		"tools/kgenesis":       { scope: "Tools-KGenesis", path: "/Tools/KGenesis" },
+		"tools/pulse":          { scope: "Tools-Pulse",    path: "/Tools/Pulse" },
+		"tools/relay":          { scope: "Tools-Relay",    path: "/Tools/Relay" },
+		"music/chord/diatonic": { scope: "Music-Chord",    path: "/Music/Chord/Diatonic" },
+		"jump/onedrive":        { scope: "Jump-OneDrive",  path: "/Jump/OneDrive" },
+		"linkage":              { scope: "linkage",        path: "/linkage" },
+		"user/profile":         { scope: "user-profile",   path: "/user/profile" }
+	};
 
 	function normalizePathname(pathname) {
-		return (pathname || "").replace(/\/+$/, "") || "/";
+		var p = String(pathname || "");
+		if (p.charAt(0) !== "/") p = "/" + p;
+		return p.replace(/\/+$/, "") || "/";
 	}
 
 	/**
@@ -52,48 +66,47 @@
 		return segs;
 	}
 
-	function matchAlias(path) {
-		for (var i = 0; i < SCOPE_ALIASES.length; i++) {
-			var a = SCOPE_ALIASES[i];
-			if (path === a.prefix || path.indexOf(a.prefix + "/") === 0) return a;
+	/**
+	 * 查登记表：先按完整路径，再逐级去掉末尾段（这样 /Cube/Formula/Classic/ 命中
+	 * 自己那条，Cube/Formula 下的其他子路径回落到 /Cube/Formula）
+	 * 键统一小写比对，**返回的结果大小写来自登记表**，与网址大小写无关。
+	 * @param {string[]} segs
+	 * @returns {{scope:string, path:string}|null}
+	 */
+	function lookup(segs) {
+		for (var i = segs.length; i >= 1; i--) {
+			var key = segs.slice(0, i).join("/").toLowerCase();
+			if (Object.prototype.hasOwnProperty.call(SCOPE_REGISTRY, key)) return SCOPE_REGISTRY[key];
 		}
 		return null;
 	}
 
 	/**
-	 * 按路径计算站点作用域
+	 * 按路径查站点作用域
 	 * @param {string} [pathname] 默认取 window.location.pathname
-	 * @returns {string} 作用域字符串；无法判定时返回 ""（调用方必须放弃云端读写）
+	 * @returns {string} 作用域字符串；未登记时返回 ""（调用方必须放弃云端读写）
 	 */
 	function computeSiteScope(pathname) {
-		var path = normalizePathname(typeof pathname === "string" ? pathname : window.location.pathname);
+		var entry = lookup(pathSegments(typeof pathname === "string" ? pathname : window.location.pathname));
+		return entry ? entry.scope : "";
+	}
 
-		var alias = matchAlias(path);
-		if (alias) return alias.scope;
-
-		var segs = pathSegments(path);
-		if (segs.length < 2) return "";
-		if (NON_PAGE_DIRS.indexOf(segs[0]) >= 0) return "";
-		return segs[0] + "/" + segs[1];
+	/**
+	 * 按路径查站点根路径（含真实大小写）
+	 * @param {string} [pathname] 默认取 window.location.pathname
+	 * @returns {string} 例 "/Study/Focus"；未登记时返回 ""
+	 */
+	function computeSiteBasePath(pathname) {
+		var entry = lookup(pathSegments(typeof pathname === "string" ? pathname : window.location.pathname));
+		return entry ? entry.path : "";
 	}
 
 	function getCurrentSiteScope() {
 		return computeSiteScope();
 	}
 
-	/**
-	 * 当前页面的站点根路径；无法判定时返回 ""
-	 */
 	function getCurrentSiteBasePath() {
-		var path = normalizePathname(window.location.pathname);
-
-		var alias = matchAlias(path);
-		if (alias) return alias.prefix;
-
-		var segs = pathSegments(path);
-		if (segs.length < 2) return "";
-		if (NON_PAGE_DIRS.indexOf(segs[0]) >= 0) return "";
-		return "/" + segs[0] + "/" + segs[1];
+		return computeSiteBasePath();
 	}
 
 	/**
@@ -112,15 +125,22 @@
 	function requireSiteScope() {
 		var scope = computeSiteScope();
 		if (!scope) {
-			console.warn("[SiteScope] 当前路径没有可用的站点作用域，已阻止云端读写：" + (window.location.pathname || ""));
+			console.warn("[SiteScope] 当前路径没有登记的站点作用域，已阻止云端读写：" + (window.location.pathname || ""));
 		}
 		return scope;
 	}
 
+	/* 供核对用：登记表本身（测试会拿它跟 nav 顶栏显示的大小写对齐） */
+	function getScopeRegistry() {
+		return SCOPE_REGISTRY;
+	}
+
 	window.computeSiteScope = computeSiteScope;
+	window.computeSiteBasePath = computeSiteBasePath;
 	window.getCurrentSiteScope = getCurrentSiteScope;
 	window.getCurrentSiteBasePath = getCurrentSiteBasePath;
 	window.hasSiteScope = hasSiteScope;
 	window.requireSiteScope = requireSiteScope;
+	window.getScopeRegistry = getScopeRegistry;
 	window.normalizePathname = normalizePathname;
 })();

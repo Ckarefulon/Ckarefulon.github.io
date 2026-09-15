@@ -334,9 +334,9 @@ function renderAll(){
   tick();
 }
 
-/* ================= 云同步（Supabase user_data · scope=Study/Focus） ================= */
-/* 站点作用域：一律由 site-scope.js 按路径计算；算不出来就返回空串，
- * 此时禁止任何云端读写（绝不兜底到 Cube-Formula，那会覆盖别站点数据） */
+/* ================= 云同步（Supabase user_data · scope=Study-Focus） ================= */
+/* 站点作用域：一律由 site-scope.js 的登记表给出（"-" 连接、真实大小写）；
+ * 取不到就返回空串，此时禁止任何云端读写（绝不兜底到 Cube-Formula，那会覆盖别站点数据） */
 function focusScope(){
   return window.getCurrentSiteScope ? window.getCurrentSiteScope() : '';
 }
