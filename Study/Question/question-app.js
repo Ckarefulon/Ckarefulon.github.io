@@ -660,29 +660,46 @@
 		}
 	}
 
-	/* 整理面板里上下移动条目：交换 data.items 中相邻两个同清单条目的位置 */
-	function moveItem(id, dir) {
+	/* 整理面板排序：把条目从 from 挪到 to（同清单内）。
+	   顺序 = data.items 的数组顺序，挪动后同清单其它条目相对顺序不变。 */
+	function reorderItem(id, from, to) {
 		var it = findItem(id);
-		if (!it) return;
-		var seq = itemsOf(it.listId);            /* 本清单现有条目，按数组顺序 */
-		var i = -1;
-		for (var k = 0; k < seq.length; k++) { if (seq[k].id === id) { i = k; break; } }
-		var j = i + dir;
-		if (i < 0 || j < 0 || j >= seq.length) return;
-		var a = seq[i], b = seq[j];
-		var ia = data.items.indexOf(a), ib = data.items.indexOf(b);
-		if (ia < 0 || ib < 0) return;
-		data.items[ia] = b;
-		data.items[ib] = a;
+		if (!it) return false;
+		var seq = itemsOf(it.listId);
+		if (from < 0 || to < 0 || from >= seq.length || to >= seq.length || from === to) return false;
+		var anchor = seq[to];
+		var ia = data.items.indexOf(it);
+		if (ia < 0) return false;
+		data.items.splice(ia, 1);                        /* 先抽出 */
+		var ib = data.items.indexOf(anchor);
+		if (ib < 0) { data.items.splice(ia, 0, it); return false; }
+		data.items.splice(to < from ? ib : ib + 1, 0, it);   /* 上移插在锚点前，下移插在锚点后 */
 		var now = Date.now();
-		a.mut = now; b.mut = now;                /* 顺序变更也走 mut 新者胜，同步到云端 */
+		it.mut = now;
+		anchor.mut = now;                                /* 顺序变更也走 mut 新者胜，同步到云端 */
 		data.itemsMut = now;
 		view.editingId = null;
 		save(true);
 		renderAll();
+		return true;
 	}
 
-	/* 整理面板「条目」区：按当前顺序列出，可 ↑↓ 排序、删除 */
+	/* 键盘排序（手柄聚焦时 ↑↓）：拖动为主，键盘为辅 */
+	function moveItemByKey(id, dir) {
+		var it = findItem(id);
+		if (!it) return;
+		var seq = itemsOf(it.listId);
+		var i = -1;
+		for (var k = 0; k < seq.length; k++) { if (seq[k].id === id) { i = k; break; } }
+		if (i < 0) return;
+		var j = i + dir;
+		if (j < 0 || j >= seq.length) return;
+		if (!reorderItem(id, i, j)) return;
+		var h = document.querySelector('#manageItems .dragHandle[data-drag-for="' + cssEsc(id) + '"]');
+		if (h) h.focus();                                /* 重绘后把焦点还回手柄，便于连按 */
+	}
+
+	/* 整理面板「条目」区：按当前顺序列出，按住手柄拖动排序、删除需二确认 */
 	function renderItemsPanel() {
 		var host = $('manageItems');
 		if (!host) return;
@@ -693,23 +710,172 @@
 			return;
 		}
 		host.innerHTML = seq.map(function (it, i) {
-			return '<div class="manageRow" data-item-id="' + esc(it.id) + '">'
+			return '<div class="manageRow manageRowItem" data-item-id="' + esc(it.id) + '">'
+				+ '<span class="dragHandle" data-drag-for="' + esc(it.id) + '" role="button" tabindex="0" title="按住拖动排序" aria-label="拖动排序">'
+				+ '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="6" cy="3.6" r="1.3"/><circle cx="10" cy="3.6" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12.4" r="1.3"/><circle cx="10" cy="12.4" r="1.3"/></svg>'
+				+ '</span>'
 				+ '<span class="manageRowIdx">' + (i + 1) + '</span>'
 				+ '<span class="manageRowName">' + esc(it.question || '（无问题文本）') + '</span>'
-				+ '<button class="miniBtn mgoUp" type="button" title="上移"' + (i === 0 ? ' disabled' : '') + '>↑</button>'
-				+ '<button class="miniBtn mgoDown" type="button" title="下移"' + (i === seq.length - 1 ? ' disabled' : '') + '>↓</button>'
 				+ '<button class="miniBtn mgoDelItem" type="button">删除</button>'
 				+ '</div>';
 		}).join('');
 	}
 
+	/* ---------- 整理面板：拖动排序 ---------- */
+
+	var dragState = null;
+	var dragRaf = 0;
+
+	function panelRows() {
+		var host = $('manageItems');
+		return host ? Array.prototype.slice.call(host.querySelectorAll('.manageRowItem')) : [];
+	}
+
+	function dragShiftAll() {
+		var st = dragState;
+		if (!st) return;
+		var hf = st.heights[st.from];
+		st.row.style.transform = 'translateY(' + st.dy + 'px)';
+		for (var k = 0; k < st.rows.length; k++) {
+			if (k === st.from) continue;
+			var shift = 0;
+			if (st.to > st.from && k > st.from && k <= st.to) shift = -hf;
+			else if (st.to < st.from && k >= st.to && k < st.from) shift = hf;
+			st.rows[k].style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+		}
+		dragRenumber();
+	}
+
+	/* 拖动过程中序号实时按预览顺序重排 */
+	function dragRenumber() {
+		var st = dragState;
+		if (!st) return;
+		for (var k = 0; k < st.rows.length; k++) {
+			var n = k;
+			if (k === st.from) n = st.to;
+			else if (st.to > st.from && k > st.from && k <= st.to) n = k - 1;
+			else if (st.to < st.from && k >= st.to && k < st.from) n = k + 1;
+			var el = st.rows[k].querySelector('.manageRowIdx');
+			if (el) el.textContent = String(n + 1);
+		}
+	}
+
+	/* 落点 = 拖拽行中心落在第几条之前（其它行的原始中点做基准） */
+	function dragCompute() {
+		var st = dragState;
+		if (!st) return;
+		var center = st.tops[st.from] + st.heights[st.from] / 2 + st.dy;
+		var to = 0;
+		for (var k = 0; k < st.rows.length; k++) {
+			if (k === st.from) continue;
+			if (st.tops[k] + st.heights[k] / 2 < center) to++;
+		}
+		st.to = to;
+		dragShiftAll();
+	}
+
+	function dragEdgeScroll(clientY) {
+		var st = dragState;
+		if (!st || !st.scroller) return;
+		var r = st.scroller.getBoundingClientRect();
+		var edge = 48, v = 0;
+		if (clientY > r.bottom - edge) v = Math.min(14, (clientY - (r.bottom - edge)) * 0.5 + 3);
+		else if (clientY < r.top + edge) v = -Math.min(14, ((r.top + edge) - clientY) * 0.5 + 3);
+		st.scrollDir = v;
+		if (v && !dragRaf) dragRaf = requestAnimationFrame(dragTick);
+	}
+
+	function dragTick() {
+		dragRaf = 0;
+		var st = dragState;
+		if (!st || !st.active) return;
+		if (st.scrollDir && st.scroller) {
+			st.scroller.scrollTop += st.scrollDir;
+			st.dy = st.lastY - st.startY + (st.scroller.scrollTop - st.scrollTop0);
+			dragCompute();
+		}
+		dragEdgeScroll(st.lastY);      /* 重新评估边缘，需要就续下一帧 */
+	}
+
+	function dragUpdate(clientY) {
+		var st = dragState;
+		if (!st) return;
+		st.lastY = clientY;
+		st.dy = clientY - st.startY + (st.scroller ? st.scroller.scrollTop - st.scrollTop0 : 0);
+		dragCompute();
+		dragEdgeScroll(clientY);
+	}
+
+	function dragDown(e) {
+		if (e.pointerType === 'mouse' && e.button !== 0) return;
+		var handle = e.target.closest ? e.target.closest('.dragHandle') : null;
+		if (!handle) return;
+		var row = handle.closest('.manageRowItem');
+		if (!row) return;
+		var rows = panelRows();
+		if (rows.length < 2) return;
+		var sc = row.closest('.manageSheet');
+		dragState = {
+			id: row.getAttribute('data-item-id'),
+			row: row, rows: rows, handle: handle,
+			from: rows.indexOf(row), to: rows.indexOf(row),
+			startY: e.clientY, lastY: e.clientY, dy: 0, scrollDir: 0,
+			pointerId: e.pointerId, active: false,
+			scroller: sc, scrollTop0: sc ? sc.scrollTop : 0,
+			tops: rows.map(function (r) { return r.offsetTop; }),
+			heights: rows.map(function (r) { return r.offsetHeight; })
+		};
+		try { handle.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+	}
+
+	function dragMove(e) {
+		var st = dragState;
+		if (!st || e.pointerId !== st.pointerId) return;
+		if (!st.active) {
+			if (Math.abs(e.clientY - st.startY) < 4) return;   /* 微动不算拖，保护点击 */
+			st.active = true;
+			st.handle.classList.add('isHolding');
+			st.row.classList.add('isDragging');
+			var host = $('manageItems');
+			if (host) host.classList.add('isSorting');
+			document.body.classList.add('qDragging');
+		}
+		if (e.cancelable) e.preventDefault();
+		dragUpdate(e.clientY);
+	}
+
+	function dragUp(e) {
+		var st = dragState;
+		if (!st || (e && e.pointerId != null && e.pointerId !== st.pointerId)) return;
+		dragState = null;
+		if (dragRaf) { cancelAnimationFrame(dragRaf); dragRaf = 0; }
+		for (var k = 0; k < st.rows.length; k++) {
+			st.rows[k].style.transform = '';
+			st.rows[k].classList.remove('isDragging');
+		}
+		st.handle.classList.remove('isHolding');
+		var host = $('manageItems');
+		if (host) host.classList.remove('isSorting');
+		document.body.classList.remove('qDragging');
+		try { st.handle.releasePointerCapture(st.pointerId); } catch (err) { /* ignore */ }
+		/* 只有真的换了位置才落盘重绘；没动就别动 DOM（保住手柄焦点） */
+		if (st.active && st.to !== st.from) reorderItem(st.id, st.from, st.to);
+	}
+
+	function bindItemsPanelDrag(host) {
+		host.addEventListener('pointerdown', dragDown);
+		document.addEventListener('pointermove', dragMove, { passive: false });
+		document.addEventListener('pointerup', dragUp);
+		document.addEventListener('pointercancel', dragUp);
+	}
+
 	function bindItemsPanel() {
-		$('manageItems').addEventListener('click', function (e) {
+		var host = $('manageItems');
+
+		host.addEventListener('click', function (e) {
 			var row = e.target.closest('.manageRow[data-item-id]');
 			if (!row) return;
 			var id = row.getAttribute('data-item-id');
-			if (e.target.closest('.mgoUp')) { moveItem(id, -1); return; }
-			if (e.target.closest('.mgoDown')) { moveItem(id, 1); return; }
 			var del = e.target.closest('.mgoDelItem');
 			if (del) {
 				/* 行内二确认（不复用 armConfirm，避免文案冲突） */
@@ -725,6 +891,18 @@
 				del.__t = setTimeout(function () { disarmRow(del); }, CONFIRM_MS);
 			}
 		});
+
+		host.addEventListener('keydown', function (e) {
+			var h = e.target.closest ? e.target.closest('.dragHandle') : null;
+			if (!h) return;
+			var row = h.closest('.manageRow[data-item-id]');
+			if (!row) return;
+			if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+			e.preventDefault();
+			moveItemByKey(row.getAttribute('data-item-id'), e.key === 'ArrowUp' ? -1 : 1);
+		});
+
+		bindItemsPanelDrag(host);
 	}
 
 	/* ================= 事件绑定 ================= */
@@ -841,7 +1019,26 @@
 	}
 
 	function bindList() {
+		/* 编辑器内部的留白（两个文本框之间、内边距、滚动条槽）不是可聚焦元素：
+		   点下去焦点会掉到 body，focusout 的 relatedTarget 为 null ⇒ 被误判成失焦退出。
+		   这里掐掉默认行为，让焦点留在编辑器里（点文本框本体不受影响）。 */
+		$('qList').addEventListener('mousedown', function (e) {
+			var ed = e.target.closest ? e.target.closest('.editor') : null;
+			if (!ed) return;
+			if (e.target.tagName === 'TEXTAREA') return;   /* 文本框本体：照常放光标 */
+			e.preventDefault();
+			if (!ed.contains(document.activeElement)) {
+				var ta = ed.querySelector('.edQ') || ed.querySelector('.edA');
+				if (ta) ta.focus();
+			}
+		});
+
 		$('qList').addEventListener('click', function (e) {
+			/* 点在编辑器内部（文本框里换光标位置、编辑器留白）：不算失焦、不重绘。
+			   否则 click 冒泡到这里会 flush 掉正在编辑的内容 + renderAll()，
+			   卡片被重绘回非编辑态 —— 看起来就是「点一下文本里别处就退出编辑」。 */
+			if (e.target.closest && e.target.closest('.editor')) return;
+
 			var card = e.target.closest('.item');
 			if (!card) {
 				/* 点在列表空白处：若有落盘欠下的重绘，必须还上 */

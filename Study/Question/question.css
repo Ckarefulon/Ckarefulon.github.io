@@ -833,6 +833,54 @@ button, input, textarea, select { font-family: inherit; letter-spacing: inherit;
 	font-variant-numeric: tabular-nums;
 }
 
+/* 整理面板：拖动排序手柄 / 拖拽态 */
+.dragHandle {
+	flex: 0 0 auto;
+	width: 26px;
+	height: 30px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-left: -2px;
+	border-radius: var(--dsk-radius-sm);
+	color: var(--dsk-foreground-subtle);
+	cursor: grab;
+	touch-action: none;
+	-webkit-user-select: none;
+	user-select: none;
+	transition: color 0.15s, background 0.15s;
+}
+
+.dragHandle svg { display: block; width: 14px; height: 14px; fill: currentColor; }
+.dragHandle:hover { color: var(--dsk-foreground); background: var(--dsk-primary-soft); }
+.dragHandle:focus-visible { outline: 2px solid var(--dsk-primary-ring); outline-offset: 1px; color: var(--dsk-primary); }
+.dragHandle.isHolding { cursor: grabbing; color: var(--dsk-primary); background: var(--dsk-primary-soft); }
+
+.manageRowItem.isDragging {
+	position: relative;
+	z-index: 3;
+	margin: 0 -6px;
+	padding-left: 6px;
+	padding-right: 6px;
+	border-top-color: transparent;
+	border-radius: var(--dsk-radius-md);
+	background: var(--dsk-muted);
+	box-shadow: var(--dsk-shadow-lg), 0 0 0 1px var(--dsk-primary-ring);
+}
+
+#manageItems.isSorting,
+#manageItems.isSorting .dragHandle { cursor: grabbing; }
+
+#manageItems.isSorting {
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+#manageItems.isSorting .manageRowItem { transition: transform 0.16s ease; }
+#manageItems.isSorting .manageRowItem.isDragging { transition: none; }
+
+body.qDragging, body.qDragging * { cursor: grabbing !important; }
+
 .manageBtns { display: flex; align-items: center; gap: var(--dsk-space-2); flex-wrap: wrap; }
 
 .manageSection {
