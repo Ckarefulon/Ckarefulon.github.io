@@ -1,6 +1,6 @@
 ﻿<#
 	目录索引生成器 —— 主逻辑
-	用法：双击同目录下的 make-index.cmd（或 powershell -File make-index.ps1）
+	用法：双击同目录下的 .make-index.cmd（或 powershell -File .make-index.ps1）
 
 	规则
 	  1. 站点根目录始终处理。

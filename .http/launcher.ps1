@@ -1,5 +1,5 @@
 ﻿# 本地服务托盘启动器：HTTP / HTTPS / 公网隧道 三合一
-# 双击根目录“本地服务.lnk”默认启动 HTTP 并隐藏到托盘；右键托盘图标可切换方式。
+# 双击根目录“.本地服务.lnk”默认启动 HTTP 并隐藏到托盘；右键托盘图标可切换方式。
 # 也可带参数启动：powershell -File launcher.ps1 http|https|tunnel
 
 $ErrorActionPreference = 'Stop'
