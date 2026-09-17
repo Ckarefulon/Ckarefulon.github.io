@@ -705,11 +705,13 @@
 			return;
 		}
 
-		/* 状态变化时刷新（每秒一次足够，避免抖动） */
+		/* 状态变化时刷新（每秒一次足够，避免抖动）。
+		   ⚠️ 这里只做「就地刷新」，绝不重建列表 DOM —— 重建会把计时中正在编辑的输入框
+		   连同数字/光标一起换掉，等于「计时中不能改节点」的元凶。 */
 		if (sec !== run.lastSec) {
 			run.lastSec = sec;
 			renderDial();
-			renderList();
+			updateListLive();
 		}
 	}
 
@@ -731,19 +733,19 @@
 	function syncButtons() {
 		var running = run.phase === 'running';
 		var paused = run.phase === 'paused';
-		var idle = run.phase === 'idle';
 		var done = run.phase === 'done';
 		$('btnStart').hidden = running;
 		$('btnPause').hidden = !running;
 		$('btnStart').textContent = (paused || done) ? '继续' : '开始';
 		$('btnReset').hidden = false;
-		$('addNodeBtn').disabled = running || paused;
-		$('endPreInput').disabled = running || paused;
-		/* 仅待开始状态可点击盘心时间编辑总时长 */
+		/* 计时中同样允许改节点 / 终点预留：改动即时生效，不打断本轮计时 */
+		$('addNodeBtn').disabled = false;
+		$('endPreInput').disabled = false;
+		/* isIdle 现表示「盘心时间可编辑」：任何状态都可点（计时中改 = 保持已流逝时间不变） */
 		var wrap = document.querySelector('.dialWrap');
-		wrap.classList.toggle('isIdle', idle);
+		wrap.classList.add('isIdle');
 		var dt = $('dialTime');
-		if (dt) dt.title = idle ? '点击设置总时长' : '';
+		if (dt) dt.title = run.phase === 'idle' ? '点击设置总时长' : '点击修改总时长';
 	}
 
 	/* ================= 交互 ================= */
@@ -791,14 +793,27 @@
 		if (commit) {
 			var v = clampNum(ed.value, 1, 600, data.totalMin);
 			if (v !== data.totalMin) {
+				/* 计时中改总时长：已流逝的时间视为不变，剩余 = 新总时长 − 已流逝
+				   （running 交给 leftMs 自然换算；paused 要把暂停剩余按同一口径重算），
+				   于是改大 = 顺延结束点、改小 = 提前结束，本轮计时不中断。 */
+				var inRun = run.phase === 'running' || run.phase === 'paused';
+				var elapsedMs = inRun ? Math.max(0, totalMs() - leftMs()) : 0;
 				data.totalMin = v;
 				data.totalMut = Date.now();
 				marksBuiltKey = '';
 				preBuiltKey = '';
-				resetRunState();
-				save(true);
-				renderAll();
-				toast('总时长已设为 ' + fmtMin(v));
+				if (inRun) {
+					if (run.phase === 'paused') run.pausedLeftMs = Math.max(0, totalMs() - elapsedMs);
+					applyLiveEdit();
+					save(true);
+					renderAll();
+					toast('总时长已改为 ' + fmtMin(v) + ' · 剩余 ' + fmtClock(leftMs()));
+				} else {
+					resetRunState();
+					save(true);
+					renderAll();
+					toast('总时长已设为 ' + fmtMin(v));
+				}
 			}
 		}
 		if (ed.parentNode) ed.parentNode.removeChild(ed);
@@ -806,7 +821,7 @@
 	}
 
 	dialTimeEl.addEventListener('click', function () {
-		if (run.phase !== 'idle' || timeEditor) return;
+		if (timeEditor) return;
 		var ed = document.createElement('input');
 		ed.type = 'number';
 		ed.id = 'dialTimeEdit';
@@ -840,14 +855,19 @@
 		}
 	});
 
-	/* 列表区添加节点：默认总时长一半处、预留 5 分钟，具体数值在卡片内改（失焦即生效） */
+	/* 列表区添加节点：默认落在「时间轴中点」、预留 5 分钟，具体数值在卡片内改（失焦即生效）。
+	   计时中也允许加：默认落在「当前剩余的一半」处（保证是个还没到的时间点），
+	   加完只重新武装提醒，不打断本轮计时。 */
 	$('addNodeBtn').addEventListener('click', function () {
-		if (run.phase === 'running' || run.phase === 'paused') return;
+		var inRun = run.phase === 'running' || run.phase === 'paused';
 		var taken = {};
 		for (var i = 0; i < data.nodes.length; i++) {
 			if (!data.nodes[i].del) taken[data.nodes[i].at] = true;
 		}
-		var at = Math.max(1, Math.floor(data.totalMin / 2));
+		var at = inRun
+			? Math.max(1, Math.floor(leftMs() / 60000 / 2))
+			: Math.max(1, Math.floor(data.totalMin / 2));
+		if (at > data.totalMin) at = data.totalMin;
 		while (at > 1 && taken[at]) at--;
 		if (taken[at]) { toast('节点时间已占满，请先调整现有节点'); return; }
 		var id = genId();
@@ -860,7 +880,7 @@
 		renderAll();
 		var card = document.querySelector('.nodeCard[data-id="' + id + '"]');
 		if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-		toast('已加 ' + at + ' 分钟节点（预留 5 分钟），可在卡片中直接修改');
+		toast('已加 ' + at + ' 分钟节点（预留 5 分钟），可在卡片中直接修改' + (inRun ? '（计时中即时生效）' : ''));
 	});
 
 	/* 列表事件委托 */
@@ -920,10 +940,14 @@
 			renderAll();
 			return;
 		}
+		/* 就地刷新：只改该卡的静态文字与状态，并按新时间重排卡片顺序（复用同一批 DOM，
+		   不重建元素 ⇒ 不会吞掉别处正在编辑的输入框） */
 		renderDial();
 		refreshCard(id);
+		reorderCards();
 		updateListLive();
-		toast(isAt ? ('节点已改为 ' + fmtMin(v)) : ('预留已改为 ' + fmtMin(v)));
+		var inRunNow = run.phase === 'running' || run.phase === 'paused';
+		toast((isAt ? ('节点已改为 ' + fmtMin(v)) : ('预留已改为 ' + fmtMin(v))) + (inRunNow ? '（计时中即时生效）' : ''));
 	});
 
 	/* 就地刷新卡片静态文字（不重建 DOM，保持输入焦点） */
@@ -941,7 +965,26 @@
 		}
 	}
 
-	/* 编辑节点时间后，若新时间晚于当前剩余时间，则该节点的提醒可重新触发 */
+	/* 就地重排卡片顺序（renderList 是 at 降序 = 时间轴由晚到早）。
+	   只搬动已有元素、不重建，所以不丢焦点、不丢未提交的输入。 */
+	function reorderCards() {
+		var box = $('nodeList');
+		var nodes = activeNodes();
+		var want = [], i;
+		for (i = nodes.length - 1; i >= 0; i--) want.push(nodes[i].id);
+		var cards = box.querySelectorAll('.nodeCard');
+		var cur = [];
+		for (i = 0; i < cards.length; i++) cur.push(cards[i].getAttribute('data-id'));
+		if (want.join(',') === cur.join(',')) return;
+		for (i = 0; i < want.length; i++) {
+			var c = box.querySelector('.nodeCard[data-id="' + want[i] + '"]');
+			if (c) box.appendChild(c);
+		}
+	}
+
+	/* 编辑节点时间后，若新时间晚于当前剩余时间，则该节点的提醒可重新触发。
+	   （判定：left > at 表示该节点还没到，清掉标记让它过会儿正常响；
+	   left <= at 表示已经到过，保留标记，绝不补响。） */
 	function applyLiveEdit() {
 		var left = leftMs();
 		for (var i = 0; i < data.nodes.length; i++) {
@@ -953,7 +996,12 @@
 				delete run.nodeFired[n.id];
 			}
 		}
-		run.endPreFired = false;
+		/* 终点收尾提醒只在「还没进入预留窗口」时才重置 —— 否则计时中改任意一个节点，
+		   都会让已经响过的「最后 N 分钟，准备收尾」再响一遍（改 endPreMin 本身仍会重响）。 */
+		var endPre = data.endPreMin || 0;
+		if (!(endPre > 0 && left > 0 && left <= endPre * 60000)) {
+			run.endPreFired = false;
+		}
 	}
 
 	/* 导出 / 导入 / 清空 */
@@ -1016,10 +1064,19 @@
 				data.nodes = Object.keys(byId).map(function (k) { return byId[k]; });
 				data.nodesMut = Date.now();
 				marksBuiltKey = '';
+				preBuiltKey = '';
+				/* 计时中导入：只把节点并进来、提醒按新配置重新武装，本轮计时继续跑 */
+				var inRun = run.phase === 'running' || run.phase === 'paused';
+				if (inRun) {
+					run.preFired = {};
+					run.nodeFired = {};
+					applyLiveEdit();
+				} else {
+					resetRunState();
+				}
 				save(true);
-				resetRunState();
 				renderAll();
-				toast('导入完成：合并 ' + merged + ' 个节点');
+				toast('导入完成：合并 ' + merged + ' 个节点' + (inRun ? '（计时继续）' : ''));
 			} catch (err) {
 				toast('文件解析失败');
 			}
@@ -1039,10 +1096,19 @@
 			}
 			data.nodesMut = now;
 			marksBuiltKey = '';
+			preBuiltKey = '';
+			/* 计时中清空节点只是「清掉节点」，不该顺手把计时也重置了 */
+			var inRun = run.phase === 'running' || run.phase === 'paused';
+			if (inRun) {
+				run.preFired = {};
+				run.nodeFired = {};
+				applyLiveEdit();
+			} else {
+				resetRunState();
+			}
 			save(true);
-			resetRunState();
 			renderAll();
-			toast('节点已清空');
+			toast(inRun ? '节点已清空（计时继续）' : '节点已清空');
 		});
 	});
 

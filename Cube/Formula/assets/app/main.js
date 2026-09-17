@@ -74,12 +74,44 @@
 				manualMoveHistory: [],
 				viewYaw: 0,
 				viewPitch: 0,
+				followSavedYaw: 0,
+				followSavedPitch: 0,
 				gyroFollow: false,
 				gyroTargetQ: null,
 				gyroCurrentQ: null,
 				gyroYawOffset: 0,
+				cubeHasGyro: false,
+				gyroAutoEnabled: false,
+				gyroReanchored: false,
 				gyroAnimFrame: null,
 				gyroLastT: 0,
+				gyroLastQ: null,
+				gyroRecordM: null,
+				lastRotationCommit: null,
+				sliceCoreClaim: null,
+				rotSyncM: null,
+				rotAltM: null,
+				rotRestRefM: null,
+				rotRestSince: 0,
+				rotCandidate: null,
+				rotLastM: null,
+				rotFlushTimer: null,
+				rotGroupCache: null,
+				cubeRotStillTol: 6,
+				cubeRotRestMs: 380,
+				cubeRotMinAngle: 45,
+				cubeRotSnapTol: 24,
+				cubeRotSnapTolLoose: 33,
+				cubeRotFrameBias: 10,
+				cubeRotPartialFrom: 36,
+				cubeRotAltStillMs: 120,
+				rotStillMs: 0,
+				cubeRotSettleMs: 110,
+				cubeRotDwellMs: 520,
+				cubeRotFlushMs: 160,
+				// 中层带起的核心转动：陀螺仪数据未到时的认领窗口 / 已判定时的撤回时限
+				sliceCoreExpectMs: 800,
+				sliceRetractMs: 400,
 				hiddenStickerMask: {},
 				seamlessMode: false,
 				customCubeScene: null,
@@ -270,7 +302,8 @@
 					this.orientationMatrix = this.identityMatrix();
 					this.orientationMoves = [];
 					this.viewYaw = 0;
-					this.viewPitch = 0;
+					// 跟随模式下俯视 45°（打开陀螺仪后的固定视角），关闭后恢复原视角
+					this.viewPitch = this.gyroFollow ? Math.PI / 4 : 0;
 					this.twistyScene = new twistyjs.TwistyScene();
 					this.elements.cubeStage.appendChild(this.twistyScene.getDomElement());
 					this.twistyScene.initializeTwisty({
@@ -289,9 +322,13 @@
 					}
 					this.resizeTwisty();
 					// 场景重建后（重置视图/切模式），陀螺仪跟随从正面向目标姿态平滑恢复；校准角不清空
-					if (this.gyroFollow && this.gyroTargetQ) {
-						this.gyroCurrentQ = [0, 0, 0, 1];
-						this.startGyroAnimation();
+					if (this.gyroFollow) {
+						this.setViewDrag(this.viewYaw, this.viewPitch);
+						this.reanchorGyroDisplay();
+						if (this.gyroTargetQ) {
+							this.gyroCurrentQ = this.currentDisplayQuat();
+							this.startGyroAnimation();
+						}
 					}
 				},
 
@@ -4484,8 +4521,8 @@
 						if (!move) {
 							continue;
 						}
-						if (this.gyroFollow && move.type === "orientation") {
-							// 陀螺仪跟随开启时，x/y/z 不产生任何作用（含状态恢复/公式回放路径）
+						if ((this.gyroFollow || this.cubeHasGyro) && move.type === "orientation") {
+							// 带陀螺仪的魔方：x/y/z 不产生任何作用（含状态恢复/公式回放路径）
 							continue;
 						}
 						move = this.mapManualMove(move);
@@ -4605,59 +4642,208 @@
 						this.elements.gyroToggleBtn.classList.toggle("isActive", this.gyroFollow);
 					}
 					if (this.gyroFollow) {
-						// 从当前正面向已收到的姿态平滑过渡；校准角在连接期间一直保留
+						// 从当前正面向最近一次收到的姿态平滑过渡（必须刷新：非跟随期间目标姿态不更新，
+						// 沿用旧值会在魔方静止时一直显示过时的姿态）
+						if (this.gyroLastQ) {
+							this.gyroTargetQ = [this.gyroLastQ[0], this.gyroLastQ[1], this.gyroLastQ[2], this.gyroLastQ[3]];
+						}
+
+						// 跟随期间固定 45° 俯视（水平归零，水平校准由陀螺仪偏航承担）；关闭后恢复原视角
+						this.followSavedYaw = this.viewYaw || 0;
+						this.followSavedPitch = this.viewPitch || 0;
+						this.viewYaw = 0;
+						this.viewPitch = Math.PI / 4;
+						this.setViewDrag(this.viewYaw, this.viewPitch);
+						this.syncRotationFrame();
+						this.gyroReanchored = false;
 						if (this.gyroTargetQ) {
-							this.gyroCurrentQ = [0, 0, 0, 1];
+							// 重新认面：关闭期间累积的朝向并入显示并清零，跟随从此只由陀螺仪决定
+							this.reanchorGyroDisplay();
+							// 从"当前画面上的朝向"开始平滑过渡：开启瞬间不跳
+							this.gyroCurrentQ = this.currentDisplayQuat();
 							this.startGyroAnimation();
 						}
 					} else {
-						this.resetGyroRotation();
+						// 关闭跟随：当前画面朝向吸附结算进普通视图（立即生效），显示归位，
+						// 回到"只检测 XYZ"的普通模式；水平校准角保留，重新开启直接续用
+						this.stopGyroAnimation();
+						this.viewYaw = this.followSavedYaw || 0;
+						this.viewPitch = this.followSavedPitch || 0;
+						this.setViewDrag(this.viewYaw, this.viewPitch);
+						this.syncFollowOrientationToView();
 					}
 					this.log("bluetooth", this.gyroFollow ? "陀螺仪跟随已开启" : "陀螺仪跟随已关闭");
 				},
 
-				resetGyroRotation: function() {
-					this.stopGyroAnimation();
-					this.gyroCurrentQ = null;
+				// 关闭跟随：唯一来源仍是"后台最新智能魔方姿态 + 水平校准"。先把这个开启态屏幕朝向
+				// 吸附到最近的 24 朝向之一，再立即（不走动画）写入普通模式；普通模式旧状态不参与目标计算。
+				// 关闭后即回到"只检测 XYZ"的普通模式：转体方向与屏幕方向一致；
+				// 画面与关闭前只差握持本身的倾角（校准后很小）。水平校准角保留在后台，重开直接续用。
+				syncFollowOrientationToView: function() {
+					var viewM = this.gyroViewMatrix();
+					if (!viewM) {
+						return;
+					}
+					var base = this.orientationMatrix || this.identityMatrix();
+					var settled = this.rotNearestGroupElement(viewM).matrix;
+					var delta = this.matrixMultiply(settled, this.matrixTranspose(base));
+					this.orientationMatrix = settled;
+					// 关闭后的绝对朝向识别从这个屏幕朝向继续，不沿用旧的轨迹基准。
+					this.rotSyncM = settled;
+					this.rotLastM = viewM;
+					this.rotCandidate = null;
+					this.cancelRotFlush();
+					this.gyroRecordM = settled;
+					if (this.twistyScene && this.twistyScene.applyMoves) {
+						var self = this;
+						// orientationMatrix 采用左乘累计；applyMoves 也逐步左乘，所以代数分解结果必须倒序执行。
+						var moves = this.rotDecompose(delta).reverse().map(function(part) {
+							return [1, self.cubeDimension, part.axis, part.pow];
+						});
+						if (moves.length) {
+							this.twistyScene.applyMoves(moves);
+						}
+					}
+					this.applyDisplayQuat([0, 0, 0, 1]);
+				},
+
+				// 直接写显示四元数（屏幕朝向 = 显示四元数 ∘ 内部转动状态）
+				applyDisplayQuat: function(q) {
 					var twisty = this.twistyScene && this.twistyScene.getTwisty ? this.twistyScene.getTwisty() : null;
-					if (!twisty || !twisty._3d) {
+					if (!twisty || !twisty._3d || !q) {
 						return;
 					}
 					twisty._3d.useQuaternion = true;
-					twisty._3d.quaternion.set(0, 0, 0, 1);
+					twisty._3d.quaternion.set(q[0], q[1], q[2], q[3]);
 					if (this.twistyScene.render) {
 						this.twistyScene.render();
 					}
 				},
+
+				currentDisplayQuat: function() {
+					var twisty = this.twistyScene && this.twistyScene.getTwisty ? this.twistyScene.getTwisty() : null;
+					if (!twisty || !twisty._3d || !twisty._3d.quaternion) {
+						return [0, 0, 0, 1];
+					}
+					var q = twisty._3d.quaternion;
+					return [q.x, q.y, q.z, q.w];
+				},
+
+				// 停止跟随显示：只停动画、放掉缓动值，不动画面（避免开关瞬间跳）
+				stopGyroDisplay: function() {
+					this.stopGyroAnimation();
+					this.gyroCurrentQ = null;
+				},
+
+
 
 				// 断开连接：姿态目标与校准角一并失效（只在连接期间记忆）
 				clearGyroSession: function() {
 					this.gyroTargetQ = null;
 					this.gyroCurrentQ = null;
 					this.gyroYawOffset = 0;
+					this.gyroLastQ = null;
+					this.cubeHasGyro = false;
+					this.gyroAutoEnabled = false;
+					this.gyroReanchored = false;
+					var rotRow = document.querySelector(".keyboardRotationMoves");
+					if (rotRow) {
+						rotRow.style.display = "";
+					}
+					this.gyroRecordM = null;
+					this.lastRotationCommit = null;
+					this.sliceCoreClaim = null;
+					this.rotSyncM = null;
+					this.rotAltM = null;
+					this.rotRestRefM = null;
+					this.rotRestSince = 0;
+					this.rotCandidate = null;
+					this.rotLastM = null;
+					this.cancelRotFlush();
 				},
 
-				// 物理帧四元数（+X 红、+Y 蓝、+Z 白）→ 场景帧（R=+X、U=+Y、F=+Z）：
-				// 轴对应 x→x、z→y、y→−z，共轭化简后向量部分直接置换 (x, y, z, w) → (x, z, −y, w)，
-				// 再左乘校准偏航（绕场景竖直轴，水平拖动设定，不限角度）
-				computeGyroSceneQuat: function() {
-					var q = this.gyroTargetQ;
-					var sx = q[0];
-					var sy = q[2];
-					var sz = -q[1];
-					var sw = q[3];
-					if (this.gyroYawOffset) {
-						var half = this.gyroYawOffset / 2;
-						var c = Math.cos(half);
-						var s = Math.sin(half);
-						return [
-							c * sx + s * sz,
-							c * sy + s * sw,
-							c * sz - s * sx,
-							c * sw - s * sy
-						];
+				// 标准 3x3 旋转矩阵 → 四元数（与 rotQuatToMatrix 互逆，供跟随显示使用）
+				quatFromMatrix: function(m) {
+					var t = m[0][0] + m[1][1] + m[2][2];
+					var s = 0;
+					if (t > 0) {
+						s = Math.sqrt(t + 1) * 2;
+						return [(m[2][1] - m[1][2]) / s, (m[0][2] - m[2][0]) / s, (m[1][0] - m[0][1]) / s, s / 4];
 					}
-					return [sx, sy, sz, sw];
+					if (m[0][0] > m[1][1] && m[0][0] > m[2][2]) {
+						s = Math.sqrt(1 + m[0][0] - m[1][1] - m[2][2]) * 2;
+						return [s / 4, (m[0][1] + m[1][0]) / s, (m[0][2] + m[2][0]) / s, (m[2][1] - m[1][2]) / s];
+					}
+					if (m[1][1] > m[2][2]) {
+						s = Math.sqrt(1 + m[1][1] - m[0][0] - m[2][2]) * 2;
+						return [(m[0][1] + m[1][0]) / s, s / 4, (m[1][2] + m[2][1]) / s, (m[0][2] - m[2][0]) / s];
+					}
+					s = Math.sqrt(1 + m[2][2] - m[0][0] - m[1][1]) * 2;
+					return [(m[0][2] + m[2][0]) / s, (m[1][2] + m[2][1]) / s, s / 4, (m[1][0] - m[0][1]) / s];
+				},
+
+				// 校准偏航（绕场景竖直轴，水平拖动设定）的旋转矩阵，与下面显示四元数里的偏航同向
+				rotYawMatrix: function(ang) {
+					var c = Math.cos(ang);
+					var s = Math.sin(ang);
+					return [
+						[c, 0, s],
+						[0, 1, 0],
+						[-s, 0, c]
+					];
+				},
+
+				// "手里魔方"对应的场景矩阵 = 校准偏航 · perm(后台最新硬件姿态)。
+				// gyroLastQ 始终由蓝牙流更新，因此关闭期间仍保留实时权威数据；gyroTargetQ 只作首包兜底。
+				gyroViewMatrix: function() {
+					var q = this.gyroLastQ || this.gyroTargetQ;
+					if (!q) {
+						return null;
+					}
+					var m = this.rotQuatToMatrix(q[0], q[1], q[2], q[3]);
+					if (this.gyroYawOffset) {
+						m = this.matrixMultiply(this.rotYawMatrix(this.gyroYawOffset), m);
+					}
+					return m;
+				},
+
+				// 跟随显示的显示四元数：**跟随以陀螺仪为唯一主导**，显示只由"后台最新硬件姿态
+				// + 水平校准"决定
+				// （= 校准偏航 · perm(硬件姿态)），与虚拟魔方自身的记录朝向、关闭期间的任何状态无关。
+				// 前提：开启跟随（或收到第一包姿态）时会先做一次"重新认面"（reanchorGyroDisplay），
+				// 把虚拟魔方已累积的整体朝向并入显示四元数并清零记录朝向，使跟随期间
+				// 内部整体朝向恒为单位——"关陀螺仪时的状态"只由"开陀螺仪时的状态"结算而来。
+				computeGyroSceneQuat: function() {
+					var m = this.gyroViewMatrix();
+					if (!m) {
+						return null;
+					}
+					return this.quatFromMatrix(m);
+				},
+
+				// 重新认面（开启跟随 / 场景重建 / 首包到达时调用）：
+				// 把虚拟魔方已累积的整体朝向（内部状态 + 记录帧 orientationMatrix）并入显示四元数并清零。
+				// 两步在同一帧内完成，画面不变；从此跟随显示与关闭期间的状态完全解耦。
+				reanchorGyroDisplay: function() {
+					var o = this.orientationMatrix;
+					if (o && !this.matrixEquals(o, this.identityMatrix())) {
+						// 与关闭结算相同：复合旋转必须按分解结果的逆序交给 applyMoves。
+						var inv = this.rotDecompose(this.matrixTranspose(o)).reverse();
+						if (this.twistyScene && this.twistyScene.applyMoves && inv.length) {
+							var self = this;
+							this.twistyScene.applyMoves(inv.map(function(part) {
+								return [1, self.cubeDimension, part.axis, part.pow];
+							}));
+						}
+						this.orientationMatrix = this.identityMatrix();
+					}
+					var q3 = this.currentDisplayQuat();
+					var m = this.rotQuatToMatrix(q3[0], -q3[2], q3[1], q3[3]);
+					if (o) {
+						m = this.matrixMultiply(m, o);
+					}
+					this.applyDisplayQuat(this.quatFromMatrix(m));
+					this.gyroReanchored = true;
 				},
 
 				slerpQuat: function(a, b, t) {
@@ -4710,7 +4896,6 @@
 						var cur = self.gyroCurrentQ;
 						var dot = cur[0] * target[0] + cur[1] * target[1] + cur[2] * target[2] + cur[3] * target[3];
 						if (Math.abs(dot) > 0.99995) {
-							// 已收敛：贴住目标并停止动画，等下一包/拖动再启动
 							self.gyroCurrentQ = [target[0], target[1], target[2], target[3]];
 						} else {
 							var dt = self.gyroLastT ? Math.min(0.05, (now - self.gyroLastT) / 1000) : 0.016;
@@ -4736,12 +4921,543 @@
 					}
 				},
 
+				// ---- 绝对朝向吸附（蓝牙陀螺仪流，无论跟随是否开启）----
+				// 权威输入始终是"后台最新硬件姿态 + 开启态水平校准"。它先映射为屏幕坐标，
+				// 再吸附到 24 个整体朝向；rotSyncM 只保存上一个已确认的绝对朝向。
+				// 新朝向稳定后才由两者差值反算 x/y/z，不再依赖速度、轨迹或中间数据包。
+
 				onCubeGyro: function(x, y, z, w) {
-					if (!this.gyroFollow) {
+					this.gyroLastQ = [x, y, z, w];
+					if (!this.cubeHasGyro) {
+						// 首次收到姿态数据 = 这台魔方带陀螺仪：x/y/z 手动整体转动一律失效（开关跟随都无效），
+						// 面板上的 x/y/z 也收起来，避免"虚拟转体"与手中魔方错位；并自动开启一次跟随，
+						// 用户校准后可自行关闭，关闭后不会自动再开。
+						this.cubeHasGyro = true;
+						var rotRow = document.querySelector(".keyboardRotationMoves");
+						if (rotRow) {
+							rotRow.style.display = "none";
+						}
+						if (!this.gyroAutoEnabled && !this.gyroFollow) {
+							this.gyroAutoEnabled = true;
+							this.toggleGyroFollow();
+						}
+					}
+					if (this.gyroFollow) {
+						// 跟随开启：显示由陀螺仪驱动；关闭时只做 XYZ 检测、不驱动显示。
+						// 水平校准角等开启状态在后台保留，重新开启立即以同一基准继续。
+						if (!this.gyroReanchored) {
+							// 开启后第一包：先重新认面（把此前虚拟朝向并入显示并清零）
+							this.reanchorGyroDisplay();
+							this.gyroCurrentQ = this.currentDisplayQuat();
+						}
+						this.gyroTargetQ = [x, y, z, w];
+						this.startGyroAnimation();
+					}
+					this.detectCubeRotation(x, y, z, w);
+				},
+
+				rotQuatToMatrix: function(x, y, z, w) {
+					// 物理帧四元数 → 场景帧（轴置换 x→x、z→y、y→−z）旋转矩阵
+					var sx = x;
+					var sy = z;
+					var sz = -y;
+					var sw = w;
+					var m = [
+						[1 - 2 * (sy * sy + sz * sz), 2 * (sx * sy - sz * sw), 2 * (sx * sz + sy * sw)],
+						[2 * (sx * sy + sz * sw), 1 - 2 * (sx * sx + sz * sz), 2 * (sy * sz - sx * sw)],
+						[2 * (sx * sz - sy * sw), 2 * (sy * sz + sx * sw), 1 - 2 * (sx * sx + sy * sy)]
+					];
+					for (var r = 0; r < 3; r++) {
+						for (var c = 0; c < 3; c++) {
+							m[r][c] = Math.round(m[r][c] * 10000) / 10000;
+						}
+					}
+					return m;
+				},
+
+				rotMatrixKey: function(m) {
+					return m[0].join(",") + ";" + m[1].join(",") + ";" + m[2].join(",");
+				},
+
+				rotGroupElements: function() {
+					// 24 个魔方整体朝向（<U,R,F> 生成）
+					if (this.rotGroupCache) {
+						return this.rotGroupCache;
+					}
+					var self = this;
+					var seen = {};
+					var list = [];
+					var queue = [this.identityMatrix()];
+					seen[this.rotMatrixKey(this.identityMatrix())] = true;
+					while (queue.length) {
+						var current = queue.shift();
+						list.push(current);
+						["U", "R", "F"].forEach(function(face) {
+							var next = self.matrixMultiply(current, self.rotationMatrix(face, 1));
+							var key = self.rotMatrixKey(next);
+							if (!seen[key]) {
+								seen[key] = true;
+								queue.push(next);
+							}
+						});
+					}
+					this.rotGroupCache = list;
+					return list;
+				},
+
+				rotMatrixAngle: function(m) {
+					var cos = Math.max(-1, Math.min(1, (m[0][0] + m[1][1] + m[2][2] - 1) / 2));
+					return Math.acos(cos) * 180 / Math.PI;
+				},
+
+				rotNearestGroupElement: function(m) {
+					var group = this.rotGroupElements();
+					var best = null;
+					var bestCos = -2;
+					for (var i = 0; i < group.length; i++) {
+						var t = this.matrixMultiply(this.matrixTranspose(group[i]), m);
+						var cos = Math.max(-1, Math.min(1, (t[0][0] + t[1][1] + t[2][2] - 1) / 2));
+						if (cos > bestCos) {
+							bestCos = cos;
+							best = group[i];
+						}
+					}
+					return {
+						matrix: best,
+						residualDeg: Math.acos(Math.max(-1, Math.min(1, bestCos))) * 180 / Math.PI,
+						key: best ? this.rotMatrixKey(best) : ""
+					};
+				},
+
+				rotMatchAxisPow: function(m, faces) {
+					// 单步转体候选轴：场景帧用 B/U/R，体帧（标准 x/y/z）用 R/U/F
+					faces = faces || ["B", "U", "R"];
+					var pows = [1, -1, 2];
+					for (var i = 0; i < faces.length; i++) {
+						for (var j = 0; j < pows.length; j++) {
+							if (this.matrixEquals(this.rotationMatrix(faces[i], pows[j]), m)) {
+								return { axis: faces[i], pow: pows[j] };
+							}
+						}
+					}
+					return null;
+				},
+
+				rotDecompose: function(m, faces) {
+					// 拆成 ≤3 个单步转体（覆盖 24 朝向群全部元素）；faces 缺省为场景帧 B/U/R
+					faces = faces || ["B", "U", "R"];
+					var singles = [];
+					var pows = [1, -1, 2];
+					for (var i = 0; i < faces.length; i++) {
+						for (var j = 0; j < pows.length; j++) {
+							singles.push({ axis: faces[i], pow: pows[j] });
+						}
+					}
+					var first = this.rotMatchAxisPow(m, faces);
+					if (first) {
+						return [first];
+					}
+					for (var a = 0; a < singles.length; a++) {
+						var ma = this.rotationMatrix(singles[a].axis, singles[a].pow);
+						for (var b = 0; b < singles.length; b++) {
+							var mb = this.rotationMatrix(singles[b].axis, singles[b].pow);
+							if (this.matrixEquals(this.matrixMultiply(ma, mb), m)) {
+								return [singles[a], singles[b]];
+							}
+						}
+					}
+					for (var c = 0; c < singles.length; c++) {
+						var mc = this.rotationMatrix(singles[c].axis, singles[c].pow);
+						for (var d = 0; d < singles.length; d++) {
+							var md = this.matrixMultiply(mc, this.rotationMatrix(singles[d].axis, singles[d].pow));
+							for (var e = 0; e < singles.length; e++) {
+								if (this.matrixEquals(this.matrixMultiply(md, this.rotationMatrix(singles[e].axis, singles[e].pow)), m)) {
+									return [singles[c], singles[d], singles[e]];
+								}
+							}
+						}
+					}
+					return [];
+				},
+
+				// 双帧吸附：同一段转动在场景帧（绕世界轴）与体帧（绕魔方自身轴）里
+				// 到标准朝向的距离可以差很远——握持歪 30° 时，绕魔方自身轴的 90° 转动
+				// 在场景帧里有约 42° 残差、在体帧里却接近 0°。两帧各吸一次，体帧要明显
+				// 更准（cubeRotFrameBias 度以上）才采用，这样握持不歪时仍按场景帧判定、
+				// 记录方向与既有行为一致，握持歪时才切到体帧、不会被握姿带偏。
+				// preferFrame 用于让已经开始的判定锁定同一帧，避免两帧残差接近时来回跳、
+				// 候选反复重置而永远判不出来。
+				// 体帧矩阵要放回"记录帧"再应用：记录帧（gyroRecordM / orientationMatrix）才是屏幕上
+				// 呈现的魔方姿态，体帧的 90° 必须绕"记录帧下的那条实体轴"转。直接把体帧矩阵当场景帧
+				// 应用会绕错轴，姿态矩阵不再等于各次转体之积，偏离握姿越大错得越多。
+				rotBodyToApplied: function(bodyMatrix) {
+					var baseM = this.gyroFollow ? this.gyroRecordM : this.orientationMatrix;
+					if (!baseM || !bodyMatrix) {
+						return bodyMatrix;
+					}
+					return this.matrixMultiply(baseM, this.matrixMultiply(bodyMatrix, this.matrixTranspose(baseM)));
+				},
+
+				rotSnapDetect: function(delta, anchor, preferFrame) {
+					var sceneSnap = this.rotNearestGroupElement(delta);
+					var bodySnap = null;
+					var bodyApplied = null;
+					if (anchor) {
+						var at = this.matrixTranspose(anchor);
+						bodySnap = this.rotNearestGroupElement(this.matrixMultiply(at, this.matrixMultiply(delta, anchor)));
+						if (bodySnap) {
+							bodyApplied = this.rotBodyToApplied(bodySnap.matrix);
+						}
+					}
+					if (bodySnap) {
+						// 体帧要"明显更准"才采用：两帧都贴得住时（例如握持不歪）取场景帧，
+						// 记录方向才与既有行为一致
+						var bodyBetter = bodySnap.residualDeg + this.cubeRotFrameBias < sceneSnap.residualDeg;
+						if (preferFrame === "body" && bodySnap.residualDeg <= this.cubeRotSnapTolLoose) {
+							return { frame: "body", matrix: bodyApplied, residualDeg: bodySnap.residualDeg, key: "b:" + bodySnap.key };
+						}
+						if (preferFrame === "scene" && sceneSnap.residualDeg <= this.cubeRotSnapTolLoose) {
+							return { frame: "scene", matrix: sceneSnap.matrix, residualDeg: sceneSnap.residualDeg, key: "s:" + sceneSnap.key };
+						}
+						if (bodyBetter) {
+							return { frame: "body", matrix: bodyApplied, residualDeg: bodySnap.residualDeg, key: "b:" + bodySnap.key };
+						}
+					}
+					return { frame: "scene", matrix: sceneSnap.matrix, residualDeg: sceneSnap.residualDeg, key: "s:" + sceneSnap.key };
+				},
+
+				// 判定用的转体：先用当前基准量；当前基准贴不住（残差过大）时再退回上一个基准。
+				// 退回是"转到一半停一下再继续"的关键：基准在静止时会前移到停顿姿势，
+				// 若只认当前基准，这段被拆开的转体就只剩后半截、永远凑不满 90°。
+				// 只有当前基准"够得上转动但贴不准"时才看后备基准：正常转体一律由当前基准
+				// 命中，刚记完一次转体也不会被后备基准重复计量。
+				rotMeasureWith: function(anchor, sceneM, preferFrame) {
+					if (!anchor) {
+						return null;
+					}
+					var delta = this.matrixMultiply(sceneM, this.matrixTranspose(anchor));
+					var angle = this.rotMatrixAngle(delta);
+					if (angle < this.cubeRotPartialFrom) {
+						// 净转动不到 cubeRotPartialFrom：算"没转过"，不再用它量
+						return null;
+					}
+					var snap = this.rotSnapDetect(delta, anchor, preferFrame);
+					return { angle: angle, key: snap.key, frame: snap.frame, matrix: snap.matrix, residualDeg: snap.residualDeg };
+				},
+
+				rotMeasure: function(sceneM, preferFrame) {
+					var primary = this.rotMeasureWith(this.rotSyncM, sceneM, preferFrame);
+					if (primary && primary.residualDeg <= this.cubeRotSnapTolLoose) {
+						return primary;
+					}
+					if (!primary) {
+						// 当前基准下"根本不算转过"（净转动不够），不再看后备基准，
+						// 否则刚记完一次转体会被后备基准再记一次
+						return null;
+					}
+					// 后备基准只在姿态已经停稳时启用：正在扫过时（例如慢慢转 180° 的中途）
+					// 用后备基准会把中间姿态误当成一次更大幅度的转体记下来
+					if (this.rotStillMs < this.cubeRotAltStillMs) {
+						return primary;
+					}
+					var alt = this.rotMeasureWith(this.rotAltM, sceneM, preferFrame);
+					if (alt && alt.residualDeg <= this.cubeRotSnapTolLoose) {
+						return alt;
+					}
+					return primary;
+				},
+
+				detectCubeRotation: function() {
+					// 不再从运动轨迹猜 x/y/z。每包先还原成"开启跟随时的屏幕朝向"，
+					// 再吸附到 24 个绝对朝向；最终只比较上一个已确认朝向和新朝向。
+					// 快速、复合转体即使漏掉中间数据包，最终绝对方向也不会累积出错。
+					var sceneM = this.gyroViewMatrix();
+					if (!sceneM) {
 						return;
 					}
-					this.gyroTargetQ = [x, y, z, w];
-					this.startGyroAnimation();
+					var now = Date.now();
+					this.rotLastM = sceneM;
+					var snap = this.rotNearestGroupElement(sceneM);
+					if (!snap.matrix || snap.residualDeg > this.cubeRotSnapTolLoose) {
+						this.rotCandidate = null;
+						this.cancelRotFlush();
+						return;
+					}
+					if (!this.rotSyncM) {
+						// 第一个可靠吸附结果只建立绝对基准，不判转体。
+						this.rotSyncM = snap.matrix;
+						this.rotAltM = null;
+						this.rotRestRefM = snap.matrix;
+						this.rotRestSince = now;
+						this.rotCandidate = null;
+						this.cancelRotFlush();
+						this.gyroRecordM = snap.matrix;
+						return;
+					}
+					if (this.matrixEquals(snap.matrix, this.rotSyncM)) {
+						this.rotCandidate = null;
+						this.cancelRotFlush();
+						return;
+					}
+
+					var delta = this.matrixMultiply(snap.matrix, this.matrixTranspose(this.rotSyncM));
+					if (this.rotCandidate && this.rotCandidate.key === snap.key) {
+						this.rotCandidate.absoluteM = snap.matrix;
+						this.rotCandidate.matrix = delta;
+						this.rotCandidate.residualDeg = snap.residualDeg;
+						this.rotCandidate.hits = (this.rotCandidate.hits || 1) + 1;
+						var age = now - this.rotCandidate.since;
+						// 稳定数据走双包 + 时间确认；某些魔方停稳即停流，则由静默定时器确认最后一包。
+						if (this.rotCandidate.hits >= 2 &&
+							age >= (snap.residualDeg <= this.cubeRotSnapTol ? this.cubeRotSettleMs : this.cubeRotDwellMs)) {
+							this.commitDetectedRotation();
+							return;
+						}
+						this.scheduleRotFlush();
+						return;
+					}
+					this.rotCandidate = {
+						key: snap.key, absoluteM: snap.matrix, matrix: delta,
+						residualDeg: snap.residualDeg, since: now, hits: 1
+					};
+					this.scheduleRotFlush();
+				},
+
+				commitDetectedRotation: function() {
+					var candidate = this.rotCandidate;
+					if (!candidate) {
+						return;
+					}
+					this.rotCandidate = null;
+					this.cancelRotFlush();
+					// 直接推进到候选的绝对吸附朝向，不使用运动轨迹的最后采样点。
+					this.rotAltM = this.rotSyncM;
+					this.rotSyncM = candidate.absoluteM || this.rotSyncM;
+					this.rotRestRefM = this.rotSyncM;
+					this.rotRestSince = Date.now();
+					this.applyDetectedRotation(candidate.matrix);
+				},
+
+				// 补判：陀螺仪停流（静默 cubeRotFlushMs）或硬件转动落账前，
+				// 把已经稳定贴近的朝向先判定掉
+				flushPendingRotation: function() {
+					if (!this.rotCandidate) {
+						return;
+					}
+					this.commitDetectedRotation();
+				},
+
+				scheduleRotFlush: function() {
+					var self = this;
+					this.cancelRotFlush();
+					this.rotFlushTimer = setTimeout(function() {
+						self.rotFlushTimer = null;
+						self.flushPendingRotation();
+					}, this.cubeRotFlushMs);
+				},
+
+				cancelRotFlush: function() {
+					if (this.rotFlushTimer) {
+						clearTimeout(this.rotFlushTimer);
+						this.rotFlushTimer = null;
+					}
+				},
+
+				// 单轴 90/180/270 的整台转动：单个中层的核心转动是 90°，间隔很短的连续中层
+				// 会被陀螺仪判定合并成 180/270，甚至一次复合转动，都按核心转动处理
+				isSliceCoreDelta: function(m) {
+					if (!m) {
+						return false;
+					}
+					var faces = ["U", "D", "R", "L", "F", "B"];
+					for (var i = 0; i < faces.length; i++) {
+						if (this.matrixEquals(m, this.rotationMatrix(faces[i], 1)) ||
+							this.matrixEquals(m, this.rotationMatrix(faces[i], -1)) ||
+							this.matrixEquals(m, this.rotationMatrix(faces[i], 2))) {
+							return true;
+						}
+					}
+					return false;
+				},
+
+				// 物理中层落账（playCubeSliceMove）时调用
+				absorbSliceCoreRotation: function() {
+					var base = this.rotSyncM;
+					if (!base) {
+						// 还没有绝对基准：它建立时取到的本来就是核心转动之后的朝向
+						return;
+					}
+					var pose = this.gyroViewMatrix();
+					var snap = pose ? this.rotNearestGroupElement(pose) : null;
+					if (snap && snap.matrix && !this.matrixEquals(snap.matrix, base)) {
+						// 核心转动的数据已经到了（姿态已离开基准）：按实测转动落账。
+						// 连续快速的中层在这里会读到累计后的 180/270，一并落账。
+						var observed = this.matrixMultiply(snap.matrix, this.matrixTranspose(base));
+						if (this.isSliceCoreDelta(observed)) {
+							this.rotSyncM = snap.matrix;
+							this.rotRestRefM = snap.matrix;
+							this.rotAltM = null;
+							this.rotCandidate = null;
+							this.cancelRotFlush();
+							this.applyRotationBookkeeping(observed);
+							this.sliceCoreClaim = null;
+							this.log("view", "中层带起的转体已并入中层动画");
+							return;
+						}
+					}
+					// 陀螺仪数据先到、刚刚已被判成一次整台转体（手上姿态仍停在判定后的朝向）：
+					// 撤回多出来的动画与记录，基准已经在核心转动之后
+					if (snap && snap.matrix && this.matrixEquals(snap.matrix, base) && this.retractRotationCommit()) {
+						return;
+					}
+					// 数据还没到：登记认领（连续中层会累计张数），窗口内先到的整台转体判定
+					// 按核心转动处理（只记账，不放动画、不写记录）
+					var pending = this.sliceCoreClaim && Date.now() <= this.sliceCoreClaim.until ? this.sliceCoreClaim.count : 0;
+					this.sliceCoreClaim = { until: Date.now() + this.sliceCoreExpectMs, count: pending + 1 };
+				},
+
+				// 转体记账：与 applyDetectedRotation 里的推进完全一致，只是不放动画、不写记录。
+				// 跟随模式下朝向由陀螺仪直接呈现，朝向矩阵不动。
+				applyRotationBookkeeping: function(deltaMatrix) {
+					var parts = this.rotDecompose(deltaMatrix).reverse();
+					for (var i = 0; i < parts.length; i++) {
+						if (!this.gyroFollow) {
+							this.updateOrientation(parts[i].axis, parts[i].pow);
+						}
+						if (this.gyroRecordM) {
+							this.gyroRecordM = this.matrixMultiply(this.rotationMatrix(parts[i].axis, parts[i].pow), this.gyroRecordM);
+						}
+					}
+				},
+
+				// 陀螺仪数据先到、核心转动已被判成一次整台转体：把多出来的那一次撤回
+				// （屏幕动画倒回、转体记录删掉；朝向矩阵与记录帧保留）。
+				retractRotationCommit: function() {
+					var last = this.lastRotationCommit;
+					if (!last || !last.delta) {
+						return false;
+					}
+					if (Date.now() - last.at > this.sliceRetractMs || !this.isSliceCoreDelta(last.delta)) {
+						return false;
+					}
+					this.lastRotationCommit = null;
+					if (last.visual && this.twistyScene && this.twistyScene.applyMoves) {
+						// applyMoves 会立即结清在途动画，能把屏幕上的整台转体干净倒回
+						var self = this;
+						var back = this.rotDecompose(this.matrixTranspose(last.delta)).reverse().map(function(part) {
+							return [1, self.cubeDimension, part.axis, part.pow];
+						});
+						if (back.length) {
+							this.twistyScene.applyMoves(back);
+						}
+					}
+					for (var i = 0; i < last.texts.length; i++) {
+						this.removeRotationRecord(last.texts[i], last.at);
+					}
+					this.log("view", "中层带起的转体已并入中层动画");
+					return true;
+				},
+
+				removeRotationRecord: function(text, at) {
+					for (var i = this.orientationMoves.length - 1; i >= 0; i--) {
+						if (this.orientationMoves[i] === text) {
+							this.orientationMoves.splice(i, 1);
+							break;
+						}
+					}
+					for (var j = 0; j < this.moveHistory.length; j++) {
+						var item = this.moveHistory[j];
+						if (item && item.text === text && Math.abs((item.time || 0) - at) < 1500) {
+							this.moveHistory.splice(j, 1);
+							break;
+						}
+					}
+				},
+
+				applyDetectedRotation: function(deltaMatrix) {
+					// 中层带起的核心转动：只记账（见 absorbSliceCoreRotation）。
+					// 否则整台转体动画会与中层动画叠加，虚拟魔方多转一次、记录里也多一条转体。
+					// 连续中层的核心转动可能被判定合并（180/270 甚至复合），认领张数 ≥2 时
+					// 不再限制角度，统一按累计核心转动记账。
+					if (this.sliceCoreClaim && this.sliceCoreClaim.count > 0) {
+						var claim = this.sliceCoreClaim;
+						var claimed = Date.now() <= claim.until;
+						var accept = claimed && (claim.count >= 2 || this.isSliceCoreDelta(deltaMatrix));
+						this.sliceCoreClaim = null;
+						if (accept) {
+							this.applyRotationBookkeeping(deltaMatrix);
+							this.log("view", "中层带起的转体已并入中层动画");
+							// 手上姿态仍偏离基准 ⇒ 还有核心转动没落账，继续认领剩下的张数
+							var pose = this.gyroViewMatrix();
+							var snapNow = pose ? this.rotNearestGroupElement(pose) : null;
+							if (snapNow && snapNow.matrix && !this.matrixEquals(snapNow.matrix, this.rotSyncM)) {
+								this.sliceCoreClaim = { until: Date.now() + this.sliceCoreExpectMs, count: claim.count - 1 };
+							}
+							return;
+						}
+					}
+					// applyMoves/updateOrientation 都按左乘累计，复合分解必须倒序执行。
+					var parts = this.rotDecompose(deltaMatrix).reverse();
+					var self = this;
+					this.lastRotationCommit = {
+						at: Date.now(),
+						visual: !this.gyroFollow,
+						delta: deltaMatrix.map(function(row) { return row.slice(); }),
+						parts: parts.map(function(part) { return { axis: part.axis, pow: part.pow }; }),
+						texts: []
+					};
+					if (!parts.length) {
+						if (this.gyroRecordM) {
+							this.gyroRecordM = this.matrixMultiply(deltaMatrix, this.gyroRecordM);
+						}
+						this.log("view", "转体已同步");
+						return;
+					}
+					// 记录字母按标准体帧：x=绕实体 R 轴、y=绕 U 轴、z=绕 F 轴，与握持朝向无关；
+					// 动画/朝向/记录帧仍按场景帧实际转动推进，仅文本按体帧换算
+					var baseM = this.gyroFollow ? this.gyroRecordM : this.orientationMatrix;
+					var bodyDelta = deltaMatrix;
+					if (baseM) {
+						bodyDelta = this.matrixMultiply(this.matrixTranspose(baseM), this.matrixMultiply(deltaMatrix, baseM));
+					}
+					var bodyParts = this.rotDecompose(bodyDelta, ["R", "U", "F"]).reverse();
+					parts.forEach(function(part) {
+						if (!self.gyroFollow) {
+							// 关闭跟随：播放整体转动动画并推进朝向矩阵（只检测 XYZ 的普通模式）；
+							// 开启跟随：姿态由陀螺仪直接呈现，不重复搬动视图
+							self.twistyScene.addMoves([[1, self.cubeDimension, part.axis, part.pow]]);
+							self.updateOrientation(part.axis, part.pow);
+						}
+						if (self.gyroRecordM) {
+							self.gyroRecordM = self.matrixMultiply(self.rotationMatrix(part.axis, part.pow), self.gyroRecordM);
+						}
+					});
+					bodyParts.forEach(function(part) {
+						var text = { R: "x", U: "y", F: "z" }[part.axis] + (part.pow === 2 ? "2" : part.pow === -1 ? "'" : "");
+						if (self.lastRotationCommit) {
+							self.lastRotationCommit.texts.push(text);
+						}
+						self.orientationMoves.push(text);
+						self.pushHistory(text, self.deviceName || "cube", Date.now());
+						self.log("view", text + " · 转体");
+					});
+				},
+
+				syncRotationFrame: function() {
+					// 开启跟随瞬间：基准对齐当前实际姿态（重新认面）
+					if (!this.gyroLastQ) {
+						return;
+					}
+					var sceneM = this.gyroViewMatrix();
+					var settled = this.rotNearestGroupElement(sceneM).matrix;
+					this.rotSyncM = settled;
+					this.rotAltM = null;
+					this.rotRestRefM = settled;
+					this.rotRestSince = Date.now();
+					this.rotLastM = sceneM;
+					this.rotCandidate = null;
+					this.cancelRotFlush();
+					this.gyroRecordM = settled;
 				},
 
 				connect: function() {
@@ -4778,7 +5494,7 @@
 								self.elements.gyroToggleBtn.classList.remove("isActive");
 							}
 							self.clearGyroSession();
-							self.resetGyroRotation();
+							self.stopGyroDisplay();
 							self.log("bluetooth", "设备连接已断开");
 						}
 					});
@@ -4790,6 +5506,9 @@
 						self.hideMacHelp();
 						self.setStatus("connected", "已连接" + (self.deviceName ? " · " + self.deviceName : ""));
 						self.log("bluetooth", "连接成功");
+						if (self.gyroFollow) {
+							self.syncRotationFrame();
+						}
 					}).catch(function(error) {
 						self.ignoreMoves = false;
 						self.connected = false;
@@ -4819,7 +5538,7 @@
 							self.elements.gyroToggleBtn.classList.remove("isActive");
 						}
 						self.clearGyroSession();
-						self.resetGyroRotation();
+						self.stopGyroDisplay();
 					});
 				},
 
@@ -4830,11 +5549,48 @@
 				if (label) { label.textContent = text; } else { btn.textContent = text; }
 			},
 			resetView: function() {
+					// 只还原魔方状态：朝向（整体朝向矩阵 / 显示四元数 / 视线 / 视图旋转）保持不变
+					var keepOrientation = this.orientationMatrix ? this.orientationMatrix.map(function(row) { return row.slice(); }) : null;
+					var keepDisplayQ = this.currentDisplayQuat();
+					var keepYaw = this.viewYaw || 0;
+					var keepPitch = this.viewPitch || 0;
+					var keepRoll = this.elements.cubeStage ? (this.elements.cubeStage.dataset.roll || "0") : "0";
 					this.moveHistory = [];
 					this.manualMoveHistory = [];
 					this.moveCount = 0;
 					this.hideMacHelp();
 					this.initTwisty();
+					// 场景重建会把朝向与视线清零，这里把重置前的朝向原样放回去
+					this.orientationMatrix = keepOrientation || this.identityMatrix();
+					this.viewYaw = keepYaw;
+					this.viewPitch = keepPitch;
+					this.setViewDrag(keepYaw, keepPitch);
+					if (Number(keepRoll)) {
+						this.elements.cubeStage.dataset.roll = String(Number(keepRoll));
+						var inner = this.elements.cubeStage.firstElementChild;
+						if (inner) {
+							inner.style.transform = "rotate(" + Number(keepRoll) + "deg)";
+							inner.style.transformOrigin = "50% 50%";
+						}
+					}
+					if (this.twistyScene && this.twistyScene.applyMoves) {
+						// 把重置前累积的整体朝向重新施加到新场景（立方体状态是新的，朝向沿用）
+						var self = this;
+						var applied = this.rotDecompose(this.orientationMatrix).reverse().map(function(part) {
+							return [1, self.cubeDimension, part.axis, part.pow];
+						});
+						if (applied.length) {
+							this.twistyScene.applyMoves(applied);
+						}
+					}
+					if (this.gyroFollow) {
+						// 跟随模式：显示四元数就是从手中姿态来的，直接续用同一姿态、不留跳变
+						this.applyDisplayQuat(keepDisplayQ);
+						this.gyroCurrentQ = keepDisplayQ.slice();
+						if (this.gyroTargetQ) {
+							this.startGyroAnimation();
+						}
+					}
 					this.renderMoves();
 					this.elements.moveCount.textContent = "0";
 					this.elements.lastTs.textContent = "--:--";
@@ -4997,6 +5753,11 @@
 					// 陀螺仪跟随下：整体转体由陀螺仪呈现，动画按两个外层转动播放，
 					// 与陀螺仪转体合成完整的中层效果（记录仍为中层 M/S/E）；普通模式播中层动画不变
 					var sliceAnimation = !this.gyroFollow;
+					// 物理中层的核心（中轴）随中层一起转，陀螺仪必然读到这一次"整台转体"。
+					// 中层效果已由中层动画（普通模式）或手中姿态（跟随模式）呈现，这次转动只能
+					// 作记账用：先看它是否已被判定过（撤掉多出来的动画与记录），否则把参考帧推
+					// 进到中轴新朝向，避免再被当成一次整台转体。
+					this.absorbSliceCoreRotation();
 					for (var i = 0; i < rawMoves.length; i++) {
 						this.playMove(rawMoves[i], source, timestamp, {
 							fromCube: true,
@@ -5120,8 +5881,9 @@
 						move = this.mapManualMove(move);
 					}
 					if (move.type === "orientation") {
-						if (this.gyroFollow) {
-							// 陀螺仪跟随开启时，x/y/z 整体转动完全失效（无动画、无朝向、无记录），朝向由陀螺仪接管
+						if (this.gyroFollow || this.cubeHasGyro) {
+							// 带陀螺仪的魔方：x/y/z 整体转动完全失效（无动画、无朝向、无记录），
+							// 朝向只由陀螺仪/真实转动决定；跟随开启时同样失效
 							return null;
 						}
 						this.applyOrientationMove(move, options);
@@ -5131,9 +5893,10 @@
 						}
 						return move;
 					}
-					if (options.fromCube) {
-						move = this.transformCubeMove(move);
-					}
+						if (options.fromCube) {
+							this.flushPendingRotation();
+							move = this.transformCubeMove(move);
+						}
 					if (!options.noFormula) {
 						this.recordFormulaMove(move);
 					}
@@ -5409,9 +6172,40 @@
 					}
 				},
 
+				transformCubeMoveFollow: function(move) {
+					// 跟随模式：动画与虚拟状态保持蓝牙体帧（陀螺仪四元数承担整体朝向），
+					// 记录文本按 gyroRecordM 重映射到当前实际朝向（转体识别的自检链路）
+					var recordFace = move.face;
+					var sign = 1;
+					if (this.gyroRecordM) {
+						var vector = this.matrixVectorMultiply(this.gyroRecordM, this.faceNormal(move.face));
+						var hit = this.faceFromNormal(vector);
+						if (!hit) {
+							hit = this.faceFromNormal([-vector[0], -vector[1], -vector[2]]);
+							sign = -1;
+						}
+						if (hit) {
+							recordFace = hit;
+						}
+					}
+					var uiFace = this.unmapUiFace(recordFace);
+					return {
+						text: this.formatMoveText(move.wide ? uiFace.toLowerCase() : uiFace, sign * move.pow),
+						cubeText: this.formatMoveText(move.face, move.pow),
+						type: "face",
+						face: move.face,
+						wide: move.wide,
+						pow: move.pow,
+						twisty: [1, move.wide ? 2 : 1, move.face, move.pow]
+					};
+				},
+
 				transformCubeMove: function(move) {
 					if (!move || move.type !== "face") {
 						return move;
+					}
+					if (this.gyroFollow) {
+						return this.transformCubeMoveFollow(move);
 					}
 					if (!this.orientationMatrix) {
 						this.orientationMatrix = this.identityMatrix();
