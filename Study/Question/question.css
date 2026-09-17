@@ -403,8 +403,9 @@ button, input, textarea, select { font-family: inherit; letter-spacing: inherit;
 
 .itemIndex {
 	flex: 0 0 auto;
-	width: 26px;
+	min-width: 26px;
 	height: 26px;
+	padding: 0 6px;                 /* 序号终身不复用，位数会变大；1~2 位仍是 26px 圆点 */
 	display: flex;
 	align-items: center;
 	justify-content: center;

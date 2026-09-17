@@ -31,6 +31,10 @@
 		var out = {
 			id: (typeof raw.id === 'string' && raw.id) ? raw.id : genId(),
 			listId: (typeof raw.listId === 'string' && raw.listId) ? raw.listId : '',
+			/* no = 序号：建立时分配，筛选 / 搜索 / 删除都不改它，
+			   只有整理面板里重新排序才按新顺序重排（renumberList）；
+			   缺失/非法一律记 0，由 ensureItemNos() 统一补号 */
+			no: (typeof raw.no === 'number' && isFinite(raw.no) && raw.no > 0) ? Math.floor(raw.no) : 0,
 			question: (typeof raw.question === 'string') ? raw.question : '',
 			answer: answer,
 			source: (raw.source === 'import') ? 'import' : 'manual',
@@ -111,6 +115,10 @@
 
 	var data = load();
 
+	/* 启动即补号：老数据（没有 no 字段）按当前可见顺序落成 1、2、3…，
+	   之后序号就不再随筛选 / 删除 / 排序变化。补过号就落盘一次，让号固定下来 */
+	if (ensureItemNos()) save(false);
+
 	function save(cloudPush) {
 		try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch (e) { /* ignore */ }
 		if (cloudPush) pushCloud();
@@ -141,6 +149,70 @@
 			out.push(it);
 		}
 		return out;
+	}
+
+	/* ---------- 序号 ----------
+	   序号 = 条目自带的字段 no，建立时分配。
+	   · 筛选 / 搜索 / 删除：只改可见范围，序号一律不动（删除只留空档，后续条目不往上挪）
+	   · 整理面板里拖动 / ↑↓ 排序：这是「重新整理顺序」，按新顺序重排成 1、2、3… */
+
+	/* 新条目的号 = 本清单当前最大活号 + 1（不填补空档） */
+	function nextItemNo(listId) {
+		var m = 0;
+		for (var i = 0; i < data.items.length; i++) {
+			var it = data.items[i];
+			if (it.del || it.listId !== listId) continue;
+			if (typeof it.no === 'number' && it.no > m) m = it.no;
+		}
+		return m + 1;
+	}
+
+	/* 认领 / 补号（幂等，可重复调用）：
+	   ①先认领已有合法号（同清单内先到先得，撞号的后到者视为缺号）；
+	   ②再给缺号条目补号 —— 活条目按数组顺序（= 当前显示顺序）补，
+	     已删除条目最后补，这样老数据升级后看到的号就是现在的 1、2、3… */
+	function ensureItemNos() {
+		var used = {}, max = {}, i, it, changed = false;
+		var live = [], dead = [];
+		for (i = 0; i < data.items.length; i++) {
+			it = data.items[i];
+			(it.del ? dead : live).push(it);
+		}
+		function scan(arr) {
+			for (var k = 0; k < arr.length; k++) {
+				var t = arr[k], lid = t.listId || '';
+				var v = (typeof t.no === 'number' && isFinite(t.no) && t.no > 0) ? Math.floor(t.no) : 0;
+				t.no = 0;
+				if (!v) continue;
+				if (!used[lid]) { used[lid] = {}; max[lid] = 0; }
+				if (used[lid][v]) continue;                 /* 撞号：后到者重新分配 */
+				used[lid][v] = true;
+				t.no = v;
+				if (v > max[lid]) max[lid] = v;
+			}
+		}
+		function fill(arr) {
+			for (var k = 0; k < arr.length; k++) {
+				var t = arr[k], lid = t.listId || '';
+				if (t.no) continue;
+				if (max[lid] == null) max[lid] = 0;
+				t.no = ++max[lid];
+				changed = true;
+			}
+		}
+		scan(live); fill(live);
+		scan(dead); fill(dead);
+		return changed;
+	}
+
+	/* 整理面板里重新排序后：活条目按新顺序重编成 1、2、3…（顺手把删除留下的空档收拢） */
+	function renumberList(listId) {
+		var n = 0;
+		for (var i = 0; i < data.items.length; i++) {
+			var it = data.items[i];
+			if (it.del || it.listId !== listId) continue;
+			it.no = ++n;
+		}
 	}
 	function isSolved(it) {
 		return !!(it && typeof it.answer === 'string' && it.answer.trim());
@@ -338,12 +410,13 @@
 		return !!view.answerOpen[it.id];
 	}
 
-	function itemHtml(it, idx) {
+	function itemHtml(it) {
 		var solved = isSolved(it);
 		var cls = 'item ' + (solved ? 'isSolved' : 'isOpen');
 		if (view.editingId === it.id) cls += ' isEditing';
 		var h = '<article class="' + cls + '" data-item-id="' + esc(it.id) + '">';
-		h += '<span class="itemIndex">' + (idx + 1) + '</span>';
+		/* 序号用条目自带的 no（不按可见位置重排） */
+		h += '<span class="itemIndex">' + (it.no > 0 ? it.no : '') + '</span>';
 		h += '<div class="itemBody">';
 
 		if (view.editingId === it.id) {
@@ -406,7 +479,7 @@
 		var keepTop = scroll ? scroll.scrollTop : 0;
 		var list = visibleItems();
 		/* 新建草稿固定在列表最底端 */
-		var html = list.map(function (it, i) { return itemHtml(it, i); }).join('');
+		var html = list.map(function (it) { return itemHtml(it); }).join('');
 		if (view.draft != null) html += draftHtml();
 		$('qList').innerHTML = html;
 
@@ -537,7 +610,7 @@
 			var cur = getActiveList();
 			if (!cur) { toast('先新建清单', 'warn'); return 'noop'; }
 			var it = {
-				id: genId(), listId: cur.id, question: q, answer: a,
+				id: genId(), listId: cur.id, no: nextItemNo(cur.id), question: q, answer: a,
 				source: 'manual', createdAt: now, mut: now, del: false
 			};
 			if (a) it.solvedAt = now;
@@ -674,6 +747,7 @@
 		var ib = data.items.indexOf(anchor);
 		if (ib < 0) { data.items.splice(ia, 0, it); return false; }
 		data.items.splice(to < from ? ib : ib + 1, 0, it);   /* 上移插在锚点前，下移插在锚点后 */
+		renumberList(it.listId);                         /* 拖动/↑↓ 排序 = 按新顺序重排名号 */
 		var now = Date.now();
 		it.mut = now;
 		anchor.mut = now;                                /* 顺序变更也走 mut 新者胜，同步到云端 */
@@ -709,12 +783,12 @@
 			host.innerHTML = '<div class="manageHint">当前清单还没有条目</div>';
 			return;
 		}
-		host.innerHTML = seq.map(function (it, i) {
+		host.innerHTML = seq.map(function (it) {
 			return '<div class="manageRow manageRowItem" data-item-id="' + esc(it.id) + '">'
 				+ '<span class="dragHandle" data-drag-for="' + esc(it.id) + '" role="button" tabindex="0" title="按住拖动排序" aria-label="拖动排序">'
 				+ '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="6" cy="3.6" r="1.3"/><circle cx="10" cy="3.6" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12.4" r="1.3"/><circle cx="10" cy="12.4" r="1.3"/></svg>'
 				+ '</span>'
-				+ '<span class="manageRowIdx">' + (i + 1) + '</span>'
+				+ '<span class="manageRowIdx">' + (it.no > 0 ? it.no : '') + '</span>'
 				+ '<span class="manageRowName">' + esc(it.question || '（无问题文本）') + '</span>'
 				+ '<button class="miniBtn mgoDelItem" type="button">删除</button>'
 				+ '</div>';
@@ -746,7 +820,7 @@
 		dragRenumber();
 	}
 
-	/* 拖动过程中序号实时按预览顺序重排 */
+	/* 拖动中按「预览顺序」实时重排名号（松手后落盘的就是这套号） */
 	function dragRenumber() {
 		var st = dragState;
 		if (!st) return;
@@ -1307,6 +1381,7 @@
 
 		data.lists = Object.keys(byList).map(function (k) { return byList[k]; });
 		data.items = Object.keys(byItem).map(function (k) { return byItem[k]; });
+		ensureItemNos();               /* 带 no 的沿用，缺号的按顺序补 */
 		data.listsMut = now;
 		data.itemsMut = now;
 		var alive = activeLists();
@@ -1471,6 +1546,7 @@
 		if (changed) {
 			data.lists = Object.keys(byList).map(function (k) { return byList[k]; });
 			data.items = Object.keys(byItem).map(function (k) { return byItem[k]; });
+			ensureItemNos();           /* 云端老数据可能没有 no，补齐 */
 			var alive = activeLists();
 			if (!alive.some(function (L) { return L.id === data.activeListId; })) {
 				data.activeListId = alive.length ? alive[0].id : null;
