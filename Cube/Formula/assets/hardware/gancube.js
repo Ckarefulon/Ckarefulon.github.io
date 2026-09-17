@@ -417,6 +417,70 @@ execMain(function() {
 	var prevMoveLocTime = null;
 	var movesFromLastCheck = 1000;
 	var batteryLevel = 0;
+	// 连接后「基线状态」（初始面位）到达之前收到的转动。固件的转动计数要与基线
+	// 同口径才能差分，此前 prevMoveCnt == -1 时旧代码一律丢弃 ⇒ 用户连接后的
+	// 第一个操作会永久消失。这里先按顺序缓存，initCubeState 落定基线后补发，
+	// 走与实时事件完全相同的回调通道。
+	var preInitMoves = [];
+	var PRE_INIT_MOVES_LIMIT = 12;
+	// 基线落定后是否已经落过账转动。真机固件连接后的「第一个转动事件」计数不加一
+	// （与基线同值），会被下面的重复包去重拦掉 —— 这正好只吞掉第一个操作。
+	// 基线后一步都还没落账时遇到「计数未前进」事件，按事件自带的轴/向直接落账，
+	// 不走向历史补拉（计数口径未知时补拉会拉到空槽，固件回 0 字节 ⇒ 幻影步）。
+	var moveAppliedSinceBaseline = false;
+
+	function bufferPreInitMove(cnt, move, ts, locTime) {
+		if (!move || preInitMoves.length >= PRE_INIT_MOVES_LIMIT) {
+			return;
+		}
+		preInitMoves.push([cnt, move, ts, locTime]);
+	}
+
+	function flushPreInitMoves() {
+		if (!preInitMoves.length) {
+			return;
+		}
+		var pending = preInitMoves;
+		preInitMoves = [];
+		var useMoveBuffer = !!(_service_v3data || _service_v4data);
+		for (var i = 0; i < pending.length; i++) {
+			var item = pending[i];
+			giikerutil.log('[gancube]', 'flush move buffered before baseline', item[0], item[1]);
+			if (useMoveBuffer) {
+				moveBuffer.push([item[0], item[1], item[2], item[3]]);
+			} else {
+				// v1/v2 没有 moveBuffer 通道，直接按单步回调补发
+				prevMoves = [item[1]];
+				timeOffs = [0];
+				moveCnt = item[0];
+				updateMoveTimes(item[3], 1);
+			}
+		}
+		if (useMoveBuffer) {
+			evictMoveBuffer(true);
+		}
+	}
+
+	// 「连接后第一个操作」的兜底：真机固件的首个转动事件计数可能与基线同值，
+	// 旧的重复包去重会把它吞掉（表现＝连接后第一个操作永远被忽略）。
+	// 基线后一步都还没落账时，直接按事件内容落账；已落过账（含这一步自己重复播）
+	// 则维持重复包去重，不重复计。
+	function resolveSuspectFirstMove(cnt, move, ts, locTime) {
+		if (moveAppliedSinceBaseline) {
+			return;
+		}
+		giikerutil.log('[gancube]', 'move counter not advanced, applying as first move', cnt, move);
+		if (_service_v3data || _service_v4data) {
+			moveBuffer.push([cnt, move, ts, locTime]);
+			evictMoveBuffer(false);
+		} else {
+			prevMoves = [move];
+			timeOffs = [0];
+			moveCnt = cnt;
+			prevMoveCnt = (cnt - 1) & 0xff;
+			updateMoveTimes(locTime, 1);
+		}
+	}
 
 	function initCubeState() {
 		var locTime = Date.now();
@@ -424,12 +488,14 @@ execMain(function() {
 		GiikerCube.callback(latestFacelet, [], [null, locTime], deviceName);
 		prevCubie.fromFacelet(latestFacelet);
 		prevMoveCnt = moveCnt;
+		moveAppliedSinceBaseline = false;
 		if (latestFacelet != kernel.getProp('giiSolved', mathlib.SOLVED_FACELET)) {
 			var rst = kernel.getProp('giiRST');
 			if (rst == 'a' || rst == 'p' && confirm(CONFIRM_GIIRST)) {
 				giikerutil.markSolved();
 			}
 		}
+		flushPreInitMoves();
 	}
 
 	function checkState() {
@@ -479,6 +545,7 @@ execMain(function() {
 			var m = "URFDLB".indexOf(prevMoves[i][0]) * 3 + " 2'".indexOf(prevMoves[i][1]);
 			mathlib.CubieCube.CubeMult(prevCubie, mathlib.CubieCube.moveCube[m], curCubie);
 			deviceTime += timeOffs[i];
+			moveAppliedSinceBaseline = true;
 			GiikerCube.callback(curCubie.toFaceCube(), prevMoves.slice(i), [deviceTime, i == 0 ? locTime : null], deviceName + (isV2 ? '*' : ''));
 			var tmp = curCubie;
 			curCubie = prevCubie;
@@ -591,9 +658,7 @@ execMain(function() {
 		} else if (mode == 2) { // cube move
 			giikerutil.log('[gancube]', 'v2 received move event', value);
 			moveCnt = parseInt(value.slice(4, 12), 2);
-			if (moveCnt == prevMoveCnt || prevMoveCnt == -1) {
-				return;
-			}
+			var isRepeatCnt = moveCnt == prevMoveCnt && prevMoveCnt != -1;
 			timeOffs = [];
 			prevMoves = [];
 			var keyChkInc = 0;
@@ -607,9 +672,21 @@ execMain(function() {
 				}
 			}
 			keyCheck += keyChkInc;
-			if (keyChkInc == 0) {
-				updateMoveTimes(locTime, 1);
+			if (keyChkInc != 0) {
+				return;
 			}
+			if (prevMoveCnt == -1) {
+				// 基线还没建立：先缓存最新一步（prevMoves[0]），基线落定后补发
+				bufferPreInitMove(moveCnt, prevMoves[0], timeOffs[0], locTime);
+				giikerutil.log('[gancube]', 'v2 move buffered before baseline', moveCnt, prevMoves[0]);
+				return;
+			}
+			if (isRepeatCnt) {
+				// 计数没前进：真机固件的「首步计数不加一」或重复包，交给统一兜底
+				resolveSuspectFirstMove(moveCnt, prevMoves[0], timeOffs[0], locTime);
+				return;
+			}
+			updateMoveTimes(locTime, 1);
 		} else if (mode == 4) { // cube state
 			giikerutil.log('[gancube]', 'v2 received facelets event', value);
 			if (prevMoveCnt != -1)
@@ -746,6 +823,7 @@ execMain(function() {
 				prevMoves.unshift(move[1]);
 				if (prevMoves.length > 8)
 					prevMoves = prevMoves.slice(0, 8);
+				moveAppliedSinceBaseline = true;
 				GiikerCube.callback(curCubie.toFaceCube(), prevMoves, [move[2], move[3]], deviceName + '*');
 				var tmp = curCubie;
 				curCubie = prevCubie;
@@ -772,9 +850,6 @@ execMain(function() {
 		prevMoveLocTime = locTime;
 		moveCnt = bytes[offset + 7] | bytes[offset + 8] << 8;
 		giikerutil.log('[gancube]', 'v3 received move event', prevMoveCnt, moveCnt, rawBits);
-		if (moveCnt == prevMoveCnt || prevMoveCnt == -1) {
-			return;
-		}
 		var ts = (bytes[offset + 3] | bytes[offset + 4] << 8 | bytes[offset + 5] << 16 | bytes[offset + 6] << 24) >>> 0;
 		var moveByte = bytes[offset + 9];
 		var pow = moveByte >> 6;
@@ -788,6 +863,16 @@ execMain(function() {
 			return;
 		}
 		var move = "URFDLB".charAt(axis) + " '".charAt(pow);
+		if (prevMoveCnt == -1) {
+			// 基线还没建立：先缓存，等初始面位到达后补发，否则这一步会永久消失
+			bufferPreInitMove(moveCnt, move, ts, locTime);
+			giikerutil.log('[gancube]', 'v3 move buffered before baseline', moveCnt, move);
+			return;
+		}
+		if (moveCnt == prevMoveCnt) {
+			resolveSuspectFirstMove(moveCnt, move, ts, locTime);
+			return;
+		}
 		moveBuffer.push([moveCnt, move, ts, locTime]);
 		giikerutil.log('[gancube]', 'v3 move placed to fifo buffer', moveCnt, move, ts, locTime);
 		evictMoveBuffer(true);
@@ -915,9 +1000,6 @@ execMain(function() {
 		prevMoveLocTime = locTime;
 		moveCnt = bytes[offset + 6] | bytes[offset + 7] << 8;
 		giikerutil.log('[gancube]', 'v4 received move event', prevMoveCnt, moveCnt, rawBits);
-		if (moveCnt == prevMoveCnt || prevMoveCnt == -1) {
-			return;
-		}
 		var ts = (bytes[offset + 2] | bytes[offset + 3] << 8 | bytes[offset + 4] << 16 | bytes[offset + 5] << 24) >>> 0;
 		var moveByte = bytes[offset + 8];
 		var pow = moveByte >> 6;
@@ -931,6 +1013,16 @@ execMain(function() {
 			return;
 		}
 		var move = "URFDLB".charAt(axis) + " '".charAt(pow);
+		if (prevMoveCnt == -1) {
+			// 基线还没建立：先缓存，等初始面位到达后补发，否则这一步会永久消失
+			bufferPreInitMove(moveCnt, move, ts, locTime);
+			giikerutil.log('[gancube]', 'v4 move buffered before baseline', moveCnt, move);
+			return;
+		}
+		if (moveCnt == prevMoveCnt) {
+			resolveSuspectFirstMove(moveCnt, move, ts, locTime);
+			return;
+		}
 		moveBuffer.push([moveCnt, move, ts, locTime]);
 		giikerutil.log('[gancube]', 'v4 move placed to fifo buffer', moveCnt, move, ts, locTime);
 		evictMoveBuffer(true);
@@ -1098,6 +1190,8 @@ execMain(function() {
 		prevMoveLocTime = null;
 		movesFromLastCheck = 1000;
 		batteryLevel = 0;
+		preInitMoves = [];
+		moveAppliedSinceBaseline = false;
 		return result;
 	}
 

@@ -66,6 +66,10 @@
 				connected: false,
 				ignoreMoves: false,
 				hasValidCubeState: false,
+				// 连接握手期间（从点「连接魔方」到 init 落地）收到的回调帧。第一帧是
+				// 设备初始状态（即基线），其后任何一帧都说明用户在连接过程中已经转过
+				// 魔方：这些转动不能再被基线吞掉，握手结束时按正常增量逻辑补发。
+				connectFrames: [],
 				macWarningVisible: false,
 				cubeDimension: 3,
 				orientationMatrix: null,
@@ -88,11 +92,13 @@
 				gyroLastQ: null,
 				gyroRecordM: null,
 				lastRotationCommit: null,
-				sliceCoreClaim: null,
+				sliceCoreQueue: null,
+				gyroLastAt: 0,
 				rotSyncM: null,
 				rotAltM: null,
 				rotRestRefM: null,
 				rotRestSince: 0,
+				rotLastMotionAt: 0,
 				rotCandidate: null,
 				rotLastM: null,
 				rotFlushTimer: null,
@@ -107,11 +113,20 @@
 				cubeRotAltStillMs: 120,
 				rotStillMs: 0,
 				cubeRotSettleMs: 110,
+				// 姿态「停稳」判定：相邻两包夹角超过 eps 视为仍在运动；
+				// 运动未停稳不提交，避免把转到一半（吸附量化提前贴到目标）的
+				// 转动过早定案、吞掉还没转完的部分
+				cubeRotStillMs: 80,
+				cubeRotMotionEpsDeg: 12,
 				cubeRotDwellMs: 520,
 				cubeRotFlushMs: 160,
-				// 中层带起的核心转动：陀螺仪数据未到时的认领窗口 / 已判定时的撤回时限
+				// 中层带起的核心转动：陀螺仪数据未到时的预期队列窗口 / 已判定时的撤回时限
 				sliceCoreExpectMs: 800,
 				sliceRetractMs: 400,
+				// 「转出去又转回来」的净零候选挂起上限：窗口内可与中层核心转动对账，超时静默失效
+				rotNettedTtlMs: 1200,
+				// 悬空队列结算前的静默期：最后一次中层落账后姿态需在基准上再停这么久
+				sliceSettleDelayMs: 300,
 				hiddenStickerMask: {},
 				seamlessMode: false,
 				customCubeScene: null,
@@ -4691,8 +4706,10 @@
 					// 关闭后的绝对朝向识别从这个屏幕朝向继续，不沿用旧的轨迹基准。
 					this.rotSyncM = settled;
 					this.rotLastM = viewM;
+					this.rotLastMotionAt = Date.now();
 					this.rotCandidate = null;
 					this.cancelRotFlush();
+					this.sliceCoreQueue = null;
 					this.gyroRecordM = settled;
 					if (this.twistyScene && this.twistyScene.applyMoves) {
 						var self = this;
@@ -4752,7 +4769,9 @@
 					}
 					this.gyroRecordM = null;
 					this.lastRotationCommit = null;
-					this.sliceCoreClaim = null;
+					this.sliceCoreQueue = null;
+					this.gyroLastAt = 0;
+					this.rotLastMotionAt = 0;
 					this.rotSyncM = null;
 					this.rotAltM = null;
 					this.rotRestRefM = null;
@@ -4825,6 +4844,7 @@
 				// 把虚拟魔方已累积的整体朝向（内部状态 + 记录帧 orientationMatrix）并入显示四元数并清零。
 				// 两步在同一帧内完成，画面不变；从此跟随显示与关闭期间的状态完全解耦。
 				reanchorGyroDisplay: function() {
+					this.sliceCoreQueue = null;
 					var o = this.orientationMatrix;
 					if (o && !this.matrixEquals(o, this.identityMatrix())) {
 						// 与关闭结算相同：复合旋转必须按分解结果的逆序交给 applyMoves。
@@ -4928,6 +4948,7 @@
 
 				onCubeGyro: function(x, y, z, w) {
 					this.gyroLastQ = [x, y, z, w];
+					this.gyroLastAt = Date.now();
 					if (!this.cubeHasGyro) {
 						// 首次收到姿态数据 = 这台魔方带陀螺仪：x/y/z 手动整体转动一律失效（开关跟随都无效），
 						// 面板上的 x/y/z 也收起来，避免"虚拟转体"与手中魔方错位；并自动开启一次跟随，
@@ -5046,6 +5067,9 @@
 				rotDecompose: function(m, faces) {
 					// 拆成 ≤3 个单步转体（覆盖 24 朝向群全部元素）；faces 缺省为场景帧 B/U/R
 					faces = faces || ["B", "U", "R"];
+					if (this.matrixEquals(m, this.identityMatrix())) {
+						return [];
+					}
 					var singles = [];
 					var pows = [1, -1, 2];
 					for (var i = 0; i < faces.length; i++) {
@@ -5176,10 +5200,29 @@
 						return;
 					}
 					var now = Date.now();
+					if (this.rotLastM) {
+						var motion = this.rotMatrixAngle(this.matrixMultiply(this.matrixTranspose(this.rotLastM), sceneM));
+						if (motion > this.cubeRotMotionEpsDeg) {
+							this.rotLastMotionAt = now;
+						}
+					}
 					this.rotLastM = sceneM;
 					var snap = this.rotNearestGroupElement(sceneM);
 					if (!snap.matrix || snap.residualDeg > this.cubeRotSnapTolLoose) {
-						this.rotCandidate = null;
+						// 运动中的大偏差中间态不参与判定。已双包确认的强候选不删除、
+						// 改挂起（netted）：「整体转体 + 反向中层」这类净零组合里，姿态会先
+						// 经过中间态再回到基准，删掉候选就再也没法把这次真实转体和中层核心
+						// 拆开对账（见 absorbSliceCoreRotation 的净零对账）；挂起候选超时静默失效，
+						// 纯粹「拿起又放回」仍然不记录、不动画。
+						if (this.rotCandidate) {
+							if (!this.rotCandidate.netted && (this.rotCandidate.hits || 1) >= 2) {
+								this.rotCandidate.netted = true;
+							} else if (!this.rotCandidate.netted) {
+								this.rotCandidate = null;
+							} else if (now - this.rotCandidate.since > this.rotNettedTtlMs) {
+								this.rotCandidate = null;
+							}
+						}
 						this.cancelRotFlush();
 						return;
 					}
@@ -5195,8 +5238,23 @@
 						return;
 					}
 					if (this.matrixEquals(snap.matrix, this.rotSyncM)) {
-						this.rotCandidate = null;
+						if (this.rotCandidate) {
+							if (!this.rotCandidate.netted && (this.rotCandidate.hits || 1) < 2) {
+								// 单包弱候选：按原有语义清除（噪声/掠过），避免僵尸候选阻塞结算
+								this.rotCandidate = null;
+							} else if (!this.rotCandidate.netted) {
+								// 已确认过的朝向被转出去又停了回来：挂起候选（netted）。
+								// 若紧随其后的中层核心转动与它恰好净零（姿态回到基准），
+								// absorbSliceCoreRotation 会把两者拆开对账；超时则静默失效，
+								// 纯粹「拿起又放回」的行为与以前一致（不记录、不动画）。
+								this.rotCandidate.netted = true;
+							} else if (this.rotCandidate.netted && now - this.rotCandidate.since > this.rotNettedTtlMs) {
+								// 挂起超时：静默失效（纯粹「拿起又放回」不记录、不动画）
+								this.rotCandidate = null;
+							}
+						}
 						this.cancelRotFlush();
+						this.pruneSliceCoreEntries();
 						return;
 					}
 
@@ -5206,9 +5264,12 @@
 						this.rotCandidate.matrix = delta;
 						this.rotCandidate.residualDeg = snap.residualDeg;
 						this.rotCandidate.hits = (this.rotCandidate.hits || 1) + 1;
+						// 挂起中的净零候选又被转了回去：恢复正常判定
+						this.rotCandidate.netted = false;
 						var age = now - this.rotCandidate.since;
-						// 稳定数据走双包 + 时间确认；某些魔方停稳即停流，则由静默定时器确认最后一包。
+						// 稳定数据走双包 + 时间 + 停稳确认；某些魔方停稳即停流，则由静默定时器确认最后一包。
 						if (this.rotCandidate.hits >= 2 &&
+							now - this.rotLastMotionAt >= this.cubeRotStillMs &&
 							age >= (snap.residualDeg <= this.cubeRotSnapTol ? this.cubeRotSettleMs : this.cubeRotDwellMs)) {
 							this.commitDetectedRotation();
 							return;
@@ -5218,30 +5279,44 @@
 					}
 					this.rotCandidate = {
 						key: snap.key, absoluteM: snap.matrix, matrix: delta,
-						residualDeg: snap.residualDeg, since: now, hits: 1
+						residualDeg: snap.residualDeg, since: now, hits: 1, netted: false
 					};
 					this.scheduleRotFlush();
 				},
 
-				commitDetectedRotation: function() {
+				commitDetectedRotation: function(force) {
 					var candidate = this.rotCandidate;
 					if (!candidate) {
+						return;
+					}
+					if (candidate.netted && !force) {
+						// 净零挂起的候选不参与常规提交，只由中层对账（absorbSliceCoreRotation）消耗
 						return;
 					}
 					this.rotCandidate = null;
 					this.cancelRotFlush();
 					// 直接推进到候选的绝对吸附朝向，不使用运动轨迹的最后采样点。
-					this.rotAltM = this.rotSyncM;
+					var baseBefore = this.rotSyncM;
+					this.rotAltM = baseBefore;
 					this.rotSyncM = candidate.absoluteM || this.rotSyncM;
 					this.rotRestRefM = this.rotSyncM;
 					this.rotRestSince = Date.now();
-					this.applyDetectedRotation(candidate.matrix);
+					this.applyDetectedRotation(candidate.matrix, baseBefore, candidate.since);
 				},
 
 				// 补判：陀螺仪停流（静默 cubeRotFlushMs）或硬件转动落账前，
-				// 把已经稳定贴近的朝向先判定掉
-				flushPendingRotation: function() {
+				// 把已经稳定贴近的朝向先判定掉。
+				// requireSettled（硬件转动落账触发）时只提交「双包 + 停稳」的强候选：
+				// 弱候选/仍在运动的姿态先不强制提交——变换暂时落在旧朝向坐标系也没关系，
+				// 之后的提交按左乘补偿，状态仍然精确（记录顺序最多晚一步），
+				// 而提前定案会把还没转完的转动量化吞并，造成不可逆的错位。
+				flushPendingRotation: function(requireSettled) {
 					if (!this.rotCandidate) {
+						return;
+					}
+					if (requireSettled &&
+						((this.rotCandidate.hits || 1) < 2 ||
+							Date.now() - this.rotLastMotionAt < this.cubeRotStillMs)) {
 						return;
 					}
 					this.commitDetectedRotation();
@@ -5263,57 +5338,311 @@
 					}
 				},
 
-				// 单轴 90/180/270 的整台转动：单个中层的核心转动是 90°，间隔很短的连续中层
-				// 会被陀螺仪判定合并成 180/270，甚至一次复合转动，都按核心转动处理
-				isSliceCoreDelta: function(m) {
-					if (!m) {
-						return false;
+				// ---- 中层带起的核心转动：预期队列（精确矩阵对账） ----
+				// 每次物理中层落账（playCubeSliceMove）时，它必然带来的那一次核心转动是已知的：
+				// 匹配出的中层文本按场景帧给出绕该轴的整台旋转 g_exp，换算成体帧 q 入队。
+				// 之后的姿态提交/落账用「当前基准 × q」做精确矩阵对账，不再按张数或
+				// 单轴角度猜归属——连续快速中层被判定合并、中层与真实转体交错时都不会
+				// 再把真实转体吞成记账、也不会把中层核心重复播成整台转体：
+				// - 姿态变化恰好等于预期核心转动之积 ⇒ 只记账（中层动画已呈现）；
+				// - 剥离预期核心后仍有残余 ⇒ 残余是真实转体，照常动画并记录 x/y/z；
+				// - 完全对不上 ⇒ 按真实转体整份处理，队列条目保留给之后的对账
+				//   （条目只存体帧 q，基准推进后按新基准重新共轭，永不失效）。
+
+				// 在队条目永不静默过期：每条目的画面补偿（vis）都还在 twisty 里，
+				// 只有提交公式、落账、对账或显式结算（pruneSliceCoreEntries）能消耗它们，
+				// 否则长连续爆发（候选反复挂起/替换、迟迟不提交）会把账弄丢。
+				liveSliceCoreEntries: function() {
+					var queue = this.sliceCoreQueue;
+					if (!queue || !queue.entries || !queue.entries.length) {
+						return [];
 					}
-					var faces = ["U", "D", "R", "L", "F", "B"];
-					for (var i = 0; i < faces.length; i++) {
-						if (this.matrixEquals(m, this.rotationMatrix(faces[i], 1)) ||
-							this.matrixEquals(m, this.rotationMatrix(faces[i], -1)) ||
-							this.matrixEquals(m, this.rotationMatrix(faces[i], 2))) {
-							return true;
-						}
-					}
-					return false;
+					return queue.entries;
 				},
 
-				// 物理中层落账（playCubeSliceMove）时调用
-				absorbSliceCoreRotation: function() {
-					var base = this.rotSyncM;
+				// 结算：姿态已确认停回基准（调用点保证 snap==base）且没有在途候选时，
+				// 处理队列里「核心转动永远不会再出现在任何 delta 里」的条目：
+				// 它们的核心已被对消（典型：整体转体 + 反向中层净零、或长时间没有提交），
+				// twisty 里却还留着已播放的中层动画 —— 按 C_1···C_n 的逆补一次整台旋转，
+				// 画面即与 O·身体状态 重新对齐（不动朝向、不进记录：这不是真实转体）。
+				// 跟随模式下中层动画本就不播、姿态由陀螺仪直接呈现，直接丢弃即可。
+				pruneSliceCoreEntries: function() {
+					var entries = this.liveSliceCoreEntries();
+					if (!entries.length || this.rotCandidate || !this.rotSyncM) {
+						return;
+					}
+					var now = Date.now();
+					var newest = 0;
+					for (var i = 0; i < entries.length; i++) {
+						if (entries[i].at > newest) {
+							newest = entries[i].at;
+						}
+					}
+					// 静默期守卫：最近一次中层落账后姿态包还要再「停在基准上」一会儿才结算。
+					// 快速连招中间会有掠过基准附近的中间态包（吸附残差恰好达标），
+					// 立刻结算会把还没做完的转动提前定案；数据流停摆时按队列超时兜底。
+					if (this.gyroLastAt - newest < this.sliceSettleDelayMs &&
+						now - newest < this.sliceCoreExpectMs) {
+						return;
+					}
+					if (!this.gyroFollow) {
+						// delta = 身份：姿态停回基准 ⇒「基准到现在」的总转动为零。
+						// 补偿公式 R = ∏(C_i⁻¹·VisB_i)·∏(vis_i⁻¹) 会自动合成出所有
+						// 没被提交过的真实转体（典型：180° 换握被前后两次反向中层净零掉，
+						// 候选被挂起又替换，常规提交流程从头到尾没见过它）——
+						// 动画补上这份差额，画面即与 O·身体状态 重新对齐；不进记录。
+						var preview = this.sliceCorePreview(this.rotSyncM, entries);
+						var factors = this.buildResidualFactors(this.identityMatrix(), preview);
+						var moves = this.factorsToTwistyMoves(factors);
+						if (moves.length) {
+							this.twistyScene.addMoves(moves);
+						}
+						this.log("view", "已结算悬空的中层核心转动");
+					}
+					this.sliceCoreQueue = null;
+				},
+
+				// 队列按当前基准展开：C_i = base·q_i·baseᵀ（核心转动的基准帧形式）；
+				// P_i = C_1···C_{i-1}（第 i 次中层落账时已预期的累计朝向修正）；
+				// g_i = P_i·C_i·P_iᵀ（第 i 次核心转动的场景帧预期）；product = C_1···C_n。
+				sliceCorePreview: function(base, entries) {
+					entries = entries || this.liveSliceCoreEntries();
+					base = base || this.rotSyncM;
+					var result = { entries: entries, Cs: [], Ps: [], gs: [], product: null, P: null };
 					if (!base) {
+						return result;
+					}
+					var baseT = this.matrixTranspose(base);
+					var product = this.identityMatrix();
+					var P = this.identityMatrix();
+					for (var i = 0; i < entries.length; i++) {
+						var C = this.matrixMultiply(base, this.matrixMultiply(entries[i].q, baseT));
+						var g = this.matrixMultiply(P, this.matrixMultiply(C, this.matrixTranspose(P)));
+						result.Cs.push(C);
+						result.Ps.push(P);
+						result.gs.push(g);
+						product = this.matrixMultiply(product, C);
+						P = this.matrixMultiply(g, P);
+					}
+					result.product = product;
+					result.P = P;
+					return result;
+				},
+
+				// 未落账核心转动的预期修正 P：有效朝向 O_eff = P·O。
+				// 硬件上报永远滞后于物理动作：核心转动被姿态数据确认之前，面变换与
+				// 记录帧按 O_eff 先行预期这次必然发生的朝向推进，快速连续操作时
+				// 中层动画与后续变换才不会落在旧基准帧上（提交时再精确对账）。
+				pendingCoreProduct: function() {
+					return this.sliceCorePreview().P;
+				},
+
+				effectiveOrientationMatrix: function() {
+					if (!this.orientationMatrix) {
+						this.orientationMatrix = this.identityMatrix();
+					}
+					var P = this.pendingCoreProduct();
+					return P ? this.matrixMultiply(P, this.orientationMatrix) : this.orientationMatrix;
+				},
+
+				effectiveRecordFrame: function() {
+					if (!this.gyroRecordM) {
+						return this.gyroRecordM;
+					}
+					var P = this.pendingCoreProduct();
+					return P ? this.matrixMultiply(P, this.gyroRecordM) : this.gyroRecordM;
+				},
+
+				middleMoveInverse: function(mv) {
+					return [mv[0], mv[1], mv[2], -mv[3]];
+				},
+
+				// 中层动画按旋转矩阵共轭：Pm⁻¹·mv·Pm（轴向随 Pmᵀ 变换，落到对面时 pow 反号）
+				conjugateMiddleMove: function(mv, Pm) {
+					if (!Pm || !mv) {
+						return mv;
+					}
+					var v = this.matrixVectorMultiply(this.matrixTranspose(Pm), this.faceNormal(mv[2]));
+					var hit = this.faceFromNormal(v);
+					var sign = 1;
+					if (!hit) {
+						hit = this.faceFromNormal([-v[0], -v[1], -v[2]]);
+						sign = -1;
+					}
+					if (!hit) {
+						return mv;
+					}
+					return [mv[0], mv[1], hit, sign * mv[3]];
+				},
+
+				// 提交 delta 后 twisty 的补偿因子序列（算子顺序，最左最后作用）：
+				// R = delta · ∏_{i=n..1}(C_i⁻¹ · VisB_i) · ∏_{i=1..n}(vis_i⁻¹)
+				// VisB_i = 第 i 次已播放的中层动画共轭回基准帧。它精确满足
+				// 「delta·base·身体状态 == R·当前 twisty 状态」：纯中层合并时 R 化简为
+				// 空（不动画），混入真实转体时 R 化简为残余整台旋转（照常动画）。
+				buildResidualFactors: function(delta, preview) {
+					var factors = [{ kind: "whole", m: delta.map(function(row) { return row.slice(); }) }];
+					var n = preview.entries.length;
+					var i;
+					for (i = n - 1; i >= 0; i--) {
+						factors.push({ kind: "whole", m: this.matrixTranspose(preview.Cs[i]) });
+						factors.push({ kind: "middle", mv: this.conjugateMiddleMove(preview.entries[i].vis, preview.Ps[i]) });
+					}
+					for (i = 0; i < n; i++) {
+						factors.push({ kind: "middle", mv: this.middleMoveInverse(preview.entries[i].vis) });
+					}
+					return this.simplifyFactors(factors);
+				},
+
+				simplifyFactors: function(factors) {
+					var out = [];
+					for (var i = 0; i < factors.length; i++) {
+						var f = factors[i];
+						var last = out.length ? out[out.length - 1] : null;
+						if (f.kind === "whole") {
+							if (this.matrixEquals(f.m, this.identityMatrix())) {
+								continue;
+							}
+							if (last && last.kind === "whole") {
+								last.m = this.matrixMultiply(last.m, f.m);
+								if (this.matrixEquals(last.m, this.identityMatrix())) {
+									out.pop();
+								}
+								continue;
+							}
+							out.push({ kind: "whole", m: f.m.map(function(row) { return row.slice(); }) });
+							continue;
+						}
+						if (last && last.kind === "middle" && last.mv[2] === f.mv[2]) {
+							var sum = ((last.mv[3] + f.mv[3]) % 4 + 4) % 4;
+							if (sum === 0) {
+								out.pop();
+							} else {
+								last.mv = [last.mv[0], last.mv[1], last.mv[2], sum === 3 ? -1 : sum];
+							}
+							continue;
+						}
+						out.push({ kind: "middle", mv: f.mv.slice() });
+					}
+					return out;
+				},
+
+				factorsToTwistyMoves: function(factors) {
+					var moves = [];
+					var self = this;
+					for (var i = factors.length - 1; i >= 0; i--) {
+						var f = factors[i];
+						if (f.kind === "middle") {
+							moves.push([f.mv[0], f.mv[1], f.mv[2], f.mv[3]]);
+						} else {
+							// orientationMatrix/applyMoves 都按左乘累计，代数分解必须倒序执行
+							var parts = this.rotDecompose(f.m).reverse();
+							parts.forEach(function(part) {
+								moves.push([1, self.cubeDimension, part.axis, part.pow]);
+							});
+						}
+					}
+					return moves;
+				},
+
+				// 物理中层落账（playCubeSliceMove）时调用：visualMove 为本次匹配出的中层动画
+				absorbSliceCoreRotation: function(visualMove) {
+					var base = this.rotSyncM;
+					if (!base || !visualMove) {
 						// 还没有绝对基准：它建立时取到的本来就是核心转动之后的朝向
 						return;
 					}
+					var now = Date.now();
+					var g_exp = this.rotationMatrix(visualMove.axis, visualMove.pow);
+					var entries = this.liveSliceCoreEntries();
 					var pose = this.gyroViewMatrix();
 					var snap = pose ? this.rotNearestGroupElement(pose) : null;
-					if (snap && snap.matrix && !this.matrixEquals(snap.matrix, base)) {
-						// 核心转动的数据已经到了（姿态已离开基准）：按实测转动落账。
-						// 连续快速的中层在这里会读到累计后的 180/270，一并落账。
+					// 与转体检测同一口径：残差过大的中间态吸附没有意义，
+					// 绝不参与落账/撤回/对账的矩阵匹配（碰巧相等会把账算错），只入队等待可靠数据
+					if (snap && snap.residualDeg > this.cubeRotSnapTolLoose) {
+						snap = null;
+					}
+					var atBase = !!snap && this.matrixEquals(snap.matrix, base);
+					var preview = this.sliceCorePreview(base, entries);
+					var P = preview.P || this.identityMatrix();
+					var PB = this.matrixMultiply(P, base);
+					// 本次核心转动：体帧 q（跨基准不变）与基准帧 C_this
+					var q_this = this.matrixMultiply(this.matrixTranspose(PB), this.matrixMultiply(g_exp, PB));
+					var C_this = this.matrixMultiply(base, this.matrixMultiply(q_this, this.matrixTranspose(base)));
+					if (snap) {
 						var observed = this.matrixMultiply(snap.matrix, this.matrixTranspose(base));
-						if (this.isSliceCoreDelta(observed)) {
-							this.rotSyncM = snap.matrix;
-							this.rotRestRefM = snap.matrix;
-							this.rotAltM = null;
-							this.rotCandidate = null;
-							this.cancelRotFlush();
-							this.applyRotationBookkeeping(observed);
-							this.sliceCoreClaim = null;
-							this.log("view", "中层带起的转体已并入中层动画");
-							return;
+						if (!atBase) {
+							// 姿态已离开基准：与「全部预期核心转动之积」精确匹配才落账。
+							// 连续快速中层在这里会读到累计后的合成，一并落账；
+							// 混入的真实转体对不上矩阵，不会被吞掉（留给提交流程）。
+							var expectWith = this.matrixMultiply(preview.product || this.identityMatrix(), C_this);
+							if (this.matrixEquals(observed, expectWith)) {
+								this.bookSliceCoreObserved(snap.matrix, observed);
+								return;
+							}
+							if (entries.length && this.matrixEquals(observed, preview.product)) {
+								// 姿态覆盖了全部旧条目、还没覆盖本次：旧账先落，本次按新基准入队
+								this.bookSliceCoreObserved(snap.matrix, observed);
+								entries = [];
+								base = this.rotSyncM;
+								q_this = this.matrixMultiply(this.matrixTranspose(base), this.matrixMultiply(g_exp, base));
+							}
+						} else {
+							// 陀螺仪数据先到、本次核心转动已被（可能连同之前的真实转体一起）
+							// 判成整台转体提交：把属于本次核心的那一份从动画与记录里精确剥离
+							if (!entries.length && this.retractRotationCommit(g_exp)) {
+								return;
+							}
+							// 净零对账：被转出去过的已确认朝向（挂起候选）+ 待落账核心转动
+							// 恰好合成回当前姿态（典型：整体转体后紧跟反向中层，姿态回到原点，
+							// 常规提交流程永远等不到这次转动）。这里把两者拆开：真实转体
+							// 照常动画与记录，中层核心只记账。
+							var cand0 = this.rotCandidate;
+							if (cand0 && (cand0.netted || (cand0.hits || 1) >= 2)) {
+								var pendingAll = this.matrixMultiply(preview.product || this.identityMatrix(), C_this);
+								var expectNet = this.matrixMultiply(cand0.matrix, pendingAll);
+								if (this.matrixEquals(expectNet, observed)) {
+									var deltaR = cand0.matrix;
+									// 真实转体按常规提交（动画 + 记录 + 朝向推进；在队旧条目
+									// 由提交自身的补偿流程一并结算并清空）
+									this.commitDetectedRotation(true);
+									// 本次中层的核心转动换到提交后的基准帧，只记账
+									var coreNew = this.matrixMultiply(deltaR, this.matrixMultiply(C_this, this.matrixTranspose(deltaR)));
+									this.applyRotationBookkeeping(coreNew);
+									this.rotSyncM = this.matrixMultiply(coreNew, this.rotSyncM);
+									this.sliceCoreQueue = null;
+									this.rotCandidate = null;
+									this.cancelRotFlush();
+									this.log("view", "净零转体已与中层核心对账");
+									return;
+								}
+							}
+							// 撤回与对账都没发生：先把确定悬空的旧条目结算掉（净零残余），
+							// 再登记本次核心，避免旧账混进之后的提交公式
+							this.pruneSliceCoreEntries();
+							entries = this.liveSliceCoreEntries();
 						}
 					}
-					// 陀螺仪数据先到、刚刚已被判成一次整台转体（手上姿态仍停在判定后的朝向）：
-					// 撤回多出来的动画与记录，基准已经在核心转动之后
-					if (snap && snap.matrix && this.matrixEquals(snap.matrix, base) && this.retractRotationCommit()) {
-						return;
-					}
-					// 数据还没到：登记认领（连续中层会累计张数），窗口内先到的整台转体判定
-					// 按核心转动处理（只记账，不放动画、不写记录）
-					var pending = this.sliceCoreClaim && Date.now() <= this.sliceCoreClaim.until ? this.sliceCoreClaim.count : 0;
-					this.sliceCoreClaim = { until: Date.now() + this.sliceCoreExpectMs, count: pending + 1 };
+					// 默认：登记预期条目（连同已播放的中层动画），核心转动在之后的
+					// 提交/落账里精确结算；连续中层会累计条目
+					entries.push({
+						q: q_this,
+						vis: (visualMove.twisty || [2, 2, visualMove.axis, visualMove.pow]).slice(),
+						at: now
+					});
+					this.sliceCoreQueue = { entries: entries };
+				},
+
+				// 精确匹配成功的核心转动落账：基准推进到实测朝向，只记账不放动画
+				bookSliceCoreObserved: function(snapM, observed) {
+					this.rotSyncM = snapM;
+					this.rotRestRefM = snapM;
+					this.rotAltM = null;
+					this.rotCandidate = null;
+					this.cancelRotFlush();
+					this.applyRotationBookkeeping(observed);
+					this.sliceCoreQueue = null;
+					this.log("view", "中层带起的转体已并入中层动画");
 				},
 
 				// 转体记账：与 applyDetectedRotation 里的推进完全一致，只是不放动画、不写记录。
@@ -5330,29 +5659,56 @@
 					}
 				},
 
-				// 陀螺仪数据先到、核心转动已被判成一次整台转体：把多出来的那一次撤回
-				// （屏幕动画倒回、转体记录删掉；朝向矩阵与记录帧保留）。
-				retractRotationCommit: function() {
+				// 陀螺仪数据先到、本次中层的核心转动已被判成整台转体提交（可能与此前的
+				// 真实转体合并成一次复合提交）：把属于本次核心的那一份从动画与记录里剥离。
+				// 时序保证：调用方已确认当前姿态停在基准上且本次中层物理上已完成，因此
+				// 提交时的姿态必然已包含这次核心转动，且它是 delta 的最右（最新）因子：
+				// delta = X·C，X 为此前真实转体之积、C 为本次核心转动（提交前基准帧）。
+				// 画面补偿恰为 g_exp 的逆（g_exp = 当前朝向帧下的本次核心转动）：
+				// 随后播放的中层动画与它合成正确的最终状态；记录改为只记残余真实转体 X。
+				// 朝向矩阵与记录帧保留（核心转动是真实发生的，记账必须留着）。
+				retractRotationCommit: function(expectedCore) {
 					var last = this.lastRotationCommit;
-					if (!last || !last.delta) {
+					if (!last || !last.delta || !expectedCore) {
 						return false;
 					}
-					if (Date.now() - last.at > this.sliceRetractMs || !this.isSliceCoreDelta(last.delta)) {
+					if (Date.now() - last.at > this.sliceRetractMs) {
 						return false;
 					}
+					var base = this.rotSyncM;
+					if (!base) {
+						return false;
+					}
+					// 提交时的基准（提交后朝向未再推进：调用方以 atBase 为前提）
+					var baseBefore = this.matrixMultiply(this.matrixTranspose(last.delta), base);
+					// 本次核心转动：体帧 q → 提交前基准帧 C（调用方保证队列为空，预期积为单位）
+					var q_this = this.matrixMultiply(this.matrixTranspose(base), this.matrixMultiply(expectedCore, base));
+					var coreInDelta = this.matrixMultiply(baseBefore, this.matrixMultiply(q_this, this.matrixTranspose(baseBefore)));
+					var residual = this.matrixMultiply(last.delta, this.matrixTranspose(coreInDelta));
 					this.lastRotationCommit = null;
 					if (last.visual && this.twistyScene && this.twistyScene.applyMoves) {
-						// applyMoves 会立即结清在途动画，能把屏幕上的整台转体干净倒回
+						// applyMoves 会立即结清在途动画，把多播的核心转动干净剥掉
 						var self = this;
-						var back = this.rotDecompose(this.matrixTranspose(last.delta)).reverse().map(function(part) {
+						var back = this.rotDecompose(this.matrixTranspose(expectedCore)).reverse().map(function(part) {
 							return [1, self.cubeDimension, part.axis, part.pow];
 						});
 						if (back.length) {
 							this.twistyScene.applyMoves(back);
 						}
 					}
+					// 记录修正：删掉合并转体的文本，把残余真实转体按提交前体帧重新记录
 					for (var i = 0; i < last.texts.length; i++) {
 						this.removeRotationRecord(last.texts[i], last.at);
+					}
+					if (!this.matrixEquals(residual, this.identityMatrix())) {
+						var bodyResidual = this.matrixMultiply(this.matrixTranspose(baseBefore), this.matrixMultiply(residual, baseBefore));
+						var self2 = this;
+						this.rotDecompose(bodyResidual, ["R", "U", "F"]).reverse().forEach(function(part) {
+							var text = { R: "x", U: "y", F: "z" }[part.axis] + (part.pow === 2 ? "2" : part.pow === -1 ? "'" : "");
+							self2.orientationMoves.push(text);
+							self2.pushHistory(text, self2.deviceName || "cube", last.at);
+							self2.log("view", text + " · 转体");
+						});
 					}
 					this.log("view", "中层带起的转体已并入中层动画");
 					return true;
@@ -5374,31 +5730,59 @@
 					}
 				},
 
-				applyDetectedRotation: function(deltaMatrix) {
-					// 中层带起的核心转动：只记账（见 absorbSliceCoreRotation）。
-					// 否则整台转体动画会与中层动画叠加，虚拟魔方多转一次、记录里也多一条转体。
-					// 连续中层的核心转动可能被判定合并（180/270 甚至复合），认领张数 ≥2 时
-					// 不再限制角度，统一按累计核心转动记账。
-					if (this.sliceCoreClaim && this.sliceCoreClaim.count > 0) {
-						var claim = this.sliceCoreClaim;
-						var claimed = Date.now() <= claim.until;
-						var accept = claimed && (claim.count >= 2 || this.isSliceCoreDelta(deltaMatrix));
-						this.sliceCoreClaim = null;
-						if (accept) {
-							this.applyRotationBookkeeping(deltaMatrix);
-							this.log("view", "中层带起的转体已并入中层动画");
-							// 手上姿态仍偏离基准 ⇒ 还有核心转动没落账，继续认领剩下的张数
-							var pose = this.gyroViewMatrix();
-							var snapNow = pose ? this.rotNearestGroupElement(pose) : null;
-							if (snapNow && snapNow.matrix && !this.matrixEquals(snapNow.matrix, this.rotSyncM)) {
-								this.sliceCoreClaim = { until: Date.now() + this.sliceCoreExpectMs, count: claim.count - 1 };
-							}
-							return;
+				applyDetectedRotation: function(deltaMatrix, baseBefore, candidateSince) {
+					var self = this;
+					var now = Date.now();
+					var preview = this.sliceCorePreview(baseBefore);
+					if (preview.entries.length) {
+						// 有中层预期队列：朝向按完整 delta 记账（O/记录帧必须跟上绝对姿态），
+						// twisty 用已播放的中层动画做精确补偿 R（见 buildResidualFactors）：
+						// 纯中层合并 ⇒ R 为空（不动画、转体不记录，中层文本已由中层流程记录）；
+						// 混入真实转体 ⇒ R 为残余整台旋转，照常动画并记录 x/y/z。
+						var pure = this.matrixEquals(deltaMatrix, preview.product);
+						var factors = pure ? [] : this.buildResidualFactors(deltaMatrix, preview);
+						// 残余转体记录文本的体帧基准：候选比首个中层条目更早出现 ⇒ 真实转体
+						// 发生在中层之前，按当前朝向换算；否则按含预期核心的有效朝向换算。
+						var regripFirst = candidateSince != null &&
+							candidateSince < preview.entries[0].at;
+						var frameO = this.gyroFollow ? this.gyroRecordM : this.orientationMatrix;
+						var baseMText = null;
+						if (frameO) {
+							baseMText = regripFirst ? frameO : this.matrixMultiply(preview.P, frameO);
 						}
+						this.applyRotationBookkeeping(deltaMatrix);
+						if (!this.gyroFollow && factors.length) {
+							var compMoves = this.factorsToTwistyMoves(factors);
+							if (compMoves.length) {
+								this.twistyScene.addMoves(compMoves);
+							}
+						}
+						var residualWhole = (factors.length === 1 && factors[0].kind === "whole") ? factors[0].m : null;
+						if (residualWhole) {
+							var bodyResidual = residualWhole;
+							if (baseMText) {
+								bodyResidual = this.matrixMultiply(this.matrixTranspose(baseMText), this.matrixMultiply(residualWhole, baseMText));
+							}
+							this.rotDecompose(bodyResidual, ["R", "U", "F"]).reverse().forEach(function(part) {
+								var text = { R: "x", U: "y", F: "z" }[part.axis] + (part.pow === 2 ? "2" : part.pow === -1 ? "'" : "");
+								self.orientationMoves.push(text);
+								self.pushHistory(text, self.deviceName || "cube", now);
+								self.log("view", text + " · 转体");
+							});
+						} else if (pure) {
+							this.log("view", "中层带起的转体已并入中层动画");
+						} else {
+							this.log("view", "合并转动已随中层记账同步");
+						}
+						// 带中层补偿的提交不作为可撤回条目（撤回只针对「核心转动被整份判成转体」）
+						this.lastRotationCommit = null;
+						// 补偿公式对本次提交时的全部在队条目精确成立（无论它们的姿态数据
+						// 是否已并入 delta），提交后队列整体清空，之后的姿态变化另行结算
+						this.sliceCoreQueue = null;
+						return;
 					}
 					// applyMoves/updateOrientation 都按左乘累计，复合分解必须倒序执行。
 					var parts = this.rotDecompose(deltaMatrix).reverse();
-					var self = this;
 					this.lastRotationCommit = {
 						at: Date.now(),
 						visual: !this.gyroFollow,
@@ -5455,8 +5839,10 @@
 					this.rotRestRefM = settled;
 					this.rotRestSince = Date.now();
 					this.rotLastM = sceneM;
+					this.rotLastMotionAt = Date.now();
 					this.rotCandidate = null;
 					this.cancelRotFlush();
+					this.sliceCoreQueue = null;
 					this.gyroRecordM = settled;
 				},
 
@@ -5471,6 +5857,7 @@
 					this.hasValidCubeState = false;
 					this.lastCubePrevMoves = [];
 					this.lastCubeHistoryStamp = null;
+					this.connectFrames = [];
 					this.clearPendingCubeMove(false);
 					this.hideMacHelp();
 					this.setStatus("idle", "等待选择设备");
@@ -5485,6 +5872,7 @@
 							self.connected = false;
 							self.lastCubePrevMoves = [];
 							self.lastCubeHistoryStamp = null;
+							self.connectFrames = [];
 							self.clearPendingCubeMove(false);
 							self.setConnectLabel("连接魔方");
 							self.elements.connectBtn.classList.remove("isActive");
@@ -5500,6 +5888,7 @@
 					});
 					GiikerCube.init().then(function() {
 						self.ignoreMoves = false;
+						self.finishConnectHandshake();
 						self.connected = true;
 						self.setConnectLabel(self.deviceName ? self.deviceName : "已连接");
 						self.elements.connectBtn.classList.add("isActive");
@@ -5511,6 +5900,7 @@
 						}
 					}).catch(function(error) {
 						self.ignoreMoves = false;
+						self.finishConnectHandshake();
 						self.connected = false;
 						self.showConnectionError(error);
 					}).then(function() {
@@ -5528,6 +5918,7 @@
 						self.hasValidCubeState = false;
 						self.lastCubePrevMoves = [];
 						self.lastCubeHistoryStamp = null;
+						self.connectFrames = [];
 						self.clearPendingCubeMove(false);
 						self.setConnectLabel("连接魔方");
 						self.elements.connectBtn.classList.remove("isActive");
@@ -5562,6 +5953,7 @@
 					this.initTwisty();
 					// 场景重建会把朝向与视线清零，这里把重置前的朝向原样放回去
 					this.orientationMatrix = keepOrientation || this.identityMatrix();
+					this.sliceCoreQueue = null;
 					this.viewYaw = keepYaw;
 					this.viewPitch = keepPitch;
 					this.setViewDrag(keepYaw, keepPitch);
@@ -5605,8 +5997,11 @@
 						this.setDevice(hardware, this.batteryLevel);
 					}
 					if (this.ignoreMoves) {
-						this.saveCubeHistory(prevMoves, lastTs);
-						this.log("state", "已读取设备初始状态");
+						// 握手期间第一帧 = 设备初始状态（基线，与旧行为一致）；其后每一帧
+						// 都是用户在连接过程中真实转出来的：先按帧记下，握手结束再补发，
+						// 否则就是「连接后的第一个操作被忽略」。
+						this.rememberConnectFrame(prevMoves, lastTs, facelet);
+						this.log("state", this.connectFrames.length <= 1 ? "已读取设备初始状态" : "连接期间收到转动上报，握手结束后补发");
 						return;
 					}
 					var movesToPlay = this.getNewCubeMoves(prevMoves, lastTs);
@@ -5619,6 +6014,110 @@
 						this.log("state", "收到状态");
 						this.updateSolveDetection(facelet, false);
 					}
+				},
+
+				// —— 连接握手期间的转动保护 ——
+				// 用户常常在「点连接 → 选设备 → 等连接成功」这段时间里就顺手转一下魔方。
+				// 旧逻辑把这段窗口里收到的每一帧都当成「设备初始状态」吞掉（还会写进基线），
+				// 那一下转动就永久消失 —— 表现正是「连接后的第一个操作被忽略」。
+				// 这里改成逐帧留档：握手结束只把第一帧当基线，其余按正常增量补发。
+				rememberConnectFrame: function(prevMoves, lastTs, facelet) {
+					if (this.connectFrames.length >= 24) {
+						// 异常数据兜底：只保留基线帧
+						this.connectFrames = this.connectFrames.slice(0, 1);
+					}
+					this.connectFrames.push({
+						prevMoves: prevMoves || [],
+						lastTs: lastTs,
+						facelet: String(facelet || "").toUpperCase()
+					});
+				},
+
+				finishConnectHandshake: function() {
+					var frames = this.connectFrames || [];
+					this.connectFrames = [];
+					if (!frames.length) {
+						return;
+					}
+					// 第一帧作为基线（与旧行为一致：它之前的历史一律不补发）
+					var base = frames[0];
+					this.saveCubeHistory(base.prevMoves, base.lastTs);
+					// 补发内容一次性算好再下发：中层配对（90ms 持有窗口）只作用于最后一步，
+					// 若边补发边比对显示侧面位，会把「还没落地的那一步」重复补一次。
+					var batch = [];
+					// ① 蓝牙数据流开始前（选设备 / 读 MAC 阶段）的转动不会上报，只会体现在基线
+					//    状态里。显示侧与基线差 1~2 步就补上；差更多说明本来就是另一套状态
+					//    （例如练习模式还没按公式摆好魔方），不动。
+					var gap = this.findFaceletGap(this.getDisplayFacelet(), base.facelet, 2);
+					if (gap && gap.length) {
+						this.log("bluetooth", "补上连接瞬间没上报的转动 " + gap.join(" "));
+						batch = batch.concat(gap);
+					}
+					// ② 握手期间真实上报的转动：按帧之间的增量取出，与实时路径完全一致
+					for (var i = 1; i < frames.length; i++) {
+						batch = batch.concat(this.getNewCubeMoves(frames[i].prevMoves, frames[i].lastTs));
+					}
+					if (!batch.length) {
+						return;
+					}
+					var last = frames[frames.length - 1];
+					this.currentFacelet = last.facelet;
+					var timestamp = last.lastTs && (last.lastTs[1] || last.lastTs[0]) || Date.now();
+					this.log("bluetooth", "补发连接期间收到的转动 " + batch.join(" "));
+					this.processCubeMoveBatch(batch, this.deviceName || "cube", timestamp, last.facelet);
+				},
+
+				// 当前虚拟魔方（显示侧）的面位串。twisty 的内部朝向就是蓝牙/物理帧，
+				// 与固件上报的 facelet 同口径，可直接比较。
+				getDisplayFacelet: function() {
+					var twisty = this.twistyScene && this.twistyScene.getTwisty ? this.twistyScene.getTwisty() : null;
+					if (!twisty || typeof twisty.getFacelet !== "function") {
+						return "";
+					}
+					try {
+						return String(twisty.getFacelet() || "").toUpperCase().replace(/[^URFDLB]/g, "");
+					} catch (error) {
+						return "";
+					}
+				},
+
+				// 显示状态与设备状态差 1~2 步时，把这段落差当成真实转动补上；
+				// 差更多说明本来就是另一套状态（例如练习模式还没摆好魔方），不动。
+				findFaceletGap: function(fromFacelet, toFacelet, maxDepth) {
+					if (!window.mathlib || !mathlib.CubieCube || !fromFacelet || fromFacelet.length !== 54) {
+						return null;
+					}
+					var single = [];
+					var faces = ["U", "R", "F", "D", "L", "B"];
+					var suffixes = ["", "'", "2"];
+					for (var i = 0; i < faces.length; i++) {
+						for (var j = 0; j < suffixes.length; j++) {
+							single.push(faces[i] + suffixes[j]);
+						}
+					}
+					var search = function(prefix) {
+						var cc = new mathlib.CubieCube();
+						if (cc.fromFacelet(fromFacelet) === -1) {
+							return null;
+						}
+						for (var k = 0; k < prefix.length; k++) {
+							cc.selfMoveStr(prefix[k]);
+						}
+						if (cc.toFaceCube() === toFacelet) {
+							return prefix.slice();
+						}
+						if (prefix.length >= maxDepth) {
+							return null;
+						}
+						for (var s = 0; s < single.length; s++) {
+							var hit = search(prefix.concat([single[s]]));
+							if (hit) {
+								return hit;
+							}
+						}
+						return null;
+					};
+					return search([]);
 				},
 
 				processCubeMoveBatch: function(movesToPlay, source, timestamp, facelet) {
@@ -5753,16 +6252,27 @@
 					// 陀螺仪跟随下：整体转体由陀螺仪呈现，动画按两个外层转动播放，
 					// 与陀螺仪转体合成完整的中层效果（记录仍为中层 M/S/E）；普通模式播中层动画不变
 					var sliceAnimation = !this.gyroFollow;
+					var sliceMove = this.normalizeMove(slice.text);
+					var sliceVisual = this.buildSliceVisualMove(sliceMove);
 					// 物理中层的核心（中轴）随中层一起转，陀螺仪必然读到这一次"整台转体"。
 					// 中层效果已由中层动画（普通模式）或手中姿态（跟随模式）呈现，这次转动只能
-					// 作记账用：先看它是否已被判定过（撤掉多出来的动画与记录），否则把参考帧推
-					// 进到中轴新朝向，避免再被当成一次整台转体。
-					this.absorbSliceCoreRotation();
+					// 作记账用：absorbSliceCoreRotation 按本次中层动画的轴把预期核心转动精确
+					// 入队/对账——已被判定过就撤掉多出来的动画与记录，还没到就留给姿态提交流程
+					// 做矩阵级结算，避免再被当成一次整台转体。
+					this.absorbSliceCoreRotation(sliceVisual);
+					// 中层动画先于原始外层转动落账：原始转动落账时的 flush 可能立即提交
+					// 合并姿态，提交补偿公式（buildResidualFactors）以「本次中层动画已播放」
+					// 为前提；跟随模式下中层动画不播放（姿态由陀螺仪直接呈现），顺序无影响。
+					this.displaySliceMove(sliceMove, source, timestamp, {
+						fromCube: true,
+						noAnimation: this.gyroFollow
+					});
 					for (var i = 0; i < rawMoves.length; i++) {
 						this.playMove(rawMoves[i], source, timestamp, {
 							fromCube: true,
 							silent: true,
 							noAnimation: sliceAnimation,
+							skipRotFlush: true,
 							noHistory: true,
 							noFormula: true,
 							noCount: true
@@ -5774,10 +6284,6 @@
 						noHistory: true,
 						noFormula: true,
 						noCount: true
-					});
-					this.displaySliceMove(this.normalizeMove(slice.text), source, timestamp, {
-						fromCube: true,
-						noAnimation: this.gyroFollow
 					});
 					this.updateSolveDetection(facelet, true);
 				},
@@ -5894,7 +6400,12 @@
 						return move;
 					}
 						if (options.fromCube) {
-							this.flushPendingRotation();
+							// 中层配对落账（skipRotFlush）不在半途提交：此时中层动画已播放、
+							// 原始外层还没入账，提交补偿公式的前提（在队条目与画面一一对应）
+							// 要等整步中层落完才成立；其余硬件转动照常先补判再变换。
+							if (!options.skipRotFlush) {
+								this.flushPendingRotation(true);
+							}
 							move = this.transformCubeMove(move);
 						}
 					if (!options.noFormula) {
@@ -6177,8 +6688,10 @@
 					// 记录文本按 gyroRecordM 重映射到当前实际朝向（转体识别的自检链路）
 					var recordFace = move.face;
 					var sign = 1;
-					if (this.gyroRecordM) {
-						var vector = this.matrixVectorMultiply(this.gyroRecordM, this.faceNormal(move.face));
+					// 记录帧含未落账中层核心转动的预期修正（与关闭跟随的有效朝向同一口径）
+					var recordFrame = this.effectiveRecordFrame();
+					if (recordFrame) {
+						var vector = this.matrixVectorMultiply(recordFrame, this.faceNormal(move.face));
 						var hit = this.faceFromNormal(vector);
 						if (!hit) {
 							hit = this.faceFromNormal([-vector[0], -vector[1], -vector[2]]);
@@ -6191,7 +6704,10 @@
 					var uiFace = this.unmapUiFace(recordFace);
 					return {
 						text: this.formatMoveText(move.wide ? uiFace.toLowerCase() : uiFace, sign * move.pow),
-						cubeText: this.formatMoveText(move.face, move.pow),
+						// 配对/中层文本与关闭跟随同一口径：按记录帧换算后的体帧字母，
+						// 中层记录随当前握持朝向走（此前恒用蓝牙原始体帧，转体后与
+						// 关闭跟随的记录分叉、也不随朝向变化）
+						cubeText: this.formatMoveText(recordFace, sign * move.pow),
 						type: "face",
 						face: move.face,
 						wide: move.wide,
@@ -6207,17 +6723,18 @@
 					if (this.gyroFollow) {
 						return this.transformCubeMoveFollow(move);
 					}
-					if (!this.orientationMatrix) {
-						this.orientationMatrix = this.identityMatrix();
-					}
-					var targetFace = this.faceFromNormal(this.matrixVectorMultiply(this.orientationMatrix, this.faceNormal(move.face)));
+					// 有效朝向 = 朝向矩阵 + 未落账中层核心转动的预期修正：
+					// 硬件上报滞后于物理动作，快速连续中层期间按预期帧变换，
+					// 落账与动画才与手中魔方保持同一坐标系（提交时精确对账）。
+					var orientation = this.effectiveOrientationMatrix();
+					var targetFace = this.faceFromNormal(this.matrixVectorMultiply(orientation, this.faceNormal(move.face)));
 					if (!targetFace) {
 						move.cubeText = move.text;
 						return move;
 					}
 					var transformed = this.matrixMultiply(
-						this.matrixMultiply(this.orientationMatrix, this.rotationMatrix(move.face, move.pow)),
-						this.matrixTranspose(this.orientationMatrix)
+						this.matrixMultiply(orientation, this.rotationMatrix(move.face, move.pow)),
+						this.matrixTranspose(orientation)
 					);
 					var pows = Math.abs(move.pow) === 2 ? [2] : [move.pow, -move.pow];
 					var layerEnd = move.wide ? 2 : 1;
