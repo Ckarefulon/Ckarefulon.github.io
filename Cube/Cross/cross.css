@@ -225,26 +225,7 @@ body {
 .cubePopHead { display: flex; align-items: baseline; gap: 0.625rem; margin-bottom: 0.75rem; }
 .cubePopHead span:first-child { font-size: 0.875rem; font-weight: 600; }
 .cubeHint { font-size: 0.75rem; color: var(--dsk-subtle); }
-.cubeNet {
-	display: grid;
-	grid-template-columns: repeat(4, auto);
-	grid-template-rows: repeat(3, auto);
-	gap: 0.375rem;
-	justify-content: center;
-}
-.face {
-	display: grid;
-	grid-template-columns: repeat(3, 18px);
-	grid-template-rows: repeat(3, 18px);
-	gap: 0.125rem;
-}
-.face[data-face="U"] { grid-column: 2; grid-row: 1; }
-.face[data-face="L"] { grid-column: 1; grid-row: 2; }
-.face[data-face="F"] { grid-column: 2; grid-row: 2; }
-.face[data-face="R"] { grid-column: 3; grid-row: 2; }
-.face[data-face="B"] { grid-column: 4; grid-row: 2; }
-.face[data-face="D"] { grid-column: 2; grid-row: 3; }
-.sticker { border-radius: 3px; }
+/* 魔方展开图（.cubeNet / .face / .sticker）已抽到 Cube 公用：Cube/cube-net/cube-net.css */
 
 /* ---------- solutions（占满剩余高度，内部滚动） ---------- */
 .solutions {

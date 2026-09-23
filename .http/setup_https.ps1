@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'network.ps1')
 
@@ -181,5 +181,4 @@ Write-Host 'HTTPS setup completed successfully.' -ForegroundColor Green
 Write-Host "Address: https://${Ip}:${Port}"
 Write-Host "Phone certificate: $CrtPath"
 Write-Host ''
-Write-Host 'Next command:'
-Write-Host '.\_local_https\start_https.ps1'
+Write-Host 'Next: right-click the tray icon and pick HTTPS, or run .\.http\launcher.ps1'

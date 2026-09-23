@@ -140,6 +140,26 @@
     return turns >= 0 && timeMs > 0 ? (1000 * turns) / timeMs : null;
   }
 
+  function isRotationMove(move) {
+    const m = typeof move === 'string' ? move : (move?.logicalMove || move?.move || move?.notation || '');
+    return /^[xyz](2|'|)?$/i.test(String(m).trim());
+  }
+
+  // Return timestamps aligned to logical turns. Whole-cube x/y/z rotations are preserved in replay data
+  // but excluded from TPS/fluency statistics so orientation changes do not look like extra turns.
+  function turnTimestamps(solveOrMoves, timestamps) {
+    const solve = Array.isArray(solveOrMoves) ? null : solveOrMoves;
+    const moves = Array.isArray(solveOrMoves) ? solveOrMoves : (solve?.moves || []);
+    const ts = Array.isArray(timestamps) ? timestamps : (solve?.timestamps || []);
+    if (!moves.length || moves.length !== ts.length) return (ts || []).map(Number).filter(Number.isFinite);
+    const out = [];
+    for (let i = 0; i < moves.length; i++) {
+      const t = Number(ts[i]);
+      if (Number.isFinite(t) && !isRotationMove(moves[i])) out.push(t);
+    }
+    return out;
+  }
+
   function fluencyFromTimestamps(timestamps, totalTime, gapThresholdMs = 400) {
     const ts = (timestamps || []).map(Number).filter(Number.isFinite).sort((a, b) => a - b);
     if (ts.length < 2 || totalTime <= 0) return null;
@@ -447,7 +467,7 @@
     MAX_REALISTIC_TPS, METHOD_STEPS, CFOP_REFERENCE, ROUX_PERCENT, ZZ_PERCENT,
     clamp, sum, mean, median, percentile, stddev, normalizeFlag, displayTimeMs, effectiveTimeMs,
     getSolvesToDrop, averageWithFlags, averageOf, bestAverage, runningAverage, placementOfCurrentTime,
-    extractTurnCount, extractTPS, fluencyFromTimestamps, referenceSplits, analyzeSplits, methodSteps,
+    extractTurnCount, extractTPS, isRotationMove, turnTimestamps, fluencyFromTimestamps, referenceSplits, analyzeSplits, methodSteps,
     normalizeStepName, getStepMap, averageSplits, linearTPSIntervals, segregatedTPSIntervals,
     aggregateTPS, deriveStageBoundaries, estimateCaseBetterThan, caseStatistics, solveSummary,
     groupSeries, stepPerformance,

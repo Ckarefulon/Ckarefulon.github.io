@@ -16,12 +16,13 @@
   </script>
 
   <link rel="stylesheet" href="/ui/colors_and_type.css">
-  <link rel="stylesheet" href="/nav/nav.css?v=11">
-  <link rel="stylesheet" href="./analyzer.css?v=4">
+  <link rel="stylesheet" href="/nav/nav.css?v=12">
+  <link rel="stylesheet" href="./analyzer.css?v=6">
 
-  <script src="../Formula/assets/lib/jquery-4.0.0.min.js"></script>
-  <script src="../Formula/assets/app/compat.js?v=1526" defer></script>
-  <script src="/nav/nav.js?v=11" defer></script>
+  <script src="../lib/jquery-4.0.0.min.js"></script>
+  <script src="../compat.js?v=1526" defer></script>
+  <script src="/nav/nav.js?v=12" defer></script>
+  <!-- 站点作用域（必须先于云同步定义）+ 云同步（Supabase，登录态与 Formula 共享） -->
   <script src="/assets/services/core/site-scope.js?v=0915b" defer></script>
   <script src="/assets/services/core/storage-manager.js?v=0567" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
@@ -31,26 +32,26 @@
   <script src="/assets/backend/profile-manager.js?v=0843" defer></script>
   <script src="/assets/services/global/global-data-manager.js?v=0666" defer></script>
 
-  <script src="../Formula/assets/lib/lzstring.js?v=0286" defer></script>
-  <script src="../Formula/assets/lib/sha256.js?v=0286" defer></script>
-  <script src="../Formula/assets/lib/isaac.js?v=0286" defer></script>
-  <script src="../Formula/assets/lib/mathlib.js?v=0286" defer></script>
-  <script src="../Formula/assets/lib/formula-core.js?v=1577" defer></script>
-  <script src="../Formula/assets/hardware/bluetooth.js?v=1072" defer></script>
-  <script src="../Formula/assets/hardware/giikercube.js?v=0286" defer></script>
-  <script src="../Formula/assets/hardware/gocube.js?v=0286" defer></script>
-  <script src="../Formula/assets/hardware/gancube.js?v=1072" defer></script>
-  <script src="../Formula/assets/hardware/moyucube.js?v=1072" defer></script>
-  <script src="../Formula/assets/hardware/moyu32cube.js?v=1072" defer></script>
-  <script src="../Formula/assets/hardware/qiyicube.js?v=0286" defer></script>
+  <script src="../lib/lzstring.js?v=0286" defer></script>
+  <script src="../lib/sha256.js?v=0286" defer></script>
+  <script src="../lib/isaac.js?v=0286" defer></script>
+  <script src="../lib/mathlib.js?v=0286" defer></script>
+  <script src="../lib/formula-core.js?v=1577" defer></script>
+  <script src="../hardware/bluetooth.js?v=1072" defer></script>
+  <script src="../hardware/giikercube.js?v=0286" defer></script>
+  <script src="../hardware/gocube.js?v=0286" defer></script>
+  <script src="../hardware/gancube.js?v=1823" defer></script>
+  <script src="../hardware/moyucube.js?v=1072" defer></script>
+  <script src="../hardware/moyu32cube.js?v=1072" defer></script>
+  <script src="../hardware/qiyicube.js?v=0286" defer></script>
 
-  <script src="./analyzer-core.js?v=4" defer></script>
-  <script src="./analyzer-import.js?v=4" defer></script>
-  <script src="./analyzer-charts.js?v=4" defer></script>
-  <script src="./smartcube-bridge.js?v=4" defer></script>
-  <script src="./solve-analyzer.js?v=4" defer></script>
-  <script src="./analyzer-cloud.js?v=0915a" defer></script>
-  <script src="./analyzer-app.js?v=4" defer></script>
+  <script src="./analyzer-core.js?v=6" defer></script>
+  <script src="./analyzer-import.js?v=6" defer></script>
+  <script src="./analyzer-charts.js?v=6" defer></script>
+  <script src="./smartcube-bridge.js?v=6" defer></script>
+  <script src="./solve-analyzer.js?v=6" defer></script>
+  <script src="./analyzer-cloud.js?v=6" defer></script>
+  <script src="./analyzer-app.js?v=6" defer></script>
 </head>
 <body data-workspace="training">
   <div class="page-shell">

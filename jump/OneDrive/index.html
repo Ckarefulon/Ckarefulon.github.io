@@ -1,10 +1,36 @@
-<html>
+<!doctype html>
+<html lang="zh-CN">
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="OneDrive.svg" type="image/svg+xml">
+
+    <!-- 主题先落地，避免深浅色闪一下（与其它页面共用 smartCubeTheme） -->
+    <script>
+        (function () {
+            var saved = null;
+            try { saved = localStorage.getItem("smartCubeTheme"); } catch (e) {}
+            var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+            document.documentElement.dataset.theme = saved || (prefersDark ? "dark" : "light");
+        })();
+    </script>
+
+    <!-- 设计令牌 + 站点顶栏（本页 3 秒后跳走，故不接 Supabase 登录栈） -->
+    <link rel="stylesheet" href="/ui/colors_and_type.css">
+    <link rel="stylesheet" href="/nav/nav.css?v=12">
+    <script src="/nav/nav.js?v=12" defer></script>
+    <script src="/assets/services/core/site-scope.js?v=0915b" defer></script>
+
     <style>
         html, body {
             height: 100%;
             margin: 0;
+        }
+
+        /* nav.css 已给 body 加了 padding-top（顶栏高度），这里用 border-box
+           让 100% 高度包含这段内边距，图标仍然是「顶着屏幕垂直居中」 */
+        body {
+            box-sizing: border-box;
         }
 
         .container {
@@ -60,6 +86,17 @@
         </a>
     </div>
     <script>
+        // nav.js 只注册 window.siteNav，顶栏要由页面自己 init
+        document.addEventListener("DOMContentLoaded", function () {
+            if (window.siteNav && typeof window.siteNav.init === "function") {
+                window.siteNav.init({
+                    setTheme: function (theme) {
+                        document.documentElement.dataset.theme = theme;
+                        try { localStorage.setItem("smartCubeTheme", theme); } catch (e) {}
+                    }
+                });
+            }
+        });
         sleep(3000)
         window.location.href = "https://ckarefulon-my.sharepoint.com/:f:/g/personal/careful_ckarefulon_onmicrosoft_com/Eu2fTkVQiJJJnR2bRxtwvRkB8yo4wTi8XFfdNs0cgjmSKg?e=lgzfwk";
     </script>

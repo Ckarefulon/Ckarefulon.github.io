@@ -1,6 +1,35 @@
 /* ========== 站点顶栏 ========== */
 :root {
 	--site-nav-height: 44px;
+
+	/* ------------------------------------------------------------------
+	   顶栏配色统一入口（nvc-* = nav color）。
+
+	   顶栏的颜色一律取**全站设计令牌** —— /ui/colors_and_type.css 的 dsk-*，
+	   这样每个页面的顶栏都由同一套令牌决定、并且随 data-theme 在浅/深之间切换，
+	   不再出现「同一根顶栏，各页各一个色」（以前各页要自己在 css 里映射
+	   --surfaceSolid/--line/--controlBg/--accent… ，漏一个顶栏就失色）。
+
+	   旧名（--surfaceSolid/--line/--ink/--controlBg/--controlBorder/--controlText/
+	   --controlHoverBg/--accent/--primaryBg/--red/--good/--orange）只作为第二档兜底，
+	   仅当设计令牌表没加载（404／老页面）时才生效；最后一档用 currentColor 或系统色派生，
+	   保证任何环境下都不会渲染出「看不见的颜色」。
+	   ------------------------------------------------------------------ */
+	--nvc-surface: var(--dsk-card, var(--surfaceSolid, Canvas));
+	--nvc-line: var(--dsk-border, var(--line, transparent));
+	--nvc-ink: var(--dsk-foreground, var(--ink, CanvasText));
+	--nvc-muted: var(--dsk-foreground-muted, var(--muted, color-mix(in srgb, currentColor 62%, transparent)));
+	--nvc-subtle: var(--dsk-foreground-subtle, var(--muted, color-mix(in srgb, currentColor 42%, transparent)));
+	--nvc-ctl-bg: var(--dsk-input, var(--controlBg, var(--dsk-card, Canvas)));
+	--nvc-ctl-text: var(--dsk-foreground, var(--controlText, CanvasText));
+	--nvc-ctl-border: var(--dsk-border, var(--controlBorder, color-mix(in srgb, currentColor 30%, transparent)));
+	--nvc-ctl-hover: var(--dsk-muted, var(--controlHoverBg, color-mix(in srgb, currentColor 12%, transparent)));
+	--nvc-primary: var(--dsk-primary, var(--primaryBg, var(--accent, currentColor)));
+	--nvc-primary-text: var(--dsk-primary-foreground, var(--primaryText, #fff));
+	--nvc-primary-hover: var(--dsk-primary-hover, var(--primaryHoverBg, var(--nvc-primary)));
+	--nvc-danger: var(--dsk-danger, var(--red, #e85d6a));
+	--nvc-good: var(--dsk-success, var(--good, #24f0ea));
+	--nvc-warning: var(--dsk-warning, var(--orange, #e6b84a));
 }
 
 .siteHeader {
@@ -14,8 +43,8 @@
 	align-items: center;
 	justify-content: space-between;
 	padding: 0 16px;
-	background: var(--surfaceSolid);
-	border-bottom: 1px solid var(--line);
+	background: var(--nvc-surface);
+	border-bottom: 1px solid var(--nvc-line);
 	backdrop-filter: blur(12px);
 	-webkit-backdrop-filter: blur(12px);
 	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
@@ -40,7 +69,7 @@
 	min-width: 0;
 	font-size: 14px;
 	font-weight: 600;
-	color: var(--ink);
+	color: var(--nvc-ink);
 	letter-spacing: 0.01em;
 }
 
@@ -122,10 +151,10 @@
 	justify-content: center;
 	height: 30px;
 	padding: 0 10px;
-	border: 1px solid var(--controlBorder);
+	border: 1px solid var(--nvc-ctl-border);
 	border-radius: 6px;
-	background: var(--controlBg);
-	color: var(--controlText);
+	background: var(--nvc-ctl-bg);
+	color: var(--nvc-ctl-text);
 	font-size: 12px;
 	font-weight: 500;
 	cursor: pointer;
@@ -134,14 +163,28 @@
 }
 
 .siteHeaderBtn:hover {
-	background: var(--controlHoverBg);
+	background: var(--nvc-ctl-hover);
 }
 
+/* 主题键：安静样式（无边框、无底色），照 Cube/Formula 的顶栏
+   —— 它现在归 nav.css 统一管，别的页面不再各自写一遍 */
 .siteHeaderBtnTheme {
 	width: 30px;
 	padding: 0;
 	font-size: 15px;
 	line-height: 1;
+	border-color: transparent;
+	background: transparent;
+	box-shadow: none;
+}
+
+.siteHeaderBtnTheme:hover {
+	background: var(--nvc-ctl-hover);
+}
+
+/* 页面没有接主题切换能力时（app.setTheme 缺失），主题键会被 nav.js 隐藏 */
+.siteHeaderBtnTheme[hidden] {
+	display: none;
 }
 
 /* 游客入口 */
@@ -158,14 +201,14 @@
 	right: 0;
 	width: 240px;
 	padding: 14px;
-	background: var(--surfaceSolid);
-	border: 1px solid var(--line);
+	background: var(--nvc-surface);
+	border: 1px solid var(--nvc-line);
 	border-radius: 10px;
 	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
 	z-index: 1010;
 	font-size: 12px;
 	line-height: 1.6;
-	color: var(--muted);
+	color: var(--nvc-muted);
 	display: none;
 }
 
@@ -176,7 +219,7 @@
 .guestTooltipTitle {
 	font-size: 13px;
 	font-weight: 600;
-	color: var(--ink);
+	color: var(--nvc-ink);
 	margin-bottom: 6px;
 }
 
@@ -219,12 +262,12 @@ body {
 	width: 340px;
 	max-width: calc(100vw - 32px);
 	padding: 24px;
-	background: var(--surfaceSolid);
-	border: 1px solid var(--line);
+	background: var(--nvc-surface);
+	border: 1px solid var(--nvc-line);
 	border-radius: 12px;
 	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
 	font-size: 13px;
-	color: var(--ink);
+	color: var(--nvc-ink);
 }
 
 .loginPanelTitle {
@@ -241,7 +284,7 @@ body {
 	height: 28px;
 	border: none;
 	background: none;
-	color: var(--muted);
+	color: var(--nvc-muted);
 	font-size: 20px;
 	cursor: pointer;
 	display: flex;
@@ -252,7 +295,7 @@ body {
 }
 
 .loginPanelClose:hover {
-	background: var(--controlHoverBg);
+	background: var(--nvc-ctl-hover);
 }
 
 .loginField {
@@ -262,7 +305,7 @@ body {
 .loginField label {
 	display: block;
 	font-size: 12px;
-	color: var(--muted);
+	color: var(--nvc-muted);
 	margin-bottom: 4px;
 	font-weight: 500;
 }
@@ -271,10 +314,10 @@ body {
 	width: 100%;
 	height: 36px;
 	padding: 0 10px;
-	border: 1px solid var(--controlBorder);
+	border: 1px solid var(--nvc-ctl-border);
 	border-radius: 6px;
-	background: var(--controlBg);
-	color: var(--controlText);
+	background: var(--nvc-ctl-bg);
+	color: var(--nvc-ctl-text);
 	font-size: 13px;
 	box-sizing: border-box;
 	outline: none;
@@ -282,7 +325,7 @@ body {
 }
 
 .loginField input:focus {
-	border-color: var(--accent);
+	border-color: var(--nvc-primary);
 }
 
 .loginActions {
@@ -298,29 +341,29 @@ body {
 }
 
 .loginBtnPrimary {
-	background: var(--primaryBg) !important;
-	color: var(--primaryText) !important;
-	border-color: var(--primaryBorder) !important;
+	background: var(--nvc-primary) !important;
+	color: var(--nvc-primary-text) !important;
+	border-color: var(--nvc-primary) !important;
 }
 
 .loginBtnPrimary:hover {
-	background: var(--primaryHoverBg) !important;
+	background: var(--nvc-primary-hover) !important;
 }
 
 .loginStatus {
 	margin-top: 10px;
 	font-size: 12px;
-	color: var(--muted);
+	color: var(--nvc-muted);
 	min-height: 18px;
 	text-align: center;
 }
 
 .loginStatus.isError {
-	color: var(--red);
+	color: var(--nvc-danger);
 }
 
 .loginStatus.isSuccess {
-	color: var(--good);
+	color: var(--nvc-good);
 }
 
 /* ========== 覆盖确认对话框 ========== */
@@ -342,13 +385,13 @@ body {
 	width: 360px;
 	max-width: calc(100vw - 32px);
 	padding: 22px 24px 18px;
-	background: var(--surfaceSolid);
-	border: 1px solid var(--line);
-	border-top: 3px solid var(--red, #e85d6a);
+	background: var(--nvc-surface);
+	border: 1px solid var(--nvc-line);
+	border-top: 3px solid var(--nvc-danger);
 	border-radius: 12px;
 	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
 	font-size: 13px;
-	color: var(--ink);
+	color: var(--nvc-ink);
 }
 
 .confirmTitle {
@@ -358,13 +401,13 @@ body {
 	display: flex;
 	align-items: center;
 	gap: 6px;
-	color: var(--red, #e85d6a);
+	color: var(--nvc-danger);
 }
 
 .confirmMessage {
 	font-size: 13px;
 	line-height: 1.6;
-	color: var(--muted);
+	color: var(--nvc-muted);
 	margin-bottom: 16px;
 	word-break: break-word;
 	white-space: pre-wrap;
@@ -382,9 +425,9 @@ body {
 }
 
 .confirmDangerBtn {
-	background: var(--red, #e85d6a) !important;
+	background: var(--nvc-danger) !important;
 	color: #fff !important;
-	border-color: var(--red, #e85d6a) !important;
+	border-color: var(--nvc-danger) !important;
 }
 
 .confirmDangerBtn:hover {
@@ -398,8 +441,8 @@ body {
 	padding: 0;
 	border-radius: 50%;
 	overflow: hidden;
-	background: var(--accent);
-	color: #fff;
+	background: var(--nvc-primary);
+	color: var(--nvc-primary-text);
 	font-size: 13px;
 	font-weight: 600;
 	display: flex;
@@ -423,9 +466,11 @@ body {
 	display: none;
 }
 
-/* 游客头像（无登录的页面） */
+/* 游客头像（旧版「本页没有登录能力」时用的灰头像）
+   —— 现在 nav.js 未登录一律显示「登录」按钮，这个元素默认不再出现，
+   样式保留只是兜底，防止个别页面残留显示成无色方块 */
 .siteGuestAvatar {
-	background: var(--muted);
+	background: var(--nvc-muted);
 	opacity: 0.75;
 	cursor: default;
 }
@@ -437,14 +482,14 @@ body {
 	right: 0;
 	width: 220px;
 	padding: 12px;
-	background: var(--surfaceSolid);
-	border: 1px solid var(--line);
+	background: var(--nvc-surface);
+	border: 1px solid var(--nvc-line);
 	border-radius: 10px;
 	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
 	z-index: 1010;
 	font-size: 12px;
 	line-height: 1.6;
-	color: var(--muted);
+	color: var(--nvc-muted);
 	display: none;
 }
 
@@ -454,7 +499,7 @@ body {
 
 .accountMenuEmail {
 	font-weight: 600;
-	color: var(--ink);
+	color: var(--nvc-ink);
 	margin-bottom: 4px;
 	word-break: break-all;
 }
@@ -488,14 +533,14 @@ body {
 
 .accountMenuDivider {
 	height: 1px;
-	background: var(--line);
+	background: var(--nvc-line);
 	margin: 8px 0;
 }
 
 .accountMenuCloudTitle {
 	font-size: 11px;
 	font-weight: 600;
-	color: var(--muted);
+	color: var(--nvc-muted);
 	margin-bottom: 4px;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
@@ -503,21 +548,21 @@ body {
 
 .accountMenuCloudStatus {
 	font-size: 12px;
-	color: var(--muted);
+	color: var(--nvc-muted);
 	margin-bottom: 8px;
 	min-height: 16px;
 }
 
 .accountMenuCloudStatus.isSuccess {
-	color: var(--good);
+	color: var(--nvc-good);
 }
 
 .accountMenuCloudStatus.isError {
-	color: var(--red);
+	color: var(--nvc-danger);
 }
 
 .accountMenuCloudStatus.isWarning {
-	color: var(--orange, #e6b84a);
+	color: var(--nvc-warning);
 }
 
 /* Warning 文案可点击：点击弹出确认对话框 */
@@ -546,29 +591,29 @@ body {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	border: 1px solid var(--controlBorder);
+	border: 1px solid var(--nvc-ctl-border);
 	border-radius: 6px;
-	background: var(--controlBg);
-	color: var(--controlText);
+	background: var(--nvc-ctl-bg);
+	color: var(--nvc-ctl-text);
 	cursor: pointer;
 	transition: background 0.15s, border-color 0.15s;
 	flex-shrink: 0;
 }
 
 .cloudIconBtn:hover {
-	background: var(--controlHoverBg);
+	background: var(--nvc-ctl-hover);
 }
 .cloudIconBtn:disabled {
 	opacity: 0.42;
 	cursor: not-allowed;
-	background: var(--controlBg);
+	background: var(--nvc-ctl-bg);
 }
 
 /* 待办确认：对应原始按钮显示黄色 warning 标记 */
 .cloudIconBtn.isPendingConfirm {
-	border-color: var(--orange, #e6b84a);
-	color: var(--orange, #e6b84a);
-	background: color-mix(in srgb, var(--orange, #e6b84a) 12%, var(--controlBg));
+	border-color: var(--nvc-warning);
+	color: var(--nvc-warning);
+	background: color-mix(in srgb, var(--nvc-warning) 12%, var(--nvc-ctl-bg));
 	animation: cloudBtnPulse 1.6s ease-in-out infinite;
 }
 
@@ -586,12 +631,12 @@ body {
 
 .siteDonateBtn {
 	gap: 4px;
-	color: var(--red, #e85d6a) !important;
-	border-color: var(--red, #e85d6a) !important;
+	color: var(--nvc-danger) !important;
+	border-color: var(--nvc-danger) !important;
 }
 
 .siteDonateBtn:hover {
-	background: var(--controlHoverBg);
+	background: var(--nvc-ctl-hover);
 }
 
 .donateBtnLabel {
@@ -611,8 +656,8 @@ body {
 	right: 0;
 	width: 220px;
 	padding: 18px 16px 14px;
-	background: var(--surfaceSolid);
-	border: 1px solid var(--line);
+	background: var(--nvc-surface);
+	border: 1px solid var(--nvc-line);
 	border-radius: 10px;
 	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
 	z-index: 1010;
@@ -655,7 +700,7 @@ body {
 
 .donateText {
 	font-size: 13px;
-	color: var(--ink);
+	color: var(--nvc-ink);
 	font-weight: 500;
 	line-height: 1.5;
 	letter-spacing: 0.02em;

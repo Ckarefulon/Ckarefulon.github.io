@@ -5,17 +5,18 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="qz66ezzxH0V6HlWP4xryh4">
 	<title>Cross 训练 · 智能魔方</title>
 	<link rel="icon" href="/favicon.svg" type="image/svg+xml" data-page-node-id="SGI9tMjOe2eZAWgJkSGLpj">
-	<link rel="stylesheet" href="cross.css?v=16" data-page-node-id="cGMKbHBoFi4OXcPWKCl2dg">
+	<link rel="stylesheet" href="../cube-net/cube-net.css?v=1000">
+	<link rel="stylesheet" href="cross.css?v=17" data-page-node-id="cGMKbHBoFi4OXcPWKCl2dg">
 	<!-- 站点导航栏（登录态由 nav 触发 authManager.init，必须先于云同步） -->
 	<link rel="stylesheet" href="/ui/colors_and_type.css">
-	<link rel="stylesheet" href="/nav/nav.css?v=11">
-	<script src="/nav/nav.js?v=11" defer></script>
+	<link rel="stylesheet" href="/nav/nav.css?v=12">
+	<script src="/nav/nav.js?v=12" defer></script>
+	<script src="/assets/services/core/site-scope.js?v=0915b" defer></script>
 	<!-- 云同步（Supabase，登录态与 Formula 共享） -->
 	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
 	<script src="/supabase/supabase-config.js?v=0618" defer></script>
 	<script src="/supabase/supabase-client.js?v=0618" defer></script>
 	<script src="/supabase/auth-manager.js?v=0677" defer></script>
-	<script src="/assets/services/core/site-scope.js?v=0915b" defer></script>
 </head>
 <body data-page-node-id="bhMyOb7XuaXotrOotIkj9G">
 	<div class="page" data-page-node-id="Grn0Eeg9HyRTf66VfwBVC0">
@@ -130,25 +131,29 @@
 
 	<script src="cross-tables.js?v=1"></script>
 	<script src="cross-engine.js?v=4"></script>
+	<!-- 魔方展开图（Cube 公用 /Cube/cube-net/）。⚠️ 必须排在 cross-app.js 之前：
+	     cross-app.js 的 init() 在 readyState=interactive 时是【同步】执行的，不等 DOMContentLoaded，
+	     排它后面的 defer 脚本届时还没加载。 -->
+	<script src="../cube-net/cube-net.js?v=1000" defer></script>
 	<script src="cross-app.js?v=0915a" defer></script>
-	<!-- 智能魔方蓝牙栈（复用 Formula，依赖链：jquery 同步在前 → compat → lzstring/sha256/isaac/mathlib → hardware） -->
-	<script src="../Formula/assets/lib/jquery-4.0.0.min.js"></script>
-	<script src="../Formula/assets/app/compat.js" defer></script>
-	<!-- 3D 魔方（复用 Formula 的 twisty：pnltri → three → twisty → twistynnn） -->
-	<script src="../Formula/assets/lib/pnltri.js" defer></script>
-	<script src="../Formula/assets/lib/threemin.js" defer></script>
-	<script src="../Formula/assets/twisty/twisty.js" defer></script>
-	<script src="../Formula/assets/twisty/twistynnn.js" defer></script>
-	<script src="../Formula/assets/lib/lzstring.js" defer></script>
-	<script src="../Formula/assets/lib/sha256.js" defer></script>
-	<script src="../Formula/assets/lib/isaac.js" defer></script>
-	<script src="../Formula/assets/lib/mathlib.js" defer></script>
-	<script src="../Formula/assets/hardware/bluetooth.js" defer></script>
-	<script src="../Formula/assets/hardware/giikercube.js" defer></script>
-	<script src="../Formula/assets/hardware/gocube.js" defer></script>
-	<script src="../Formula/assets/hardware/gancube.js" defer></script>
-	<script src="../Formula/assets/hardware/moyucube.js" defer></script>
-	<script src="../Formula/assets/hardware/moyu32cube.js" defer></script>
-	<script src="../Formula/assets/hardware/qiyicube.js" defer></script>
+	<!-- 智能魔方蓝牙栈（Cube 公用：依赖链 jquery 同步在前 → /Cube/compat.js → /Cube/lib/{lzstring,sha256,isaac,mathlib} → /Cube/hardware/） -->
+	<script src="../lib/jquery-4.0.0.min.js"></script>
+	<script src="../compat.js?v=1526" defer></script>
+	<!-- 3D 魔方（Cube 公用 /Cube/twisty/：pnltri → three → twisty → twistynnn） -->
+	<script src="../lib/pnltri.js?v=0286" defer></script>
+	<script src="../lib/threemin.js?v=0286" defer></script>
+	<script src="../twisty/twisty.js?v=1034" defer></script>
+	<script src="../twisty/twistynnn.js?v=0484" defer></script>
+	<script src="../lib/lzstring.js?v=0286" defer></script>
+	<script src="../lib/sha256.js?v=0286" defer></script>
+	<script src="../lib/isaac.js?v=0286" defer></script>
+	<script src="../lib/mathlib.js?v=0286" defer></script>
+	<script src="../hardware/bluetooth.js?v=1072" defer></script>
+	<script src="../hardware/giikercube.js?v=0286" defer></script>
+	<script src="../hardware/gocube.js?v=0286" defer></script>
+	<script src="../hardware/gancube.js?v=1823" defer></script>
+	<script src="../hardware/moyucube.js?v=1072" defer></script>
+	<script src="../hardware/moyu32cube.js?v=1072" defer></script>
+	<script src="../hardware/qiyicube.js?v=0286" defer></script>
 </body>
 </html>

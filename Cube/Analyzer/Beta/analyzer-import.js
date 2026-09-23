@@ -89,11 +89,16 @@
       if (!move) return null;
       return {
         move,
+        logicalMove: String(first(m.logicalMove, move, '')).trim() || move,
+        rawMoves: Array.isArray(m.rawMoves) ? m.rawMoves.map(r => typeof r === 'string' ? r : (r && typeof r === 'object' ? {...r} : String(r))) : [],
         timestamp: extractTimestamp(m),
+        startTimestamp: num(m.startTimestamp),
         absoluteTimestamp: num(m.absoluteTimestamp),
         hardwareTimestamp: num(m.hardwareTimestamp),
         localTimestamp: num(m.localTimestamp),
-        facelet: first(m.facelet, m.state, null)
+        facelet: first(m.facelet, m.state, null),
+        isSlice: Boolean(m.isSlice),
+        isRotation: Boolean(m.isRotation)
       };
     }).filter(Boolean);
   }
@@ -137,6 +142,7 @@
       caseIndex: first(opts.caseIndex, obj.caseIndex, obj.caseId, obj.case),
       caseName: first(opts.caseName, obj.caseName, obj.algorithmName),
       slotIndex: first(opts.slotIndex, obj.slotIndex),
+      physicalSlot: first(opts.physicalSlot, obj.physicalSlot),
       skipped: Boolean(obj.skipped),
     };
   }
@@ -180,7 +186,7 @@
     if (Array.isArray(raw.steps)) {
       return raw.steps.map((s, i) => {
         const name = C.normalizeStepName(first(s.name, s.key, s.label, `Step${i+1}`), method);
-        return step(name, first(s.label, name), s, {caseType:s.caseType,caseIndex:first(s.caseIndex,s.caseId),slotIndex:s.slotIndex});
+        return step(name, first(s.label, name), s, {caseType:s.caseType,caseIndex:first(s.caseIndex,s.caseId),slotIndex:s.slotIndex,physicalSlot:s.physicalSlot});
       }).filter(Boolean);
     }
     const keys = C.methodSteps(method);
@@ -204,7 +210,13 @@
   function normalizeSolve(raw, index = 0) {
     raw = raw || {};
     const method = normalizeMethod(first(raw.analysisType, raw.method, raw.solveMethod, raw.analysis?.type));
-    let totalTime = timeToMs(first(raw.totalTime, raw.timeMs, raw.time, raw.solveTime, raw.duration), 'totalTime');
+    // Records produced by this trainer always store totalTime in milliseconds,
+    // including short test/aborted solves under 120 ms. Imported numeric seconds
+    // without trainer metadata retain the documented auto-inference path.
+    const ownMs = typeof raw.totalTime === 'number' && (
+      /^solve-/.test(String(raw.id||'')) || ['smartcube','manual'].includes(raw.captureType)
+    );
+    let totalTime = ownMs ? raw.totalTime : timeToMs(first(raw.totalTime, raw.timeMs, raw.time, raw.solveTime, raw.duration), 'totalTime');
     let flag = C.normalizeFlag(first(raw.flag, raw.penalty, raw.status, /dnf/i.test(String(raw.time)) ? 'dnf' : /\+2/.test(String(raw.time)) ? '+2' : 'ok'));
     const timestamps = extractTimestamps(raw);
     const moves = extractMoves(raw);
@@ -214,9 +226,11 @@
     let steps = stepsFromFlat(raw, method);
     if (!steps.length) steps = stepsFromAnalysis(raw.analysis, method);
     if (totalTime == null && steps.length) totalTime = C.sum(steps.filter(s => !s.slotIndex).map(s => s.time));
-    const turnCount = num(raw.turnCount, raw.turns, raw.moveCount) ?? moveCount(raw) ?? (timestamps.length ? timestamps.length : null);
+    const derivedTurnCount = moves.length ? C.extractTurnCount(moves) : null;
+    const turnCount = num(raw.turnCount, raw.turns, raw.moveCount) ?? derivedTurnCount ?? moveCount(raw) ?? (timestamps.length ? timestamps.length : null);
     const tps = num(raw.tps, raw.TPS) ?? C.extractTPS(turnCount, totalTime);
-    const fluency = num(raw.fluencyPercent, raw.fluency) ?? C.fluencyFromTimestamps(timestamps, totalTime);
+    const fluencyTs = moves.length === timestamps.length ? C.turnTimestamps(moves, timestamps) : timestamps;
+    const fluency = num(raw.fluencyPercent, raw.fluency) ?? C.fluencyFromTimestamps(fluencyTs, totalTime);
     const session = first(raw.session?.name, raw.sessionName, raw.session?.id, raw.sessionId, '默认训练');
     const device = first(raw.usedDevice?.name, raw.device?.name, raw.deviceName, raw.usedDevice?.id, raw.deviceId, raw.device, '未知设备');
     return {
@@ -242,7 +256,9 @@
       timingMode: first(raw.timingMode, raw.timerMode, ''),
       captureType: first(raw.captureType, raw.hasReplay ? 'smartcube' : (moves.length && timestamps.length ? 'smartcube' : 'import')),
       analysisFrame: raw.analysisFrame || raw.frame || null,
+      analysisVersion: num(raw.analysisVersion, raw.analysisFrame?.analysisVersion) || 0,
       colorNeutral: raw.colorNeutral !== false,
+      gyroSamples: Array.isArray(raw.gyroSamples) ? raw.gyroSamples : [],
       source: first(raw.source, raw.hasReplay ? '智能魔方导入' : 'import'),
       raw,
     };
@@ -303,7 +319,7 @@
       id:s.id,date:s.date,totalTime:s.totalTime,flag:s.flag,tps:s.tps,turnCount:s.turnCount,
       fluencyPercent:s.fluencyPercent,analysisType:s.analysisType,session:s.session,device:s.device,
       scramble:s.scramble,timestamps:s.timestamps,moveTimestamps:s.moveTimestamps||s.timestamps,moves:s.moves,rawSolutionSequence:s.rawSolutionSequence||[],startFacelet:s.startFacelet,
-      snapshots:s.snapshots,stateSequence:s.stateSequence||s.snapshots||[],steps:s.steps,analysisFrame:s.analysisFrame||null,colorNeutral:s.colorNeutral!==false,timingMode:s.timingMode||'',captureType:s.captureType||'',source:s.source,
+      snapshots:s.snapshots,stateSequence:s.stateSequence||s.snapshots||[],steps:s.steps,analysisFrame:s.analysisFrame||null,analysisVersion:s.analysisVersion||s.analysisFrame?.analysisVersion||0,colorNeutral:s.colorNeutral!==false,gyroSamples:s.gyroSamples||[],timingMode:s.timingMode||'',captureType:s.captureType||'',source:s.source,
     };
   }
 

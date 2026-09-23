@@ -5,18 +5,11 @@
   const SETTINGS_KEY = 'cubeAnalyzerSettingsV2';
   let syncTimer = null;
 
-  /* 站点作用域：一律由 site-scope.js 按路径计算；算不出来返回空串，禁止云端读写 */
   function scope() {
-    return window.getCurrentSiteScope ? window.getCurrentSiteScope() : '';
+    return window.getCurrentSiteScope ? window.getCurrentSiteScope() : 'Cube-Analyzer';
   }
   function basePath() {
-    return window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : '';
-  }
-  const NO_SCOPE_MESSAGE = '当前路径没有可用的站点作用域，已阻止云端读写';
-  function requireScope() {
-    const s = scope();
-    if (!s) console.warn('[AnalyzerCloud] ' + NO_SCOPE_MESSAGE + '：' + (window.location.pathname || ''));
-    return s;
+    return window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : '/Cube/Analyzer';
   }
   function getLocal(key, fallback) {
     try {
@@ -32,7 +25,7 @@
 
   const manager = {
     isReady() {
-      return !!(window.supabaseClient && window.authManager && window.authManager.isLoggedIn());
+      return !!(scope() && window.supabaseClient && window.authManager && window.authManager.isLoggedIn());
     },
     buildLocalPayload() {
       return {
@@ -40,7 +33,7 @@
         source: 'Ckarefulon',
         siteScope: scope(),
         siteBasePath: basePath(),
-        version: 2,
+        version: 6,
         data: {
           cubeAnalyzerData: getLocal(STORAGE_KEY, { name: '训练数据', solves: [] }),
           cubeAnalyzerSettings: getLocal(SETTINGS_KEY, {})
@@ -49,11 +42,9 @@
     },
     async getCloudStatus() {
       if (!manager.isReady()) return { success:false, message:'请先登录', hasData:false, cloudData:null };
-      const sc = requireScope();
-      if (!sc) return { success:false, message:NO_SCOPE_MESSAGE, hasData:false, cloudData:null };
       try {
         const user = window.authManager.getUser();
-        const result = await window.supabaseClient.from('user_data').select('data, updated_at').eq('user_id', user.id).eq('site_scope', sc).maybeSingle();
+        const result = await window.supabaseClient.from('user_data').select('data, updated_at').eq('user_id', user.id).eq('site_scope', scope()).maybeSingle();
         if (result.error) return { success:false, message:'查询云端状态失败', hasData:false, cloudData:null };
         if (!result.data) return { success:true, message:'云端暂无数据', hasData:false, cloudData:null };
         return { success:true, message:'云端已有数据', hasData:true, cloudData:result.data.data, updatedAt:result.data.updated_at };
@@ -64,13 +55,11 @@
     },
     async uploadLocalToCloud() {
       if (!manager.isReady()) return { success:false, message:'请先登录' };
-      const sc = requireScope();
-      if (!sc) return { success:false, message:NO_SCOPE_MESSAGE };
       try {
         const user = window.authManager.getUser();
         const result = await window.supabaseClient.from('user_data').upsert({
           user_id:user.id,
-          site_scope:sc,
+          site_scope:scope(),
           data:manager.buildLocalPayload(),
           updated_at:new Date().toISOString()
         }, { onConflict:'user_id,site_scope' });
@@ -96,11 +85,9 @@
     },
     async downloadCloudToLocal() {
       if (!manager.isReady()) return { success:false, message:'请先登录', data:null };
-      const sc = requireScope();
-      if (!sc) return { success:false, message:NO_SCOPE_MESSAGE, data:null };
       try {
         const user = window.authManager.getUser();
-        const result = await window.supabaseClient.from('user_data').select('data').eq('user_id', user.id).eq('site_scope', sc).maybeSingle();
+        const result = await window.supabaseClient.from('user_data').select('data').eq('user_id', user.id).eq('site_scope', scope()).maybeSingle();
         if (result.error) return { success:false, message:'读取云端数据失败', data:null };
         if (!result.data || !result.data.data || !result.data.data.data) return { success:false, message:'云端暂无数据', data:null };
         const dataBlock = result.data.data.data;

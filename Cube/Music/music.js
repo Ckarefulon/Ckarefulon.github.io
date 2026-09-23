@@ -1355,7 +1355,7 @@
 		// 供蓝牙适配层回调（giikerutil）
 		window.smartCubeApp = {
 			log: function () {
-				if (window.DEBUG) console.log.apply(console, arguments);
+				if (window.DEBUG) console.log.apply(this, arguments);
 			},
 			setDevice: function (name, battery) {
 				setDeviceInfo(name, battery);
@@ -1369,6 +1369,20 @@
 				}
 			}
 		};
+
+		/* 站点导航栏：nav.js 只注册 window.siteNav，顶栏要由页面自己 init；
+		   顺带把主题切换接上（与全站共用 smartCubeTheme）。 */
+		if (window.siteNav && typeof window.siteNav.init === "function") {
+			window.siteNav.init({
+				setTheme: function (theme) {
+					theme = theme === "dark" ? "dark" : "light";
+					document.documentElement.dataset.theme = theme;
+					var btn = document.getElementById("siteThemeToggle");
+					if (btn) { btn.textContent = theme === "dark" ? "☀" : "☾"; }
+					try { localStorage.setItem("smartCubeTheme", theme); } catch (e) {}
+				}
+			});
+		}
 	}
 
 	if (document.readyState === "loading") {

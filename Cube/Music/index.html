@@ -1,29 +1,50 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="dark" data-page-node-id="LhwnGqIGaqN5G3VabaX2Lb">
+<html lang="zh-CN" data-page-node-id="LhwnGqIGaqN5G3VabaX2Lb">
 <head data-page-node-id="TiE5JHac0NWXvrVIGrxOJP">
 	<meta charset="utf-8" data-page-node-id="7QTiHu6CyI1Lw3vYwS2Wck">
 	<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="kfpBrgdUewqjfd98OWPZe2">
+	<link rel="icon" href="/favicon.svg?v=0349" type="image/svg+xml" data-page-node-id="3yetiPeuY8xnKFI0Y8NfAq">
+
+	<!-- 主题先落地，避免深浅色闪一下（与其它页面共用 smartCubeTheme） -->
+	<script>
+		(function () {
+			var saved = null;
+			try { saved = localStorage.getItem("smartCubeTheme"); } catch (e) {}
+			var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+			document.documentElement.dataset.theme = saved || (prefersDark ? "dark" : "light");
+		})();
+	</script>
+
+	<!-- 设计令牌（dsk-*），必须先于页面样式 -->
+	<link rel="stylesheet" href="/ui/colors_and_type.css" data-page-node-id="uB0HRETeZu8BNdowCDzSQg">
+	<link rel="stylesheet" href="/nav/nav.css?v=12">
+	<script src="/nav/nav.js?v=12" defer></script>
+	<link rel="stylesheet" href="music.css?v=4" data-page-node-id="anOv5Jgc7Nh293k3jSSKgz">
+
+	<!-- 站点作用域（必须先于云同步定义）+ 云同步（Supabase，登录态与 Formula 共享） -->
+	<script src="/assets/services/core/site-scope.js?v=0915b" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+	<script src="/supabase/supabase-config.js?v=0618" defer></script>
+	<script src="/supabase/supabase-client.js?v=0618" defer></script>
+	<script src="/supabase/auth-manager.js?v=0677" defer></script>
+
 	<title>魔方音乐</title>
 
-	<link rel="icon" href="/favicon.svg?v=0349" type="image/svg+xml" data-page-node-id="3yetiPeuY8xnKFI0Y8NfAq">
-	<link rel="stylesheet" href="/ui/colors_and_type.css" data-page-node-id="uB0HRETeZu8BNdowCDzSQg">
-	<link rel="stylesheet" href="music.css?v=3" data-page-node-id="anOv5Jgc7Nh293k3jSSKgz">
+	<script src="../lib/jquery-4.0.0.min.js"></script>
+	<script src="../compat.js?v=1526"></script>
 
-	<script src="assets/lib/jquery-4.0.0.min.js"></script>
-	<script src="assets/compat.js?v=1"></script>
-
-	<script src="assets/lib/lzstring.js?v=1" defer></script>
-	<script src="assets/lib/sha256.js?v=1" defer></script>
-	<script src="assets/lib/isaac.js?v=1" defer></script>
-	<script src="assets/mathlib.js?v=1" defer></script>
-	<script src="assets/hardware/bluetooth.js?v=1" defer></script>
-	<script src="assets/hardware/giikercube.js?v=1" defer></script>
-	<script src="assets/hardware/gocube.js?v=1" defer></script>
-	<script src="assets/hardware/gancube.js?v=1" defer></script>
-	<script src="assets/hardware/moyucube.js?v=1" defer></script>
-	<script src="assets/hardware/moyu32cube.js?v=1" defer></script>
-	<script src="assets/hardware/qiyicube.js?v=1" defer></script>
-	<script src="music.js?v=6" defer></script>
+	<script src="../lib/lzstring.js?v=0286" defer></script>
+	<script src="../lib/sha256.js?v=0286" defer></script>
+	<script src="../lib/isaac.js?v=0286" defer></script>
+	<script src="../lib/mathlib.js?v=0286" defer></script>
+	<script src="../hardware/bluetooth.js?v=1072" defer></script>
+	<script src="../hardware/giikercube.js?v=0286" defer></script>
+	<script src="../hardware/gocube.js?v=0286" defer></script>
+	<script src="../hardware/gancube.js?v=1823" defer></script>
+	<script src="../hardware/moyucube.js?v=1072" defer></script>
+	<script src="../hardware/moyu32cube.js?v=1072" defer></script>
+	<script src="../hardware/qiyicube.js?v=0286" defer></script>
+	<script src="music.js?v=7" defer></script>
 </head>
 <body data-page-node-id="AkOlhJy7yboR0HsWmU9MlL">
 	<main class="stage" data-page-node-id="d4piRoCEIUJLmFGQ0arKIB">

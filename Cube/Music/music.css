@@ -10,8 +10,9 @@
 html,
 body {
 	margin: 0;
-	padding: 0;
 	min-height: 100%;
+	/* 这里不要写 padding:0 —— 会把 nav.css 给 body 的顶栏高度内边距清掉，
+	   顶栏就会压住页面内容。留白交给 nav.css 的 body{padding-top} + .stage 自己的 padding。 */
 }
 
 body {

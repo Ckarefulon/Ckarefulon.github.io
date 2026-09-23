@@ -123,37 +123,18 @@
 		el.crossTargetHint.textContent = '目标：' + COLOR_NAME[state.colorFace] + '十字';
 	}
 
-	/* ---------------- 魔方展开图 ---------------- */
+	/* ---------------- 魔方展开图（结构与样式在 Cube/cube-net/，各页公用） ---------------- */
 	function buildCubeNet() {
-		var net = el.cubeNet;
-		net.innerHTML = '';
-		['U', 'L', 'F', 'R', 'B', 'D'].forEach(function (fname) {
-			var face = document.createElement('div');
-			face.className = 'face';
-			face.dataset.face = fname;
-			for (var i = 0; i < 9; i++) {
-				var s = document.createElement('div');
-				s.className = 'sticker';
-				face.appendChild(s);
-			}
-			net.appendChild(face);
-		});
+		window.CubeNet.build(el.cubeNet);
 	}
 
 	function renderCubeNet(facelets) {
 		if (!facelets) { return; }
 		el.cubeTitle.textContent = (state.connected && state.phase === 'scramble') ? '打乱中 · 实时状态' : '打乱后状态';
-		var order = ['U', 'L', 'F', 'R', 'B', 'D'];
-		var faces = el.cubeNet.querySelectorAll('.face');
-		for (var f = 0; f < order.length; f++) {
-			var fi = E.FACE_INDEX[order[f]];
-			var stickers = faces[f].children;
-			for (var i = 0; i < 9; i++) {
-				var src = facelets[fi * 9 + i];
-				var color = E.COLOR_OF_FACE[Math.floor(src / 9)];
-				stickers[i].style.background = color;
-			}
-		}
+		window.CubeNet.render(el.cubeNet, facelets, {
+			faceIndex: E.FACE_INDEX,
+			colorOfFace: E.COLOR_OF_FACE
+		});
 	}
 
 	/* ---------------- 生成题目 ---------------- */

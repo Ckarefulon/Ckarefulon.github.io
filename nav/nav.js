@@ -254,24 +254,39 @@
 	}
 
 	function bindNav(app) {
+		// 右侧入口统一口径：**未登录一律显示「登录」按钮**。
+		// 以前是按「本页有没有 authManager」决定——没接 Supabase 的页面会换成一颗灰色游客头像，
+		// 于是同一根顶栏在不同页面右边长得不一样。现在统一成 Formula 的样子：
+		// 未登录 = 登录按钮（鼠标移上去仍是游客说明与「下载/导入数据」），已登录 = 头像。
 		(function initGuestAvatar() {
-			var noAuth = !window.authManager;
 			var loginBtn = document.getElementById("siteLoginBtn");
 			var guestAvatar = document.getElementById("siteGuestAvatar");
-			if (loginBtn) { loginBtn.style.display = noAuth ? "none" : ""; }
-			if (guestAvatar) { guestAvatar.style.display = noAuth ? "" : "none"; }
+			if (loginBtn) { loginBtn.style.display = ""; }
+			if (guestAvatar) { guestAvatar.style.display = "none"; }
 		})();
 
 		var siteThemeBtn = document.getElementById("siteThemeToggle");
 		if (siteThemeBtn) {
-			var currentTheme = document.documentElement.dataset.theme || "light";
-			siteThemeBtn.textContent = currentTheme === "dark" ? "☀" : "☾";
-			siteThemeBtn.addEventListener("click", function() {
-				var now = document.documentElement.dataset.theme || "light";
-				if (typeof app.setTheme === "function") {
-					app.setTheme(now === "dark" ? "light" : "dark");
-				}
-			});
+			// 主题键只在页面真的接了切换能力时显示（页面 init 时传了 setTheme）。
+			// 页面没接（顶栏跟着页面固定主题走）时隐藏，避免留一个按下去没反应的按钮。
+			if (typeof app.setTheme !== "function") {
+				siteThemeBtn.hidden = true;
+			} else {
+				var currentTheme = document.documentElement.dataset.theme || "light";
+				siteThemeBtn.textContent = currentTheme === "dark" ? "☀" : "☾";
+				siteThemeBtn.addEventListener("click", function() {
+					var now = document.documentElement.dataset.theme || "light";
+					var next = now === "dark" ? "light" : "dark";
+					app.setTheme(next);
+					// 顶栏兜底：各页自己的 setTheme 有的会写 localStorage、有的只改 attribute
+					// （比如 linkage），统一由 nav 保证「换一次主题，全站跟着变」；
+					// 图标也由 nav 收口，免得页面只改了 attribute 而按钮图标不翻。
+					try { localStorage.setItem("smartCubeTheme", next); } catch (e) {}
+					if (siteThemeBtn.textContent !== (next === "dark" ? "☀" : "☾")) {
+						siteThemeBtn.textContent = next === "dark" ? "☀" : "☾";
+					}
+				});
+			}
 		}
 
 		var loginOverlay = document.getElementById("loginOverlay");
@@ -1535,8 +1550,6 @@
 			var sameUser = _currentAuthUser && user && _currentAuthUser.id === user.id;
 			_currentAuthUser = user;
 
-			var noAuthManager = !window.authManager;
-
 			if (user) {
 				if (guestEntry) { guestEntry.style.display = "none"; }
 				if (userEntry) { userEntry.style.display = ""; }
@@ -1548,10 +1561,11 @@
 			} else {
 				if (guestEntry) { guestEntry.style.display = ""; }
 				if (userEntry) { userEntry.style.display = "none"; }
+				// 未登录 = 登录按钮（口径见 bindNav 里的说明），与本页有没有 authManager 无关
 				var loginBtn = document.getElementById("siteLoginBtn");
 				var guestAvatar = document.getElementById("siteGuestAvatar");
-				if (loginBtn) { loginBtn.style.display = noAuthManager ? "none" : ""; }
-				if (guestAvatar) { guestAvatar.style.display = noAuthManager ? "" : "none"; }
+				if (loginBtn) { loginBtn.style.display = ""; }
+				if (guestAvatar) { guestAvatar.style.display = "none"; }
 				_currentProfile = null;
 			}
 		}

@@ -1,1 +1,135 @@
-<p>404<p>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<link rel="icon" href="/favicon.svg?v=7" type="image/svg+xml">
+
+	<!-- 主题先落地，避免深浅色闪一下（与其它页面共用 smartCubeTheme） -->
+	<script>
+		(function () {
+			var saved = null;
+			try { saved = localStorage.getItem("smartCubeTheme"); } catch (e) {}
+			var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+			document.documentElement.dataset.theme = saved || (prefersDark ? "dark" : "light");
+		})();
+	</script>
+
+	<!-- 设计令牌（dsk-*），必须先于页面样式 -->
+	<link rel="stylesheet" href="/ui/colors_and_type.css">
+	<link rel="stylesheet" href="/nav/nav.css?v=12">
+	<script src="/nav/nav.js?v=12" defer></script>
+
+	<!-- 站点作用域 + 云同步（Supabase，登录态与 Formula 共享） -->
+	<script src="/assets/services/core/site-scope.js?v=0915b" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+	<script src="/supabase/supabase-config.js?v=0618" defer></script>
+	<script src="/supabase/supabase-client.js?v=0618" defer></script>
+	<script src="/supabase/auth-manager.js?v=0677" defer></script>
+
+	<title>404 — 页面不存在</title>
+	<style>
+		* { box-sizing: border-box; }
+		body {
+			margin: 0;
+			min-height: 100vh;
+			background: var(--dsk-background);
+			background-image: var(--dsk-page-bg);
+			background-attachment: fixed;
+			color: var(--dsk-foreground);
+			font-family: var(--dsk-font-sans);
+			font-size: var(--dsk-text-base);
+			-webkit-font-smoothing: antialiased;
+		}
+		.nfPage {
+			max-width: 560px;
+			margin: 0 auto;
+			padding: 14vh 24px 80px;
+			text-align: center;
+		}
+		.nfCode {
+			margin: 0;
+			font-size: clamp(64px, 18vw, 120px);
+			font-weight: 700;
+			line-height: 1;
+			letter-spacing: -0.04em;
+			background: linear-gradient(118deg, var(--dsk-purple-300), var(--dsk-accent));
+			-webkit-background-clip: text;
+			background-clip: text;
+			color: transparent;
+		}
+		.nfTitle {
+			margin: 18px 0 0;
+			font-size: var(--dsk-text-2xl);
+			font-weight: 600;
+			line-height: var(--dsk-leading-tight);
+		}
+		.nfSub {
+			margin: 10px 0 0;
+			font-size: var(--dsk-text-sm);
+			color: var(--dsk-foreground-muted);
+		}
+		.nfActions {
+			margin-top: 28px;
+			display: flex;
+			gap: 10px;
+			justify-content: center;
+			flex-wrap: wrap;
+		}
+		.nfBtn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			height: 36px;
+			padding: 0 18px;
+			border: 1px solid var(--dsk-border);
+			border-radius: var(--dsk-radius-sm);
+			background: var(--dsk-card);
+			color: var(--dsk-foreground);
+			font-size: var(--dsk-text-sm);
+			font-weight: 500;
+			text-decoration: none;
+			transition: background .16s ease, border-color .16s ease, color .16s ease;
+		}
+		.nfBtn:hover { background: var(--dsk-muted); }
+		.nfBtnPrimary {
+			background: var(--dsk-primary);
+			border-color: var(--dsk-primary);
+			color: var(--dsk-primary-foreground);
+		}
+		.nfBtnPrimary:hover {
+			background: var(--dsk-primary-hover);
+			border-color: var(--dsk-primary-hover);
+		}
+	</style>
+</head>
+<body>
+	<main class="nfPage">
+		<p class="nfCode">404</p>
+		<h1 class="nfTitle">这个页面不存在</h1>
+		<p class="nfSub">链接可能已失效，或者这个地址从来没有存在过。</p>
+		<div class="nfActions">
+			<a class="nfBtn nfBtnPrimary" href="/">回到首页</a>
+			<a class="nfBtn" href="/Cube/">浏览 Cube</a>
+			<a class="nfBtn" href="/Study/">浏览 Study</a>
+		</div>
+	</main>
+
+	<!-- nav.js 只注册 window.siteNav，顶栏要由页面自己 init；顺带把主题切换接上 -->
+	<script>
+		document.addEventListener("DOMContentLoaded", function () {
+			if (window.siteNav && typeof window.siteNav.init === "function") {
+				window.siteNav.init({
+					setTheme: function (theme) {
+						theme = theme === "dark" ? "dark" : "light";
+						document.documentElement.dataset.theme = theme;
+						var btn = document.getElementById("siteThemeToggle");
+						if (btn) { btn.textContent = theme === "dark" ? "☀" : "☾"; }
+						try { localStorage.setItem("smartCubeTheme", theme); } catch (e) {}
+					}
+				});
+			}
+		});
+	</script>
+</body>
+</html>

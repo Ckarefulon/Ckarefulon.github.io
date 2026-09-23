@@ -1,4 +1,4 @@
-/* 自动生成：Cube/Formula/assets/lib/mathlib.js 导出的置换表（勿手工编辑） */
+/* 自动生成：Cube/lib/mathlib.js 导出的置换表（勿手工编辑） */
 var CROSS_TABLES = (function () {
   var MOVE_NAMES = ["U","U2","U'","R","R2","R'","F","F2","F'","D","D2","D'","L","L2","L'","B","B2","B'"];
   var EDGE_FACELETS = [[5,10],[7,19],[3,37],[1,46],[32,16],[28,25],[30,43],[34,52],[23,12],[21,41],[50,39],[48,14]];

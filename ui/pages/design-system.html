@@ -4,8 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <link rel="stylesheet" href="/nav/nav.css?v=11">
-    <script src="/nav/nav.js?v=11" defer></script>
+    <script>
+        /* 全站主题落地：进页面先把上一次选的主题贴到 <html> 上（早于样式，避免深浅跳一下）。
+           本页静态写死的是 data-theme="dark"，这里只做「有存过就用存过的」覆盖。 */
+        (function () {
+            try {
+                var t = localStorage.getItem("smartCubeTheme");
+                if (t === "light" || t === "dark") {
+                    document.documentElement.setAttribute("data-theme", t);
+                }
+            } catch (e) {}
+        })();
+    </script>
+
+    <link rel="stylesheet" href="/nav/nav.css?v=12">
+    <script src="/nav/nav.js?v=12" defer></script>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
     <script src="/supabase/supabase-config.js?v=0618" defer></script>
