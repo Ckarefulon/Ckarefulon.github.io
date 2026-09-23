@@ -1,50 +1,44 @@
 name: Sync to Sub-repositories
 
+# 同步范围不再手写清单，而是由 .github/scripts/discover-sync-targets.sh 现场推导：
+# 站点里所有「每一级目录名都以大写字母 A-Z 开头」的目录（判据同站点根的 .make-index.ps1）
+# 都各是一个目标，仓库名 = 路径里的 "/" 换成 "-"（Cube/Formula → Cube-Formula）。
 on:
   push:
     branches:
       - main
+    # 同步范围是现场推导的，不在 workflow 里静态列举；
+    # 任何改动（含 .github/ 下的 workflow 与脚本本身）都触发一轮。
     paths:
-      - '*'
-      - '[a-z]*/**'
-      - 'Tools/Relay/**'
-      - 'Cube/Cross/**'
-      - 'Cube/Formula/**'
-      - 'Cube/Analyzer/**'
-      - 'Cube/Music/**'
-      - 'Tools/KGenesis/**'
-      - 'Tools/Pulse/**'
-      - 'Study/Focus**'
-      - 'Study/Timer**'
-      - 'Study/Question**'
+      - '**'
 
 jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.scan.outputs.matrix }}
+      count: ${{ steps.scan.outputs.count }}
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v6
+        with:
+          path: source
+
+      - name: Discover sync targets
+        id: scan
+        env:
+          TARGET_OWNER: Ckarefulon
+          REPO_TOKEN: ${{ secrets.TARGET_REPO_TOKEN }}
+        run: bash source/.github/scripts/discover-sync-targets.sh source
+
   sync:
+    needs: discover
+    if: needs.discover.outputs.count != '0'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - target_repo: Tools-Relay
-            source_path: Tools/Relay
-          - target_repo: Cube-Cross
-            source_path: Cube/Cross
-          - target_repo: Cube-Formula
-            source_path: Cube/Formula
-          - target_repo: Cube-Analyzer
-            source_path: Cube/Analyzer
-          - target_repo: Cube-Music
-            source_path: Cube/Music
-          - target_repo: Tools-KGenesis
-            source_path: Tools/KGenesis
-          - target_repo: Tools-Pulse
-            source_path: Tools/Pulse
-          - target_repo: Study-Focus
-            source_path: Study/Focus
-          - target_repo: Study-Timer
-            source_path: Study/Timer
-          - target_repo: Study-Question
-            source_path: Study/Question
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
 
     steps:
       - name: Checkout source repository
@@ -70,29 +64,9 @@ jobs:
             ! -name 'README.md' \
             -exec rm -rf {} +
 
-      - name: Sync folders and files
+      - name: Sync target folder and its lowercase ancestors
         run: |
-          cd source
-
-          # 1. 复制所有首字母小写的顶层目录（完整内容）
-          for d in */; do
-            d="${d%/}"
-            if [[ "$d" =~ ^[a-z] ]]; then
-              mkdir -p "../target/$d"
-              rsync -av "$d/" "../target/$d/"
-            fi
-          done
-
-          # 2. 复制根目录下的所有普通文件（不含子目录）
-          for f in *; do
-            [ -f "$f" ] && cp "$f" ../target/
-          done
-
-          # 3. 单独复制当前矩阵项指定的深层子目录（与触发路径一致）
-          mkdir -p "../target/${{ matrix.source_path }}"
-          if [ -d "${{ matrix.source_path }}" ] && [ "$(ls -A "${{ matrix.source_path }}" 2>/dev/null)" ]; then
-            cp -r "${{ matrix.source_path }}"/* "../target/${{ matrix.source_path }}/"
-          fi
+          bash source/.github/scripts/sync-one-target.sh source target '${{ matrix.source_path }}'
 
       - name: Commit and push to target
         run: |

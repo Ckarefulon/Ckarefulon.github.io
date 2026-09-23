@@ -236,7 +236,7 @@
   function syncFilterUI(){ $('#methodFilter').value=state.filters.method;$('#sessionFilter').value=state.filters.session;$('#deviceFilter').value=state.filters.device;$('#startDate').value=state.filters.start;$('#endDate').value=state.filters.end }
 
   const trainer={
-    phase:'scramble',scramble:'',scrambleMoves:[],scrambleObservedMoves:[],fixDone:[],prevCorrections:[],scrambleTargetFacelet:'',scrambleBaseReady:false,scrambleComplete:false,
+    phase:'scramble',scramble:'',scrambleMoves:[],scrambleObservedMoves:[],scrambleViewStore:null,scrambleTargetFacelet:'',scrambleBaseReady:false,scrambleComplete:false,
     moves:[],timestamps:[],rawSolutionSequence:[],snapshots:[],gyroSamples:[],startFacelet:'',startedAt:0,startedEpoch:0,
     inspectionStartedAt:0,inspectionPenalty:'ok',raf:0,lastSolved:false,timingMode:'pending'
   };
@@ -297,36 +297,22 @@
     return out.join(' ');
   }
 
+  /* 打乱公式动态视图：整个功能块（算法 + HTML + 三态配色）在 /Cube/assets/scramble/（与 Cross 共用一份） */
   function computeScrambleView(){
-    const target=trainer.scrambleMoves,simp=simplifyMoves(trainer.scrambleObservedMoves);let k=0;
-    while(k<simp.length&&k<target.length&&simp[k]===target[k])k++;
-    const extra=simp.slice(k),correcting=extra.length>0&&k<target.length;let corr=[],rest=target.slice(k),ri=0;
-    if(correcting){
-      corr=invertMoves(extra);let changed=true;
-      while(changed&&corr.length&&ri<rest.length){
-        changed=false;const a=parseMove(corr[corr.length-1]),b=parseMove(rest[ri]);
-        if(a&&b&&a.face===b.face){const pw=(a.power+b.power)%4;corr.pop();if(pw)corr.push(moveText(a.face,pw));ri++;changed=true}
-      }
-    }
-    const prev=trainer.prevCorrections||[];
-    if(prev.length>corr.length){
-      const diff=prev.length-corr.length;
-      const remaining=prev.slice(diff);
-      if(remaining.every((v,i)=>v===corr[i]))prev.slice(0,diff).forEach(m=>trainer.fixDone.push({position:k,move:m}));
-    }
-    trainer.prevCorrections=corr.slice();
-    const items=[],done=trainer.fixDone||[];let used=new Set();
-    function emitFix(position){done.forEach((v,i)=>{if(!used.has(i)&&v.position<=position){items.push({text:v.move,cls:'isDone isFixDone'});used.add(i)}})}
-    if(correcting){for(let i=0;i<k;i++){emitFix(i);items.push({text:target[i],cls:'isDone'})}emitFix(k);corr.forEach((m,i)=>items.push({text:m,cls:i===0?'isFix isCurrent':'isPending'}));for(let i=ri;i<rest.length;i++)items.push({text:rest[i],cls:'isPending'});}
-    else{target.forEach((m,i)=>{emitFix(i);items.push({text:m,cls:i<k?'isDone':i===k?'isCurrent':'isPending'})});emitFix(target.length)}
-    return {items,progress:k,correcting,done:k===target.length&&extra.length===0};
+    if(!trainer.scrambleViewStore)trainer.scrambleViewStore={};
+    return ScrambleView.compute({
+      observed:trainer.scrambleObservedMoves,
+      target:trainer.scrambleMoves,
+      store:trainer.scrambleViewStore,
+      fixMode:'lte'
+    });
   }
 
   function renderScramble(){
     const el=$('#scrambleText'),meta=$('#scrambleMeta');if(!el)return;
     if(!trainer.scrambleMoves.length){el.textContent='—';if(meta)meta.textContent='';return}
     const view=computeScrambleView();
-    el.innerHTML=view.items.map(it=>`<span class="scramble-step ${it.cls}">${esc(it.text)}</span>`).join('');
+    ScrambleView.render(el,view);
     if(!meta)return;
     if(!Cube||!Cube.isConnected()){meta.textContent='未连接魔方 · 可按 Space 手动起停';return}
     if(!trainer.scrambleBaseReady){meta.textContent='请先把智能魔方复原，再按公式打乱';return}
@@ -392,7 +378,7 @@
     if(!Cube||!Cube.isConnected())return;
     const f=facelet||Cube.getFacelet?.()||'';
     if(Cube.isSolved(f)){
-      trainer.scrambleBaseReady=true;trainer.scrambleObservedMoves=[];trainer.fixDone=[];trainer.prevCorrections=[];trainer.scrambleComplete=false;
+      trainer.scrambleBaseReady=true;trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;trainer.scrambleComplete=false;
       phase('scramble','按公式打乱','完成后即可开始计时');renderScramble();
     }else{
       trainer.scrambleBaseReady=false;trainer.scrambleComplete=false;
@@ -401,7 +387,7 @@
   }
 
   function nextScramble(){
-    cancelAnimationFrame(trainer.raf);resetLive();trainer.scramble=randomScramble();trainer.scrambleMoves=trainer.scramble.split(/\s+/).filter(Boolean);trainer.scrambleObservedMoves=[];trainer.fixDone=[];trainer.prevCorrections=[];
+    cancelAnimationFrame(trainer.raf);resetLive();trainer.scramble=randomScramble();trainer.scrambleMoves=trainer.scramble.split(/\s+/).filter(Boolean);trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;
     trainer.scrambleTargetFacelet=faceletAfterMoves(trainer.scrambleMoves);trainer.scrambleBaseReady=false;trainer.scrambleComplete=false;trainer.timingMode='pending';$('#timerValue').textContent='0.00';
     if(Cube&&Cube.isConnected())prepareScrambleBase(Cube.getFacelet?.());
     else phase('scramble','按公式打乱','完成后按 Space 手动起停；连接魔方后也可状态自动起停');
@@ -414,7 +400,7 @@
     if(trainer.phase!=='scramble')return false;
     if(!trainer.scrambleBaseReady){
       if(detail.previousFacelet&&Cube.isSolved(detail.previousFacelet))trainer.scrambleBaseReady=true;
-      else if(detail.solved){trainer.scrambleBaseReady=true;trainer.scrambleObservedMoves=[];trainer.fixDone=[];trainer.prevCorrections=[];renderScramble();phase('scramble','按公式打乱','完成后即可开始计时');return true}
+      else if(detail.solved){trainer.scrambleBaseReady=true;trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;renderScramble();phase('scramble','按公式打乱','完成后即可开始计时');return true}
       else{renderScramble();return true}
     }
     const observed=Array.isArray(detail.rawMoves)&&detail.rawMoves.length?detail.rawMoves:[detail.move];trainer.scrambleObservedMoves.push(...observed.filter(Boolean));renderScramble();
@@ -425,7 +411,7 @@
 
   function handleCubeState(detail){
     if(trainer.phase==='scramble'){
-      if(!trainer.scrambleBaseReady&&detail.solved){trainer.scrambleBaseReady=true;trainer.scrambleObservedMoves=[];trainer.fixDone=[];trainer.prevCorrections=[];phase('scramble','按公式打乱','完成后即可开始计时');renderScramble();return}
+      if(!trainer.scrambleBaseReady&&detail.solved){trainer.scrambleBaseReady=true;trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;phase('scramble','按公式打乱','完成后即可开始计时');renderScramble();return}
       if(trainer.scrambleBaseReady&&!trainer.scrambleComplete&&trainer.scrambleTargetFacelet&&sameFacelet(detail.facelet,trainer.scrambleTargetFacelet))markScrambleComplete();
     }
   }

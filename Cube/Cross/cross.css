@@ -1,34 +1,28 @@
-/* Cross 训练 · 视觉参照 ui 设计系统（深色）；一屏自适应布局，任何时刻不滚动 */
+/* Cross 训练 · 配色一律取全站设计令牌（/ui/colors_and_type.css 的 dsk-*），随 data-theme 深浅切换。
+   一屏自适应布局，任何时刻不滚动。
+
+   ⚠️ 本文件必须排在设计令牌表【之后】（见 index.html）：两边都写 :root，同名令牌后者胜。
+      之前顺序是反的 ⇒ 令牌表里语义为「次级面板底色」的 --dsk-muted 顶掉了本页当「次级文字色」
+      用的同名变量，一串文字被染成卡片底色本身（深色 1.22:1、浅色 1.16:1，等于看不见）。
+      ⇒ 本页不再自定义任何 --dsk-* 名字，只用设计令牌；缺什么就挑语义最接近的那一个。
+         · 次级文字   → --dsk-foreground-muted（深色 #a0a3b8，与原来一模一样）
+         · 更淡的说明 → --dsk-foreground-subtle（深色 #6e7088，与原来一模一样）
+         · 卡片内的次级面板（打乱框 / 解法条 / 记录条 / 控件底）→ --dsk-background-elevated
+           （深色 #161328，与原来的 #161426 基本同色；浅色给 #fff，靠描边区分） */
 :root {
-	color-scheme: dark;
-	--dsk-background: #0f0d18;
-	--dsk-card: #1a1829;
-	--dsk-card-2: #161426;
-	--dsk-foreground: #e8e8f4;
-	--dsk-muted: #a0a3b8;
-	--dsk-subtle: #6e7088;
-	--dsk-border: #2e2c44;
-	--dsk-input: #201e32;
-	--dsk-primary: #6b5dc2;
-	--dsk-primary-hover: #7d6fd4;
-	--dsk-accent: #24f0ea;
-	--dsk-accent-soft: rgba(36, 240, 234, 0.10);
-	--dsk-accent-ring: rgba(36, 240, 234, 0.35);
-	--dsk-primary-soft: rgba(107, 93, 194, 0.18);
-	--dsk-danger: #e85d6a;
-	--dsk-radius-sm: 6px;
-	--dsk-radius-md: 8px;
-	--dsk-radius-lg: 12px;
-	--dsk-font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-	--dsk-font-mono: 'SF Mono', 'Cascadia Mono', 'Consolas', 'Monaco', monospace;
-	/* nav（站点导航栏）所需的实底变量：背景不透明、分割线同主题 */
-	--surfaceSolid: #1a1829;
-	--line: #2e2c44;
+	/* nav（站点导航栏）旧名 → 设计令牌：nav.css 首选 --dsk-*，这两个只在令牌表没加载时兜底
+	   （写法与 Study/Timer、Study/Question 等页一致） */
+	--surfaceSolid: var(--dsk-card);
+	--line: var(--dsk-border);
 }
 
 * { box-sizing: border-box; }
 
-html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+/* ⚠️ 这里**不要**给 body 写 padding —— nav.css 用 `body{padding-top: 顶栏高}` 给固定顶栏让位，
+   一旦被清成 0，顶栏就会实实在在压住第一行内容（设置行、打乱标题都在上沿 44px 内）。
+   .page 的高度已经扣掉顶栏高，所以底部也不会溢出。 */
+body { margin: 0; height: 100%; overflow: hidden; }
 /* 自适应缩放基准：大屏字体/间距整体放大，小屏缩小 */
 html { font-size: clamp(17px, 1.2vh + 0.9vw, 31px); }
 
@@ -36,11 +30,11 @@ body {
 	font-family: var(--dsk-font-sans);
 	font-size: 1rem;
 	color: var(--dsk-foreground);
-	background:
-		radial-gradient(ellipse 60% 40% at 12% 0%, rgba(93, 78, 168, 0.22), transparent 60%),
-		radial-gradient(ellipse 50% 35% at 100% 10%, rgba(93, 78, 168, 0.10), transparent 55%),
-		radial-gradient(circle at 85% 90%, rgba(36, 240, 234, 0.04), transparent 40%),
-		linear-gradient(180deg, #12101f 0%, #0b0a14 100%);
+	/* 页面氛围直接吃设计令牌的 --dsk-page-bg：深色与原来那串手写渐变逐值相同，
+	   浅色自动换成「冷白空间 + 雾紫 + 一点青」（与全站其余页同一套氛围） */
+	background: var(--dsk-background);
+	background-image: var(--dsk-page-bg);
+	background-attachment: fixed;
 	-webkit-font-smoothing: antialiased;
 }
 
@@ -70,26 +64,26 @@ body {
 	font: inherit;
 	font-size: 0.875rem;
 	border: 1px solid var(--dsk-border);
-	background: var(--dsk-card-2);
+	background: var(--dsk-background-elevated);
 	color: var(--dsk-foreground);
 	padding: 0.4375rem 0.875rem;
 	border-radius: var(--dsk-radius-md);
 	cursor: pointer;
 	transition: background .15s, border-color .15s, color .15s, transform .1s;
 }
-.btn:hover { background: #221f36; border-color: #3a3760; }
+.btn:hover { background: var(--dsk-muted); }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: .5; cursor: default; }
 .btnSm { padding: 0.3125rem 0.75rem; font-size: 0.8125rem; }
 .btnPrimary {
 	background: var(--dsk-primary);
 	border-color: transparent;
-	color: #fff;
+	color: var(--dsk-primary-foreground);
 }
 .btnPrimary:hover { background: var(--dsk-primary-hover); border-color: transparent; }
 .btnGhost { background: transparent; }
 .btnGhost:hover { background: var(--dsk-primary-soft); }
-.btn.isActive { background: var(--dsk-primary); border-color: transparent; color: #fff; }
+.btn.isActive { background: var(--dsk-primary); border-color: transparent; color: var(--dsk-primary-foreground); }
 
 /* ---------- card ---------- */
 .card {
@@ -113,24 +107,26 @@ body {
 	letter-spacing: .4px;
 	color: var(--dsk-foreground);
 }
-.headCount { color: var(--dsk-subtle); font-weight: 500; margin-left: 6px; font-size: 0.8125rem; }
-.hint { font-size: 0.75rem; color: var(--dsk-subtle); }
+.headCount { color: var(--dsk-foreground-subtle); font-weight: 500; margin-left: 6px; font-size: 0.8125rem; }
+.hint { font-size: 0.75rem; color: var(--dsk-foreground-subtle); }
 .legend { display: inline-flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 .dot { font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.3125rem; }
-.dot::before { content: ""; width: 0.4375rem; height: 0.4375rem; border-radius: 50%; display: inline-block; }
-.dotPending { color: #b3a5ee; } .dotPending::before { background: var(--dsk-primary); }
-.dotCurrent { color: var(--dsk-accent); } .dotCurrent::before { background: var(--dsk-accent); }
-.dotDone { color: var(--dsk-subtle); } .dotDone::before { background: var(--dsk-subtle); opacity: .55; }
+/* 圆点直接吃本级文字色 ⇒ 图例永远与打乱公式里的实体同色（颜色唯一来源 = 功能块的 --scramble-*） */
+.dot::before { content: ""; width: 0.4375rem; height: 0.4375rem; border-radius: 50%; display: inline-block; background: currentColor; }
+.dotPending { color: var(--scramble-pending); }
+.dotCurrent { color: var(--scramble-current); }
+.dotDone { color: var(--dsk-foreground-muted); }
+.dotDone::before { opacity: .55; }
 
 /* ---------- settings ---------- */
 .settings { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.625rem 1rem; }
 .setRow { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
-.setLabel { font-size: 0.75rem; color: var(--dsk-muted); width: 3.75rem; flex: none; }
+.setLabel { font-size: 0.75rem; color: var(--dsk-foreground-muted); width: 3.75rem; flex: none; }
 .spacer { flex: 1; }
-.btStatus { font-size: 0.75rem; color: var(--dsk-muted); }
+.btStatus { font-size: 0.75rem; color: var(--dsk-foreground-muted); }
 .btDot {
 	width: 0.5rem; height: 0.5rem; border-radius: 50%; flex: none;
-	background: var(--dsk-subtle);
+	background: var(--dsk-foreground-subtle);
 	transition: background .2s, box-shadow .2s;
 }
 .btDot[data-state="on"] { background: var(--dsk-accent); box-shadow: 0 0 10px var(--dsk-accent-ring); }
@@ -138,7 +134,7 @@ body {
 
 .phaseChip {
 	font-size: 0.6875rem; padding: 0.1875rem 0.5625rem; border-radius: 999px;
-	border: 1px solid var(--dsk-border); color: var(--dsk-muted);
+	border: 1px solid var(--dsk-border); color: var(--dsk-foreground-muted);
 }
 .phaseChip[data-phase="scramble"] { color: var(--dsk-accent); border-color: var(--dsk-accent-ring); background: var(--dsk-accent-soft); }
 .phaseChip[data-phase="solve"] { color: var(--dsk-accent); border-color: var(--dsk-accent-ring); background: var(--dsk-accent-soft); }
@@ -164,11 +160,11 @@ body {
 .stepChip {
 	font: inherit; font-size: 0.75rem; font-variant-numeric: tabular-nums;
 	min-width: 1.8125rem; padding: 0.25rem 0; text-align: center;
-	background: var(--dsk-card-2); border: 1px solid var(--dsk-border);
-	color: var(--dsk-muted); border-radius: var(--dsk-radius-sm); cursor: pointer;
+	background: var(--dsk-background-elevated); border: 1px solid var(--dsk-border);
+	color: var(--dsk-foreground-muted); border-radius: var(--dsk-radius-sm); cursor: pointer;
 }
 .stepChip:hover { background: var(--dsk-primary-soft); color: var(--dsk-foreground); }
-.stepChip.isActive { background: var(--dsk-accent); border-color: transparent; color: #06110f; font-weight: 650; }
+.stepChip.isActive { background: var(--dsk-accent); border-color: transparent; color: var(--dsk-accent-foreground); font-weight: 650; }
 
 /* ---------- scramble（动态修正公式，逐步着色） ---------- */
 .scramble {
@@ -177,7 +173,7 @@ body {
 	line-height: 1.7;
 	letter-spacing: .3px;
 	color: var(--dsk-foreground);
-	background: var(--dsk-card-2);
+	background: var(--dsk-background-elevated);
 	border: 1px solid var(--dsk-border);
 	border-radius: var(--dsk-radius-md);
 	padding: 0.625rem 0.9375rem;
@@ -188,23 +184,11 @@ body {
 	min-height: 0;
 	overflow-y: auto;
 }
-.scramble:hover { border-color: #3a3760; }
-.scStep, .undoStep { border-radius: 4px; padding: 0 1px; margin-right: .5em; display: inline-block; transition: color .15s, opacity .15s; }
-.scStep.isPending { color: #a796ec; }          /* 紫：待打乱（含修正步） */
-.scStep.isCurrent {
-	color: var(--dsk-accent);                     /* 青：当前步 */
-	text-shadow: 0 0 12px var(--dsk-accent-ring);
-	text-decoration: underline;
-	text-underline-offset: 4px;
-	text-decoration-color: var(--dsk-accent-ring);
-}
-.scStep.isDone { opacity: .35; }               /* 半透明：已打乱 */
-.scStep.isFix {
-	color: var(--dsk-accent);                     /* 修正步：青色系 */
-	background: var(--dsk-accent-soft);
-}
+.scramble:hover { border-color: var(--dsk-primary); }
+.undoStep { border-radius: 4px; padding: 0 1px; margin-right: .5em; display: inline-block; transition: color .15s, opacity .15s; }
+/* 打乱公式的逐步着色（.scramble-step 三态）由功能块自带：/Cube/assets/scramble/scramble.css */
 .rowActions { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
-.metaText { font-size: 0.6875rem; color: var(--dsk-subtle); }
+.metaText { font-size: 0.6875rem; color: var(--dsk-foreground-subtle); }
 
 /* ---------- 状态图：默认隐藏，按钮悬浮/点击弹出 ---------- */
 .cubePopWrap { position: relative; }
@@ -212,19 +196,20 @@ body {
 	display: none;
 	position: fixed;
 	left: 12px;
-	top: 12px;
+	/* 兜底位置：顶栏下沿 + 12，别让弹窗钻到顶栏底下（JS 定位时同样按顶栏下沿夹紧） */
+	top: calc(var(--site-nav-height, 44px) + 12px);
 	z-index: 60;
 	background: var(--dsk-card);
-	border: 2px solid #4a4770;
+	border: 2px solid var(--dsk-popover-border);
 	border-radius: var(--dsk-radius-lg);
-	box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+	box-shadow: var(--dsk-shadow-lg);
 	padding: 0.875rem 1.125rem;
 	min-width: 17.5rem;
 }
 .cubePopWrap.isPinned .cubePop { display: block; }
 .cubePopHead { display: flex; align-items: baseline; gap: 0.625rem; margin-bottom: 0.75rem; }
 .cubePopHead span:first-child { font-size: 0.875rem; font-weight: 600; }
-.cubeHint { font-size: 0.75rem; color: var(--dsk-subtle); }
+.cubeHint { font-size: 0.75rem; color: var(--dsk-foreground-subtle); }
 /* 魔方展开图（.cubeNet / .face / .sticker）已抽到 Cube 公用：Cube/cube-net/cube-net.css */
 
 /* ---------- solutions（占满剩余高度，内部滚动） ---------- */
@@ -242,7 +227,7 @@ body {
 	font-family: var(--dsk-font-mono);
 	font-size: clamp(0.75rem, 1.9vh, 0.875rem);
 	padding: 0.375rem 0.6875rem;
-	background: var(--dsk-card-2);
+	background: var(--dsk-background-elevated);
 	border: 1px solid var(--dsk-border);
 	border-radius: var(--dsk-radius-sm);
 	color: var(--dsk-foreground);
@@ -270,8 +255,8 @@ body {
 	background: var(--dsk-primary-soft);
 }
 .solItem.isHinted::after { content: " ✓"; }
-.solMore { font-size: 0.6875rem; color: var(--dsk-subtle); padding: 0.375rem 0.125rem; width: 100%; }
-.emptyHint { font-size: 0.6875rem; color: var(--dsk-subtle); margin-top: 0.5rem; flex: none; }
+.solMore { font-size: 0.6875rem; color: var(--dsk-foreground-subtle); padding: 0.375rem 0.125rem; width: 100%; }
+.emptyHint { font-size: 0.6875rem; color: var(--dsk-foreground-subtle); margin-top: 0.5rem; flex: none; }
 
 /* ---------- 记录（历史） ---------- */
 .recScore {
@@ -283,19 +268,19 @@ body {
 .recChip {
 	font: inherit; font-size: 0.6875rem; font-variant-numeric: tabular-nums;
 	min-width: 1.5625rem; padding: 0.1875rem 0; text-align: center;
-	background: var(--dsk-card-2); border: 1px solid var(--dsk-border);
-	color: var(--dsk-muted); border-radius: var(--dsk-radius-sm); cursor: pointer;
+	background: var(--dsk-background-elevated); border: 1px solid var(--dsk-border);
+	color: var(--dsk-foreground-muted); border-radius: var(--dsk-radius-sm); cursor: pointer;
 }
 .recChip:hover { background: var(--dsk-primary-soft); color: var(--dsk-foreground); }
-.recChip.isActive { background: var(--dsk-accent); border-color: transparent; color: #06110f; font-weight: 650; }
-.recCloud { font-size: 0.6875rem; color: var(--dsk-subtle); flex: none; }
+.recChip.isActive { background: var(--dsk-accent); border-color: transparent; color: var(--dsk-accent-foreground); font-weight: 650; }
+.recCloud { font-size: 0.6875rem; color: var(--dsk-foreground-subtle); flex: none; }
 .recList {
 	flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px;
 	display: flex; flex-direction: column; gap: 0.4375rem;
 }
-.recEmpty { font-size: 0.75rem; color: var(--dsk-subtle); padding: 0.25rem 0.125rem; }
+.recEmpty { font-size: 0.75rem; color: var(--dsk-foreground-subtle); padding: 0.25rem 0.125rem; }
 .recItem {
-	flex: none; background: var(--dsk-card-2);
+	flex: none; background: var(--dsk-background-elevated);
 	border: 1px solid var(--dsk-border); border-radius: var(--dsk-radius-md);
 	overflow: hidden;
 }
@@ -305,10 +290,10 @@ body {
 	transition: background .15s;
 }
 .recItemHead:hover { background: var(--dsk-primary-soft); }
-.recTime { font-size: 0.6875rem; color: var(--dsk-subtle); font-variant-numeric: tabular-nums; }
-.recSteps { font-size: 0.6875rem; color: var(--dsk-muted); }
+.recTime { font-size: 0.6875rem; color: var(--dsk-foreground-subtle); font-variant-numeric: tabular-nums; }
+.recSteps { font-size: 0.6875rem; color: var(--dsk-foreground-muted); }
 .recRatio { font-size: 0.6875rem; color: var(--dsk-accent); font-variant-numeric: tabular-nums; }
-.recChevron { margin-left: auto; font-size: 0.625rem; color: var(--dsk-subtle); transition: transform .15s; }
+.recChevron { margin-left: auto; font-size: 0.625rem; color: var(--dsk-foreground-subtle); transition: transform .15s; }
 .recItem.isExpanded .recChevron { transform: rotate(180deg); }
 .recDelBtn {
 	flex: none;
@@ -321,7 +306,7 @@ body {
 	padding: 0;
 	border: 0;
 	background: transparent;
-	color: var(--dsk-subtle);
+	color: var(--dsk-foreground-subtle);
 	border-radius: 50%;
 	cursor: pointer;
 	opacity: 0.45;
@@ -342,17 +327,19 @@ body {
 .recSol.isDone .recSolText::after { content: " ✓"; }
 .recSol.isHinted .recSolText { color: var(--dsk-primary-hover); }
 .recSol.isHinted .recSolText::after { content: " ✓"; }
+/* 星标金是「星标」这一内容色，设计令牌表里没有对应项（--dsk-warning 是警示色，语义不同、
+   以后调警示色不该连累星标）⇒ 这里保持写死，和下面 .swatch 的贴纸色同理 */
 .recStarBtn {
 	font: inherit; font-size: 0.75rem; line-height: 1;
 	background: none; border: 0; padding: 0 0.1875rem;
-	color: var(--dsk-subtle); cursor: pointer; margin-left: auto; flex: none;
+	color: var(--dsk-foreground-subtle); cursor: pointer; margin-left: auto; flex: none;
 	transition: color .15s, transform .12s;
 }
 .recStarBtn:hover { transform: scale(1.15); color: #f5c518; }
 .recStarBtn.isActive { color: #f5c518; }
 .recStarsHead { display: flex; align-items: baseline; gap: 0.375rem; flex: none; margin: 0.5625rem 0 0.375rem; }
 .recStarsHead span:first-child { font-size: 0.8125rem; font-weight: 620; letter-spacing: .4px; color: var(--dsk-foreground); }
-.recStarsCount { font-size: 0.6875rem; color: var(--dsk-subtle); }
+.recStarsCount { font-size: 0.6875rem; color: var(--dsk-foreground-subtle); }
 .recStars {
 	flex: none; max-height: clamp(5rem, 22vh, 12rem); overflow-y: auto; padding-right: 4px;
 	display: grid; grid-template-columns: 1fr 1fr; gap: 0.375rem;
@@ -361,13 +348,13 @@ body {
 .recStarItem {
 	font: inherit; font-family: var(--dsk-font-mono); font-size: 0.6875rem;
 	text-align: left; min-width: 0;
-	background: var(--dsk-card-2); border: 1px solid var(--dsk-border);
+	background: var(--dsk-background-elevated); border: 1px solid var(--dsk-border);
 	border-radius: var(--dsk-radius-sm); color: #f5c518;
 	padding: 0.3125rem 0.5rem; cursor: pointer;
 	white-space: nowrap; overflow: hidden;
 	transition: background .15s, border-color .15s;
 }
-.recStarItem:hover { background: var(--dsk-primary-soft); border-color: #3a3760; }
+.recStarItem:hover { background: var(--dsk-primary-soft); border-color: var(--dsk-primary); }
 .recStarItem.isFull { grid-column: 1 / -1; }
 
 /* ---------- 记录 3D 预览弹窗 ---------- */
@@ -379,7 +366,7 @@ body {
 	width: min(620px, 92vw); height: min(560px, 84vh);
 	background: var(--dsk-card); border: 1px solid var(--dsk-border);
 	border-radius: var(--dsk-radius-lg);
-	box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+	box-shadow: var(--dsk-shadow-lg);
 	display: flex; flex-direction: column;
 	padding: 0.875rem 1rem;
 }
@@ -391,15 +378,15 @@ body {
 }
 .recModalStage {
 	flex: 1; min-height: 0; position: relative;
-	background: var(--dsk-card-2); border: 1px solid var(--dsk-border);
+	background: var(--dsk-background-elevated); border: 1px solid var(--dsk-border);
 	border-radius: var(--dsk-radius-md); overflow: hidden;
 }
-.recModalHint { flex: none; font-size: 0.6875rem; color: var(--dsk-subtle); margin-top: 0.5rem; }
+.recModalHint { flex: none; font-size: 0.6875rem; color: var(--dsk-foreground-subtle); margin-top: 0.5rem; }
 
 /* ---------- moves ---------- */
 .moveRow { display: flex; align-items: flex-start; gap: 0.625rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
 .tag {
-	font-size: 0.75rem; color: var(--dsk-muted); border: 1px solid var(--dsk-border);
+	font-size: 0.75rem; color: var(--dsk-foreground-muted); border: 1px solid var(--dsk-border);
 	border-radius: var(--dsk-radius-sm); padding: 0.1875rem 0.5625rem; flex: none;
 	margin-top: 0.125rem;
 }
@@ -419,7 +406,7 @@ body {
 .inputRow input {
 	flex: 1; min-width: 0;
 	font: inherit; font-family: var(--dsk-font-mono); font-size: 0.8125rem;
-	background: var(--dsk-input); color: var(--dsk-foreground);
+	background: var(--dsk-input); color: var(--dsk-input-foreground);
 	border: 1px solid var(--dsk-border); border-radius: var(--dsk-radius-md);
 	padding: 0.5rem 0.6875rem;
 }

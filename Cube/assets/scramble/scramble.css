@@ -1,0 +1,58 @@
+/*
+ * 打乱公式动态视图 —— 功能块自带样式（Cube/assets/scramble/scramble.css）
+ *
+ * 这个功能块自带「算法 + HTML + 样式」三件套，任何页面引用它，外观就一致：
+ *   未进行   isPending   紫
+ *   进行中   isCurrent   青（下划线 + 微发光）
+ *   修正步   isFix       青 + 青色底（和普通当前步区分开）
+ *   已打乱   isDone      半透明
+ *   修正完成 isFixDone   半透明
+ *
+ * 想调这一功能块的观感，改这里一处即可；页面也可以在自己的样式里覆盖 --scramble-* 变量。
+ * 页面只负责容器的排版（字号 / 对齐 / 内边距），不参与「每一步长什么样」。
+ */
+:root {
+	--scramble-pending: #a796ec;
+	--scramble-current: #24f0ea;
+	--scramble-current-ring: rgba(36, 240, 234, 0.35);
+	--scramble-current-soft: rgba(36, 240, 234, 0.14);
+	--scramble-done-opacity: 0.35;
+}
+
+:root[data-theme="light"] {
+	--scramble-pending: #7a65d0;
+	--scramble-current: #0e9995;
+	--scramble-current-ring: rgba(14, 153, 149, 0.32);
+	--scramble-current-soft: rgba(14, 153, 149, 0.12);
+}
+
+.scramble-step {
+	display: inline-block;
+	padding: 0 3px;
+	margin-right: 0.45em;
+	border-radius: 4px;
+	transition: color 0.15s, opacity 0.15s, background 0.15s;
+}
+
+/* 未进行：紫 */
+.scramble-step.isPending { color: var(--scramble-pending); }
+
+/* 进行中（当前步 / 当前修正步）：青 */
+.scramble-step.isCurrent,
+.scramble-step.isFix {
+	color: var(--scramble-current);
+	text-shadow: 0 0 12px var(--scramble-current-ring);
+	text-decoration: underline;
+	text-underline-offset: 4px;
+	text-decoration-color: var(--scramble-current-ring);
+}
+
+/* 修正步：加青底，和普通当前步区分 */
+.scramble-step.isFix {
+	background: var(--scramble-current-soft);
+	box-shadow: inset 0 0 0 1px var(--scramble-current-ring);
+}
+
+/* 已打乱 / 已做掉的修正步：半透明 */
+.scramble-step.isDone,
+.scramble-step.isFixDone { opacity: var(--scramble-done-opacity); }

@@ -111,7 +111,7 @@
 		'			</button>',
 		'			<div id="donateMenu" class="donateMenu">',
 '				<div class="donateImageWrap" title="微信赞赏码">',
-'					<object class="donateImage" type="image/svg+xml" data="/nav/Reward.svg"></object>',
+'					<object class="donateImage" type="image/svg+xml" data="/nav/reward.svg"></object>',
 '					<span class="donateImageOverlay"></span>',
 		'				</div>',
 		'				<div class="donateText">君之分文，亦为至劲之励！</div>',

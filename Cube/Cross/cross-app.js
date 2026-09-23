@@ -20,8 +20,7 @@
 			revealed: {},        // 手动点开的解法
 		done: {},            // 已完成的解法
 		hinted: {},          // 完成时已处于显示状态的解法（紫色，不算成功）
-		fixDone: [],         // 已完成的修正步（按插入位置保留显示，半透明）
-		prevCorr: [],        // 上一帧的修正步序列（用于检测修正步被做掉）
+		scrambleStore: null, // 打乱公式动态视图的记账对象（算法在 /Cube/assets/scramble/）
 		connected: false,
 		deviceName: '',
 		lastPrevMoves: [],
@@ -158,8 +157,7 @@
 		state.revealed = {};
 		state.done = {};
 		state.hinted = {};
-		state.fixDone = [];
-		state.prevCorr = [];
+		state.scrambleStore = null;
 		recState.currentId = null;
 		state.phase = state.connected ? 'scramble' : 'solve';
 		state.lastPrevMoves = [];
@@ -178,100 +176,34 @@
 	}
 
 	/* ---------------- 打乱公式动态视图 ----------------
-	 * 把已做的转动化简后与打乱序列做前缀匹配：
-	 * - 已匹配部分：半透明（已打乱）
-	 * - 未匹配余项（转错/进行中）：取逆作为「修正步」插入公式（青底），与原剩余首步同面时自动合并
-	 * - 原剩余部分：紫（待打乱）
-	 * - 青色当前步：有且仅有一个，位于半透明与紫的交界（打乱完成时无）
-	 * 任何状态按当前公式继续转，最终都到达目标打乱状态。
+	 * 这一整块（算法 + HTML + 三态配色）就是公用功能块 /Cube/assets/scramble/，
+	 * 与 Analyzer 共用同一份，避免两处漂移；样式也由它自带的 scramble.css 决定。
+	 * 这里只负责：把本页的整数转动转成记号喂进去。
 	 */
-	/* 检测被做掉的修正步：corr 序列恰好从上一帧的前缀缩短 = 前缀里的修正步已被做掉，
-	   按插入位置记入 fixDone，列表里保留显示（半透明，同普通已完成步） */
-	function collectDoneFixes(newCorr, k) {
-		var prev = state.prevCorr;
-		state.prevCorr = newCorr.slice();
-		if (!prev || !prev.length || newCorr.length >= prev.length) { return; }
-		var off = prev.length - newCorr.length;
-		for (var i = 0; i < newCorr.length; i++) {
-			if (prev[off + i] !== newCorr[i]) { return; } /* 非单纯缩短（如中途新增错拧），不记账 */
-		}
-		for (i = 0; i < off; i++) { state.fixDone.push({ pos: k, m: prev[i] }); }
-	}
 
 	function computeScrambleView() {
 		var p = state.puzzle;
-		var simp = E.simplifyMoves(state.allMoves);
-		var k = 0;
-		while (k < simp.length && k < p.scramble.length && simp[k] === p.scramble[k]) { k++; }
-		var extra = simp.slice(k);
-		var correcting = extra.length > 0 && k < p.scramble.length;
-		var corr = [], rest = null, ri = 0;
-		if (correcting) {
-			corr = E.invertMoves(extra);
-			rest = p.scramble.slice(k);
-			var changed = true;
-			while (changed && corr.length && ri < rest.length) {
-				changed = false;
-				var last = corr[corr.length - 1];
-				if (E.moveFace(last) === E.moveFace(rest[ri])) {
-					var pw = (E.movePower(last) + E.movePower(rest[ri])) % 4;
-					corr.pop();
-					if (pw !== 0) { corr.push(E.moveFace(last) * 3 + (pw === 1 ? 0 : pw === 2 ? 1 : 2)); }
-					ri++;
-					changed = true;
-				}
-			}
-		}
-		collectDoneFixes(corr, k);
-		var items = [], i, fi = 0, fixes = state.fixDone;
-		/* 已完成修正步按插入位置插回列表（pos = 插入时所处的打乱进度） */
-		var flush = function (pos) {
-			while (fi < fixes.length && fixes[fi].pos === pos) {
-				items.push({ text: MOVES[fixes[fi].m], cls: 'scStep isDone' });
-				fi++;
-			}
-		};
-		if (correcting) {
-			for (i = 0; i < k; i++) { flush(i); items.push({ text: MOVES[p.scramble[i]], cls: 'scStep isDone' }); }
-			flush(k);
-			for (i = 0; i < corr.length; i++) {
-				items.push({ text: MOVES[corr[i]], cls: 'scStep' + (i === 0 ? ' isFix isCurrent' : ' isPending') });
-			}
-			for (i = ri; i < rest.length; i++) { items.push({ text: MOVES[rest[i]], cls: 'scStep isPending' }); }
-		} else {
-			for (i = 0; i < p.scramble.length; i++) {
-				flush(i);
-				items.push({ text: MOVES[p.scramble[i]], cls: 'scStep' + (i < k ? ' isDone' : ' isPending' + (i === k ? ' isCurrent' : '')) });
-			}
-			flush(p.scramble.length);
-		}
-		return {
-			items: items,
-			progress: k,
-			correcting: correcting,
-			done: k === p.scramble.length && extra.length === 0
-		};
+		if (!p) { return { items: [], progress: 0, correcting: false, done: false }; }
+		if (!state.scrambleStore) { state.scrambleStore = {}; }
+		return ScrambleView.compute({
+			observed: state.allMoves.map(function (m) { return MOVES[m]; }),
+			target: p.scramble.map(function (m) { return MOVES[m]; }),
+			store: state.scrambleStore,
+			fixMode: 'exact'
+		});
 	}
 
 	function renderScrambleSteps() {
 		var p = state.puzzle;
 		if (!p) { return; }
+		var texts = p.scramble.map(function (m) { return MOVES[m]; });
 		if (!(state.connected && state.phase === 'scramble')) {
 			/* 非打乱阶段：打乱完成保持半透明，其余（手动模式）中性 */
 			var allDone = state.connected && state.scrambleProgress === p.scramble.length;
-			var html = '';
-			for (var i = 0; i < p.scramble.length; i++) {
-				html += '<span class="scStep' + (allDone ? ' isDone' : '') + '">' + MOVES[p.scramble[i]] + '</span>';
-			}
-			el.scrambleText.innerHTML = html;
+			ScrambleView.renderMoves(el.scrambleText, texts, { allDone: allDone });
 			return;
 		}
-		var view = computeScrambleView();
-		var out = '';
-		for (var j = 0; j < view.items.length; j++) {
-			out += '<span class="' + view.items[j].cls + '">' + view.items[j].text + '</span>';
-		}
-		el.scrambleText.innerHTML = out;
+		ScrambleView.render(el.scrambleText, computeScrambleView());
 	}
 
 	/* 渐进识别打乱进度：完成即切换到做题阶段 */
@@ -307,8 +239,7 @@
 		state.revealed = {};
 		state.done = {};
 		state.hinted = {};
-		state.fixDone = [];
-		state.prevCorr = [];
+		state.scrambleStore = null;
 		recState.currentId = null;
 		el.revealAll.dataset.all = '';
 		el.revealAll.textContent = '看答案';
@@ -671,8 +602,7 @@
 			state.userMoves = [];
 			state.allMoves = [];
 			state.scrambleProgress = 0;
-			state.fixDone = [];
-			state.prevCorr = [];
+			state.scrambleStore = null;
 			el.matchInfo.textContent = '';
 			/* 连着魔方时「清空」= 以魔方实际状态重新来一道 */
 			if (state.connected && state.realFacelets) { newPuzzle(); return; }
@@ -764,9 +694,14 @@
 		var w = pop.offsetWidth || 300;
 		var h = pop.offsetHeight || 220;
 		var vw = window.innerWidth, vh = window.innerHeight;
+		/* 顶部下限 = 顶栏下沿 + 8：弹窗是 fixed，钻到顶栏底下就会被挡住看不见 */
+		var navH = 44;
+		var navEl = document.querySelector('.siteHeader');
+		if (navEl) { navH = Math.round(navEl.getBoundingClientRect().height) || navH; }
+		var minTop = navH + 8;
 		var left = r.right + 10;
 		if (left + w > vw - 8) { left = Math.max(8, r.left - w - 10); }
-		var top = Math.max(8, Math.min(r.top, vh - h - 8));
+		var top = Math.max(minTop, Math.min(r.top, vh - h - 8));
 		pop.style.left = left + 'px';
 		pop.style.top = top + 'px';
 	}
@@ -1347,6 +1282,18 @@
 		stage.addEventListener('pointercancel', finish);
 	}
 
+	/* ---------------- 主题（与全站共享 smartCubeTheme） ---------------- */
+	/* 顶栏那颗主题键只在页面 init 时传了 setTheme 才出现（nav.js 探不到就隐藏）。
+	   以前这里传的是空对象 ⇒ Cross 成了全站唯一不能切主题的页，顶栏右边比别的页少一颗键。
+	   写法与 Cube/Music 一致：只改 data-theme，云端偏好由登录态那边管。 */
+	function applyTheme(theme) {
+		theme = theme === 'dark' ? 'dark' : 'light';
+		document.documentElement.dataset.theme = theme;
+		var btn = document.getElementById('siteThemeToggle');
+		if (btn) { btn.textContent = theme === 'dark' ? '☀' : '☾'; }
+		try { localStorage.setItem('smartCubeTheme', theme); } catch (e) { /* ignore */ }
+	}
+
 	/* ---------------- 初始化 ---------------- */
 	function init() {
 		['colorPicker', 'stepsPicker', 'scrambleText', 'scrambleMeta', 'copyScramble',
@@ -1365,9 +1312,10 @@
 		bindInput();
 		loadRecords();
 		renderRecords();
-		/* 站点导航栏：authManager.init 由 nav 触发，须在记录云同步之前 */
+		/* 站点导航栏：authManager.init 由 nav 触发，须在记录云同步之前。
+		   顺带把主题切换接上 —— 顶栏那颗主题键没接 setTheme 就是隐藏的。 */
 		if (window.siteNav && typeof window.siteNav.init === 'function') {
-			window.siteNav.init({});
+			window.siteNav.init({ setTheme: applyTheme });
 		}
 		initRecordCloud();
 
