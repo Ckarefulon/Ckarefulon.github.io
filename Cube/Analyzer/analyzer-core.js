@@ -85,17 +85,17 @@
   function getSolvesToDrop(n) { return Math.ceil(0.05 * n); }
 
   function averageWithFlags(solves) {
+    // DNF 不参与平均：先把 DNF（以及没有有效用时的）成绩当作不存在剔除，
+    // 剩余成绩再按原有去头去尾规则计算，避免一个 DNF 把整个 AO 报废或算成 0。
     if (!Array.isArray(solves) || !solves.length) return { time: null, isDNF: false, droppedIds: [] };
-    const n = solves.length;
+    const valid = solves.filter(s => normalizeFlag(s.flag) !== 'dnf' && finite(displayTimeMs(s)));
+    const n = valid.length;
     const drop = getSolvesToDrop(n);
     if (n <= drop * 2) return { time: null, isDNF: false, droppedIds: [] };
-    const sorted = solves.map((s, i) => ({ s, i, e: effectiveTimeMs(s) }))
+    const sorted = valid.map((s, i) => ({ s, i, e: displayTimeMs(s) }))
       .sort((a, b) => a.e - b.e || a.i - b.i);
     const dropped = [...sorted.slice(0, drop), ...sorted.slice(n - drop)].map(x => x.s.id);
     const kept = sorted.slice(drop, n - drop);
-    if (kept.some(x => normalizeFlag(x.s.flag) === 'dnf')) {
-      return { time: null, isDNF: true, droppedIds: dropped };
-    }
     return { time: mean(kept.map(x => displayTimeMs(x.s))), isDNF: false, droppedIds: dropped };
   }
 
@@ -433,7 +433,8 @@
   }
 
   function groupSeries(solves, metric, resolution = 'all') {
-    const rows = solves.map((s, i) => ({ solve: s, i, value: metric(s, i) })).filter(x => finite(x.value));
+    // 注意 finite(null)===true（Number(null)===0），必须先排除 null，否则 DNF/无效窗口会被当成 0 画进图里。
+    const rows = solves.map((s, i) => ({ solve: s, i, value: metric(s, i) })).filter(x => x.value != null && finite(x.value));
     if (resolution === 'all') return rows.map(x => ({ x: x.solve.date, y: x.value, solve: x.solve }));
     if (resolution === 'daily') {
       const map = new Map();

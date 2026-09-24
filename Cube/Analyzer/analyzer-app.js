@@ -2,6 +2,8 @@
   'use strict';
   const C=window.CubeAnalyzerCore, I=window.CubeAnalyzerImport, Ch=window.CubeAnalyzerCharts, Cube=window.CubeAnalyzerSmartCube, A=window.CubeAnalyzerSolveAnalysis;
   const esc=Ch.esc;
+  // DNF 只存在于记录中：记录列表与复原次数包含它，所有分析（趋势/AO/分段/TPS/Case 等）一律排除。
+  const noDnf=s=>s&&C.normalizeFlag(s.flag)!=='dnf';
   const STORAGE=(window.CubeAnalyzerCloud&&window.CubeAnalyzerCloud.storageKey)||'cubeAnalyzerDataV2', SETTINGS=(window.CubeAnalyzerCloud&&window.CubeAnalyzerCloud.settingsKey)||'cubeAnalyzerSettingsV2';
   const state={solves:[],datasetName:'训练数据',activeTab:'overview',workspaceMode:'training',trendMetric:'single',resolution:'all',tpsMode:'segregated',goal:{CFOP:15,Roux:18,ZZ:18},caseType:'ALL',filters:{method:'all',session:'all',device:'all',start:'',end:''},training:{method:'CFOP',session:'日常训练',inspection:false}};
   let toastTimer=null, cloudHydrated=false, migratedData=false;
@@ -108,7 +110,7 @@
     const series=solves.filter(s=>C.normalizeFlag(s.flag)!=='dnf').slice(-80).map(s=>({x:s.date,y:C.displayTimeMs(s),solve:s}));
     Ch.lineChart($('#overviewChart'),series,{yFormatter:v=>`${(v/1000).toFixed(1)}s`,xFormatter:x=>fmtDate(x,true),tooltip:d=>`${fmtDate(d.x)} · <strong>${fmtMs(d.y)}</strong>`,onPointClick:d=>d.solve&&openSolve(d.solve)});
     const replay=solves.filter(s=>s.timestamps?.length>1).length, method=state.filters.method==='all'?dominantMethod(solves):state.filters.method;
-    const methodSolves=solves.filter(s=>s.analysisType===method&&s.steps?.length);const avg=C.averageSplits(methodSolves,method);const actual=Object.fromEntries(avg.filter(x=>x.time).map(x=>[x.key,x.time/1000]));const ref=C.referenceSplits(method,state.goal[method]||15);const weakness=C.analyzeSplits(method,actual,ref).weakest;
+    const methodSolves=solves.filter(noDnf).filter(s=>s.analysisType===method&&s.steps?.length);const avg=C.averageSplits(methodSolves,method);const actual=Object.fromEntries(avg.filter(x=>x.time).map(x=>[x.key,x.time/1000]));const ref=C.referenceSplits(method,state.goal[method]||15);const weakness=C.analyzeSplits(method,actual,ref).weakest;
     $('#overviewQuality').outerHTML=panel('训练质量','从稳定性、动作与阶段分布判断当前状态',`<div class="insight-list">
       <div class="insight-row"><strong>稳定性</strong><div class="progress"><i style="width:${fmtNum(S.consistency,0)}%"></i></div><span class="mono">${fmtNum(S.consistency,0)}%</span><span class="muted">CV ${S.cv?fmtNum(S.cv*100,1):'—'}%</span></div>
       <div class="insight-row"><strong>流畅度</strong><div class="progress accent"><i style="width:${fmtNum(S.avgFluency,0)}%"></i></div><span class="mono">${fmtNum(S.avgFluency,0)}%</span><span class="muted">平均</span></div>
@@ -142,7 +144,7 @@
   function splitStack(rows,total){return `<div class="split-stack">${rows.filter(r=>r.time>0).map((r,i)=>{const pct=total?Math.max(5,r.time/total*100):25;const recPct=r.time?Math.min(100,(r.recognition||0)/r.time*100):0;return `<div class="split-seg" style="width:${pct}%" title="${esc(r.label)} ${fmtMs(r.time)}"><i class="split-rec" style="width:${recPct}%"></i><span class="split-label">${esc(r.label)}</span></div>`}).join('')}</div>`}
 
   function renderSplits(solves){
-    const el=$('#splitsContent');const method=state.filters.method==='all'?dominantMethod(solves):state.filters.method;const ms=solves.filter(s=>s.analysisType===method&&s.steps?.length);
+    const el=$('#splitsContent');const method=state.filters.method==='all'?dominantMethod(solves):state.filters.method;const ms=solves.filter(noDnf).filter(s=>s.analysisType===method&&s.steps?.length);
     if(ms.length<1){el.innerHTML=empty('缺少分段分析','需要智能魔方自动分段数据，或导入包含 steps 的训练记录。');return}
     const avg=C.averageSplits(ms,method),total=C.sum(avg.map(x=>Number(x.time)||0));const goal=Number(state.goal[method]||15);const ref=C.referenceSplits(method,goal);const actual=Object.fromEntries(avg.map(x=>[x.key,(x.time||0)/1000]));const an=C.analyzeSplits(method,actual,ref);
     const controls=`<div class="inline-form"><label class="field-label">目标总时间（秒）<input class="goal-input" id="goalInput" type="number" min="3" max="120" step="0.1" value="${goal}"></label><button class="btn" id="goalApply">应用</button></div>`;
@@ -158,7 +160,7 @@
 
   function renderTPS(solves){
     const el=$('#tpsContent');const method=state.filters.method==='all'?dominantMethod(solves):state.filters.method;
-    const replay=solves.filter(s=>s.analysisType===method&&C.turnTimestamps(s).length>1&&s.moves?.length===s.timestamps?.length);
+    const replay=solves.filter(noDnf).filter(s=>s.analysisType===method&&C.turnTimestamps(s).length>1&&s.moves?.length===s.timestamps?.length);
     const deep=state.tpsMode==='segregated'?replay.filter(s=>s.steps?.length):replay;
     if(deep.length<1){
       if(state.tpsMode==='segregated'&&replay.length){state.tpsMode='linear';renderTPS(solves);return}
@@ -184,7 +186,7 @@
     return median + rec*0.75 + scarcity;
   }
   function renderCases(solves){
-    const el=$('#casesContent'),all=C.caseStatistics(solves),types=['ALL','OLL','PLL','F2L','CMLL'];
+    const el=$('#casesContent'),all=C.caseStatistics(solves.filter(noDnf)),types=['ALL','OLL','PLL','F2L','CMLL'];
     const filteredRows=state.caseType==='ALL'?all:all.filter(x=>x.caseType===state.caseType);
     const rows=filteredRows.slice().sort((a,b)=>caseWeaknessScore(b)-caseWeaknessScore(a));
     const controls=`<div class="segmented" id="caseSeg">${types.map(v=>`<button data-v="${v}" class="${state.caseType===v?'active':''}">${v}</button>`).join('')}</div>`;
@@ -214,8 +216,8 @@
     const steps=detailSteps(s),total=C.sum(steps.map(x=>Number(x.time)||0));
     const turnTs=C.turnTimestamps(s);const lastTurn=turnTs.length?turnTs[turnTs.length-1]:null;
     const reaction=Number.isFinite(lastTurn)&&Number(s.totalTime)>lastTurn?Number(s.totalTime)-lastTurn:null;
-    const rows=steps.map(x=>{const label=x.slotIndex?`F2L ${x.slotIndex}`:(x.label||x.name||x.key||'Stage');const caseText=x.caseName||((x.caseType&&x.caseIndex!=null)?`${x.caseType} ${x.caseIndex}`:'—');return `<tr><td><strong>${esc(label)}</strong></td><td>${esc(caseText)}</td><td class="mono">${fmtMs(x.time)}</td><td class="mono">${fmtMs(x.recognition)}</td><td class="mono">${fmtMs(x.execution)}</td><td class="mono">${fmtNum(x.turns,0)}</td><td class="mono">${Number(x.execution)>0?fmtNum(Number(x.turns||0)*1000/Number(x.execution)):'—'}</td></tr>`}).join('');
-    body.innerHTML=`<div class="detail-grid"><div class="detail-item"><span class="mini-label">Time</span><strong>${solveTime(s)}</strong></div><div class="detail-item"><span class="mini-label">TPS</span><strong>${fmtNum(s.tps)}</strong></div><div class="detail-item"><span class="mini-label">Turns</span><strong>${fmtNum(s.turnCount,0)}</strong></div><div class="detail-item"><span class="mini-label">Fluency</span><strong>${fmtNum(s.fluencyPercent,0)}%</strong></div></div>${steps.length?splitStack(steps,total):''}<div class="table-wrap"><table><thead><tr><th>Stage</th><th>Case</th><th>Time</th><th>Recognition</th><th>Execution</th><th>Turns</th><th>Exec TPS</th></tr></thead><tbody>${rows||'<tr><td colspan="7">无法可靠分段；保留原始动作与成绩，不生成猜测阶段。</td></tr>'}</tbody></table></div><div style="height:10px"></div><div class="callout"><strong>Scramble</strong><br><span class="mono">${esc(s.scramble||'—')}</span><br><br><strong>动作记录</strong> · ${s.timestamps?.length||0} logical events · ${s.rawSolutionSequence?.reduce((n,x)=>n+(Array.isArray(x.rawMoves)&&x.rawMoves.length?x.rawMoves.length:1),0)||s.timestamps?.length||0} raw moves · ${esc(s.device)}<br><strong>数据源</strong> · ${esc(s.source||'import')}<br><strong>解法方位</strong> · ${s.analysisFrame?.autoDetected?(s.analysisFrame.crossFace?`识别底面 ${esc(s.analysisFrame.crossFace)}`:'六色底 / 任意持握自动识别'):'未可靠识别'}${reaction!=null?`<br><strong>复原后停表反应</strong> · ${fmtMs(reaction)}（不计入最后阶段执行时间）`:''}</div>`;
+    const rows=steps.map(x=>{const label=x.slotIndex?`F2L ${x.slotIndex}`:(x.label||x.name||x.key||'Stage');const caseText=x.caseName||((x.caseType&&x.caseIndex!=null)?`${x.caseType} ${x.caseIndex}`:'—');const aufText=x.auf&&x.auf.count?`${esc(x.auf.pre.join(' ')||'—')} → ${esc(x.auf.post.join(' ')||'—')}`:'—';return `<tr><td><strong>${esc(label)}</strong></td><td>${esc(caseText)}</td><td>${aufText}</td><td class="mono">${fmtMs(x.time)}</td><td class="mono">${fmtMs(x.recognition)}</td><td class="mono">${fmtMs(x.execution)}</td><td class="mono">${fmtNum(x.turns,0)}</td><td class="mono">${Number(x.execution)>0?fmtNum(Number(x.turns||0)*1000/Number(x.execution)):'—'}</td></tr>`}).join('');
+    body.innerHTML=`<div class="detail-grid"><div class="detail-item"><span class="mini-label">Time</span><strong>${solveTime(s)}</strong></div><div class="detail-item"><span class="mini-label">TPS</span><strong>${fmtNum(s.tps)}</strong></div><div class="detail-item"><span class="mini-label">Turns</span><strong>${fmtNum(s.turnCount,0)}</strong></div><div class="detail-item"><span class="mini-label">Fluency</span><strong>${fmtNum(s.fluencyPercent,0)}%</strong></div></div>${steps.length?splitStack(steps,total):''}<div class="table-wrap"><table><thead><tr><th>Stage</th><th>Case</th><th>AUF</th><th>Time</th><th>Recognition</th><th>Execution</th><th>Turns</th><th>Exec TPS</th></tr></thead><tbody>${rows||'<tr><td colspan="8">无法可靠分段；保留原始动作与成绩，不生成猜测阶段。</td></tr>'}</tbody></table></div><div style="height:10px"></div><div class="callout"><strong>Scramble</strong><br><span class="mono">${esc(s.scramble||'—')}</span><br><br><strong>动作记录</strong> · ${s.timestamps?.length||0} logical events · ${s.rawSolutionSequence?.reduce((n,x)=>n+(Array.isArray(x.rawMoves)&&x.rawMoves.length?x.rawMoves.length:1),0)||s.timestamps?.length||0} raw moves · ${esc(s.device)}<br><strong>数据源</strong> · ${esc(s.source||'import')}<br><strong>解法方位</strong> · ${s.analysisFrame?.autoDetected?(s.analysisFrame.crossFace?`识别底面 ${esc(s.analysisFrame.crossFace)}`:'六色底 / 任意持握自动识别'):'未可靠识别'}${reaction!=null?`<br><strong>复原后停表反应</strong> · ${fmtMs(reaction)}（不计入最后阶段执行时间）`:''}</div>`;
     modal.hidden=false;
   }
 

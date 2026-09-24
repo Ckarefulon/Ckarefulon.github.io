@@ -42,6 +42,8 @@
 				pendingCubeMove: null,
 				pendingCubeMoveTimer: null,
 				cubeSliceWindowMs: 90,
+				cubeWideForwardMs: 900,
+				cubeWideReverseMs: 600,
 				currentFormulaIndex: -1,
 				currentMode: "practice",
 				isPracticeMode: false,
@@ -92,6 +94,7 @@
 				gyroLastQ: null,
 				gyroRecordM: null,
 				lastRotationCommit: null,
+				wideMergeCandidate: null,
 				sliceCoreQueue: null,
 				gyroLastAt: 0,
 				rotSyncM: null,
@@ -112,7 +115,22 @@
 				cubeRotPartialFrom: 36,
 				cubeRotAltStillMs: 120,
 				rotStillMs: 0,
-				cubeRotSettleMs: 110,
+				// 紧残差（≤ snapTol）双包候选的挂账下限。双包候选的 age = 两包间隔
+				// （真机 90~130ms），取值 ≤90 即不再产生额外等待；此前 110 会让
+				// 包间隔 90~110ms 的情形多等第三包（转体提交晚 90~130ms）。
+				// 双包确认与停稳检查（cubeRotStillMs）不受影响。
+				cubeRotSettleMs: 50,
+				// 关跟随快速通道：单包吸附成功（残差 ≤ 此值 = 吸附容差全段）且净变化
+				// 为单轴整份时立即定案，与普通转动事件同为「一包」节奏。
+				// 取满 33° 容差：手转过每段 90° 的后半程（约 57° 起）就会被抓拍确认，
+				// 连续大角度（x2）也能逐段跟上，而不是转完才一次性提交。
+				cubeRotSnapFastDeg: 33,
+				// 快速通道提交后的回摆撤销窗口：期间姿态贴回提交前基准（甩出去又弹回来）
+				// 则整笔撤销（动画/记录/朝向账目一起退）；中层在途时不撤销
+				cubeRotFastRetractMs: 300,
+				// 连续两次快速提交同轴同向（快甩 180° 会被中点量化成两次 90°）：
+				// 窗口内把两条记录合成一条（x+x→x2、x+x2→x'，份量 mod4 相加本就无损）
+				cubeRotFastCoalesceMs: 500,
 				// 姿态「停稳」判定：相邻两包夹角超过 eps 视为仍在运动；
 				// 运动未停稳不提交，避免把转到一半（吸附量化提前贴到目标）的
 				// 转动过早定案、吞掉还没转完的部分
@@ -5259,6 +5277,16 @@
 					}
 
 					var delta = this.matrixMultiply(snap.matrix, this.matrixTranspose(this.rotSyncM));
+					// 快速通道回摆撤销：刚被快速通道定案的转体，若极短时间内姿态贴回
+					// 提交前基准（甩出去又弹回来），整笔撤销，不留记录（见 undoFastRotationCommit）
+					var lastCommit = this.lastRotationCommit;
+					if (lastCommit && lastCommit.fast && lastCommit.baseBefore &&
+						now - lastCommit.at <= this.cubeRotFastRetractMs &&
+						!this.liveSliceCoreEntries().length &&
+						this.matrixEquals(snap.matrix, lastCommit.baseBefore)) {
+						this.undoFastRotationCommit();
+						return;
+					}
 					if (this.rotCandidate && this.rotCandidate.key === snap.key) {
 						this.rotCandidate.absoluteM = snap.matrix;
 						this.rotCandidate.matrix = delta;
@@ -5276,6 +5304,27 @@
 						}
 						this.scheduleRotFlush();
 						return;
+					}
+					// 关跟随快速通道：单包贴准 + 单轴整份 + 无在途中层 ⇒ 立即定案，
+					// 与普通转动事件同为「一包」节奏；其余情形仍走双包保守路径。
+					// 开启跟随一律不生效（记录时机保持既有节奏）。
+					if (!this.gyroFollow &&
+						snap.residualDeg <= this.cubeRotSnapFastDeg &&
+						!this.liveSliceCoreEntries().length) {
+						var fastParts = this.rotDecompose(delta);
+						if (fastParts.length === 1) {
+							var prevCommit = this.lastRotationCommit;
+							this.rotCandidate = {
+								key: snap.key, absoluteM: snap.matrix, matrix: delta,
+								residualDeg: snap.residualDeg, since: now, hits: 1, netted: false
+							};
+							this.commitDetectedRotation();
+							if (this.lastRotationCommit) {
+								this.lastRotationCommit.fast = true;
+							}
+							this.coalesceFastRotations(prevCommit);
+							return;
+						}
 					}
 					this.rotCandidate = {
 						key: snap.key, absoluteM: snap.matrix, matrix: delta,
@@ -5336,6 +5385,97 @@
 						clearTimeout(this.rotFlushTimer);
 						this.rotFlushTimer = null;
 					}
+				},
+
+				// 快速通道的回摆撤销：提交后极短时间内姿态贴回「提交前基准」，
+				// 说明这次转动被弹了回去（净零），把动画、记录、朝向账目整笔退回。
+				// 与中层撤回（retractRotationCommit）不同：那满足「核心转动真实发生」、
+				// 记账必须保留；这里是净零，记账一并回退。
+				undoFastRotationCommit: function() {
+					var last = this.lastRotationCommit;
+					if (!last || !last.fast || !last.baseBefore) {
+						return;
+					}
+					this.rotSyncM = last.baseBefore;
+					this.rotRestRefM = last.baseBefore;
+					this.rotAltM = null;
+					this.rotCandidate = null;
+					this.cancelRotFlush();
+					this.lastRotationCommit = null;
+					this.wideMergeCandidate = null;
+					// delta 的逆：decompose(transpose(delta)) 倒序交给左乘累计，
+					// 与提交时（decompose(delta) 倒序）互为镜像，份量取正
+					var parts = this.rotDecompose(this.matrixTranspose(last.delta)).reverse();
+					if (last.visual && this.twistyScene && this.twistyScene.applyMoves && parts.length) {
+						var self = this;
+						this.twistyScene.applyMoves(parts.map(function(part) {
+							return [1, self.cubeDimension, part.axis, part.pow];
+						}));
+					}
+					for (var i = 0; i < parts.length; i++) {
+						if (!this.gyroFollow) {
+							this.updateOrientation(parts[i].axis, parts[i].pow);
+						}
+						if (this.gyroRecordM) {
+							this.gyroRecordM = this.matrixMultiply(this.rotationMatrix(parts[i].axis, parts[i].pow), this.gyroRecordM);
+						}
+					}
+					for (var j = 0; j < last.texts.length; j++) {
+						this.removeRotationRecord(last.texts[j], last.at);
+					}
+					this.log("view", "回摆转体已撤销");
+				},
+
+				// 连续两次快速提交同轴同向（快甩 180° 的中点会被量化成两次 90°）：
+				// 窗口内把两条记录合成一条（x+x→x2、x+x2→x'，份量 mod4 相加本就无损）。
+				// 动画与朝向账目不动（两段净效果已正确）；前一条已被宽体合并等改写时放弃。
+				coalesceFastRotations: function(prev) {
+					var cur = this.lastRotationCommit;
+					if (!prev || !prev.fast || !cur || cur === prev) {
+						return;
+					}
+					if (Date.now() - prev.at > this.cubeRotFastCoalesceMs) {
+						return;
+					}
+					if (!prev.texts || prev.texts.length !== 1 || !cur.texts || cur.texts.length !== 1) {
+						return;
+					}
+					var parse = function(text) {
+						var m = /^([xyz])(2|')?$/.exec(text);
+						return m ? { axis: m[1], pow: m[2] === "2" ? 2 : (m[2] === "'" ? -1 : 1) } : null;
+					};
+					var a = parse(prev.texts[0]);
+					var b = parse(cur.texts[0]);
+					if (!a || !b || a.axis !== b.axis) {
+						return;
+					}
+					var pow = ((a.pow + b.pow) % 4 + 4) % 4;
+					if (pow === 0) {
+						// 净零（x+x'）：正常由回摆撤销处理，漏网时保留两条原样
+						return;
+					}
+					// 前一条必须还能在记录里找到（被宽体合并改写过就放弃，宁缺勿错）
+					var found = false;
+					for (var i = 0; i < this.moveHistory.length; i++) {
+						var item = this.moveHistory[i];
+						if (item && item.text === prev.texts[0] && Math.abs((item.time || 0) - (prev.at || 0)) < 1500) {
+							found = true;
+							break;
+						}
+					}
+					if (!found) {
+						return;
+					}
+					this.removeRotationRecord(prev.texts[0], prev.at);
+					this.removeRotationRecord(cur.texts[0], cur.at);
+					var merged = a.axis + (pow === 2 ? "2" : (pow === 3 ? "'" : ""));
+					cur.texts = [merged];
+					if (cur.bodyParts && cur.bodyParts.length === 1) {
+						cur.bodyParts = [{ axis: a.axis, pow: pow === 3 ? -1 : pow }];
+					}
+					this.orientationMoves.push(merged);
+					this.pushHistory(merged, this.deviceName || "cube", cur.at);
+					this.log("view", merged + " · 转体（连续转体合并）");
 				},
 
 				// ---- 中层带起的核心转动：预期队列（精确矩阵对账） ----
@@ -5686,6 +5826,7 @@
 					var coreInDelta = this.matrixMultiply(baseBefore, this.matrixMultiply(q_this, this.matrixTranspose(baseBefore)));
 					var residual = this.matrixMultiply(last.delta, this.matrixTranspose(coreInDelta));
 					this.lastRotationCommit = null;
+					this.wideMergeCandidate = null;
 					if (last.visual && this.twistyScene && this.twistyScene.applyMoves) {
 						// applyMoves 会立即结清在途动画，把多播的核心转动干净剥掉
 						var self = this;
@@ -5728,6 +5869,163 @@
 							break;
 						}
 					}
+				},
+
+				// ---- 双层识别：外层转动 + 同轴转体 → 宽体记号（L+x=r、R+x'=l、U+y'=d…）----
+				// 参照中层的「三层分离」原则，这里只合并**记录层**：外层动画与整体转体
+				// 动画保持原样（两段都绕同一物理轴，可交换，合成后恰等于宽体转的净效果，
+				// twisty 状态 / 朝向记账 / rotSyncM 对齐一律不动），只把历史、公式与练习
+				// 进度里的「外层 + 转体」两条记号并成一条宽体记号。宽体记号恒为：
+				// 外层记号的对立面字母（小写）+ 原后缀——显示映射保持对面关系，帧无关。
+				wideOppositeLetter: function(letter) {
+					return { U: "D", D: "U", R: "L", L: "R", F: "B", B: "F" }[letter] || "";
+				},
+
+				wideTextFromFaceText: function(faceText) {
+					var text = String(faceText || "");
+					var opp = this.wideOppositeLetter(text.charAt(0).toUpperCase());
+					if (!opp) {
+						return "";
+					}
+					return opp.toLowerCase() + text.slice(1);
+				},
+
+				// 整体转体在 face 所在轴上的分量是否恰好抵消 pow（同轴才可能抵消）
+				wideRotationCancels: function(face, pow, rotAxis, rotPow) {
+					var normal = this.faceNormal(face);
+					var axisNormal = this.faceNormal(rotAxis);
+					if (!normal || !axisNormal) {
+						return false;
+					}
+					var dot = normal[0] * axisNormal[0] + normal[1] * axisNormal[1] + normal[2] * axisNormal[2];
+					if (dot === 0) {
+						return false;
+					}
+					var component = rotPow * (dot > 0 ? 1 : -1);
+					return ((pow + component) % 4 + 4) % 4 === 0;
+				},
+
+				// 顺序一：外层先落账（wideMergeCandidate），转体后到、提交时合并
+				detectForwardWideMerge: function(parts, bodyParts) {
+					var candidate = this.wideMergeCandidate;
+					if (!candidate || Date.now() - candidate.at > this.cubeWideForwardMs) {
+						return null;
+					}
+					var rotParts = this.gyroFollow ? bodyParts : parts;
+					if (!rotParts || rotParts.length !== 1) {
+						return null;
+					}
+					if (!this.wideRotationCancels(candidate.face, candidate.pow, rotParts[0].axis, rotParts[0].pow)) {
+						return null;
+					}
+					var wideText = this.wideTextFromFaceText(candidate.text);
+					return wideText ? { candidate: candidate, wideText: wideText } : null;
+				},
+
+				// 候选的记号贡献可能已与相邻同面记号折叠（L L→L2）：按份量差改写，
+				// 定位不到候选贡献时保持原样（宁缺勿错）
+				rewriteTrackedTokenList: function(tokens, candidateText, wideText) {
+					var candidatePow = this.getTokenFacePow(candidateText);
+					if (!candidatePow || !tokens || !tokens.length) {
+						return tokens;
+					}
+					var last = this.getTokenFacePow(tokens[tokens.length - 1]);
+					if (!last || last.face !== candidatePow.face) {
+						return tokens;
+					}
+					var rest = ((last.pow - candidatePow.pow) % 4 + 4) % 4;
+					var out = tokens.slice(0, tokens.length - 1);
+					if (rest !== 0) {
+						out.push(this.formatMoveText(candidatePow.face, rest === 3 ? -1 : rest));
+					}
+					out.push(wideText);
+					return out;
+				},
+
+				applyForwardWideMerge: function(merge) {
+					var candidate = merge.candidate;
+					var removed = false;
+					for (var i = 0; i < this.moveHistory.length; i++) {
+						var item = this.moveHistory[i];
+						if (item && item.text === candidate.text && Math.abs((item.time || 0) - (candidate.time || 0)) < 1500) {
+							this.moveHistory.splice(i, 1);
+							removed = true;
+							break;
+						}
+					}
+					if (!removed) {
+						return false;
+					}
+					this.pushHistory(merge.wideText, candidate.source, candidate.time);
+					if (this.manualMoveHistory.length && this.manualMoveHistory[this.manualMoveHistory.length - 1] === candidate.text) {
+						this.manualMoveHistory[this.manualMoveHistory.length - 1] = merge.wideText;
+					}
+					if (this.isRecordingFormula && this.activeFormulaId) {
+						var entry = this.getFormulaEntry(this.activeFormulaId);
+						if (entry && entry.moves && entry.moves.length) {
+							this.syncEditingMovesFromInput();
+							entry.moves = this.rewriteTrackedTokenList(entry.moves, candidate.text, merge.wideText);
+							var compressedTokens = this.compressDisplayTokens(this.tokenizeMoves(entry.moves.join(" ")));
+							entry.moves = compressedTokens;
+							entry.alg = compressedTokens.join(" ");
+							this.formulaExportTextOverride = "";
+							this.saveFormulaEntries();
+							if (this.elements.draftList) {
+								var row = this.elements.draftList.querySelector('[data-formula-row="' + entry.id + '"] .formulaTrackText');
+								if (row) {
+									row.textContent = "录制中：" + this.getFormulaDisplayText(entry);
+									row.classList.toggle("hasMoves", entry.moves.length > 0);
+								}
+								var input = this.elements.draftList.querySelector('[data-formula-moves="' + entry.id + '"]');
+								if (input) {
+									input.value = this.getFormulaDisplayText(entry);
+								}
+							}
+						}
+					}
+					this.performedProcessMoves = this.rewriteTrackedTokenList(this.performedProcessMoves, candidate.text, merge.wideText);
+					this.wideMergeCandidate = null;
+					this.log("view", candidate.text + " 与转体合并为双层 " + merge.wideText);
+					return true;
+				},
+
+				// 顺序二：转体先提交落账，外层后到时合并（撤掉转体文本，换成宽体记号）
+				tryMergeWideRecord: function(move) {
+					var last = this.lastRotationCommit;
+					if (!last || !move || move.type !== "face" || move.wide) {
+						return null;
+					}
+					if (Date.now() - last.at > this.cubeWideReverseMs) {
+						return null;
+					}
+					var rotParts = this.gyroFollow ? last.bodyParts : last.parts;
+					if (!rotParts || rotParts.length !== 1) {
+						return null;
+					}
+					if (!this.wideRotationCancels(move.face, move.pow, rotParts[0].axis, rotParts[0].pow)) {
+						return null;
+					}
+					var wideText = this.wideTextFromFaceText(move.text);
+					if (!wideText) {
+						return null;
+					}
+					for (var i = 0; i < last.texts.length; i++) {
+						this.removeRotationRecord(last.texts[i], last.at);
+					}
+					this.lastRotationCommit = null;
+					this.wideMergeCandidate = null;
+					this.log("view", move.text + " 与刚落的转体合并为双层 " + wideText);
+					// 返回值只替换**记录对象**（历史/公式/进度文本），物理层仍应用原单层
+					// 转动：转体动画已播，两段动画合成恰为宽转净效果。twisty 字段仅占位，
+					// 记录对象永不驱动物理层（撤销走文本反解，天然正确）。
+					return {
+						text: wideText,
+						type: "face",
+						face: move.face,
+						wide: true,
+						pow: move.pow,
+						twisty: move.twisty
+					};
 				},
 
 				applyDetectedRotation: function(deltaMatrix, baseBefore, candidateSince) {
@@ -5779,6 +6077,7 @@
 						// 补偿公式对本次提交时的全部在队条目精确成立（无论它们的姿态数据
 						// 是否已并入 delta），提交后队列整体清空，之后的姿态变化另行结算
 						this.sliceCoreQueue = null;
+						this.wideMergeCandidate = null;
 						return;
 					}
 					// applyMoves/updateOrientation 都按左乘累计，复合分解必须倒序执行。
@@ -5787,6 +6086,7 @@
 						at: Date.now(),
 						visual: !this.gyroFollow,
 						delta: deltaMatrix.map(function(row) { return row.slice(); }),
+						baseBefore: baseBefore ? baseBefore.map(function(row) { return row.slice(); }) : null,
 						parts: parts.map(function(part) { return { axis: part.axis, pow: part.pow }; }),
 						texts: []
 					};
@@ -5794,6 +6094,7 @@
 						if (this.gyroRecordM) {
 							this.gyroRecordM = this.matrixMultiply(deltaMatrix, this.gyroRecordM);
 						}
+						this.wideMergeCandidate = null;
 						this.log("view", "转体已同步");
 						return;
 					}
@@ -5805,6 +6106,14 @@
 						bodyDelta = this.matrixMultiply(this.matrixTranspose(baseM), this.matrixMultiply(deltaMatrix, baseM));
 					}
 					var bodyParts = this.rotDecompose(bodyDelta, ["R", "U", "F"]).reverse();
+					if (this.lastRotationCommit) {
+						// 体帧分解留给双层识别的顺序二合并（外层后到时按体帧判同轴）
+						this.lastRotationCommit.bodyParts = bodyParts.map(function(part) {
+							return { axis: part.axis, pow: part.pow };
+						});
+					}
+					// 双层识别（顺序一：外层先落账）：合并只改记录，动画与对齐账目照旧
+					var wideMerge = this.detectForwardWideMerge(parts, bodyParts);
 					parts.forEach(function(part) {
 						if (!self.gyroFollow) {
 							// 关闭跟随：播放整体转动动画并推进朝向矩阵（只检测 XYZ 的普通模式）；
@@ -5816,15 +6125,21 @@
 							self.gyroRecordM = self.matrixMultiply(self.rotationMatrix(part.axis, part.pow), self.gyroRecordM);
 						}
 					});
-					bodyParts.forEach(function(part) {
-						var text = { R: "x", U: "y", F: "z" }[part.axis] + (part.pow === 2 ? "2" : part.pow === -1 ? "'" : "");
-						if (self.lastRotationCommit) {
-							self.lastRotationCommit.texts.push(text);
-						}
-						self.orientationMoves.push(text);
-						self.pushHistory(text, self.deviceName || "cube", Date.now());
-						self.log("view", text + " · 转体");
-					});
+					if (wideMerge && this.applyForwardWideMerge(wideMerge)) {
+						// 已并入宽体记号：不再单独记 x/y/z，也不留给后续中层撤回复用
+						this.lastRotationCommit = null;
+					} else {
+						this.wideMergeCandidate = null;
+						bodyParts.forEach(function(part) {
+							var text = { R: "x", U: "y", F: "z" }[part.axis] + (part.pow === 2 ? "2" : part.pow === -1 ? "'" : "");
+							if (self.lastRotationCommit) {
+								self.lastRotationCommit.texts.push(text);
+							}
+							self.orientationMoves.push(text);
+							self.pushHistory(text, self.deviceName || "cube", Date.now());
+							self.log("view", text + " · 转体");
+						});
+					}
 				},
 
 				syncRotationFrame: function() {
@@ -5843,6 +6158,7 @@
 					this.rotCandidate = null;
 					this.cancelRotFlush();
 					this.sliceCoreQueue = null;
+					this.wideMergeCandidate = null;
 					this.gyroRecordM = settled;
 				},
 
@@ -5859,6 +6175,7 @@
 					this.lastCubeHistoryStamp = null;
 					this.connectFrames = [];
 					this.clearPendingCubeMove(false);
+					this.wideMergeCandidate = null;
 					this.hideMacHelp();
 					this.setStatus("idle", "等待选择设备");
 					GiikerCube.setCallback(function(facelet, prevMoves, lastTs, hardware) {
@@ -5954,6 +6271,7 @@
 					// 场景重建会把朝向与视线清零，这里把重置前的朝向原样放回去
 					this.orientationMatrix = keepOrientation || this.identityMatrix();
 					this.sliceCoreQueue = null;
+					this.wideMergeCandidate = null;
 					this.viewYaw = keepYaw;
 					this.viewPitch = keepPitch;
 					this.setViewDrag(keepYaw, keepPitch);
@@ -6399,40 +6717,63 @@
 						}
 						return move;
 					}
-						if (options.fromCube) {
-							// 中层配对落账（skipRotFlush）不在半途提交：此时中层动画已播放、
-							// 原始外层还没入账，提交补偿公式的前提（在队条目与画面一一对应）
-							// 要等整步中层落完才成立；其余硬件转动照常先补判再变换。
-							if (!options.skipRotFlush) {
-								this.flushPendingRotation(true);
-							}
-							move = this.transformCubeMove(move);
+					// 非硬件落账（手动/中层内部/撤销等）一律使双层候选失效：
+					// 候选只在「它是最后一条记录」时才有资格与转体合并
+					if (!options.fromCube || options.noHistory || options.silent) {
+						this.wideMergeCandidate = null;
+					}
+					var recordMove = move;
+					if (options.fromCube) {
+						// 中层配对落账（skipRotFlush）不在半途提交：此时中层动画已播放、
+						// 原始外层还没入账，提交补偿公式的前提（在队条目与画面一一对应）
+						// 要等整步中层落完才成立；其余硬件转动照常先补判再变换。
+						if (!options.skipRotFlush) {
+							this.flushPendingRotation(true);
 						}
-					if (!options.noFormula) {
-						this.recordFormulaMove(move);
-					}
-					this.applyVirtualMove(move);
-					if (!options.noAnimation) {
-						this.twistyScene.addMoves([move.twisty]);
-					}
-					if (!options.noCount) {
-						this.moveCount += 1;
-						if (options.fromCube) {
-							this.movesSinceState += 1;
-							if (this.isPracticeMode && this.practiceSolveStartTime === null) {
-								this.practiceSolveStartTime = performance.now();
-							}
+						move = this.transformCubeMove(move);
+						recordMove = move;
+						// 双层识别（顺序二：转体先落账）：硬件外层与刚提交的同轴转体
+						// 合并为一条宽体记录；物理/对齐层保持原样
+						if (!options.noHistory && !options.silent && !move.wide) {
+							recordMove = this.tryMergeWideRecord(move) || recordMove;
 						}
-						this.elements.moveCount.textContent = String(this.moveCount);
 					}
-					if (!options.noHistory && !options.silent) {
-						this.pushHistory(move.text, source, timestamp);
-						this.log("move", move.text + (source ? " · " + source : ""));
+				if (!options.noFormula) {
+					this.recordFormulaMove(recordMove);
+				}
+				this.applyVirtualMove(move);
+				if (!options.noAnimation) {
+					this.twistyScene.addMoves([move.twisty]);
+				}
+				if (!options.noCount) {
+					this.moveCount += 1;
+					if (options.fromCube) {
+						this.movesSinceState += 1;
+						if (this.isPracticeMode && this.practiceSolveStartTime === null) {
+							this.practiceSolveStartTime = performance.now();
+						}
 					}
-					if (!options.noHistory) {
-						this.pushManualMoveHistory(move);
+					this.elements.moveCount.textContent = String(this.moveCount);
+				}
+				if (!options.noHistory && !options.silent) {
+					this.pushHistory(recordMove.text, source, timestamp);
+					this.log("move", recordMove.text + (source ? " · " + source : ""));
+				}
+				if (!options.noHistory) {
+					this.pushManualMoveHistory(recordMove);
+				}
+				this.recordSolveMove(recordMove, source, options);
+					if (options.fromCube && recordMove === move && move.type === "face" && !move.wide) {
+						// 双层识别候选：最后落账的硬件单层外层（之后同轴转体提交时可并进来）
+						this.wideMergeCandidate = {
+							face: move.face,
+							pow: move.pow,
+							text: move.text,
+							time: timestamp,
+							source: source,
+							at: Date.now()
+						};
 					}
-					this.recordSolveMove(move, source, options);
 					return move;
 				},
 
