@@ -94,7 +94,7 @@
 				gyroLastQ: null,
 				gyroRecordM: null,
 				lastRotationCommit: null,
-				wideMergeCandidate: null,
+					wideMergeManager: null,
 				sliceCoreQueue: null,
 				gyroLastAt: 0,
 				rotSyncM: null,
@@ -5402,7 +5402,7 @@
 					this.rotCandidate = null;
 					this.cancelRotFlush();
 					this.lastRotationCommit = null;
-					this.wideMergeCandidate = null;
+					this.ensureWideMerge().reset();
 					// delta 的逆：decompose(transpose(delta)) 倒序交给左乘累计，
 					// 与提交时（decompose(delta) 倒序）互为镜像，份量取正
 					var parts = this.rotDecompose(this.matrixTranspose(last.delta)).reverse();
@@ -5826,7 +5826,7 @@
 					var coreInDelta = this.matrixMultiply(baseBefore, this.matrixMultiply(q_this, this.matrixTranspose(baseBefore)));
 					var residual = this.matrixMultiply(last.delta, this.matrixTranspose(coreInDelta));
 					this.lastRotationCommit = null;
-					this.wideMergeCandidate = null;
+					this.ensureWideMerge().reset();
 					if (last.visual && this.twistyScene && this.twistyScene.applyMoves) {
 						// applyMoves 会立即结清在途动画，把多播的核心转动干净剥掉
 						var self = this;
@@ -5872,99 +5872,88 @@
 				},
 
 				// ---- 双层识别：外层转动 + 同轴转体 → 宽体记号（L+x=r、R+x'=l、U+y'=d…）----
-				// 参照中层的「三层分离」原则，这里只合并**记录层**：外层动画与整体转体
-				// 动画保持原样（两段都绕同一物理轴，可交换，合成后恰等于宽体转的净效果，
-				// twisty 状态 / 朝向记账 / rotSyncM 对齐一律不动），只把历史、公式与练习
-				// 进度里的「外层 + 转体」两条记号并成一条宽体记号。宽体记号恒为：
-				// 外层记号的对立面字母（小写）+ 原后缀——显示映射保持对面关系，帧无关。
-				wideOppositeLetter: function(letter) {
-					return { U: "D", D: "U", R: "L", L: "R", F: "B", B: "F" }[letter] || "";
+				// 决策收口在 Cube/assets/recognition/wide-merge.js（Cube 公用识别层）：
+				// 窗口内份量累计抵消（mod 4）——双层 180 被硬件量化成 L·z2·L 也能并成 r2；
+				// 转体先落账时由外层回吸最近一次同轴转体。合并命中时撤回候选已播动画、
+				// 改播一段宽体动画，记录层撤掉候选各条换成宽体。宽体记号恒为：外层记号的
+				// 对立面字母（小写）+ 份量后缀——显示映射保持对面关系，帧无关。
+				ensureWideMerge: function() {
+					if (!this.wideMergeManager) {
+						var self = this;
+						this.wideMergeManager = CubeWideMerge.createManager({
+							forwardMs: this.cubeWideForwardMs,
+							reverseMs: this.cubeWideReverseMs,
+							oppositeFace: function(letter) {
+								return { U: "D", D: "U", R: "L", L: "R", F: "B", B: "F" }[letter] || "";
+							},
+							faceNormal: function(face) {
+								return self.faceNormal(face);
+							},
+							log: function(kind, message) {
+								self.log(kind, message);
+							}
+						});
+					}
+					return this.wideMergeManager;
 				},
 
-				wideTextFromFaceText: function(faceText) {
-					var text = String(faceText || "");
-					var opp = this.wideOppositeLetter(text.charAt(0).toUpperCase());
-					if (!opp) {
-						return "";
-					}
-					return opp.toLowerCase() + text.slice(1);
-				},
-
-				// 整体转体在 face 所在轴上的分量是否恰好抵消 pow（同轴才可能抵消）
-				wideRotationCancels: function(face, pow, rotAxis, rotPow) {
-					var normal = this.faceNormal(face);
-					var axisNormal = this.faceNormal(rotAxis);
-					if (!normal || !axisNormal) {
-						return false;
-					}
-					var dot = normal[0] * axisNormal[0] + normal[1] * axisNormal[1] + normal[2] * axisNormal[2];
-					if (dot === 0) {
-						return false;
-					}
-					var component = rotPow * (dot > 0 ? 1 : -1);
-					return ((pow + component) % 4 + 4) % 4 === 0;
-				},
-
-				// 顺序一：外层先落账（wideMergeCandidate），转体后到、提交时合并
-				detectForwardWideMerge: function(parts, bodyParts) {
-					var candidate = this.wideMergeCandidate;
-					if (!candidate || Date.now() - candidate.at > this.cubeWideForwardMs) {
-						return null;
-					}
-					var rotParts = this.gyroFollow ? bodyParts : parts;
-					if (!rotParts || rotParts.length !== 1) {
-						return null;
-					}
-					if (!this.wideRotationCancels(candidate.face, candidate.pow, rotParts[0].axis, rotParts[0].pow)) {
-						return null;
-					}
-					var wideText = this.wideTextFromFaceText(candidate.text);
-					return wideText ? { candidate: candidate, wideText: wideText } : null;
-				},
-
-				// 候选的记号贡献可能已与相邻同面记号折叠（L L→L2）：按份量差改写，
-				// 定位不到候选贡献时保持原样（宁缺勿错）
-				rewriteTrackedTokenList: function(tokens, candidateText, wideText) {
-					var candidatePow = this.getTokenFacePow(candidateText);
-					if (!candidatePow || !tokens || !tokens.length) {
-						return tokens;
-					}
-					var last = this.getTokenFacePow(tokens[tokens.length - 1]);
-					if (!last || last.face !== candidatePow.face) {
-						return tokens;
-					}
-					var rest = ((last.pow - candidatePow.pow) % 4 + 4) % 4;
-					var out = tokens.slice(0, tokens.length - 1);
-					if (rest !== 0) {
-						out.push(this.formatMoveText(candidatePow.face, rest === 3 ? -1 : rest));
-					}
-					out.push(wideText);
-					return out;
-				},
-
-				applyForwardWideMerge: function(merge) {
-					var candidate = merge.candidate;
-					var removed = false;
-					for (var i = 0; i < this.moveHistory.length; i++) {
-						var item = this.moveHistory[i];
-						if (item && item.text === candidate.text && Math.abs((item.time || 0) - (candidate.time || 0)) < 1500) {
-							this.moveHistory.splice(i, 1);
-							removed = true;
-							break;
+				// 合并成立：①动画——倒序撤回候选已播的各段份量，改播一段宽体（两层同转，
+				// layerEnd=2）；②记录——转体条走 removeRotationRecord、外层条从 moveHistory
+				// 摘除，入宽体一条；③跟踪列表——manualMoveHistory / 公式 entry.moves /
+				// performedProcessMoves 从尾部吃掉候选 face 共 faceSum 份换成宽体记号
+				// （吃不完保持原样，宁缺勿错）。朝向/对齐记账不动（物理上真实发生）。
+				applyWideMergeRecords: function(merge) {
+					var self = this;
+					var played = [];
+					merge.pending.forEach(function(pending) {
+						if (pending.kind === "face" && pending.animToken) {
+							played.push(pending.animToken);
 						}
+						if (pending.kind === "rot" && pending.animTokens && pending.animTokens.length) {
+							played.push.apply(played, pending.animTokens);
+						}
+					});
+					var canRetract = !played.length || (this.twistyScene && this.twistyScene.applyMoves);
+					if (canRetract && this.twistyScene && this.twistyScene.addMoves) {
+						if (played.length) {
+							var inverse = [];
+							for (var i = played.length - 1; i >= 0; i--) {
+								var token = played[i];
+								inverse.push([token[0], token[1], token[2], -token[3]]);
+							}
+							this.twistyScene.applyMoves(inverse);
+						}
+						this.twistyScene.addMoves([[1, 2, merge.animFace, merge.animPow]]);
 					}
-					if (!removed) {
-						return false;
-					}
-					this.pushHistory(merge.wideText, candidate.source, candidate.time);
-					if (this.manualMoveHistory.length && this.manualMoveHistory[this.manualMoveHistory.length - 1] === candidate.text) {
-						this.manualMoveHistory[this.manualMoveHistory.length - 1] = merge.wideText;
-					}
+					merge.pending.forEach(function(pending) {
+						if (pending.kind === "rot") {
+							(pending.texts || []).forEach(function(text) {
+								self.removeRotationRecord(text, pending.at);
+							});
+						}
+					});
+					merge.pending.forEach(function(pending) {
+						if (pending.kind !== "face") {
+							return;
+						}
+						for (var i = 0; i < self.moveHistory.length; i++) {
+							var item = self.moveHistory[i];
+							if (item && item.text === pending.text && Math.abs((item.time || 0) - (pending.time || 0)) < 1500) {
+								self.moveHistory.splice(i, 1);
+								break;
+							}
+						}
+					});
+					this.pushHistory(merge.wideText, merge.source, merge.time);
+					var parseToken = function(token) { return self.getTokenFacePow(token); };
+					var formatToken = function(face, pow) { return self.formatMoveText(face, pow); };
+					this.manualMoveHistory = CubeWideMerge.rewriteTrailing(this.manualMoveHistory, parseToken, formatToken, merge.face, merge.faceSum, merge.wideText);
+					this.performedProcessMoves = CubeWideMerge.rewriteTrailing(this.performedProcessMoves, parseToken, formatToken, merge.face, merge.faceSum, merge.wideText);
 					if (this.isRecordingFormula && this.activeFormulaId) {
 						var entry = this.getFormulaEntry(this.activeFormulaId);
 						if (entry && entry.moves && entry.moves.length) {
 							this.syncEditingMovesFromInput();
-							entry.moves = this.rewriteTrackedTokenList(entry.moves, candidate.text, merge.wideText);
+							entry.moves = CubeWideMerge.rewriteTrailing(entry.moves, parseToken, formatToken, merge.face, merge.faceSum, merge.wideText);
 							var compressedTokens = this.compressDisplayTokens(this.tokenizeMoves(entry.moves.join(" ")));
 							entry.moves = compressedTokens;
 							entry.alg = compressedTokens.join(" ");
@@ -5983,49 +5972,8 @@
 							}
 						}
 					}
-					this.performedProcessMoves = this.rewriteTrackedTokenList(this.performedProcessMoves, candidate.text, merge.wideText);
-					this.wideMergeCandidate = null;
-					this.log("view", candidate.text + " 与转体合并为双层 " + merge.wideText);
+					this.log("view", "已合并为双层 " + merge.wideText);
 					return true;
-				},
-
-				// 顺序二：转体先提交落账，外层后到时合并（撤掉转体文本，换成宽体记号）
-				tryMergeWideRecord: function(move) {
-					var last = this.lastRotationCommit;
-					if (!last || !move || move.type !== "face" || move.wide) {
-						return null;
-					}
-					if (Date.now() - last.at > this.cubeWideReverseMs) {
-						return null;
-					}
-					var rotParts = this.gyroFollow ? last.bodyParts : last.parts;
-					if (!rotParts || rotParts.length !== 1) {
-						return null;
-					}
-					if (!this.wideRotationCancels(move.face, move.pow, rotParts[0].axis, rotParts[0].pow)) {
-						return null;
-					}
-					var wideText = this.wideTextFromFaceText(move.text);
-					if (!wideText) {
-						return null;
-					}
-					for (var i = 0; i < last.texts.length; i++) {
-						this.removeRotationRecord(last.texts[i], last.at);
-					}
-					this.lastRotationCommit = null;
-					this.wideMergeCandidate = null;
-					this.log("view", move.text + " 与刚落的转体合并为双层 " + wideText);
-					// 返回值只替换**记录对象**（历史/公式/进度文本），物理层仍应用原单层
-					// 转动：转体动画已播，两段动画合成恰为宽转净效果。twisty 字段仅占位，
-					// 记录对象永不驱动物理层（撤销走文本反解，天然正确）。
-					return {
-						text: wideText,
-						type: "face",
-						face: move.face,
-						wide: true,
-						pow: move.pow,
-						twisty: move.twisty
-					};
 				},
 
 				applyDetectedRotation: function(deltaMatrix, baseBefore, candidateSince) {
@@ -6077,7 +6025,7 @@
 						// 补偿公式对本次提交时的全部在队条目精确成立（无论它们的姿态数据
 						// 是否已并入 delta），提交后队列整体清空，之后的姿态变化另行结算
 						this.sliceCoreQueue = null;
-						this.wideMergeCandidate = null;
+						this.ensureWideMerge().reset();
 						return;
 					}
 					// applyMoves/updateOrientation 都按左乘累计，复合分解必须倒序执行。
@@ -6094,7 +6042,7 @@
 						if (this.gyroRecordM) {
 							this.gyroRecordM = this.matrixMultiply(deltaMatrix, this.gyroRecordM);
 						}
-						this.wideMergeCandidate = null;
+						this.ensureWideMerge().reset();
 						this.log("view", "转体已同步");
 						return;
 					}
@@ -6112,32 +6060,56 @@
 							return { axis: part.axis, pow: part.pow };
 						});
 					}
-					// 双层识别（顺序一：外层先落账）：合并只改记录，动画与对齐账目照旧
-					var wideMerge = this.detectForwardWideMerge(parts, bodyParts);
+					// 双层识别（顺序一：外层先落账）：转体份量先记入候选，命中则转体不入账
+					// （不动画、不记 x/y/z），由宿主撤回候选已播动画、改播宽体；未命中照常
+					// 动画并记录，材料留给之后外层后到时回吸
+					var rotTexts = bodyParts.map(function(part) {
+						return { R: "x", U: "y", F: "z" }[part.axis] + (part.pow === 2 ? "2" : part.pow === -1 ? "'" : "");
+					});
+					var rotAnimTokens = (!this.gyroFollow && parts.length)
+						? parts.map(function(part) {
+							return [1, self.cubeDimension, part.axis, part.pow];
+						})
+						: [];
+					var wideMergeInfo = this.ensureWideMerge().addRotationParts({
+						parts: parts,
+						bodyParts: bodyParts,
+						gyroFollow: !!this.gyroFollow,
+						at: Date.now(),
+						texts: rotTexts,
+						animTokens: rotAnimTokens
+					});
 					parts.forEach(function(part) {
 						if (!self.gyroFollow) {
-							// 关闭跟随：播放整体转动动画并推进朝向矩阵（只检测 XYZ 的普通模式）；
+							// 关闭跟随：推进朝向矩阵（动画按合并结果另行收放）；
 							// 开启跟随：姿态由陀螺仪直接呈现，不重复搬动视图
-							self.twistyScene.addMoves([[1, self.cubeDimension, part.axis, part.pow]]);
 							self.updateOrientation(part.axis, part.pow);
 						}
 						if (self.gyroRecordM) {
 							self.gyroRecordM = self.matrixMultiply(self.rotationMatrix(part.axis, part.pow), self.gyroRecordM);
 						}
 					});
-					if (wideMerge && this.applyForwardWideMerge(wideMerge)) {
+					if (wideMergeInfo && this.applyWideMergeRecords(wideMergeInfo)) {
 						// 已并入宽体记号：不再单独记 x/y/z，也不留给后续中层撤回复用
 						this.lastRotationCommit = null;
 					} else {
-						this.wideMergeCandidate = null;
-						bodyParts.forEach(function(part) {
-							var text = { R: "x", U: "y", F: "z" }[part.axis] + (part.pow === 2 ? "2" : part.pow === -1 ? "'" : "");
+						if (rotAnimTokens.length) {
+							this.twistyScene.addMoves(rotAnimTokens);
+						}
+						bodyParts.forEach(function(part, partIndex) {
+							var text = rotTexts[partIndex];
 							if (self.lastRotationCommit) {
 								self.lastRotationCommit.texts.push(text);
 							}
 							self.orientationMoves.push(text);
 							self.pushHistory(text, self.deviceName || "cube", Date.now());
 							self.log("view", text + " · 转体");
+						});
+						this.ensureWideMerge().noteRecordedRotation({
+							rotParts: this.gyroFollow ? bodyParts : parts,
+							texts: rotTexts,
+							at: Date.now(),
+							animTokens: rotAnimTokens
 						});
 					}
 				},
@@ -6158,7 +6130,7 @@
 					this.rotCandidate = null;
 					this.cancelRotFlush();
 					this.sliceCoreQueue = null;
-					this.wideMergeCandidate = null;
+					this.ensureWideMerge().reset();
 					this.gyroRecordM = settled;
 				},
 
@@ -6175,7 +6147,7 @@
 					this.lastCubeHistoryStamp = null;
 					this.connectFrames = [];
 					this.clearPendingCubeMove(false);
-					this.wideMergeCandidate = null;
+					this.ensureWideMerge().reset();
 					this.hideMacHelp();
 					this.setStatus("idle", "等待选择设备");
 					GiikerCube.setCallback(function(facelet, prevMoves, lastTs, hardware) {
@@ -6271,7 +6243,7 @@
 					// 场景重建会把朝向与视线清零，这里把重置前的朝向原样放回去
 					this.orientationMatrix = keepOrientation || this.identityMatrix();
 					this.sliceCoreQueue = null;
-					this.wideMergeCandidate = null;
+					this.ensureWideMerge().reset();
 					this.viewYaw = keepYaw;
 					this.viewPitch = keepPitch;
 					this.setViewDrag(keepYaw, keepPitch);
@@ -6718,9 +6690,9 @@
 						return move;
 					}
 					// 非硬件落账（手动/中层内部/撤销等）一律使双层候选失效：
-					// 候选只在「它是最后一条记录」时才有资格与转体合并
+					// 候选只累计硬件外层与真实转体
 					if (!options.fromCube || options.noHistory || options.silent) {
-						this.wideMergeCandidate = null;
+						this.ensureWideMerge().reset();
 					}
 					var recordMove = move;
 					if (options.fromCube) {
@@ -6732,11 +6704,6 @@
 						}
 						move = this.transformCubeMove(move);
 						recordMove = move;
-						// 双层识别（顺序二：转体先落账）：硬件外层与刚提交的同轴转体
-						// 合并为一条宽体记录；物理/对齐层保持原样
-						if (!options.noHistory && !options.silent && !move.wide) {
-							recordMove = this.tryMergeWideRecord(move) || recordMove;
-						}
 					}
 				if (!options.noFormula) {
 					this.recordFormulaMove(recordMove);
@@ -6763,16 +6730,21 @@
 					this.pushManualMoveHistory(recordMove);
 				}
 				this.recordSolveMove(recordMove, source, options);
-					if (options.fromCube && recordMove === move && move.type === "face" && !move.wide) {
-						// 双层识别候选：最后落账的硬件单层外层（之后同轴转体提交时可并进来）
-						this.wideMergeCandidate = {
+					if (options.fromCube && move.type === "face" && !move.wide && !options.noHistory && !options.silent) {
+						// 双层识别：硬件外层入账（记录已在上面落好），候选累计判合并
+						// （含回吸最近转体）；命中时撤回候选已播动画改播宽体，记录层同步改写
+						var wideMergeInfo = this.ensureWideMerge().addFaceMove({
 							face: move.face,
 							pow: move.pow,
-							text: move.text,
-							time: timestamp,
+							text: recordMove.text,
 							source: source,
-							at: Date.now()
-						};
+							time: timestamp,
+							at: Date.now(),
+							animToken: options.noAnimation ? null : move.twisty
+						});
+						if (wideMergeInfo) {
+							this.applyWideMergeRecords(wideMergeInfo);
+						}
 					}
 					return move;
 				},

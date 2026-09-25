@@ -21,20 +21,20 @@
 	     顺序反了会让页面里的同名变量被令牌表顶掉（历史 bug：--dsk-muted 变成面板底色） -->
 	<!-- 站点导航栏（登录态由 nav 触发 authManager.init，必须先于云同步） -->
 	<link rel="stylesheet" href="/ui/colors_and_type.css">
-	<link rel="stylesheet" href="/nav/nav.css?v=12">
-	<script src="/nav/nav.js?v=13" defer></script>
+	<link rel="stylesheet" href="/nav/nav.css?v=1877">
+	<script src="/nav/nav.js?v=1877" defer></script>
 
 	<!-- Cube 功能块样式（展开图 / 打乱视图）在前，页面自己的样式在后 -->
-	<link rel="stylesheet" href="../assets/cube-net/cube-net.css?v=1000">
-	<link rel="stylesheet" href="../assets/scramble/scramble.css?v=1001">
-	<link rel="stylesheet" href="cross.css?v=19" data-page-node-id="cGMKbHBoFi4OXcPWKCl2dg">
+	<link rel="stylesheet" href="../assets/cube-net/cube-net.css?v=1877">
+	<link rel="stylesheet" href="../assets/scramble/scramble.css?v=1877">
+	<link rel="stylesheet" href="cross.css?v=1877" data-page-node-id="cGMKbHBoFi4OXcPWKCl2dg">
 
-	<script src="/assets/services/core/site-scope.js?v=0915b" defer></script>
+	<script src="/assets/services/core/site-scope.js?v=1877" defer></script>
 	<!-- 云同步（Supabase，登录态与 Formula 共享） -->
 	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
-	<script src="/supabase/supabase-config.js?v=0618" defer></script>
-	<script src="/supabase/supabase-client.js?v=0618" defer></script>
-	<script src="/supabase/auth-manager.js?v=0677" defer></script>
+	<script src="/supabase/supabase-config.js?v=1877" defer></script>
+	<script src="/supabase/supabase-client.js?v=1877" defer></script>
+	<script src="/supabase/auth-manager.js?v=1877" defer></script>
 </head>
 <body data-page-node-id="bhMyOb7XuaXotrOotIkj9G">
 	<div class="page" data-page-node-id="Grn0Eeg9HyRTf66VfwBVC0">
@@ -147,32 +147,32 @@
 		</div>
 	</div>
 
-	<script src="cross-tables.js?v=1"></script>
-	<script src="cross-engine.js?v=4"></script>
+	<script src="cross-tables.js?v=1877"></script>
+	<script src="cross-engine.js?v=1877"></script>
 	<!-- 魔方展开图（Cube 公用 /Cube/cube-net/）。⚠️ 必须排在 cross-app.js 之前：
 	     cross-app.js 的 init() 在 readyState=interactive 时是【同步】执行的，不等 DOMContentLoaded，
 	     排它后面的 defer 脚本届时还没加载。 -->
-	<script src="../assets/cube-net/cube-net.js?v=1000" defer></script>
-	<script src="../assets/scramble/scramble.js?v=1001" defer></script>
-	<script src="cross-app.js?v=0915c" defer></script>
+	<script src="../assets/cube-net/cube-net.js?v=1877" defer></script>
+	<script src="../assets/scramble/scramble.js?v=1877" defer></script>
+	<script src="cross-app.js?v=1877" defer></script>
 	<!-- 智能魔方蓝牙栈（Cube 公用：依赖链 jquery 同步在前 → /Cube/compat.js → /Cube/lib/{lzstring,sha256,isaac,mathlib} → /Cube/hardware/） -->
 	<script src="../assets/base/jquery-4.0.0.min.js"></script>
-	<script src="../assets/base/compat.js?v=1526" defer></script>
+	<script src="../assets/base/compat.js?v=1877" defer></script>
 	<!-- 3D 魔方（Cube 公用 /Cube/twisty/：pnltri → three → twisty → twistynnn） -->
-	<script src="../assets/cube-3d/pnltri.js?v=0286" defer></script>
-	<script src="../assets/cube-3d/threemin.js?v=0286" defer></script>
-	<script src="../assets/cube-3d/twisty.js?v=1034" defer></script>
-	<script src="../assets/cube-3d/twistynnn.js?v=0484" defer></script>
-	<script src="../assets/codec/lzstring.js?v=0286" defer></script>
-	<script src="../assets/codec/sha256.js?v=0286" defer></script>
-	<script src="../assets/codec/isaac.js?v=0286" defer></script>
-	<script src="../assets/cube-solve/mathlib.js?v=0286" defer></script>
-	<script src="../assets/bluetooth/bluetooth.js?v=1072" defer></script>
-	<script src="../assets/bluetooth/giikercube.js?v=0286" defer></script>
-	<script src="../assets/bluetooth/gocube.js?v=0286" defer></script>
-	<script src="../assets/bluetooth/gancube.js?v=1823" defer></script>
-	<script src="../assets/bluetooth/moyucube.js?v=1072" defer></script>
-	<script src="../assets/bluetooth/moyu32cube.js?v=1072" defer></script>
-	<script src="../assets/bluetooth/qiyicube.js?v=0286" defer></script>
+	<script src="../assets/cube-3d/pnltri.js?v=1877" defer></script>
+	<script src="../assets/cube-3d/threemin.js?v=1877" defer></script>
+	<script src="../assets/cube-3d/twisty.js?v=1877" defer></script>
+	<script src="../assets/cube-3d/twistynnn.js?v=1877" defer></script>
+	<script src="../assets/codec/lzstring.js?v=1877" defer></script>
+	<script src="../assets/codec/sha256.js?v=1877" defer></script>
+	<script src="../assets/codec/isaac.js?v=1877" defer></script>
+	<script src="../assets/cube-solve/mathlib.js?v=1877" defer></script>
+	<script src="../assets/bluetooth/bluetooth.js?v=1877" defer></script>
+	<script src="../assets/bluetooth/giikercube.js?v=1877" defer></script>
+	<script src="../assets/bluetooth/gocube.js?v=1877" defer></script>
+	<script src="../assets/bluetooth/gancube.js?v=1877" defer></script>
+	<script src="../assets/bluetooth/moyucube.js?v=1877" defer></script>
+	<script src="../assets/bluetooth/moyu32cube.js?v=1877" defer></script>
+	<script src="../assets/bluetooth/qiyicube.js?v=1877" defer></script>
 </body>
 </html>

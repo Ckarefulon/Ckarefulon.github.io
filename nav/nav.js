@@ -99,7 +99,7 @@
 	var NAV_HTML = [
 		'<header class="siteHeader">',
 		'	<div class="siteHeaderLeft">',
-		'		<img class="siteHeaderLogo" src="/favicon.svg?v=0349" alt="Logo" aria-hidden="true">',
+		'		<img class="siteHeaderLogo" src="/favicon.svg?v=1877" alt="Logo" aria-hidden="true">',
 		'		<span class="siteHeaderName"><a class="siteHeaderBrand" href="/">Ckarefulon</a><span class="siteHeaderPath" id="siteHeaderPath" hidden><span class="siteHeaderPathInner" id="siteHeaderPathInner" dir="ltr"></span></span></span>',
 		'	</div>',
 		'	<div class="siteHeaderRight">',

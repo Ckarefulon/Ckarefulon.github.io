@@ -102,7 +102,7 @@ $pageTpl = @'
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-	<link rel="icon" href="/favicon.svg?v=7" type="image/svg+xml">
+	<link rel="icon" href="/favicon.svg?v=1877" type="image/svg+xml">
 
 	<!-- 主题先落地，避免深浅色闪一下（与其它页面共用 smartCubeTheme） -->
 	<script>
@@ -122,9 +122,9 @@ $pageTpl = @'
 	<!-- 站点作用域（必须先于云同步定义）+ 云同步（Supabase，登录态与 Formula 共享） -->
 	<script src="/assets/services/core/site-scope.js@@VER_SCOPE@@" defer></script>
 	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
-	<script src="/supabase/supabase-config.js?v=0618" defer></script>
-	<script src="/supabase/supabase-client.js?v=0618" defer></script>
-	<script src="/supabase/auth-manager.js?v=0677" defer></script>
+	<script src="/supabase/supabase-config.js?v=1877" defer></script>
+	<script src="/supabase/supabase-client.js?v=1877" defer></script>
+	<script src="/supabase/auth-manager.js?v=1877" defer></script>
 
 	<!-- @@MARKER@@ : 本页由 make-index 自动生成，手动修改会在下次运行时被覆盖 -->
 	<meta name="generator" content="make-index (@@MARKER@@)">
