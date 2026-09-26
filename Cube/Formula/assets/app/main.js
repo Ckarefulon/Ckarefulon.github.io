@@ -2917,6 +2917,10 @@
 						if (typeof window._siteNavSetDirty === "function") {
 							window._siteNavSetDirty(true);
 						}
+						// 自动同步：数据变动后防抖上传到云端（未登录/无作用域时 scheduleUpload 内部直接跳过）
+						if (window.cloudSyncManager && typeof window.cloudSyncManager.scheduleUpload === "function") {
+							window.cloudSyncManager.scheduleUpload();
+						}
 					};
 
 					this.markDataClean = function() {

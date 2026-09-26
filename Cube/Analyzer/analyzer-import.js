@@ -324,7 +324,7 @@
       id:s.id,date:s.date,totalTime:s.totalTime,flag:s.flag,tps:s.tps,turnCount:s.turnCount,
       fluencyPercent:s.fluencyPercent,analysisType:s.analysisType,session:s.session,device:s.device,
       scramble:s.scramble,timestamps:s.timestamps,moveTimestamps:s.moveTimestamps||s.timestamps,moves:s.moves,rawSolutionSequence:s.rawSolutionSequence||[],startFacelet:s.startFacelet,
-      snapshots:s.snapshots,stateSequence:s.stateSequence||s.snapshots||[],steps:s.steps,analysisFrame:s.analysisFrame||null,analysisVersion:s.analysisVersion||s.analysisFrame?.analysisVersion||0,colorNeutral:s.colorNeutral!==false,gyroSamples:s.gyroSamples||[],timingMode:s.timingMode||'',captureType:s.captureType||'',source:s.source,
+      snapshots:s.snapshots,stateSequence:s.stateSequence||s.snapshots||[],steps:s.steps,analysisFrame:s.analysisFrame||null,analysisVersion:s.analysisVersion||s.analysisFrame?.analysisVersion||0,colorNeutral:s.colorNeutral!==false,gyroSampleCount:Array.isArray(s.gyroSamples)?s.gyroSamples.length:0,timingMode:s.timingMode||'',captureType:s.captureType||'',source:s.source,
     };
   }
 

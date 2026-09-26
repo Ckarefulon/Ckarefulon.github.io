@@ -16,15 +16,54 @@
   function dominantMethod(solves){const m=new Map();solves.forEach(s=>m.set(s.analysisType,(m.get(s.analysisType)||0)+1));return [...m].sort((a,b)=>b[1]-a[1])[0]?.[0]||'CFOP'}
   function notify(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2200)}
   function download(name,content,type='application/json'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;document.body.appendChild(a);a.click();URL.revokeObjectURL(a.href);a.remove()}
+  // 本地写入：返回是否真的落盘（storageManager 现在会如实返回 false，不再静默吞掉）
+  function writeLocal(payload,settings){
+    if(window.storageManager){
+      const ok=window.storageManager.setJson(STORAGE,payload)!==false;
+      window.storageManager.setJson(SETTINGS,settings);
+      return ok;
+    }
+    try{localStorage.setItem(STORAGE,JSON.stringify(payload));localStorage.setItem(SETTINGS,JSON.stringify(settings));return true}
+    catch(e){console.error('[Analyzer] 本地写入失败',e);return false}
+  }
+  // 写不下时逐级瘦身：只压缩轨迹字段（snapshots / stateSequence），记录条数永不减少。
+  // 最新 keepDetailed 条保留完整轨迹，其余按级降级；这是最后兜底，正常永远用不到。
+  function slimStage(payload,keepDetailed,dropSeq){
+    const solves=payload.solves.map(s=>({...s}));
+    const n=solves.length;
+    for(let i=0;i<n;i++){
+      const rank=n-1-i; // 0 = 最新
+      if(rank>=keepDetailed){
+        if(solves[i].snapshots&&solves[i].snapshots.length)solves[i].snapshots=[];
+        if(dropSeq&&solves[i].stateSequence&&solves[i].stateSequence.length)solves[i].stateSequence=[];
+      }
+    }
+    return {...payload,solves};
+  }
   function save(sync=true){
     try{
-      const payload={name:'训练数据',solves:state.solves.map(I.exportableSolve)};
       const settings={goal:state.goal,trendMetric:state.trendMetric,resolution:state.resolution,tpsMode:state.tpsMode,training:state.training};
-      if(window.storageManager){window.storageManager.setJson(STORAGE,payload);window.storageManager.setJson(SETTINGS,settings)}
-      else{localStorage.setItem(STORAGE,JSON.stringify(payload));localStorage.setItem(SETTINGS,JSON.stringify(settings))}
+      let payload={name:'训练数据',solves:state.solves.map(I.exportableSolve)};
+      let ok=writeLocal(payload,settings);
+      let slimmed=0;
+      if(!ok){
+        // 存储满：按级压缩历史轨迹后再写（PB/次数/时间不受影响）
+        const stages=[slimStage(payload,20,false),slimStage(payload,20,true),slimStage(payload,0,true)];
+        for(const v of stages){
+          payload=v;slimmed++;
+          ok=writeLocal(payload,settings);
+          if(ok){console.warn('[Analyzer] 本地存储接近上限，已压缩历史轨迹数据（记录条数不变）');break}
+        }
+      }
+      if(!ok){
+        // 绝不静默失败：明确告诉用户，数据还在当前页面内存里，千万别直接关
+        console.error('[Analyzer] 本地保存失败：浏览器存储已满');
+        notify('本地保存失败：浏览器存储已满，请先导出备份');
+        return;
+      }
       if(!window._siteNavApplyingCloudData&&typeof window._siteNavSetDirty==='function')window._siteNavSetDirty(true);
       if(sync&&window.CubeAnalyzerCloud)window.CubeAnalyzerCloud.scheduleUpload();
-    }catch(e){console.warn('Persistence skipped',e)}
+    }catch(e){console.error('[Analyzer] 保存异常',e);notify('本地保存失败：'+(e&&e.message||e))}
   }
   function upgradeSolve(raw,index=0){
     const s=I.normalizeSolve(raw,index);
@@ -37,7 +76,13 @@
     if(needsAnalysis&&A){
       migratedData=true;
       const snapshots=s.stateSequence?.length?s.stateSequence:s.snapshots;
-      const analyzed=A.analyze({method:s.analysisType,startFacelet:s.startFacelet,moves:s.moves,timestamps:s.timestamps,totalTime:s.totalTime,snapshots,rawSolutionSequence:s.rawSolutionSequence});
+      let analyzed=null;
+      try{
+        analyzed=A.analyze({method:s.analysisType,startFacelet:s.startFacelet,moves:s.moves,timestamps:s.timestamps,totalTime:s.totalTime,snapshots,rawSolutionSequence:s.rawSolutionSequence});
+      }catch(analyzeErr){
+        // 单条记录分析崩溃绝不允许炸穿整个 load()——降级为无分段，记录本体保留
+        console.warn('[Analyzer] 单条记录重新分析失败，已降级保留',s.id,analyzeErr);
+      }
       if(analyzed?.steps?.length){
         s.steps=analyzed.steps;s.analysisFrame=analyzed.frame||null;s.analysisVersion=analyzed.analysisVersion||analysisVersion;s.colorNeutral=true;
       }else{
@@ -46,8 +91,10 @@
       }
     }
     if((!s.stateSequence?.length||s.stateSequence.length!==s.moves.length+1)&&A?.statesFromSnapshots){
-      const rebuilt=A.statesFromSnapshots(s.startFacelet,s.moves,s.snapshots,s.rawSolutionSequence);
-      if(rebuilt.length===s.moves.length+1)s.stateSequence=rebuilt.map((cube,i)=>({facelet:typeof cube?.toFaceCube==='function'?cube.toFaceCube():'',timestamp:i===0?0:s.timestamps[i-1],move:i===0?'':s.moves[i-1]}));
+      try{
+        const rebuilt=A.statesFromSnapshots(s.startFacelet,s.moves,s.snapshots,s.rawSolutionSequence);
+        if(rebuilt.length===s.moves.length+1)s.stateSequence=rebuilt.map((cube,i)=>({facelet:typeof cube?.toFaceCube==='function'?cube.toFaceCube():'',timestamp:i===0?0:s.timestamps[i-1],move:i===0?'':s.moves[i-1]}));
+      }catch(rebuildErr){console.warn('[Analyzer] 状态序列重建失败，保留原值',s.id,rebuildErr);}
     }
     if(!s.source||/^(手动训练|manual|import)$/i.test(String(s.source)))s.source=`智能魔方训练${s.timingMode==='space'?' · 空格起停':s.timingMode==='state'?' · 状态起停':''}`;
     return s;
@@ -60,7 +107,24 @@
       if(settings&&typeof settings==='object')Object.assign(state,settings);
       if(settings?.training)state.training={...state.training,...settings.training};
       const d=window.storageManager?window.storageManager.getJson(STORAGE,null):JSON.parse(localStorage.getItem(STORAGE)||'null');
-      if(d?.solves?.length)state.solves=d.solves.map(upgradeSolve);
+      if(Array.isArray(d?.solves)&&d.solves.length){
+        // 逐条隔离：一条坏记录只降级自己，绝不连坐清空整个列表
+        const loaded=[];
+        d.solves.forEach((raw,i)=>{
+          try{loaded.push(upgradeSolve(raw,i));}
+          catch(e){
+            console.warn('[Analyzer] 记录升级失败，降级保留原始数据',i,e);
+            try{loaded.push(I.normalizeSolve(raw,i));}catch(e2){console.warn('[Analyzer] 记录解析失败，已跳过',i,e2);}
+          }
+        });
+        state.solves=loaded;
+      }
+      // 迁移（自愈）：旧记录里带着无人读取的陀螺仪采样，单条体积 88% 都耗在这上面，
+      // 几十把就会撑满 localStorage 配额并导致此后写入静默失败。检测到即重写瘦身。
+      try{
+        const raw=localStorage.getItem(STORAGE);
+        if(raw&&(/"gyroSamples":\[\{/.test(raw)||raw.length>4*1024*1024))migratedData=true;
+      }catch(e){}
       if(migratedData)save(false);
     }catch(e){console.warn(e)}
     state.datasetName='训练数据';
@@ -554,16 +618,28 @@
   async function handleAuthState(user){
     updateCloudIndicator();
     if(!user||cloudHydrated||state.solves.length||!window.CubeAnalyzerCloud)return;
+    // 内存为空 ≠ 磁盘为空：load() 一旦失败内存会清零，但本机备份还在，绝不能被云端覆写
+    try{
+      const disk=JSON.parse(localStorage.getItem(window.CubeAnalyzerCloud.storageKey)||'null');
+      if(disk&&Array.isArray(disk.solves)&&disk.solves.length)return;
+    }catch(e){}
     cloudHydrated=true;
     try{
       const status=await window.CubeAnalyzerCloud.getCloudStatus();
+      if(!status?.success){ cloudHydrated=false; return; } // 查询失败不烧掉水合机会，下次 auth 事件重试
       const block=status?.cloudData?.data;
-      if(status?.success&&status.hasData&&block?.cubeAnalyzerData){
+      const cd=block?.cubeAnalyzerData;
+      if(status.hasData&&cd&&Array.isArray(cd.solves)){
+        // 覆盖本地前先留快照，可从头像菜单回滚
+        if(typeof window._siteNavPrepareOverwrite==='function'){
+          const guard=window._siteNavPrepareOverwrite('云端数据自动载入',block);
+          if(!guard.success)return;
+        }
         window.CubeAnalyzerCloud.applyDataToLocalStorage(block);
         reloadFromStorage();
         notify('已载入 Supabase 训练数据');
       }
-    }catch(e){console.warn('Cloud hydration skipped',e)}
+    }catch(e){ cloudHydrated=false; console.warn('Cloud hydration skipped',e) }
   }
 
   function bind(){
@@ -578,7 +654,7 @@
 
     $('#importBtn').onclick=()=>$('#fileInput').click();$('#fileInput').onchange=async e=>{try{await mergeImportFiles([...e.target.files])}catch(err){console.error(err);notify(`导入失败：${err.message}`)}finally{e.target.value=''}};
     $('#exportBtn').onclick=()=>download(`cube-analyzer-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(window.CubeAnalyzerCloud?window.CubeAnalyzerCloud.buildLocalPayload():{version:2,data:{cubeAnalyzerData:{name:'训练数据',solves:state.solves.map(I.exportableSolve)}}},null,2));
-    $('#clearBtn').onclick=()=>{if(!state.solves.length)return;if(!confirm('确认清空 Analyzer 的全部训练记录？'))return;state.solves=[];state.datasetName='训练数据';save(true);renderTrainerSummary();renderAll();$('#totalSolveBadge').textContent='0 solves';notify('已清空训练数据')};
+    $('#clearBtn').onclick=()=>{if(!state.solves.length)return;if(!confirm('确认清空 Analyzer 的全部训练记录？'))return;state.solves=[];state.datasetName='训练数据';if(window.CubeAnalyzerCloud){window.CubeAnalyzerCloud.allowEmptyUploadOnce=true;window.CubeAnalyzerCloud.allowCountRegressionOnce=true;}save(true);renderTrainerSummary();renderAll();$('#totalSolveBadge').textContent='0 solves';notify('已清空训练数据')};
     ['method','session','device'].forEach(k=>{$(`#${k}Filter`).onchange=e=>{state.filters[k]=e.target.value;renderAll()}});$('#startDate').onchange=e=>{state.filters.start=e.target.value;renderAll()};$('#endDate').onchange=e=>{state.filters.end=e.target.value;renderAll()};
     $('#resetFilterBtn').onclick=()=>{state.filters={method:'all',session:'all',device:'all',start:'',end:''};syncFilterUI();renderAll()};
     $('#tabs').onclick=e=>{const b=e.target.closest('.tab[data-tab]');if(!b)return;state.activeTab=b.dataset.tab;$$('.tab').forEach(x=>x.classList.toggle('active',x===b));$$('.tab-panel').forEach(x=>x.classList.toggle('active',x.dataset.panel===state.activeTab))};

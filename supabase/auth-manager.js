@@ -95,7 +95,11 @@
 				authManager._notify(authManager._user);
 				return { success: true, message: "登录成功", user: result.data.user };
 			}).catch(function(error) {
-				return { success: false, message: "登录失败，请稍后重试", user: null };
+				// TypeError = fetch 网络失败；其余按通用失败处理
+				var msg = (error && (error instanceof TypeError || /fetch|network/i.test(String(error.message || ""))))
+					? "网络异常，无法连接登录服务（请检查网络或代理）"
+					: "登录失败，请稍后重试";
+				return { success: false, message: msg, user: null };
 			});
 		},
 
@@ -124,10 +128,16 @@
 				},
 				body: JSON.stringify({ username: username, password: password })
 			}).then(function(response) {
-				return response.json().catch(function() {
-					return { success: false };
-				}).then(function(data) {
+				// 5xx / 网关错误 = 服务端异常，不是密码错
+				if (response.status >= 500) {
+					return { success: false, message: "登录服务异常，请稍后重试", user: null };
+				}
+			return response.json().catch(function() {
+				// 应答不是 JSON（代理劫持/网关页）≈ 服务不可达
+				return { success: false, message: "网络异常，无法连接登录服务（请检查网络或代理）", user: null };
+			}).then(function(data) {
 					if (!response.ok || !data.success || !data.session) {
+						// 函数已应答但拒绝 = 真正的账号/密码问题（防枚举，统一话术）
 						return { success: false, message: "账号或密码错误", user: null };
 					}
 					var session = data.session;
@@ -144,7 +154,8 @@
 					});
 				});
 			}).catch(function() {
-				return { success: false, message: "账号或密码错误", user: null };
+				// fetch 本身失败 = 网络/代理不通（supabase.co 直连会被断），不是密码错
+				return { success: false, message: "网络异常，无法连接登录服务（请检查网络或代理）", user: null };
 			});
 		},
 
@@ -214,7 +225,7 @@
 			if (lower.indexOf("user already registered") >= 0) return "该邮箱已被注册";
 			if (lower.indexOf("password") >= 0 && lower.indexOf("length") >= 0) return "密码长度不足（至少 6 位）";
 			if (lower.indexOf("rate limit") >= 0) return "请求过于频繁，请稍后重试";
-			if (lower.indexOf("network") >= 0) return "网络错误，请检查连接";
+			if (lower.indexOf("fetch") >= 0 || lower.indexOf("network") >= 0 || lower.indexOf("load failed") >= 0) return "网络异常，无法连接登录服务（请检查网络或代理）";
 			return "登录失败";
 		}
 	};

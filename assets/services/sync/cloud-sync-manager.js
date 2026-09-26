@@ -11,8 +11,67 @@
 	 * smartCubeStateImportText 已合并到 cube_memory_progress 中（planText 字段）。
 	 */
 
-	/* 没有可用站点作用域时的统一提示：宁可不同步，也不准写到别的作用域 */
-	var NO_SCOPE_MESSAGE = "当前路径没有可用的站点作用域，已阻止云端读写";
+/* 没有可用站点作用域时的统一提示：宁可不同步，也不准写到别的作用域 */
+var NO_SCOPE_MESSAGE = "当前路径没有可用的站点作用域，已阻止云端读写";
+
+/* 自动上传防抖定时器 */
+var autoSyncTimer = null;
+
+/**
+ * payload 数据块是否包含有意义的内容（任一字段非空即算有）
+ * 用于空数据闸门：本地空 + 云端有 ⇒ 拒绝自动上传，防止空状态覆盖云端备份
+ * @param {object} data - payload.data
+ * @returns {boolean}
+ */
+function hasPayloadData(data) {
+	if (!data || typeof data !== "object") return false;
+	var keys = ["cube_memory_progress", "smartCubeFormulaEntries", "smartCubePracticeStats"];
+	for (var i = 0; i < keys.length; i++) {
+		var v = data[keys[i]];
+		if (v == null) continue;
+		if (Array.isArray(v)) { if (v.length > 0) return true; continue; }
+		if (typeof v === "object") { if (Object.keys(v).length > 0) return true; continue; }
+		if (typeof v === "string") { if (v) return true; continue; }
+		return true;
+	}
+	return false;
+}
+
+/**
+ * 生成 payload 的指纹块（随 data 一起上传）
+ * 有了它，云端只需 select data->meta 几百字节就能判断「数据变没变」，不必下载整份数据
+ * @param {object} data - payload.data（不含 meta）
+ * @returns {object}
+ */
+function buildMeta(data) {
+	var itemCount = 0;
+	Object.keys(data || {}).forEach(function(k) {
+		if (k === "meta") return;
+		var v = data[k];
+		if (v == null) return;
+		if (Array.isArray(v)) { if (v.length) { itemCount++; } return; }
+		if (typeof v === "object") { if (Object.keys(v).length) { itemCount++; } return; }
+		if (v !== "") { itemCount++; }
+	});
+	var bytes = 0;
+	try { bytes = JSON.stringify(data).length; } catch (e) { bytes = 0; }
+	return {
+		bytes: bytes,
+		items: itemCount,
+		hash: typeof window._siteNavPayloadHash === "function" ? window._siteNavPayloadHash(data) : ""
+	};
+}
+
+/**
+ * 云端到底有没有真数据：优先用轻量指纹块判断，没有指纹时退回解析完整数据
+ * @param {object} status - getCloudStatus 的返回值
+ * @returns {boolean}
+ */
+function cloudHasMeaningfulData(status) {
+	if (status && status.cloudMeta) { return Number(status.cloudMeta.items) > 0; }
+	var d = status && status.cloudData && status.cloudData.data;
+	return hasPayloadData(d);
+}
 
 	/**
 	 * 取当前站点作用域；取不到返回 ""
@@ -46,6 +105,58 @@
 		},
 
 		/**
+		 * 自动同步：防抖后上传本地数据（登录且作用域可用时才生效）
+		 * 空数据闸门：本地无有效数据而云端有备份时，拒绝自动上传（手动上传不受限）
+		 * @param {number} [delay=1200] 防抖毫秒数
+		 */
+		scheduleUpload: function(delay) {
+			if (autoSyncTimer) { clearTimeout(autoSyncTimer); }
+			autoSyncTimer = setTimeout(function() {
+				autoSyncTimer = null;
+				if (!cloudSyncManager.isReady()) return;
+				var scope = resolveScope();
+				if (!scope) return;
+
+				var proceed = function() {
+					if (typeof window._siteNavSetCloudStatus === "function") {
+						window._siteNavSetCloudStatus("正在自动保存...", "");
+					}
+				cloudSyncManager.uploadLocalToCloud().then(function(result) {
+					if (result.success && typeof window._siteNavSetDirty === "function") {
+						window._siteNavSetDirty(false);
+					}
+					if (typeof window._siteNavSetCloudStatus === "function") {
+						window._siteNavSetCloudStatus(result.success ? "已自动保存到云端" : result.message, result.success ? "Success" : "Error");
+					}
+				});
+				};
+
+				var payload = cloudSyncManager.buildLocalPayload();
+				if (!hasPayloadData(payload.data)) {
+					// 本地为空：确认云端确实没数据才允许上传空行（走轻量指纹，不下载整份数据）
+					var decide = function(status) {
+						if (status.success && status.hasData && cloudHasMeaningfulData(status)) {
+							if (typeof window._siteNavSetCloudStatus === "function") {
+								window._siteNavSetCloudStatus("本地暂无数据，已跳过自动上传（保护云端备份）", "Warning");
+							}
+							return;
+						}
+						proceed();
+					};
+					cloudSyncManager.getCloudStatus({ light: true }).then(function(status) {
+						if (status.success && status.hasData && !status.cloudMeta) {
+							// 云端是旧的、还没有指纹块的数据 ⇒ 退回完整查询，闸门语义不弱化
+							return cloudSyncManager.getCloudStatus().then(decide);
+						}
+						decide(status);
+					}).catch(function() { proceed(); });
+					return;
+				}
+				proceed();
+			}, typeof delay === "number" ? delay : 1200);
+		},
+
+		/**
 		 * 从本地构建上传数据负载
 		 * @returns {object}
 		 */
@@ -56,25 +167,31 @@
 			var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
 			var practiceStats = window.storageManager ? window.storageManager.getJson("smartCubePracticeStats", null) : null;
 
+			var data = {
+				cube_memory_progress: mem,
+				smartCubeFormulaEntries: entries,
+				smartCubePracticeStats: practiceStats
+			};
+			data.meta = buildMeta(data);
+
 			return {
 				exportedAt: new Date().toISOString(),
 				source: "Ckarefulon",
 				siteScope: scope,
 				siteBasePath: basePath,
 				version: 1,
-				data: {
-					cube_memory_progress: mem,
-					smartCubeFormulaEntries: entries,
-					smartCubePracticeStats: practiceStats
-				}
+				data: data
 			};
 		},
 
 		/**
 		 * 获取云端数据状态
-		 * @returns {Promise<{success: boolean, message: string, hasData: boolean, cloudData: object|null}>}
+		 * @param {object} [opts]
+		 * @param {boolean} [opts.light] 只取 updated_at + data->meta（几百字节），不下载整份数据
+		 * @returns {Promise<{success: boolean, message: string, hasData: boolean, cloudData: object|null, cloudMeta?: object|null}>}
 		 */
-		getCloudStatus: function() {
+		getCloudStatus: function(opts) {
+			var light = !!(opts && opts.light);
 			if (!cloudSyncManager.isReady()) {
 				return Promise.resolve({ success: false, message: "请先登录", hasData: false, cloudData: null });
 			}
@@ -85,19 +202,42 @@
 				return Promise.resolve({ success: false, message: NO_SCOPE_MESSAGE, hasData: false, cloudData: null });
 			}
 
-			return window.supabaseClient
-				.from("user_data")
-				.select("data, updated_at")
-				.eq("user_id", user.id)
-				.eq("site_scope", scope)
-				.maybeSingle()
+			var query = function(cols) {
+				return window.supabaseClient
+					.from("user_data")
+					.select(cols)
+					.eq("user_id", user.id)
+					.eq("site_scope", scope)
+					.maybeSingle();
+			};
+
+			return query(light ? "updated_at,data->meta" : "data, updated_at")
 				.then(function(result) {
+					if (light && result.error) {
+						// 轻量投影不被支持 ⇒ 退回完整查询，宁可这次多传点，也不能让状态检查直接失败
+						console.warn("[CloudSync] 轻量投影不可用，回退完整查询:", result.error.message || result.error);
+						return query("data, updated_at").then(function(full) {
+							if (full.error) {
+								console.error("[CloudSync] 查询云端状态失败:", full.error);
+								return { success: false, message: "查询云端状态失败", hasData: false, cloudData: null };
+							}
+							if (!full.data) {
+								return { success: true, message: "云端暂无数据", hasData: false, cloudData: null };
+							}
+							return { success: true, message: "云端已有数据", hasData: true, cloudData: full.data.data, updatedAt: full.data.updated_at };
+						});
+					}
 					if (result.error) {
 						console.error("[CloudSync] 查询云端状态失败:", result.error);
 						return { success: false, message: "查询云端状态失败", hasData: false, cloudData: null };
 					}
 					if (!result.data) {
 						return { success: true, message: "云端暂无数据", hasData: false, cloudData: null };
+					}
+					if (light) {
+						var row = result.data || {};
+						var meta = row.meta !== undefined ? row.meta : ((row.data && row.data.meta) || null);
+						return { success: true, message: "云端已有数据", hasData: true, light: true, cloudMeta: meta, updatedAt: row.updated_at, cloudData: null };
 					}
 					return {
 						success: true,

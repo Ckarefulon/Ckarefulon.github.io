@@ -8,6 +8,9 @@
  *   已打乱   isDone      半透明
  *   修正完成 isFixDone   半透明
  *
+ * 排版（2026-09-26 起）：每一步固定最小宽度 + 居中 ⇒ U / U' / U2 视觉等距等宽；
+ * 记号加粗、在页面容器字号之上再放大 1.35 倍 —— 想整体再大就调容器的 font-size。
+ *
  * 想调这一功能块的观感，改这里一处即可；页面也可以在自己的样式里覆盖 --scramble-* 变量。
  * 页面只负责容器的排版（字号 / 对齐 / 内边距），不参与「每一步长什么样」。
  */
@@ -28,9 +31,14 @@
 
 .scramble-step {
 	display: inline-block;
+	min-width: 2.25ch;      /* 等距：短记号由盒子补齐，'U' / "U'" / 'U2' 占同样宽度 */
+	text-align: center;
 	padding: 0 3px;
 	margin-right: 0.45em;
 	border-radius: 4px;
+	font-size: 1.35em;      /* 放大：在容器字号之上再加一档 */
+	font-weight: 700;       /* 加粗 */
+	line-height: 1.25;
 	transition: color 0.15s, opacity 0.15s, background 0.15s;
 }
 
@@ -43,7 +51,7 @@
 	color: var(--scramble-current);
 	text-shadow: 0 0 12px var(--scramble-current-ring);
 	text-decoration: underline;
-	text-underline-offset: 4px;
+	text-underline-offset: 0.18em;
 	text-decoration-color: var(--scramble-current-ring);
 }
 

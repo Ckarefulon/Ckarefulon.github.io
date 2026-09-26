@@ -34,12 +34,18 @@
 		 */
 		setItem: function(key, value) {
 			if (!storageManager.isAvailable()) {
-				return;
+				storageManager.lastError = storageManager.lastError || new Error("localStorage unavailable");
+				return false;
 			}
 			try {
 				localStorage.setItem(key, value);
+				return true;
 			} catch (error) {
-				// 静默降级，不阻塞页面
+				// 不再静默：配额满 / 被禁用时记录错误并返回 false，调用方据此提示用户。
+				// （静默吞掉会让数据无声丢失：内存里有、刷新就没。）
+				storageManager.lastError = error;
+				console.error("[storageManager] 写入失败", key, (error && error.name) || error, "size=" + (typeof value === "string" ? value.length : -1));
+				return false;
 			}
 		},
 
@@ -86,12 +92,16 @@
 		 */
 		setJson: function(key, value) {
 			if (!storageManager.isAvailable()) {
-				return;
+				storageManager.lastError = storageManager.lastError || new Error("localStorage unavailable");
+				return false;
 			}
 			try {
 				localStorage.setItem(key, JSON.stringify(value));
+				return true;
 			} catch (error) {
-				// 静默降级
+				storageManager.lastError = error;
+				console.error("[storageManager] 写入失败", key, (error && error.name) || error);
+				return false;
 			}
 		},
 
@@ -109,13 +119,18 @@
 				localStorage.removeItem(testKey);
 				storageManager._available = true;
 			} catch (error) {
-				storageManager._available = false;
+				// 配额满 ≠ 存储不可用：仅「不可用」才判死。若把配额满误判为不可用并缓存，
+				// 此后本会话所有读写都会静默空转（已有数据也读不回来）。
+				storageManager.lastError = error;
+				storageManager._available = !(error && /QuotaExceeded/i.test(error.name || ""));
 			}
 			return storageManager._available;
 		},
 
 		// 缓存可用性检测结果
-		_available: undefined
+		_available: undefined,
+		// 最近一次读写失败原因（调用方可据此提示用户，如「存储已满」）
+		lastError: null
 	};
 
 	window.storageManager = storageManager;

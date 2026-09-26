@@ -591,6 +591,12 @@
 			var state = JSON.parse(raw);
 			if (!state || typeof state !== "object") return null;
 			if (state.siteScope && state.siteScope !== detectSiteScope()) return null;
+			// 旧格式迁移：以前会把整份 payload 再复制一份存在这里，改成只留指纹（顺带腾出存储空间）
+			if (state.lastSyncedData && !state.lastSyncedHash) {
+				try { state.lastSyncedHash = payloadHash(JSON.parse(state.lastSyncedData)); } catch (e) { state.lastSyncedHash = ""; }
+				delete state.lastSyncedData;
+				try { localStorage.setItem(getSiteStorageKey(SYNC_STATE_PREFIX), JSON.stringify(state)); } catch (e) {}
+			}
 			return state;
 		} catch (e) {
 			return null;
@@ -627,11 +633,52 @@
 		return true;
 	}
 
+	// ---- 数据指纹：让「判断云端/本地有没有变化」不再需要下载整份数据 ----
+	// 稳定序列化（对象键排序），保证同一份数据在任何序列化顺序下指纹都一致
+	function stableStringify(value) {
+		if (value === null || typeof value !== "object") return JSON.stringify(value);
+		if (Array.isArray(value)) {
+			var arr = [];
+			for (var i = 0; i < value.length; i++) { arr.push(stableStringify(value[i])); }
+			return "[" + arr.join(",") + "]";
+		}
+		var keys = Object.keys(value).sort();
+		var parts = [];
+		for (var j = 0; j < keys.length; j++) {
+			parts.push(JSON.stringify(keys[j]) + ":" + stableStringify(value[keys[j]]));
+		}
+		return "{" + parts.join(",") + "}";
+	}
+
+	// 指纹只覆盖业务字段：顶层 meta（体积/条数/指纹自身）不参与计算，
+	// 否则「本地算的指纹」和「上传时写进云端的指纹」永远对不上。
+	function payloadHash(data) {
+		try {
+			var target = data;
+			if (target && typeof target === "object" && !Array.isArray(target) &&
+				Object.prototype.hasOwnProperty.call(target, "meta")) {
+				target = {};
+				Object.keys(data).forEach(function(k) { if (k !== "meta") { target[k] = data[k]; } });
+			}
+			var str = stableStringify(target);
+			var h1 = 0x811c9dc5, h2 = 0x01000193;
+			for (var i = 0; i < str.length; i++) {
+				var c = str.charCodeAt(i);
+				h1 = ((h1 ^ c) * 16777619) >>> 0;
+				h2 = ((h2 ^ c) * 2246822519) >>> 0;
+			}
+			return ("0000000" + h1.toString(16)).slice(-8) + ("0000000" + h2.toString(16)).slice(-8);
+		} catch (e) {
+			return "";
+		}
+	}
+	window._siteNavPayloadHash = payloadHash;
+
 	function markAsSynced() {
 		var payload = buildCurrentLocalPayload();
-		var dataStr = JSON.stringify(payload.data);
+		// 只记指纹，不再把整份 payload 复制一份存进 localStorage（体积翻倍、极易撞配额）
 		var state = {
-			lastSyncedData: dataStr,
+			lastSyncedHash: payloadHash(payload.data),
 			lastSyncTime: new Date().toISOString(),
 			siteScope: detectSiteScope()
 		};
@@ -702,6 +749,46 @@
 		}
 	}
 
+	// 应急精简时要去掉的字段：体积大且可以再算出来（轨迹/采样/分段），记录本体与成绩一律保留。
+	// 回滚后这些记录会被重新分析，成绩与条数不受影响。
+	var SNAPSHOT_DROP_KEYS = {
+		snapshots: true,
+		stateSequence: true,
+		steps: true,
+		analysisFrame: true,
+		gyroSamples: true,
+		rawSolutionSequence: true,
+		timings: true,
+		frames: true
+	};
+
+	function compactForSnapshot(value) {
+		if (Array.isArray(value)) {
+			var arr = [];
+			for (var i = 0; i < value.length; i++) { arr.push(compactForSnapshot(value[i])); }
+			return arr;
+		}
+		if (value && typeof value === "object") {
+			var out = {};
+			var keys = Object.keys(value);
+			for (var j = 0; j < keys.length; j++) {
+				if (SNAPSHOT_DROP_KEYS[keys[j]]) { continue; }
+				out[keys[j]] = compactForSnapshot(value[keys[j]]);
+			}
+			return out;
+		}
+		return value;
+	}
+
+	function writeSnapshot(key, snapshot) {
+		try {
+			localStorage.setItem(key, JSON.stringify(snapshot));
+			return true;
+		} catch (e) {
+			return false;
+		}
+	}
+
 	// 在任何本地覆盖发生前保存完整站点数据。快照放在 localStorage，刷新后仍可恢复。
 	function prepareLocalOverwrite(reason, replacementData, details) {
 		try {
@@ -709,17 +796,51 @@
 			if (replacementData && deepEqual(currentPayload.data, replacementData)) {
 				return { success: true, saved: false };
 			}
+			var key = getSiteStorageKey(PRE_OVERWRITE_PREFIX);
 			var snapshot = {
 				version: 1,
 				savedAt: new Date().toISOString(),
 				reason: reason || "数据覆盖",
 				details: details || null,
 				siteScope: currentPayload.siteScope || detectSiteScope(),
-				payload: currentPayload
+				payload: currentPayload,
+				compacted: false
 			};
-			localStorage.setItem(getSiteStorageKey(PRE_OVERWRITE_PREFIX), JSON.stringify(snapshot));
+			// 同一个键本来就要被这次覆盖掉：先删旧的可以立刻腾出它的空间，
+			// 否则「差值不够」就会写不进去，白白把导入拦下来。
+			try { localStorage.removeItem(key); } catch (e) {}
+			if (!writeSnapshot(key, snapshot)) {
+				// 空间仍然不够 ⇒ 降级为精简快照：只去掉可再生的轨迹数据，记录一条不少
+				var compacted = {
+					version: 1,
+					savedAt: snapshot.savedAt,
+					reason: (reason || "数据覆盖") + "（精简快照）",
+					details: null,
+					siteScope: snapshot.siteScope,
+					payload: {
+						exportedAt: currentPayload.exportedAt,
+						source: currentPayload.source,
+						siteScope: currentPayload.siteScope,
+						siteBasePath: currentPayload.siteBasePath,
+						version: currentPayload.version,
+						data: compactForSnapshot(currentPayload.data)
+					},
+					compacted: true
+				};
+				if (!writeSnapshot(key, compacted)) {
+					var needKb = Math.round(JSON.stringify(compacted).length / 1024);
+					console.error("[Nav] 覆盖前状态保存失败：本机存储空间不足（精简快照仍需约 " + needKb + " KB）");
+					return {
+						success: false,
+						saved: false,
+						message: "本机存储空间不足，无法保存覆盖前状态，已取消覆盖以防止数据丢失（精简快照仍需约 " + needKb + " KB）"
+					};
+				}
+				snapshot = compacted;
+				console.warn("[Nav] 存储空间紧张，已改用精简快照保存覆盖前状态（记录条数不变，轨迹数据将在回滚后重新生成）");
+			}
 			refreshRollbackAvailability(false);
-			return { success: true, saved: true, snapshot: snapshot };
+			return { success: true, saved: true, snapshot: snapshot, compacted: !!snapshot.compacted };
 		} catch (e) {
 			console.error("[Nav] 保存覆盖前状态失败:", e);
 			return { success: false, saved: false, message: "无法保存覆盖前状态，已取消覆盖以防止数据丢失" };
@@ -909,6 +1030,7 @@
 	function hasLocalData(data) {
 		if (!data || typeof data !== "object") return false;
 		return Object.keys(data).some(function(key) {
+			if (key === "meta") { return false; } // meta 只是体积/条数/指纹，不算业务数据
 			return hasMeaningfulLocalField(key, data[key]);
 		});
 	}
@@ -974,7 +1096,9 @@
 		var localPayload = window.cloudSyncManager.buildLocalPayload();
 		var localData = localPayload.data;
 
-		window.cloudSyncManager.getCloudStatus().then(function(status) {
+		// 先走轻量查询：只取 updated_at + data->meta（几百字节），
+		// 用指纹比对完成全部差异判定，不再为了看一眼状态就下载整份数据。
+		window.cloudSyncManager.getCloudStatus({ light: true }).then(function(status) {
 			_cloudDiffCheckPending = false;
 			if (!status.success) {
 				setCloudDetectionStatus("同步状态检查失败，请刷新重试", "Error");
@@ -990,48 +1114,70 @@
 				return;
 			}
 
-			var cloudData = status.cloudData && status.cloudData.data;
-
-			if (deepEqual(localData, cloudData)) {
-				markAsSynced();
-				var syncState = getSyncState();
-				var timeStr = syncState && syncState.lastSyncTime
-					? new Date(syncState.lastSyncTime).toLocaleString()
-					: "";
-				setCloudDetectionStatus(timeStr ? "已同步 · " + timeStr : "已同步", "");
+			var cloudMeta = status.cloudMeta;
+			if (cloudMeta && cloudMeta.hash) {
+				applyCloudDiffVerdict(localData, cloudMeta.hash, status);
 				return;
 			}
-
-			var syncState = getSyncState();
-			var lastSyncedData = null;
-			if (syncState && syncState.lastSyncedData) {
-				try { lastSyncedData = JSON.parse(syncState.lastSyncedData); } catch(e) { lastSyncedData = null; }
-			}
-
-			if (lastSyncedData) {
-				var localChanged = !deepEqual(lastSyncedData, localData);
-				var cloudChanged = !deepEqual(lastSyncedData, cloudData);
-				var cloudTime = formatCloudUpdatedAt(status);
-
-				if (localChanged && !cloudChanged) {
-					setCloudDetectionStatus("本地有未上传更改", "Warning", createUploadAction("云端仍是上次同步版本。\n\n确认上传本地更改？"));
-				} else if (!localChanged && cloudChanged) {
-					setCloudDetectionStatus("云端有更新（其他设备修改）", "Warning", createDownloadAction("本地仍是上次同步版本，云端更新时间：" + cloudTime + "。\n\n确认下载云端更新并覆盖本地？"));
-				} else if (localChanged && cloudChanged) {
-					setCloudDetectionStatus("数据冲突：请选择上传或下载", "Warning");
-				} else {
-					setCloudDetectionStatus("数据状态待确认", "");
-				}
-			} else {
-				if (hasLocalData(localData)) {
-					setCloudDetectionStatus("本地和云端都有数据，请选择上传或下载", "Warning");
-				} else {
-					setCloudDetectionStatus("云端有数据，可下载恢复", "", createDownloadAction("本地暂无数据，云端有备份数据。\n\n确认下载到本地？"));
-				}
-			}
+			// 云端还是旧格式（没有指纹）⇒ 只能退回整份下载比对，比对完会在下次上传时补上指纹
+			checkCloudDiffByContent(localData);
 		}).catch(function() {
 			_cloudDiffCheckPending = false;
 		});
+	}
+
+	// 拿到「本地指纹」与「云端指纹」后统一判定；完全不需要数据内容
+	function applyCloudDiffVerdict(localData, cloudHash, status) {
+		var localHash = payloadHash(localData);
+		if (cloudHash === localHash) {
+			markAsSynced();
+			var st = getSyncState();
+			var timeStr = st && st.lastSyncTime ? new Date(st.lastSyncTime).toLocaleString() : "";
+			setCloudDetectionStatus(timeStr ? "已同步 · " + timeStr : "已同步", "");
+			return;
+		}
+		var syncState = getSyncState();
+		var baseHash = syncState && syncState.lastSyncedHash;
+		if (baseHash) {
+			var localChanged = localHash !== baseHash;
+			var cloudChanged = cloudHash !== baseHash;
+			var cloudTime = formatCloudUpdatedAt(status);
+			if (localChanged && !cloudChanged) {
+				setCloudDetectionStatus("本地有未上传更改", "Warning", createUploadAction("云端仍是上次同步版本。\n\n确认上传本地更改？"));
+			} else if (!localChanged && cloudChanged) {
+				setCloudDetectionStatus("云端有更新（其他设备修改）", "Warning", createDownloadAction("本地仍是上次同步版本，云端更新时间：" + cloudTime + "。\n\n确认下载云端更新并覆盖本地？"));
+			} else if (localChanged && cloudChanged) {
+				setCloudDetectionStatus("数据冲突：请选择上传或下载", "Warning");
+			} else {
+				setCloudDetectionStatus("数据状态待确认", "");
+			}
+			return;
+		}
+		if (hasLocalData(localData)) {
+			setCloudDetectionStatus("本地和云端都有数据，请选择上传或下载", "Warning");
+		} else {
+			setCloudDetectionStatus("云端有数据，可下载恢复", "", createDownloadAction("本地暂无数据，云端有备份数据。\n\n确认下载到本地？"));
+		}
+	}
+
+	// 兼容路径：云端数据是本次改造之前上传的（没有指纹块），只能下载回来比一比
+	function checkCloudDiffByContent(localData) {
+		window.cloudSyncManager.getCloudStatus().then(function(status) {
+			if (!status.success) {
+				setCloudDetectionStatus("同步状态检查失败，请刷新重试", "Error");
+				return;
+			}
+			if (!status.hasData) {
+				if (hasLocalData(localData)) {
+					setCloudDetectionStatus("本地数据尚未备份到云端", "Warning", createUploadAction("云端暂无数据。\n\n确认上传当前本地数据作为云端备份？"));
+				} else {
+					setCloudDetectionStatus("已就绪", "");
+				}
+				return;
+			}
+			var cloudData = status.cloudData && status.cloudData.data;
+			applyCloudDiffVerdict(localData, payloadHash(cloudData), status);
+		}).catch(function() {});
 	}
 
 	window._siteNavCheckCloudDiff = checkCloudDiff;
@@ -1616,11 +1762,10 @@
 			if (window._siteNavDataDirty && window.authManager && window.authManager.isLoggedIn()) {
 				var hasActualChanges = true;
 				var syncState = getSyncState();
-				if (syncState && syncState.lastSyncedData && window.cloudSyncManager && typeof window.cloudSyncManager.buildLocalPayload === "function") {
+				if (syncState && syncState.lastSyncedHash && window.cloudSyncManager && typeof window.cloudSyncManager.buildLocalPayload === "function") {
 					var currentPayload = window.cloudSyncManager.buildLocalPayload();
 					try {
-						var lastData = JSON.parse(syncState.lastSyncedData);
-						hasActualChanges = !deepEqual(lastData, currentPayload.data);
+						hasActualChanges = payloadHash(currentPayload.data) !== syncState.lastSyncedHash;
 					} catch(ex) {
 						hasActualChanges = true;
 					}
