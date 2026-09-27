@@ -5309,11 +5309,12 @@
 						this.scheduleRotFlush();
 						return;
 					}
-					// 关跟随快速通道：单包贴准 + 单轴整份 + 无在途中层 ⇒ 立即定案，
+					// 快速通道（单包确认）：单包贴准 + 单轴整份 + 无在途中层 ⇒ 立即定案，
 					// 与普通转动事件同为「一包」节奏；其余情形仍走双包保守路径。
-					// 开启跟随一律不生效（记录时机保持既有节奏）。
-					if (!this.gyroFollow &&
-						snap.residualDeg <= this.cubeRotSnapFastDeg &&
+					// 跟随开关一律生效：开启跟随时识别照常在后台跑（与关闭跟随同一套逻辑），
+					// 只是转体不落动画/朝向——applyDetectedRotation 内按 gyroFollow 收口
+					// （rotAnimTokens 为空、visual=false、updateOrientation 跳过），显示仍由陀螺仪驱动。
+					if (snap.residualDeg <= this.cubeRotSnapFastDeg &&
 						!this.liveSliceCoreEntries().length) {
 						var fastParts = this.rotDecompose(delta);
 						if (fastParts.length === 1) {
@@ -5901,6 +5902,16 @@
 					return this.wideMergeManager;
 				},
 
+				// 体帧宽体记号 → 记录流（UI 帧）宽体记号：体帧 r 记作 f（对面字母小写 + 份量后缀）。
+				// 记录流（历史/公式/进度/手操）一律 UI 字母，宽体文本由共享识别层按体帧候选面生成。
+				wideRecordText: function(wideText) {
+					var match = /^([a-z])(.*)$/i.exec(String(wideText || ""));
+					if (!match) {
+						return wideText;
+					}
+					return this.unmapUiFace(match[1].toUpperCase()).toLowerCase() + match[2];
+				},
+
 				// 合并成立：①动画——倒序撤回候选已播的各段份量，改播一段宽体（两层同转，
 				// layerEnd=2）；②记录——转体条走 removeRotationRecord、外层条从 moveHistory
 				// 摘除，入宽体一条；③跟踪列表——manualMoveHistory / 公式 entry.moves /
@@ -5918,7 +5929,9 @@
 						}
 					});
 					var canRetract = !played.length || (this.twistyScene && this.twistyScene.applyMoves);
-					if (canRetract && this.twistyScene && this.twistyScene.addMoves) {
+					// 动画只属于关闭跟随的虚拟魔方：开启跟随时显示由陀螺仪直接呈现，
+					// 候选本就没播过动画，宽体也不播——合并只做记录改写，不碰动画。
+					if (!this.gyroFollow && canRetract && this.twistyScene && this.twistyScene.addMoves) {
 						if (played.length) {
 							var inverse = [];
 							for (var i = played.length - 1; i >= 0; i--) {
@@ -5948,16 +5961,23 @@
 							}
 						}
 					});
-					this.pushHistory(merge.wideText, merge.source, merge.time);
-					var parseToken = function(token) { return self.getTokenFacePow(token); };
-					var formatToken = function(face, pow) { return self.formatMoveText(face, pow); };
-					this.manualMoveHistory = CubeWideMerge.rewriteTrailing(this.manualMoveHistory, parseToken, formatToken, merge.face, merge.faceSum, merge.wideText);
-					this.performedProcessMoves = CubeWideMerge.rewriteTrailing(this.performedProcessMoves, parseToken, formatToken, merge.face, merge.faceSum, merge.wideText);
+					// 记录流是 UI 字母（硬件 L 记作 B），候选面与 merge.wideText 是体帧字母
+					// （L 族 → r）：改写 tracked 列表时把 UI 字母换算回体帧再比对，插入的
+					// 宽体记号换算回 UI 字母（体帧 r 记作 f）；历史入账同用 UI 宽体字母。
+					var recordWideText = this.wideRecordText(merge.wideText);
+					this.pushHistory(recordWideText, merge.source, merge.time);
+					var parseToken = function(token) {
+						var fp = self.getTokenFacePow(token);
+						return fp ? { face: self.mapUiFace(fp.face), pow: fp.pow } : null;
+					};
+					var formatToken = function(face, pow) { return self.formatMoveText(self.unmapUiFace(face), pow); };
+					this.manualMoveHistory = CubeWideMerge.rewriteTrailing(this.manualMoveHistory, parseToken, formatToken, merge.face, merge.faceSum, recordWideText);
+					this.performedProcessMoves = CubeWideMerge.rewriteTrailing(this.performedProcessMoves, parseToken, formatToken, merge.face, merge.faceSum, recordWideText);
 					if (this.isRecordingFormula && this.activeFormulaId) {
 						var entry = this.getFormulaEntry(this.activeFormulaId);
 						if (entry && entry.moves && entry.moves.length) {
 							this.syncEditingMovesFromInput();
-							entry.moves = CubeWideMerge.rewriteTrailing(entry.moves, parseToken, formatToken, merge.face, merge.faceSum, merge.wideText);
+							entry.moves = CubeWideMerge.rewriteTrailing(entry.moves, parseToken, formatToken, merge.face, merge.faceSum, recordWideText);
 							var compressedTokens = this.compressDisplayTokens(this.tokenizeMoves(entry.moves.join(" ")));
 							entry.moves = compressedTokens;
 							entry.alg = compressedTokens.join(" ");
@@ -5976,7 +5996,25 @@
 							}
 						}
 					}
-					this.log("view", "已合并为双层 " + merge.wideText);
+					this.log("view", "已合并为双层 " + recordWideText);
+					// 收尾清账（顺序二·外层回吸路径）：转体条已从记录摘除，当前挂账的快速
+					// 通道提交若因此变成「死账」（texts 已不在 moveHistory），必须置空——
+					// 否则回摆撤销（undoFastRotationCommit）会拿这笔死账，把紧随的同轴反向
+					// 转体（r r' 的收尾 x'，姿态恰好贴回提交前基准）误判成「回摆」整笔吞掉，
+					// 并 wideMerge.reset() 摧毁在途候选 ⇒ 相邻 r r' 的最后一个 r' 合并失败
+					// （2026-09-27 实测复现，探针 .tests/formula-widemerge-rrprime.js）。
+					// 顺序一调用方（applyDetectedRotation）本就在合并后置空，这里补齐顺序二。
+					var deadCommit = this.lastRotationCommit;
+					if (deadCommit && deadCommit.texts && deadCommit.texts.length) {
+						var commitAlive = deadCommit.texts.some(function(text) {
+							return self.moveHistory.some(function(item) {
+								return item && item.text === text && Math.abs((item.time || 0) - (deadCommit.at || 0)) < 1500;
+							});
+						});
+						if (!commitAlive) {
+							this.lastRotationCommit = null;
+						}
+					}
 					return true;
 				},
 
