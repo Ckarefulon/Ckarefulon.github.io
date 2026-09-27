@@ -73,6 +73,33 @@ function cloudHasMeaningfulData(status) {
 	return hasPayloadData(d);
 }
 
+/**
+ * 云端 data 块统一解包入口：压缩壳解回明文，旧明文原样返回
+ * 缺 codec（页面未引入）时退回原样 —— 语义等同旧版
+ * @param {object} data - 云端 payload.data
+ * @returns {Promise<object>} 明文 data
+ */
+function unpackCloudData(data) {
+	if (window.SitePayloadCodec && typeof window.SitePayloadCodec.unpackPayloadData === "function") {
+		return window.SitePayloadCodec.unpackPayloadData(data);
+	}
+	return Promise.resolve(data);
+}
+
+/**
+ * getCloudStatus full 的解包：row['data'] 是 payload 层（cloudData 语义），
+ * 壳在 payload.data —— 只对壳解包并放回 data 位，其它结构原样
+ */
+function unpackCloudStatusPayload(cloudPayload) {
+	if (window.SitePayloadCodec && typeof window.SitePayloadCodec.isCompressedPayloadData === "function" &&
+		window.SitePayloadCodec.isCompressedPayloadData(cloudPayload && cloudPayload.data)) {
+		return window.SitePayloadCodec.unpackPayloadData(cloudPayload.data).then(function(plain) {
+			return Object.assign({}, cloudPayload, { data: plain });
+		});
+	}
+	return Promise.resolve(cloudPayload);
+}
+
 	/**
 	 * 取当前站点作用域；取不到返回 ""
 	 * 绝不兜底到 Cube-Formula —— 那会覆盖别站点的数据
@@ -117,42 +144,42 @@ function cloudHasMeaningfulData(status) {
 				var scope = resolveScope();
 				if (!scope) return;
 
-				var proceed = function() {
-					if (typeof window._siteNavSetCloudStatus === "function") {
-						window._siteNavSetCloudStatus("正在自动保存...", "");
-					}
-				cloudSyncManager.uploadLocalToCloud().then(function(result) {
-					if (result.success && typeof window._siteNavSetDirty === "function") {
-						window._siteNavSetDirty(false);
-					}
-					if (typeof window._siteNavSetCloudStatus === "function") {
+			var proceed = function(emptyWarn) {
+				if (typeof window._siteNavSetCloudStatus === "function") {
+					window._siteNavSetCloudStatus("正在自动保存...", "");
+				}
+			cloudSyncManager.uploadLocalToCloud().then(function(result) {
+				if (result.success && typeof window._siteNavSetDirty === "function") {
+					window._siteNavSetDirty(false);
+				}
+				if (typeof window._siteNavSetCloudStatus === "function") {
+					if (result.success && emptyWarn) {
+						window._siteNavSetCloudStatus("已自动保存到云端 · " + emptyWarn, "Warning");
+					} else {
 						window._siteNavSetCloudStatus(result.success ? "已自动保存到云端" : result.message, result.success ? "Success" : "Error");
 					}
-				});
-				};
-
-				var payload = cloudSyncManager.buildLocalPayload();
-				if (!hasPayloadData(payload.data)) {
-					// 本地为空：确认云端确实没数据才允许上传空行（走轻量指纹，不下载整份数据）
-					var decide = function(status) {
-						if (status.success && status.hasData && cloudHasMeaningfulData(status)) {
-							if (typeof window._siteNavSetCloudStatus === "function") {
-								window._siteNavSetCloudStatus("本地暂无数据，已跳过自动上传（保护云端备份）", "Warning");
-							}
-							return;
-						}
-						proceed();
-					};
-					cloudSyncManager.getCloudStatus({ light: true }).then(function(status) {
-						if (status.success && status.hasData && !status.cloudMeta) {
-							// 云端是旧的、还没有指纹块的数据 ⇒ 退回完整查询，闸门语义不弱化
-							return cloudSyncManager.getCloudStatus().then(decide);
-						}
-						decide(status);
-					}).catch(function() { proceed(); });
-					return;
 				}
-				proceed();
+			});
+			};
+
+			var payload = cloudSyncManager.buildLocalPayload();
+			if (!hasPayloadData(payload.data)) {
+				// 本地为空：警示后照常上传 —— 用户可能有意清空本地数据，覆盖权在用户（自动上传无云端历史，仅提醒不拦截）
+				var decide = function(status) {
+					var warn = (status.success && status.hasData && cloudHasMeaningfulData(status))
+						? "本地暂无数据，已按本地上传并覆盖云端备份（若非有意清空请留意）" : "";
+					proceed(warn);
+				};
+				cloudSyncManager.getCloudStatus({ light: true }).then(function(status) {
+					if (status.success && status.hasData && !status.cloudMeta) {
+						// 云端是旧的、还没有指纹块的数据 ⇒ 退回完整查询后判定
+						return cloudSyncManager.getCloudStatus().then(decide);
+					}
+					decide(status);
+				}).catch(function() { proceed(""); });
+				return;
+			}
+			proceed("");
 			}, typeof delay === "number" ? delay : 1200);
 		},
 
@@ -211,7 +238,7 @@ function cloudHasMeaningfulData(status) {
 					.maybeSingle();
 			};
 
-			return query(light ? "updated_at,data->meta" : "data, updated_at")
+			return query(light ? "updated_at,top_meta:data->meta,inner_meta:data->data->meta" : "data, updated_at")
 				.then(function(result) {
 					if (light && result.error) {
 						// 轻量投影不被支持 ⇒ 退回完整查询，宁可这次多传点，也不能让状态检查直接失败
@@ -224,7 +251,9 @@ function cloudHasMeaningfulData(status) {
 							if (!full.data) {
 								return { success: true, message: "云端暂无数据", hasData: false, cloudData: null };
 							}
-							return { success: true, message: "云端已有数据", hasData: true, cloudData: full.data.data, updatedAt: full.data.updated_at };
+							return unpackCloudStatusPayload(full.data.data).then(function(plain) {
+								return { success: true, message: "云端已有数据", hasData: true, cloudData: plain, updatedAt: full.data.updated_at };
+							});
 						});
 					}
 					if (result.error) {
@@ -236,16 +265,21 @@ function cloudHasMeaningfulData(status) {
 					}
 					if (light) {
 						var row = result.data || {};
-						var meta = row.meta !== undefined ? row.meta : ((row.data && row.data.meta) || null);
+						// 双投影兼容：压缩格式 meta 在 payload 顶层（top_meta）；旧明文格式在 payload.data.meta（inner_meta）
+						var meta = (row.top_meta !== undefined && row.top_meta !== null) ? row.top_meta
+							: (row.inner_meta !== undefined && row.inner_meta !== null) ? row.inner_meta
+							: ((row.meta !== undefined ? row.meta : (row.data && row.data.meta)) || null);
 						return { success: true, message: "云端已有数据", hasData: true, light: true, cloudMeta: meta, updatedAt: row.updated_at, cloudData: null };
 					}
-					return {
-						success: true,
-						message: "云端已有数据",
-						hasData: true,
-						cloudData: result.data.data,
-						updatedAt: result.data.updated_at
-					};
+					return unpackCloudStatusPayload(result.data.data).then(function(plain) {
+						return {
+							success: true,
+							message: "云端已有数据",
+							hasData: true,
+							cloudData: plain,
+							updatedAt: result.data.updated_at
+						};
+					});
 				})
 				.catch(function(error) {
 					console.error("[CloudSync] 查询云端状态异常:", error);
@@ -268,16 +302,23 @@ function cloudHasMeaningfulData(status) {
 				return Promise.resolve({ success: false, message: NO_SCOPE_MESSAGE });
 			}
 			var payload = cloudSyncManager.buildLocalPayload();
+			// 传输量压缩：JSON gzip 后通常只有原来的十分之一左右；不支持压缩时原样上传，功能不降级
+			var packedPromise = (window.SitePayloadCodec && typeof window.SitePayloadCodec.packPayload === "function")
+				? window.SitePayloadCodec.packPayload(payload)
+				: Promise.resolve(payload);
 
-			return window.supabaseClient
-				.from("user_data")
-				.upsert({
-					user_id: user.id,
-					site_scope: scope,
-					data: payload,
-					updated_at: new Date().toISOString()
-				}, {
-					onConflict: "user_id,site_scope"
+			return packedPromise
+				.then(function(packed) {
+					return window.supabaseClient
+						.from("user_data")
+						.upsert({
+							user_id: user.id,
+							site_scope: scope,
+							data: packed,
+							updated_at: new Date().toISOString()
+						}, {
+							onConflict: "user_id,site_scope"
+						});
 				})
 			.then(function(result) {
 				if (result.error) {
@@ -361,20 +402,21 @@ function cloudHasMeaningfulData(status) {
 					}
 
 					var cloudData = result.data.data;
-					var dataBlock = cloudData.data;
-					if (!dataBlock) {
-						return { success: false, message: "云端数据格式不正确", data: null };
-					}
-
-					if (typeof window._siteNavPrepareOverwrite === "function") {
-						var guard = window._siteNavPrepareOverwrite("云端数据恢复", dataBlock);
-						if (!guard.success) {
-							return { success: false, message: guard.message, data: null };
+					return unpackCloudData(cloudData.data).then(function(dataBlock) {
+						if (!dataBlock || typeof dataBlock !== "object") {
+							return { success: false, message: "云端数据格式不正确", data: null };
 						}
-					}
-					cloudSyncManager.applyDataToLocalStorage(dataBlock);
 
-					return { success: true, message: "恢复成功", data: dataBlock };
+						if (typeof window._siteNavPrepareOverwrite === "function") {
+							var guard = window._siteNavPrepareOverwrite("云端数据恢复", dataBlock);
+							if (!guard.success) {
+								return { success: false, message: guard.message, data: null };
+							}
+						}
+						cloudSyncManager.applyDataToLocalStorage(dataBlock);
+
+						return { success: true, message: "恢复成功", data: dataBlock };
+					});
 				})
 				.catch(function(error) {
 					console.error("[CloudSync] 恢复异常:", error);

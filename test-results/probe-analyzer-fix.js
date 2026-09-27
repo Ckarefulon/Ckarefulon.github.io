@@ -58,7 +58,7 @@ function check(name, cond, extra) {
 (async () => {
   const browser = await chromium.launch({ executablePath: EDGE, headless: true });
   const ctx = await browser.newContext();
-  await ctx.route('**/supabase-js@2/**', r => r.fulfill({ status:200, contentType:'application/javascript', body: STUB }));
+  await ctx.route('**/assets/vendor/supabase/supabase.min.js*', r => r.fulfill({ status:200, contentType:'application/javascript', body: STUB }));
 
   // ---------- Phase 1: 找毒样本 ----------
   const page1 = await ctx.newPage();
@@ -124,17 +124,23 @@ function check(name, cond, extra) {
   check('C0 metricSeg 渲染存在（save 触发可用）', segBtn);
   await page.waitForTimeout(2200);
   let upserts = await page.evaluate(() => window.__sb.upserts.length);
-  check('C1 本地<云端时自动上传被闸', upserts === 0, 'upserts=' + upserts);
+  check('C1 本地<云端时自动上传仍执行（警示放行）', upserts === 1, 'upserts=' + upserts);
+  const warnTxt = await page.evaluate(() => (document.getElementById('cloudStatus') || {}).textContent || '');
+  check('C1b 状态提示为警示文案（本地少于云端）', warnTxt.indexOf('少于云端') >= 0, warnTxt);
 
-  // 放行一次后正常上传
+  // 放行旗后再次保存：条数查询被跳过，直接再上传一次
   await page.evaluate(() => { window.CubeAnalyzerCloud.allowCountRegressionOnce = true; const b = document.querySelector('#metricSeg button[data-v="ao12"]'); if (b) b.click(); });
   await page.waitForTimeout(2200);
   upserts = await page.evaluate(() => window.__sb.upserts.length);
-  check('C2 放行后上传正常执行', upserts === 1, 'upserts=' + upserts);
+  check('C2 放行旗后再次上传正常执行', upserts === 2, 'upserts=' + upserts);
   if (upserts === 1) {
-    const info = await page.evaluate(() => {
+    const info = await page.evaluate(async () => {
       const u = window.__sb.upserts[0];
-      return { n: u.payload.data.data.cubeAnalyzerData.solves.length, conflict: u.opts && u.opts.onConflict };
+      let blk = u.payload.data.data;
+      if (window.SitePayloadCodec && window.SitePayloadCodec.isCompressedPayloadData(blk)) {
+        blk = await window.SitePayloadCodec.unpackPayloadData(blk);
+      }
+      return { n: blk.cubeAnalyzerData.solves.length, conflict: u.opts && u.opts.onConflict };
     });
     check('C3 上传 payload 含 2 条 solves 且 onConflict 正确', info.n === 2 && info.conflict === 'user_id,site_scope', JSON.stringify(info));
   }

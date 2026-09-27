@@ -10,6 +10,7 @@
   let lastStamp = null;
   let lastDeliveredTs = null;
   let ignoreInitialState = true;
+  let preConnectFacelet = '';
   let latestFacelet = '';
   let pending = null;
   let pendingTimer = null;
@@ -247,6 +248,7 @@
       saveHistory(prevMoves, lastTs);
       ignoreInitialState = false;
       emit('state', { facelet, solved: isSolved(facelet), deviceName });
+      replayConnectGap(facelet, lastTs);
       return;
     }
 
@@ -280,6 +282,32 @@
 
     // Do not emit state while a face turn is still waiting for the 90 ms slice window.
     if (!pending) emit('state', { facelet, solved: isSolved(facelet), deviceName });
+  }
+
+  // 握手期（选设备 / 读 MAC 阶段）的转动不会上报为 move 事件，只会体现在基线面位里。
+  // 与连接前已知面位差 1~2 步就把落差补发（与 Formula 页面层修复同口径，算法在
+  // ../assets/bluetooth/facelet-gap.js）；差更多说明本来就是另一套状态，不动。
+  // 补发按一个 batch 同步下发（与多步历史差分同一路径），不碰 90ms 中层持有窗口的时序。
+  function replayConnectGap(facelet, lastTs) {
+    if (!preConnectFacelet || typeof facelet !== 'string' || facelet.length < 54) return;
+    if (preConnectFacelet === facelet) return;
+    if (!window.CubeFaceletGap || typeof window.CubeFaceletGap.gapMoves !== 'function') return;
+    const gap = window.CubeFaceletGap.gapMoves(preConnectFacelet, facelet, 2);
+    if (!gap || !gap.length) return;
+    const timing = timestampInfo(lastTs);
+    const times = interpolatedTimes(gap.length, timing.timestamp);
+    gap.forEach((move, index) => {
+      const isLast = index === gap.length - 1;
+      processRawMove({
+        move,
+        timestamp: times[index],
+        hardwareTimestamp: timing.hardwareTimestamp,
+        localTimestamp: timing.localTimestamp,
+        previousFacelet: index === 0 ? preConnectFacelet : null,
+        facelet: isLast ? facelet : null,
+        batchFinal: isLast
+      });
+    });
   }
 
   function gyroCallback(x, y, z, w, hardware) {
@@ -316,6 +344,9 @@
     lastHistory = [];
     lastStamp = null;
     lastDeliveredTs = null;
+    // 连接前已知面位：断线重连时是上次实时状态；整页刷新后没有已知状态，
+    // 按复原态处理（与 Formula 显示侧从复原起步的口径一致）。
+    preConnectFacelet = latestFacelet || (window.mathlib && mathlib.SOLVED_FACELET) || '';
     latestFacelet = '';
     pending = null;
     clearPendingTimer();

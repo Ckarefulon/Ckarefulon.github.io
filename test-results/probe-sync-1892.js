@@ -42,7 +42,7 @@ async function newPage(browser) {
   const errors = [];
   page.on('pageerror', e => errors.push(String(e)));
   page.__errors = errors;
-  await ctx.route('**/supabase-js@2/**', r =>
+  await ctx.route('**/assets/vendor/supabase/supabase.min.js*', r =>
     r.fulfill({ status: 200, contentType: 'application/javascript', body: STUB }));
   return { ctx, page };
 }
@@ -86,7 +86,9 @@ async function newPage(browser) {
     });
     await page.waitForTimeout(600);
     let upserts = await page.evaluate(() => window.__sb.upserts.length);
-    check('A3 本地为空+云端有数据 ⇒ 自动上传被拦截', upserts === 0, 'upserts=' + upserts);
+    check('A3 本地为空+云端有数据 ⇒ 仍自动上传（警示放行）', upserts === 1, 'upserts=' + upserts);
+    const warnTxtA3 = await page.evaluate(() => (document.getElementById('cloudStatus') || {}).textContent || '');
+    check('A3b 状态提示为警示文案（本地暂无/有意清空）', warnTxtA3.indexOf('本地暂无') >= 0, warnTxtA3);
 
     // 显式清空放行一次（真实 clearBtn 同设两个放行旗）
     await page.evaluate(() => {
@@ -116,7 +118,14 @@ async function newPage(browser) {
     });
     check('A6 有数据时自动上传成功', !!last, 'no upsert');
     if (last) {
-      check('A7 上传负载带 2 条 solves', last.payload.data.data.cubeAnalyzerData.solves.length === 2);
+    check('A7 上传负载带 2 条 solves', await page.evaluate(async () => {
+      const u = window.__sb.upserts; if (!u.length) return false;
+      let blk = u[u.length - 1].payload.data.data;
+      if (window.SitePayloadCodec && window.SitePayloadCodec.isCompressedPayloadData(blk)) {
+        blk = await window.SitePayloadCodec.unpackPayloadData(blk);
+      }
+      return Array.isArray(blk.cubeAnalyzerData && blk.cubeAnalyzerData.solves) && blk.cubeAnalyzerData.solves.length === 2;
+    }));
       check('A8 onConflict = user_id,site_scope', last.opts && last.opts.onConflict === 'user_id,site_scope');
     }
     check('A9 Analyzer 页无 JS 异常', page.__errors.length === 0, page.__errors.join(' | '));
@@ -152,10 +161,23 @@ async function newPage(browser) {
     if (last) {
       check('B3 site_scope = Cube-Formula', last.payload.site_scope === 'Cube-Formula', last.payload.site_scope);
       check('B4 onConflict = user_id,site_scope', last.opts && last.opts.onConflict === 'user_id,site_scope');
-      check('B5 负载含 formula 条目', Array.isArray(last.payload.data.data.smartCubeFormulaEntries) && last.payload.data.data.smartCubeFormulaEntries.length === 1);
+      check('B5 负载含 formula 条目', await (async () => {
+        let blk = last.payload.data.data;
+        if (blk.enc === 'gzip+b64') {
+          blk = await page.evaluate(async () => {
+            const u = window.__sb.upserts; if (!u.length) return null;
+            let b = u[u.length - 1].payload.data.data;
+            if (window.SitePayloadCodec && window.SitePayloadCodec.isCompressedPayloadData(b)) {
+              b = await window.SitePayloadCodec.unpackPayloadData(b);
+            }
+            return b;
+          });
+        }
+        return Array.isArray(blk && blk.smartCubeFormulaEntries) && blk.smartCubeFormulaEntries.length === 1;
+      })());
     }
 
-    // 空数据闸门：本地清空 + 云端种入有数据 ⇒ 自动上传被拦截
+    // 空数据闸门：本地清空 + 云端种入有数据 ⇒ 警示放行（覆盖权在用户）
     await page.evaluate(() => {
       window.__sb.upserts.length = 0;
       window.__cloudSeed = {
@@ -172,7 +194,7 @@ async function newPage(browser) {
     });
     await page.waitForTimeout(800);
     upserts = await page.evaluate(() => window.__sb.upserts.length);
-    check('B6 本地为空+云端有数据 ⇒ 自动上传被拦截', upserts === 0, 'upserts=' + upserts);
+    check('B6 本地为空+云端有数据 ⇒ 自动上传仍执行（警示放行）', upserts === 1, 'upserts=' + upserts);
 
     // 云端也没数据时，空上传允许（建空行，无危害）
     await page.evaluate(() => {

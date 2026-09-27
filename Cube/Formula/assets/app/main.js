@@ -6377,41 +6377,13 @@
 
 				// 显示状态与设备状态差 1~2 步时，把这段落差当成真实转动补上；
 				// 差更多说明本来就是另一套状态（例如练习模式还没摆好魔方），不动。
+				// 2026-09-27 收口：算法提取到共享 Cube/assets/bluetooth/facelet-gap.js，
+				// Analyzer 的 smartcube-bridge.js 基线补发用的是同一份。
 				findFaceletGap: function(fromFacelet, toFacelet, maxDepth) {
-					if (!window.mathlib || !mathlib.CubieCube || !fromFacelet || fromFacelet.length !== 54) {
-						return null;
+					if (window.CubeFaceletGap && typeof window.CubeFaceletGap.gapMoves === "function") {
+						return window.CubeFaceletGap.gapMoves(fromFacelet, toFacelet, maxDepth);
 					}
-					var single = [];
-					var faces = ["U", "R", "F", "D", "L", "B"];
-					var suffixes = ["", "'", "2"];
-					for (var i = 0; i < faces.length; i++) {
-						for (var j = 0; j < suffixes.length; j++) {
-							single.push(faces[i] + suffixes[j]);
-						}
-					}
-					var search = function(prefix) {
-						var cc = new mathlib.CubieCube();
-						if (cc.fromFacelet(fromFacelet) === -1) {
-							return null;
-						}
-						for (var k = 0; k < prefix.length; k++) {
-							cc.selfMoveStr(prefix[k]);
-						}
-						if (cc.toFaceCube() === toFacelet) {
-							return prefix.slice();
-						}
-						if (prefix.length >= maxDepth) {
-							return null;
-						}
-						for (var s = 0; s < single.length; s++) {
-							var hit = search(prefix.concat([single[s]]));
-							if (hit) {
-								return hit;
-							}
-						}
-						return null;
-					};
-					return search([]);
+					return null;
 				},
 
 				processCubeMoveBatch: function(movesToPlay, source, timestamp, facelet) {

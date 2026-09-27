@@ -11,7 +11,7 @@
 
 	<!-- 站点作用域（必须先于云同步定义）+ 云同步（Supabase，登录态与 Formula 共享） -->
 	<script src="/assets/services/core/site-scope.js?v=1877" defer></script>
-	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+	<script src="../../assets/vendor/supabase/supabase.min.js" defer></script>
 	<script src="/supabase/supabase-config.js?v=1877" defer></script>
 	<script src="/supabase/supabase-client.js?v=1877" defer></script>
 	<script src="/supabase/auth-manager.js?v=1892" defer></script>
@@ -271,7 +271,7 @@
 	<!-- dark default – applied before nav renders -->
 	<script>(function(){try{var t=localStorage.getItem('smartCubeTheme');if(t&&t!=='none'){document.documentElement.dataset.theme=t;}else if(!t&&window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches){document.documentElement.dataset.theme='dark';}}catch(e){}})();</script>
 
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+	<script src="../../assets/vendor/jszip/jszip.min.js"></script>
 	<script src="./a3-runtime.js?v=1877" defer></script>
 	<script src="./kgm-decoder.js?v=1877" defer></script>
 	<script src="./kgm-app.js?v=1877" defer></script>

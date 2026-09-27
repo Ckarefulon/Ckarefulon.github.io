@@ -75,7 +75,7 @@ const check = (name, cond, extra) => {
   const page = await ctx.newPage();
   const errs = [];
   page.on('pageerror', e => errs.push(String(e).slice(0, 140)));
-  await ctx.route('**/supabase-js@2/**', r => r.fulfill({ status: 200, contentType: 'application/javascript', body: STUB }));
+  await ctx.route('**/assets/vendor/supabase/supabase.min.js*', r => r.fulfill({ status: 200, contentType: 'application/javascript', body: STUB }));
   await page.addInitScript(({ local, seed }) => {
     localStorage.clear();
     localStorage.setItem('cubeAnalyzerDataV2', JSON.stringify(local));

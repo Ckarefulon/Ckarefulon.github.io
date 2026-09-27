@@ -52,6 +52,33 @@
     };
   }
 
+  /** 云端 data 块统一解包：压缩壳解回明文，旧明文原样返回；缺 codec 时退回原样 */
+  function unpackCloudData(data) {
+    if (window.SitePayloadCodec && typeof window.SitePayloadCodec.unpackPayloadData === 'function') {
+      return window.SitePayloadCodec.unpackPayloadData(data);
+    }
+    return Promise.resolve(data);
+  }
+  /**
+   * getCloudStatus full 的解包：row['data'] 是 payload 层（cloudData 语义），
+   * 壳在 payload.data —— 只对壳解包并放回 data 位，其它结构原样
+   */
+  function unpackCloudStatusPayload(cloudPayload) {
+    if (window.SitePayloadCodec && typeof window.SitePayloadCodec.isCompressedPayloadData === 'function' &&
+        window.SitePayloadCodec.isCompressedPayloadData(cloudPayload && cloudPayload.data)) {
+      return window.SitePayloadCodec.unpackPayloadData(cloudPayload.data).then(plain =>
+        Object.assign({}, cloudPayload, { data: plain }));
+    }
+    return Promise.resolve(cloudPayload);
+  }
+  /** 上传前打包：压缩 payload.data（meta 保持壳顶层明文）；不支持压缩时原样返回 */
+  function packLocalPayload(payload) {
+    if (window.SitePayloadCodec && typeof window.SitePayloadCodec.packPayload === 'function') {
+      return window.SitePayloadCodec.packPayload(payload);
+    }
+    return Promise.resolve(payload);
+  }
+
   const manager = {
     isReady() {
       return !!(scope() && window.supabaseClient && window.authManager && window.authManager.isLoggedIn());
@@ -78,23 +105,28 @@
       try {
         const user = window.authManager.getUser();
         const query = cols => window.supabaseClient.from('user_data').select(cols).eq('user_id', user.id).eq('site_scope', scope()).maybeSingle();
-        let result = await query(light ? 'updated_at,data->meta' : 'data, updated_at');
+        let result = await query(light ? 'updated_at,top_meta:data->meta,inner_meta:data->data->meta' : 'data, updated_at');
         if (light && result.error) {
           // 轻量投影不被支持 ⇒ 退回完整查询，宁可这次多传点，也不能让状态检查直接失败
           console.warn('[AnalyzerCloud] 轻量投影不可用，回退完整查询', result.error.message || result.error);
           result = await query('data, updated_at');
           if (result.error) return { success:false, message:'查询云端状态失败', hasData:false, cloudData:null };
           if (!result.data) return { success:true, message:'云端暂无数据', hasData:false, cloudData:null };
-          return { success:true, message:'云端已有数据', hasData:true, cloudData:result.data.data, updatedAt:result.data.updated_at };
+          return unpackCloudStatusPayload(result.data.data).then(plain =>
+            ({ success:true, message:'云端已有数据', hasData:true, cloudData:plain, updatedAt:result.data.updated_at }));
         }
         if (result.error) return { success:false, message:'查询云端状态失败', hasData:false, cloudData:null };
         if (!result.data) return { success:true, message:'云端暂无数据', hasData:false, cloudData:null };
         if (light) {
           const row = result.data || {};
-          const meta = row.meta !== undefined ? row.meta : ((row.data && row.data.meta) || null);
+          // 双投影兼容：压缩格式 meta 在 payload 顶层（top_meta）；旧明文格式在 payload.data.meta（inner_meta）
+          const meta = (row.top_meta !== undefined && row.top_meta !== null) ? row.top_meta
+            : (row.inner_meta !== undefined && row.inner_meta !== null) ? row.inner_meta
+            : ((row.meta !== undefined ? row.meta : (row.data && row.data.meta)) || null);
           return { success:true, message:'云端已有数据', hasData:true, light:true, cloudMeta:meta, updatedAt:row.updated_at, cloudData:null };
         }
-        return { success:true, message:'云端已有数据', hasData:true, cloudData:result.data.data, updatedAt:result.data.updated_at };
+        return unpackCloudStatusPayload(result.data.data).then(plain =>
+          ({ success:true, message:'云端已有数据', hasData:true, cloudData:plain, updatedAt:result.data.updated_at }));
       } catch (e) {
         console.error('[AnalyzerCloud] get status failed', e);
         return { success:false, message:'查询云端状态失败', hasData:false, cloudData:null };
@@ -120,21 +152,23 @@
         // 显式场景（清空按钮）用 allowCountRegressionOnce 放行一次。
         const local = getLocal(STORAGE_KEY, null);
         const localSolves = local && Array.isArray(local.solves) ? local.solves.length : 0;
+        let countWarning = '';
         if (!manager.allowCountRegressionOnce) {
-          // 只取 updated_at + data->meta（几百字节）就能拿到云端条数，不再为「数条数」下载整份数据
+          // 只取 updated_at + 指纹（几百字节）就能拿到云端条数，不再为「数条数」下载整份数据
           let status = await manager.getCloudStatus({ light: true });
           if (status.success && status.hasData && !status.cloudMeta) {
-            // 云端是旧的、还没有指纹块的数据 ⇒ 退回完整查询，保证闸门语义不弱化
+            // 云端是旧的、还没有指纹块的数据 ⇒ 退回完整查询
             status = await manager.getCloudStatus();
           }
           if (status.success && status.hasData) {
             const cloudSolves = manager.cloudSolveCount(status);
             if (cloudSolves > localSolves) {
-              const msg = localSolves === 0
-                ? '本地暂无训练记录，已阻止上传（保护云端备份）'
-                : `本地 ${localSolves} 条少于云端 ${cloudSolves} 条，已阻止自动覆盖（保护云端备份）`;
-              console.warn('[AnalyzerCloud]', msg);
-              return { success:false, message:msg, blocked:true };
+              // 警示但不阻止：本地少于云端可能是有意删除，覆盖权在用户。
+              // 注意：自动上传不产生云端历史版本，覆盖后旧备份不可恢复，只做提醒不做拦截。
+              countWarning = localSolves === 0
+                ? `本地暂无训练记录，已按本地上传并覆盖云端 ${cloudSolves} 条备份（若非有意清空请留意）`
+                : `本地 ${localSolves} 条少于云端 ${cloudSolves} 条，已按本地上传（若非有意删除请留意）`;
+              console.warn('[AnalyzerCloud]', countWarning);
             }
           } else if (!status.success && localSolves === 0) {
             // 云端状态查不到且本地为空：无法证明覆盖是安全的，宁可不上
@@ -142,15 +176,18 @@
           }
         }
         manager.allowCountRegressionOnce = false;
+        const packed = await packLocalPayload(manager.buildLocalPayload());
         const result = await window.supabaseClient.from('user_data').upsert({
           user_id:user.id,
           site_scope:scope(),
-          data:manager.buildLocalPayload(),
+          data:packed,
           updated_at:new Date().toISOString()
         }, { onConflict:'user_id,site_scope' });
         if (result.error) return { success:false, message:'上传失败，请稍后重试' };
         if (typeof window._siteNavMarkAsSynced === 'function') window._siteNavMarkAsSynced();
-        return { success:true, message:'已同步到云端' };
+        return countWarning
+          ? { success:true, message:'已同步到云端 · ' + countWarning, warning:true }
+          : { success:true, message:'已同步到云端' };
       } catch (e) {
         console.error('[AnalyzerCloud] upload failed', e);
         return { success:false, message:'上传失败，请稍后重试' };
@@ -175,7 +212,8 @@
         const result = await window.supabaseClient.from('user_data').select('data').eq('user_id', user.id).eq('site_scope', scope()).maybeSingle();
         if (result.error) return { success:false, message:'读取云端数据失败', data:null };
         if (!result.data || !result.data.data || !result.data.data.data) return { success:false, message:'云端暂无数据', data:null };
-        const dataBlock = result.data.data.data;
+        const dataBlock = await unpackCloudData(result.data.data.data);
+        if (!dataBlock || typeof dataBlock !== 'object') return { success:false, message:'云端数据格式不正确', data:null };
         if (typeof window._siteNavPrepareOverwrite === 'function') {
           const guard = window._siteNavPrepareOverwrite('云端数据恢复', dataBlock);
           if (!guard.success) return { success:false, message:guard.message, data:null };
@@ -194,7 +232,10 @@
         // 空数据/条数回退的防护已下沉到 uploadLocalToCloud（唯一咽喉，nav 手动/卸载路径同样受保护）
         if (typeof window._siteNavSetCloudStatus === 'function') window._siteNavSetCloudStatus('正在自动保存...', '');
         const result = await manager.uploadLocalToCloud();
-        if (typeof window._siteNavSetCloudStatus === 'function') window._siteNavSetCloudStatus(result.success ? '已自动保存到云端' : result.message, result.success ? 'Success' : 'Error');
+        if (typeof window._siteNavSetCloudStatus === 'function') {
+          const style = result.success ? (result.warning ? 'Warning' : 'Success') : 'Error';
+          window._siteNavSetCloudStatus(result.success ? (result.warning ? result.message : '已自动保存到云端') : result.message, style);
+        }
         window.dispatchEvent(new CustomEvent('cube-analyzer-cloud-sync', { detail:result }));
       }, delay);
     },
