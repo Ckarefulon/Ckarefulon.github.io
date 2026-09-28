@@ -428,6 +428,34 @@ execMain(function() {
 	// 基线后一步都还没落账时遇到「计数未前进」事件，按事件自带的轴/向直接落账，
 	// 不走向历史补拉（计数口径未知时补拉会拉到空槽，固件回 0 字节 ⇒ 幻影步）。
 	var moveAppliedSinceBaseline = false;
+	// 状态重置（REQUEST_RESET）窗口：已向魔方发出「把当前状态认作复原态」命令，
+	// 等它回传重置后的面位事件重建基线。窗口内的转动事件按丢弃处理（计数语义未知，
+	// 且魔方内部面位正在清零），面位事件到达后走 initCubeState 重建基线并落定等待方。
+	var resetPending = false;
+	var resetWaiters = [];
+	var RESET_WATCHDOG_MS = 6000;
+
+	function settleResetWaiters() {
+		if (!resetWaiters.length) {
+			return;
+		}
+		var waiters = resetWaiters;
+		resetWaiters = [];
+		for (var i = 0; i < waiters.length; i++) {
+			waiters[i].resolve();
+		}
+	}
+
+	function abortResetWaiters(reason) {
+		if (!resetWaiters.length) {
+			return;
+		}
+		var waiters = resetWaiters;
+		resetWaiters = [];
+		for (var i = 0; i < waiters.length; i++) {
+			waiters[i].reject(reason);
+		}
+	}
 
 	function bufferPreInitMove(cnt, move, ts, locTime) {
 		if (!move || preInitMoves.length >= PRE_INIT_MOVES_LIMIT) {
@@ -489,6 +517,9 @@ execMain(function() {
 		prevCubie.fromFacelet(latestFacelet);
 		prevMoveCnt = moveCnt;
 		moveAppliedSinceBaseline = false;
+		// 面位基线已落定（连接首基线或重置后的新基线都走这里），重置窗口收口
+		resetPending = false;
+		settleResetWaiters();
 		if (latestFacelet != kernel.getProp('giiSolved', mathlib.SOLVED_FACELET)) {
 			var rst = kernel.getProp('giiRST');
 			if (rst == 'a' || rst == 'p' && confirm(CONFIRM_GIIRST)) {
@@ -496,6 +527,67 @@ execMain(function() {
 			}
 		}
 		flushPreInitMoves();
+	}
+
+	// 状态重置：向魔方发送 REQUEST_RESET，让它把内部面位清成复原态
+	// （当前物理姿态即被视为已复原）。载荷取自 afedotov/gan-web-bluetooth 协议实现，
+	// 三代魔方共用同一重置令牌（39 77 00 00 01 23 45 67 89 AB）：
+	//   v2 (GAN356i Carry / GAN12ui 等 20 字节)：0A 05 39 77 ...
+	//   v3 (GAN356i Carry 2, 16 字节)：          68 05 05 39 77 ...
+	//   v4 (GAN12ui Maglev / GAN14ui / GAN16ui)：D2 0D 05 39 77 ...
+	// v1（原始 356i）无已知重置命令，明确拒绝。
+	// 发送后追加一次 facelets 请求，魔方回传的（复原）面位走既有 facelets 事件
+	// 重建基线，Promise 在基线落定时 resolve（超时 / 断连则 reject）。
+	function requestCubeReset() {
+		if (!_gatt) {
+			return Promise.reject('蓝牙魔方未连接');
+		}
+		var req, sender;
+		if (_service_v2data) {
+			req = mathlib.valuedArray(20, 0);
+			req[0] = 0x0A; req[1] = 0x05; req[2] = 0x39; req[3] = 0x77;
+			req[6] = 0x01; req[7] = 0x23; req[8] = 0x45; req[9] = 0x67;
+			req[10] = 0x89; req[11] = 0xAB;
+			sender = v2sendRequest;
+		} else if (_service_v3data) {
+			req = mathlib.valuedArray(16, 0);
+			req[0] = 0x68; req[1] = 0x05; req[2] = 0x05; req[3] = 0x39; req[4] = 0x77;
+			req[7] = 0x01; req[8] = 0x23; req[9] = 0x45; req[10] = 0x67;
+			req[11] = 0x89; req[12] = 0xAB;
+			sender = v3sendRequest;
+		} else if (_service_v4data) {
+			req = mathlib.valuedArray(20, 0);
+			req[0] = 0xD2; req[1] = 0x0D; req[2] = 0x05; req[3] = 0x39; req[4] = 0x77;
+			req[7] = 0x01; req[8] = 0x23; req[9] = 0x45; req[10] = 0x67;
+			req[11] = 0x89; req[12] = 0xAB;
+			sender = v4sendRequest;
+		} else {
+			return Promise.reject('当前魔方代际不支持重置命令（仅 GAN v2 / v3 / v4 协议）');
+		}
+		giikerutil.log('[gancube]', 'sending REQUEST_RESET (current state as solved)');
+		resetPending = true;
+		moveBuffer = [];
+		preInitMoves = [];
+		return sender(req).then(function() {
+			if (_service_v2data) { return v2requestFacelets(); }
+			if (_service_v3data) { return v3requestFacelets(); }
+			return v4requestFacelets();
+		}).then(function() {
+			return new Promise(function(resolve, reject) {
+				var timer = setTimeout(function() {
+					var idx = resetWaiters.indexOf(waiter);
+					if (idx >= 0) {
+						resetWaiters.splice(idx, 1);
+					}
+					reject('魔方未回传重置后的状态，请断开后重连再试');
+				}, RESET_WATCHDOG_MS);
+				var waiter = {
+					resolve: function() { clearTimeout(timer); resolve(); },
+					reject: function(reason) { clearTimeout(timer); reject(reason); }
+				};
+				resetWaiters.push(waiter);
+			});
+		});
 	}
 
 	function checkState() {
@@ -657,6 +749,10 @@ execMain(function() {
 			parseGyroBits(value, 4);
 		} else if (mode == 2) { // cube move
 			giikerutil.log('[gancube]', 'v2 received move event', value);
+			if (resetPending) { // 重置窗口内的转动计数语义未知，丢弃
+				giikerutil.log('[gancube]', 'v2 move dropped during state reset');
+				return;
+			}
 			moveCnt = parseInt(value.slice(4, 12), 2);
 			var isRepeatCnt = moveCnt == prevMoveCnt && prevMoveCnt != -1;
 			timeOffs = [];
@@ -689,7 +785,7 @@ execMain(function() {
 			updateMoveTimes(locTime, 1);
 		} else if (mode == 4) { // cube state
 			giikerutil.log('[gancube]', 'v2 received facelets event', value);
-			if (prevMoveCnt != -1)
+			if (prevMoveCnt != -1 && !resetPending)
 				return;
 			moveCnt = parseInt(value.slice(4, 12), 2);
 			var cc = new mathlib.CubieCube();
@@ -847,6 +943,10 @@ execMain(function() {
 	}
 
 	function parseV3MoveEventRecord(bytes, offset, locTime, rawBits) {
+		if (resetPending) { // 重置窗口内的转动计数语义未知，丢弃
+			giikerutil.log('[gancube]', 'v3 move dropped during state reset');
+			return;
+		}
 		prevMoveLocTime = locTime;
 		moveCnt = bytes[offset + 7] | bytes[offset + 8] << 8;
 		giikerutil.log('[gancube]', 'v3 received move event', prevMoveCnt, moveCnt, rawBits);
@@ -911,7 +1011,7 @@ execMain(function() {
 			parseV3MoveEvents(bytes, locTime, value);
 		} else if (mode == 2) {  // cube state
 			moveCnt = parseInt(value.slice(32, 40) + value.slice(24, 32), 2);
-			if (prevMoveCnt != -1) {
+			if (prevMoveCnt != -1 && !resetPending) {
 				if (moveBuffer.length == 0 || prevMoveLocTime != null && locTime - prevMoveLocTime > 500) { // Debounce the facelet event if there are active cube moves
 					var diff = (moveCnt - prevMoveCnt) & 0xFF;
 					if (diff > 0) {
@@ -997,6 +1097,10 @@ execMain(function() {
 	}
 
 	function parseV4MoveEventRecord(bytes, offset, locTime, rawBits) {
+		if (resetPending) { // 重置窗口内的转动计数语义未知，丢弃
+			giikerutil.log('[gancube]', 'v4 move dropped during state reset');
+			return;
+		}
 		prevMoveLocTime = locTime;
 		moveCnt = bytes[offset + 6] | bytes[offset + 7] << 8;
 		giikerutil.log('[gancube]', 'v4 received move event', prevMoveCnt, moveCnt, rawBits);
@@ -1054,7 +1158,7 @@ execMain(function() {
 			parseV4MoveEvents(bytes, locTime, value);
 		} else if (mode == 0xED) {  // cube state
 			moveCnt = parseInt(value.slice(24, 32) + value.slice(16, 24), 2);
-			if (prevMoveCnt != -1) {
+			if (prevMoveCnt != -1 && !resetPending) {
 				if (moveBuffer.length == 0 || prevMoveLocTime != null && locTime - prevMoveLocTime > 500) { // Debounce the facelet event if there are active cube moves
 					var diff = (moveCnt - prevMoveCnt) & 0xFF;
 					if (diff > 0) {
@@ -1192,6 +1296,8 @@ execMain(function() {
 		batteryLevel = 0;
 		preInitMoves = [];
 		moveAppliedSinceBaseline = false;
+		resetPending = false;
+		abortResetWaiters('连接已断开，状态重置未完成');
 		return result;
 	}
 
@@ -1201,6 +1307,7 @@ execMain(function() {
 		opservs: [SERVICE_UUID_DATA, SERVICE_UUID_META, SERVICE_UUID_V2DATA, SERVICE_UUID_V3DATA, SERVICE_UUID_V4DATA],
 		cics: GAN_CIC_LIST,
 		getBatteryLevel: getBatteryLevel,
-		clear: clear
+		clear: clear,
+		requestReset: requestCubeReset
 	});
 });

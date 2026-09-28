@@ -1,0 +1,41 @@
+/* 状态重置功能块（Cube 公用）——按钮外观自包含，页面只管容器字号/对齐。
+   深浅主题都用中性色 + inherit 文字色，跟随页面主题变量，不自带配色体系。 */
+.cubeStateResetBtn {
+	appearance: none;
+	border: 1px solid var(--dsk-border, rgba(148, 163, 184, .35));
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: .82em;
+	line-height: 1.2;
+	padding: 4px 10px;
+	border-radius: 8px;
+	cursor: pointer;
+	opacity: .85;
+	white-space: nowrap;
+	transition: opacity .15s, border-color .15s, background-color .15s, color .15s;
+}
+
+.cubeStateResetBtn:hover {
+	opacity: 1;
+	border-color: var(--dsk-border-strong, rgba(148, 163, 184, .7));
+}
+
+/* 两段式确认态：红调警示 */
+.cubeStateResetBtn.isConfirm {
+	color: #ffb4b4;
+	border-color: rgba(248, 113, 113, .65);
+	background: rgba(248, 113, 113, .12);
+	opacity: 1;
+}
+
+[data-theme="light"] .cubeStateResetBtn.isConfirm {
+	color: #b4232a;
+	background: rgba(220, 38, 38, .08);
+}
+
+/* 执行中 */
+.cubeStateResetBtn.isBusy {
+	opacity: .55;
+	cursor: wait;
+}

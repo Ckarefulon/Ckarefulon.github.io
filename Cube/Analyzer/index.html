@@ -17,6 +17,7 @@
 
   <link rel="stylesheet" href="/nav/nav.css?v=1877">
   <link rel="stylesheet" href="../assets/scramble/scramble.css?v=1892">
+  <link rel="stylesheet" href="../assets/state-reset/state-reset.css?v=1949">
   <link rel="stylesheet" href="./analyzer.css?v=1877">
 
   <script src="../assets/base/jquery-4.0.0.min.js"></script>
@@ -39,10 +40,11 @@
   <script src="../assets/bluetooth/bluetooth.js?v=1877" defer></script>
   <script src="../assets/bluetooth/giikercube.js?v=1877" defer></script>
   <script src="../assets/bluetooth/gocube.js?v=1877" defer></script>
-  <script src="../assets/bluetooth/gancube.js?v=1877" defer></script>
+  <script src="../assets/bluetooth/gancube.js?v=1949" defer></script>
   <script src="../assets/bluetooth/moyucube.js?v=1877" defer></script>
   <script src="../assets/bluetooth/moyu32cube.js?v=1877" defer></script>
   <script src="../assets/bluetooth/qiyicube.js?v=1877" defer></script>
+  <script src="../assets/state-reset/state-reset.js?v=1949" defer></script>
   <script src="../assets/bluetooth/facelet-gap.js?v=1927" defer></script>
 
   <script src="./analyzer-core.js?v=1877" defer></script>
@@ -63,6 +65,7 @@
           <span class="device-dot"></span><span id="connectCubeLabel">连接魔方</span>
         </button>
         <span class="tool-status" id="cubeStatus">未连接</span>
+        <span id="stateResetMount"></span>
       </div>
 
       <div class="mode-switch" id="workspaceMode" role="tablist" aria-label="训练与分析">

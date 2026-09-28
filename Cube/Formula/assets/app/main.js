@@ -5902,14 +5902,24 @@
 					return this.wideMergeManager;
 				},
 
-				// 体帧宽体记号 → 记录流（UI 帧）宽体记号：体帧 r 记作 f（对面字母小写 + 份量后缀）。
-				// 记录流（历史/公式/进度/手操）一律 UI 字母，宽体文本由共享识别层按体帧候选面生成。
-				wideRecordText: function(wideText) {
+				// 对面字母（宽体判据/记录改写共用）
+				oppositeFaceLetter: function(face) {
+					return { U: "D", D: "U", R: "L", L: "R", F: "B", B: "F" }[face] || "";
+				},
+
+				// 宽体记号 → 记录流记号。记录流字母是 unmapUiFace(记录帧面)，随朝向推进
+				// （关跟随 = 场景帧、开跟随 = gyroRecordM 帧，与 transformCubeMove 同口径）；
+				// 宽体记录的字母必须由**记录帧面**决定，否则真实转体（y/x/z）之后字母会按
+				// 体帧漂移（实测 r r' y r r' y … 记成 r r' b b' l l' …，见 2026-09-28）。
+				// 体帧宽体文本仅提供份量后缀。recordFace = 候选外层记录帧面；缺省（无记录帧
+				// 信息）退回体帧口径，与历史行为一致（基准姿态下两者等价）。
+				wideRecordText: function(wideText, recordFace) {
 					var match = /^([a-z])(.*)$/i.exec(String(wideText || ""));
 					if (!match) {
 						return wideText;
 					}
-					return this.unmapUiFace(match[1].toUpperCase()).toLowerCase() + match[2];
+					var wideFace = recordFace ? this.oppositeFaceLetter(recordFace) : match[1].toUpperCase();
+					return this.unmapUiFace(wideFace).toLowerCase() + match[2];
 				},
 
 				// 合并成立：①动画——倒序撤回候选已播的各段份量，改播一段宽体（两层同转，
@@ -5961,23 +5971,45 @@
 							}
 						}
 					});
-					// 记录流是 UI 字母（硬件 L 记作 B），候选面与 merge.wideText 是体帧字母
-					// （L 族 → r）：改写 tracked 列表时把 UI 字母换算回体帧再比对，插入的
-					// 宽体记号换算回 UI 字母（体帧 r 记作 f）；历史入账同用 UI 宽体字母。
-					var recordWideText = this.wideRecordText(merge.wideText);
+					// 记录流字母 = unmapUiFace(记录帧面)——记录帧随朝向推进（关跟随=场景帧，
+					// 开跟随=gyroRecordM 帧），而候选面 / merge.wideText 是体帧字母（L 族 → r）。
+					// 宽体记录的字母与改写比对面都必须用**记录帧**：真实转体后体帧与记录帧分叉，
+					// 用体帧会记错方向（实测 r r' y r r' y … 记成 r r' b b' l l' …，2026-09-28）。
+					// 记录帧面从候选外层的记录原文反推（原文 = unmapUiFace(记录帧面)，
+					// 故 记录帧面 = mapUiFace(原文面)），与写入时的帧逐字一致、两种跟随模式通吃；
+					// 无原文可依时退回体帧口径（基准姿态下两者等价）。
+					var recordFace = null;
+					for (var pk = merge.pending.length - 1; pk >= 0; pk--) {
+						var pendingFace = merge.pending[pk];
+						if (pendingFace.kind !== "face" || !pendingFace.text) {
+							continue;
+						}
+						var tokenFace = this.getTokenFacePow(pendingFace.text);
+						if (tokenFace && tokenFace.face) {
+							recordFace = this.mapUiFace(tokenFace.face);
+							break;
+						}
+					}
+					var compareFace = recordFace || merge.face;
+					var recordWideText = this.wideRecordText(merge.wideText, recordFace);
 					this.pushHistory(recordWideText, merge.source, merge.time);
 					var parseToken = function(token) {
 						var fp = self.getTokenFacePow(token);
 						return fp ? { face: self.mapUiFace(fp.face), pow: fp.pow } : null;
 					};
 					var formatToken = function(face, pow) { return self.formatMoveText(self.unmapUiFace(face), pow); };
-					this.manualMoveHistory = CubeWideMerge.rewriteTrailing(this.manualMoveHistory, parseToken, formatToken, merge.face, merge.faceSum, recordWideText);
-					this.performedProcessMoves = CubeWideMerge.rewriteTrailing(this.performedProcessMoves, parseToken, formatToken, merge.face, merge.faceSum, recordWideText);
+					// 候选各外层写入记录流时的原文 + 体帧份量：记录字母随姿态换算漂移
+					// （体帧 F 可能显示成 U），静态 face 比对会失配 ⇒ 优先按原文改写
+					var knownPendings = merge.pending
+						.filter(function(pending) { return pending.kind === "face"; })
+						.map(function(pending) { return { text: pending.text, pow: pending.pow }; });
+					this.manualMoveHistory = CubeWideMerge.rewriteTrailing(this.manualMoveHistory, parseToken, formatToken, compareFace, merge.faceSum, recordWideText, knownPendings);
+					this.performedProcessMoves = CubeWideMerge.rewriteTrailing(this.performedProcessMoves, parseToken, formatToken, compareFace, merge.faceSum, recordWideText, knownPendings);
 					if (this.isRecordingFormula && this.activeFormulaId) {
 						var entry = this.getFormulaEntry(this.activeFormulaId);
 						if (entry && entry.moves && entry.moves.length) {
 							this.syncEditingMovesFromInput();
-							entry.moves = CubeWideMerge.rewriteTrailing(entry.moves, parseToken, formatToken, merge.face, merge.faceSum, recordWideText);
+							entry.moves = CubeWideMerge.rewriteTrailing(entry.moves, parseToken, formatToken, compareFace, merge.faceSum, recordWideText, knownPendings);
 							var compressedTokens = this.compressDisplayTokens(this.tokenizeMoves(entry.moves.join(" ")));
 							entry.moves = compressedTokens;
 							entry.alg = compressedTokens.join(" ");
@@ -6147,8 +6179,9 @@
 							self.pushHistory(text, self.deviceName || "cube", Date.now());
 							self.log("view", text + " · 转体");
 						});
-						this.ensureWideMerge().noteRecordedRotation({
-							rotParts: this.gyroFollow ? bodyParts : parts,
+					this.ensureWideMerge().noteRecordedRotation({
+						// 回吸材料恒用体帧（与候选面/判定同帧；场景帧在姿态偏移后共轭换轴）
+						rotParts: bodyParts,
 							texts: rotTexts,
 							at: Date.now(),
 							animTokens: rotAnimTokens
@@ -6708,7 +6741,8 @@
 					if (!options.fromCube || options.noHistory || options.silent) {
 						this.ensureWideMerge().reset();
 					}
-					var recordMove = move;
+					var bodyMove = move;
+				var recordMove = move;
 					if (options.fromCube) {
 						// 中层配对落账（skipRotFlush）不在半途提交：此时中层动画已播放、
 						// 原始外层还没入账，提交补偿公式的前提（在队条目与画面一一对应）
@@ -6746,15 +6780,20 @@
 				this.recordSolveMove(recordMove, source, options);
 					if (options.fromCube && move.type === "face" && !move.wide && !options.noHistory && !options.silent) {
 						// 双层识别：硬件外层入账（记录已在上面落好），候选累计判合并
-						// （含回吸最近转体）；命中时撤回候选已播动画改播宽体，记录层同步改写
+						// （含回吸最近转体）；命中时撤回候选已播动画改播宽体，记录层同步改写。
+						// 候选 face/pow 恒用变换前的蓝牙体帧（宽体判据与 wideText 记号生成
+						// 恒体帧——变换后的场景帧面在姿态偏移后会换字母/翻份量，导致漏并或
+						// 记错方向，如 f 之后的 r 被记成 d）；动画面/份量用变换后的场景帧记号。
 						var wideMergeInfo = this.ensureWideMerge().addFaceMove({
-							face: move.face,
-							pow: move.pow,
+							face: bodyMove.face,
+							pow: bodyMove.pow,
 							text: recordMove.text,
 							source: source,
 							time: timestamp,
 							at: Date.now(),
-							animToken: options.noAnimation ? null : move.twisty
+							animToken: options.noAnimation ? null : move.twisty,
+							animFace: recordMove.face,
+							animPow: recordMove.pow
 						});
 						if (wideMergeInfo) {
 							this.applyWideMergeRecords(wideMergeInfo);

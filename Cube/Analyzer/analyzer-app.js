@@ -643,6 +643,11 @@
   }
 
   function bind(){
+    // 状态重置（Cube 公用功能块）：给已连接的 GAN 魔方发 REQUEST_RESET，
+    // 把当前物理姿态认作复原态；反馈写入连接状态行 cubeStatus
+    if (window.CubeStateReset && $('#stateResetMount')) {
+      CubeStateReset.mount($('#stateResetMount'), { onStatus: t => { $('#cubeStatus').textContent = t; } });
+    }
     $('#workspaceMode').onclick=e=>{const b=e.target.closest('[data-mode]');if(b)switchWorkspace(b.dataset.mode)};
     $('#goAnalysisBtn').onclick=()=>switchWorkspace('analysis');
     $('#connectCubeBtn').onclick=toggleCube;$('#newScrambleBtn').onclick=nextScramble;$('#readyBtn').onclick=handleSpaceTimer;$('#cancelTimerBtn').onclick=cancelTraining;

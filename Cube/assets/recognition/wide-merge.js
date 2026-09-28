@@ -18,21 +18,31 @@
 	/* 从记号列表尾部吃掉 face 共 removePow 份，在吃掉起点插入 wideText。
 	 * 只吃与 face 同面的连续尾段；吃不完则原样返回（宁缺勿错）。
 	 * parse(token) → {face, pow} | null；format(face, pow) → token。
+	 * knownPendings（可选）：候选各外层写入记录流时的原文 + 体帧份量 [{text, pow}]。
+	 * 记录流字母会随姿态换算漂移（体帧 F 可能显示成 U），静态 face 比对会失配 ⇒
+	 * 优先按原文匹配（份量用体帧 pow），face 比对留给被压缩折叠（L L→L2）的记号。
 	 * 适用于 manualMoveHistory / 公式 entry.moves / performedProcessMoves
 	 * （转体不进这些列表，尾段连续同面即候选贡献）。 */
-	function rewriteTrailing(tokens, parse, format, face, removePow, wideText) {
+	function rewriteTrailing(tokens, parse, format, face, removePow, wideText, knownPendings) {
 		if (!tokens || !tokens.length || !removePow) {
 			return tokens;
 		}
 		var out = tokens.slice();
 		var rem = norm4(removePow);
 		var insertAt = out.length;
+		var known = (knownPendings || []).slice().reverse();
+		var ki = 0;
 		for (var i = out.length - 1; i >= 0 && rem > 0; i--) {
 			var fp = parse(out[i]);
-			if (!fp || fp.face !== face) {
+			var kp = null;
+			if (ki < known.length && known[ki].text === out[i]) {
+				kp = known[ki];
+				ki++;
+			}
+			if (!kp && (!fp || fp.face !== face)) {
 				break;
 			}
-			var tp = norm4(fp.pow);
+			var tp = norm4(kp ? kp.pow : fp.pow);
 			if (tp === 0) {
 				break;
 			}
@@ -68,15 +78,18 @@
 	 * API:
 	 *   reset()                          作废候选与回吸材料（手动操作/断连/重新对齐等）
 	 *   alive()                          候选是否在场
-	 *   addFaceMove(entry) → merge|null  外层落账后调用（记录已入账）
-	 *     entry: {face, pow, text, source, time, at, animToken}
-	 *     animToken 为该次已播动画的 twisty token（未播动画传 null），合并时由宿主撤回
-	 *   addRotationParts(entry) → merge|null  转体落账【前】调用；命中时宿主跳过转体动画与 x/y/z 记录
-	 *     entry: {parts, bodyParts, gyroFollow, at}
-	 *     parts 为场景帧分解（含动画份量）、bodyParts 为体帧分解；帧选择与旧识别一致
-	 *   noteRecordedRotation(entry)      转体已照常落账后调用（供之后外层后到时回吸）
-	 *     entry: {rotParts, texts, at, animTokens}
-	 *     rotParts 用与判定相同的帧（gyroFollow ? bodyParts : parts）
+ *   addFaceMove(entry) → merge|null  外层落账后调用（记录已入账）
+ *     entry: {face, pow, text, source, time, at, animToken, animFace, animPow}
+ *     face/pow 恒为蓝牙体帧（宽体判据与 wideText 记号生成口径，姿态偏移后不换字母）；
+ *     animFace/animPow 为宿主变换后的场景帧外层记号（供宽体动画），缺省回退体帧口径。
+ *     animToken 为该次已播动画的 twisty token（未播动画传 null），合并时由宿主撤回
+ *   addRotationParts(entry) → merge|null  转体落账【前】调用；命中时宿主跳过转体动画与 x/y/z 记录
+ *     entry: {parts, bodyParts, gyroFollow, at}
+ *     判定恒用 bodyParts（体帧，与候选面同帧）：场景帧份量在姿态偏离基准后是共轭换轴的
+ *     （f 之后的 r：体帧 z' 在场景帧呈共轭轴）⇒ 投影失配漏并/错并；parts 仅作回退
+ *   noteRecordedRotation(entry)      转体已照常落账后调用（供之后外层后到时回吸）
+ *     entry: {rotParts, texts, at, animTokens}
+ *     rotParts 用体帧（bodyParts，与判定同帧）
 	 *
 	 * merge 信息：{wideText, face, faceSum, animFace, animPow, pending, time, source}
 	 *   pending: [{kind:"face"|"rot", text|texts, at, time, animToken|animTokens}]
@@ -135,12 +148,13 @@
 			var r = norm4(candidate.rotSum);
 			if (f !== 0 && norm4(f + r) === 0) {
 				var opp = oppositeFace(candidate.face);
+				var ap = norm4(candidate.animPow != null ? candidate.animPow : f);
 				var info = {
 					wideText: opp.toLowerCase() + suffixOf(f),
 					face: candidate.face,
 					faceSum: f,
-					animFace: opp,
-					animPow: f === 3 ? -1 : f,
+					animFace: candidate.animFace || oppositeFace(candidate.face),
+					animPow: ap === 3 ? -1 : ap,
 					pending: candidate.pending,
 					time: candidate.time,
 					source: candidate.source
@@ -162,40 +176,46 @@
 			if (candidate && (candidate.face !== entry.face || now() - candidate.at > forwardMs)) {
 				candidate = null;
 			}
-			if (!candidate) {
-				candidate = {
-					face: entry.face,
-					faceSum: 0,
-					rotSum: 0,
-					pending: [],
-					time: entry.time,
-					source: entry.source,
-					at: entry.at
-				};
-				// 回吸：转体先落账、外层后到（顺序二）。只吸收窗口内、纯同轴的最近转体
-				if (lastRotation && now() - lastRotation.at <= reverseMs) {
-					var sum = pureAxisSum(entry.face, lastRotation.rotParts);
-					if (sum !== null && norm4(sum) !== 0) {
-						candidate.rotSum += sum;
-						candidate.pending.unshift({
-							kind: "rot",
-							texts: lastRotation.texts,
-							at: lastRotation.at,
-							animTokens: lastRotation.animTokens
-						});
-						lastRotation = null;
-					}
+		if (!candidate) {
+			candidate = {
+				face: entry.face,
+				faceSum: 0,
+				rotSum: 0,
+				animFace: null,
+				animPow: 0,
+				pending: [],
+				time: entry.time,
+				source: entry.source,
+				at: entry.at
+			};
+			// 回吸：转体先落账、外层后到（顺序二）。只吸收窗口内、纯同轴的最近转体
+			if (lastRotation && now() - lastRotation.at <= reverseMs) {
+				var sum = pureAxisSum(entry.face, lastRotation.rotParts);
+				if (sum !== null && norm4(sum) !== 0) {
+					candidate.rotSum += sum;
+					candidate.pending.unshift({
+						kind: "rot",
+						texts: lastRotation.texts,
+						at: lastRotation.at,
+						animTokens: lastRotation.animTokens
+					});
+					lastRotation = null;
 				}
 			}
-			candidate.faceSum += entry.pow;
-			candidate.at = entry.at;
-			candidate.pending.push({
-				kind: "face",
-				text: entry.text,
-				at: entry.at,
-				time: entry.time,
-				animToken: entry.animToken || null
-			});
+		}
+		candidate.faceSum += entry.pow;
+		candidate.at = entry.at;
+		// 宽体动画的面/份量按场景帧外层记号累计（宿主变换后），与候选判据的体帧口径解耦
+		candidate.animFace = oppositeFace(entry.animFace || entry.face);
+		candidate.animPow += entry.animPow != null ? entry.animPow : entry.pow;
+		candidate.pending.push({
+			kind: "face",
+			text: entry.text,
+			pow: entry.pow,
+			at: entry.at,
+			time: entry.time,
+			animToken: entry.animToken || null
+		});
 			return buildMerge();
 		}
 
@@ -207,7 +227,7 @@
 			if (!candidate) {
 				return null;
 			}
-			var rotParts = entry.gyroFollow ? entry.bodyParts : entry.parts;
+			var rotParts = entry.bodyParts || entry.parts;
 			var sum = pureAxisSum(candidate.face, rotParts || []);
 			if (sum === null || norm4(sum) === 0) {
 				// 无关轴 / 净零转体：不贡献、不作废候选

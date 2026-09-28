@@ -453,6 +453,14 @@
 			return;
 		}
 		if (el.connectBtn.disabled && !state.connected) { el.connectBtn.disabled = false; }
+		/* 状态重置按钮（Cube 公用功能块）：本函数在硬件脚本晚到时会重试，挂载只做一次 */
+		if (window.CubeStateReset && !state.stateResetMounted) {
+			var resetMount = document.getElementById('stateResetMount');
+			if (resetMount) {
+				state.stateResetMounted = true;
+				CubeStateReset.mount(resetMount, { onStatus: function (text) { el.btStatus.textContent = text; } });
+			}
+		}
 		window.GiikerCube.setCallback(onCubeCallback);
 		window.GiikerCube.setEventCallback(function (info) {
 			if (info === 'disconnect') { handleBtDisconnected(); }
