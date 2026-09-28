@@ -712,6 +712,74 @@
 			}
 		}
 
+		// 按面位串直接重排贴纸（仅 3 阶）：facelet = 54 字符 URFDLB，与 getFacelet 同口径。
+		// 贴纸颜色由所属面分组（材质）决定，这里把每面 9 张贴纸重新摆到目标槽位，
+		// 使 getFacelet() 与 facelet 逐字一致。非法入参 / 非 3 阶返回 false（不动状态）。
+		function setFacelet(twisty, facelet) {
+			facelet = String(facelet || "").toUpperCase();
+			if (cubeOptions.dimension !== 3 || facelet.length !== 54 || /[^URFDLB]/.test(facelet)) {
+				return false;
+			}
+			var slotsByColor = {};
+			for (var k = 0; k < 54; k++) {
+				var ch = facelet.charAt(k);
+				(slotsByColor[ch] = slotsByColor[ch] || []).push(k);
+			}
+			var state = twisty.cubePieces;
+			for (var f = 0; f < numSides; f++) {
+				var slots = slotsByColor[index_side[f]];
+				// 每种颜色必须恰好 9 张，否则是非法状态
+				if (!slots || slots.length !== 9) {
+					return false;
+				}
+			}
+			// 全部校验通过后再动贴纸，避免半途失败留下中间态
+			for (var f2 = 0; f2 < numSides; f2++) {
+				var faceSlots = slotsByColor[index_side[f2]];
+				var faceStickers = state[f2];
+				for (var si = 0; si < 9; si++) {
+					applySlotMatrix(faceStickers[si], faceSlots[si]);
+				}
+			}
+			return true;
+		}
+
+		// getFacelet 的槽位坐标参数（其函数内局部量的同口径副本）
+		var slotXInv = [1, -1, -1, -1, -1, -1];
+		var slotYInv = [1, -1, 1, 1, 1, -1];
+		var slotXYXchg = [1, 0, 0, 1, 0, 0];
+
+		// 把一张贴纸摆到槽位 k（k = axis*9 + x*3 + y，与 getFacelet 编码一致）。
+		// getFacelet 只读矩阵平移列（matrixVector3Dot 取 n14/n24/n34），平移分量按
+		// getFacelet 的逆映射算；旋转部分取目标面的 UV 框架，保证贴纸平面垂直于面法线。
+		function applySlotMatrix(sticker, k) {
+			var axis = Math.floor(k / 9);
+			var x = Math.floor((k % 9) / 3);
+			var y = k % 3;
+			var a = axis % 3;
+			// coord 口径与 getFacelet 相同：[dot U, dot R, dot F] = [ty, tx, tz]
+			var coord = [0, 0, 0];
+			coord[a] = axis < 3 ? 3 : -3;
+			var rem = [0, 0];
+			var xy = slotXYXchg[axis];
+			rem[xy] = (2 * x - 2) * slotXInv[axis];
+			rem[1 - xy] = (2 * y - 2) * slotYInv[axis];
+			var ri = 0;
+			for (var ci = 0; ci < 3; ci++) {
+				if (ci === a) {
+					continue;
+				}
+				coord[ci] = rem[ri++];
+			}
+			var m = sidesUV[axis].clone();
+			m.n14 = coord[1];
+			m.n24 = coord[0];
+			m.n34 = coord[2];
+			sticker[0].copy(m);
+			sticker[1].matrix.copy(sticker[0]);
+			sticker[1].update();
+		}
+
 		return {
 			type: twistyParameters,
 			options: cubeOptions,
@@ -731,6 +799,7 @@
 			generateScramble: generateScramble,
 			parseScramble: parseScramble,
 			getFacelet: getFacelet,
+			setFacelet: setFacelet,
 			moveCnt: moveCnt,
 			borderMaterial: borderMaterial,
 			move2str: move2str,

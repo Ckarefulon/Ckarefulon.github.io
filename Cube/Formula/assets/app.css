@@ -11,6 +11,7 @@
 			--accentSoft: rgba(93, 78, 168, 0.12);
 			--cyan: #24f0ea;
 			--cyanSoft: rgba(36, 240, 234, 0.12);
+			--cyanInk: #0e9995;
 			--good: #178b82;
 			--red: #e85d6a;
 			--primaryBg: #5d4ea8;
@@ -46,6 +47,7 @@
 			--accentSoft: rgba(93, 78, 168, 0.26);
 			--cyan: #24f0ea;
 			--cyanSoft: rgba(36, 240, 234, 0.08);
+			--cyanInk: #24f0ea;
 			--good: #24f0ea;
 			--red: #e85d6a;
 			--primaryBg: #6b5dc2;
@@ -1079,6 +1081,35 @@
 
 		.practiceAoTime strong {
 			font-size: 13px;
+		}
+
+		/* 四向：公式前/后两段随机 U 层旋转的开关与青色显示。 */
+		.aufControls {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 12px;
+			margin-top: 10px;
+		}
+
+		.aufTitle {
+			color: var(--muted);
+			font-size: 13px;
+			font-weight: 700;
+		}
+
+		.aufToggle {
+			width: auto;
+			min-height: 44px;
+			justify-content: flex-start;
+			padding: 0 2px;
+			font-weight: 700;
+		}
+
+		.aufMove {
+			color: var(--cyanInk);
+			font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+			font-weight: 700;
 		}
 
 		.smartCheck {

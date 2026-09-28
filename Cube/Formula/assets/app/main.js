@@ -59,6 +59,12 @@
 				seenUnsolvedVirtualSinceState: false,
 				lastFaceletSolved: false,
 				solveDetectionMode: 2,
+				// 四向训练：公式前 / 公式后各挂一段随机 U 层旋转（0°/U/U2/U'）。
+				aufPreEnabled: false,
+				aufPostEnabled: false,
+				currentAufPre: "",
+				currentAufPost: "",
+				currentPracticeSequence: "",
 				performedProcessMoves: [],
 				processTargetMoves: [],
 				activeRestorationTarget: null,
@@ -277,6 +283,7 @@
 						connectBtn: document.getElementById("connectBtn"),
 						gyroToggleBtn: document.getElementById("gyroToggleBtn"),
 						resetBtn: document.getElementById("resetBtn"),
+						alignBtn: document.getElementById("alignBtn"),
 						seamlessToggleBtn: document.getElementById("seamlessToggleBtn"),
 						exportFormulaBtn: document.getElementById("exportFormulaBtn"),
 						confirmLibraryImportBtn: document.getElementById("confirmLibraryImportBtn"),
@@ -619,6 +626,11 @@
 							self.closePanel();
 							self.closeSideNav();
 							self.closeModeMenu();
+							return;
+						}
+						// 焦点在文本输入控件内时跳过所有转动快捷键（含 Backspace 逆元），保证正常打字/删字。
+						var keyTarget = event.target;
+						if (keyTarget && (keyTarget.tagName === "INPUT" || keyTarget.tagName === "TEXTAREA" || keyTarget.tagName === "SELECT" || keyTarget.isContentEditable)) {
 							return;
 						}
 						var keyMap = {
@@ -1189,7 +1201,9 @@
 				bindModeUI: function() {
 					var self = this;
 					if (this.isPracticeMode) {
-						this.ensureDetectOpts(document.querySelector(".practiceView"));
+						var practiceRoot = document.querySelector(".practiceView");
+						this.ensureDetectOpts(practiceRoot);
+						this.ensureAufOpts(practiceRoot);
 					}
 					this.bindOnce(this.elements.connectBtn, "smartBound", function(element) {
 						element.addEventListener("click", function() {
@@ -1203,6 +1217,11 @@
 					this.bindOnce(this.elements.resetBtn, "smartBound", function(element) {
 						element.addEventListener("click", function() {
 							self.resetView();
+						});
+					});
+					this.bindOnce(this.elements.alignBtn, "smartBound", function(element) {
+						element.addEventListener("click", function() {
+							self.alignState();
 						});
 					});
 					this.bindOnce(this.elements.seamlessToggleBtn, "smartBound", function(element) {
@@ -1817,12 +1836,16 @@
 						this.savePracticeStats();
 					}
 					this.solveDetectionMode = Number(this.practiceStats.solveDetectionMode) === 1 ? 1 : 2;
+					this.aufPreEnabled = !!this.practiceStats.aufPre;
+					this.aufPostEnabled = !!this.practiceStats.aufPost;
 					var groupData = this.getPracticeData();
 					this.formulaSolveTimes = groupData.solveTimes;
 				},
 
 				savePracticeStats: function() {
 					this.practiceStats.schemaVersion = 3;
+					this.practiceStats.aufPre = !!this.aufPreEnabled;
+					this.practiceStats.aufPost = !!this.aufPostEnabled;
 					storageManager.setJson(PRACTICE_STATS_KEY, this.practiceStats);
 					if (this.markDataDirty) {
 						this.markDataDirty();
@@ -3872,9 +3895,38 @@
 					return moves;
 				},
 
-				getInitialStateMoves: function(state) {
-					if (!state || !state.alg) return [];
-					return this.parseMoveSequence(this.invertAlgText(state.alg, state.moves || []));
+				getInitialStateMoves: function(state, algText) {
+					var source = typeof algText === "string" && algText ? algText : (state && state.alg);
+					if (!source) return [];
+					return this.parseMoveSequence(this.invertAlgText(source, state && state.moves || []));
+				},
+
+				// 四向：U 层的四种朝向（0°/90°/180°/270°），公式前/后各随机取一个。
+				aufTokens: ["", "U", "U2", "U'"],
+
+				randomAufToken: function() {
+					return this.aufTokens[Math.floor(Math.random() * this.aufTokens.length)];
+				},
+
+				randomizePracticeAuf: function() {
+					this.currentAufPre = this.aufPreEnabled ? this.randomAufToken() : "";
+					this.currentAufPost = this.aufPostEnabled ? this.randomAufToken() : "";
+				},
+
+				// 「前置 U + 原公式 + 后置 U」：题目、初始状态、完成判定三者共用同一条序列。
+				getPracticeSequenceText: function(state) {
+					var alg = state && state.alg ? state.alg : "";
+					if (!alg) return "";
+					var parts = [];
+					if (this.currentAufPre) parts.push(this.currentAufPre);
+					parts.push(alg);
+					if (this.currentAufPost) parts.push(this.currentAufPost);
+					return parts.join(" ");
+				},
+
+				aufChipHtml: function(token) {
+					if (!token) return "";
+					return '<span class="aufMove">' + this.escapeHtml(token) + '</span>';
 				},
 
 				formatMoves: function(alg) {
@@ -4026,12 +4078,19 @@
 					if (this.elements.showPracticeFormula) {
 						this.elements.showPracticeFormula.checked = this.showPracticeFormula;
 					}
-					if (this.showPracticeFormula && state) {
-						this.elements.practiceFormulaToggle.classList.add("isFormula");
-						this.elements.practiceFormulaText.textContent = this.getDisplayAlg(state);
-					} else {
-						this.elements.practiceFormulaToggle.classList.remove("isFormula");
-						this.elements.practiceFormulaText.textContent = "显示公式";
+				// 四向的 U 属于公式的一部分：跟随「显示公式」开关一起显隐。
+				var showAlg = this.showPracticeFormula && !!state;
+				this.elements.practiceFormulaToggle.classList.toggle("isFormula", showAlg);
+				var html = "";
+				if (showAlg) {
+					if (this.currentAufPre) html += this.aufChipHtml(this.currentAufPre) + " ";
+					html += this.escapeHtml(this.getDisplayAlg(state));
+					if (this.currentAufPost) html += " " + this.aufChipHtml(this.currentAufPost);
+				} else {
+					html = "显示公式";
+				}
+					if (this.elements.practiceFormulaText.innerHTML !== html) {
+						this.elements.practiceFormulaText.innerHTML = html;
 					}
 				},
 
@@ -4094,7 +4153,10 @@
 					previewScene.setViewDragClamped(false);
 				}
 				this.prepareStickerScene(previewScene);
-					var moves = this.buildTwistyMoves(this.getInitialStateMoves(state), false);
+				// 四向训练时，当前卡片的缩略图状态同样按「前置U+公式+后置U」整条反推，
+				// 保证打乱参照与主视图/完成判定一致（用户口径：状态一律按加了 U 的公式算）。
+				var isActivePractice = this.isPracticeMode && state && this.importedFormulas[this.currentFormulaIndex] === state && this.currentPracticeSequence;
+				var moves = this.buildTwistyMoves(this.getInitialStateMoves(state, isActivePractice ? this.currentPracticeSequence : undefined), false);
 					if (moves.length) {
 						previewScene.applyMoves(moves);
 					}
@@ -4102,8 +4164,9 @@
 					if (this.seamlessMode) {
 						this.applySeamlessMode(previewScene, true);
 					}
-					previewScene.resize();
-					this.thumbnailScenes.push(previewScene);
+				previewScene.resize();
+				container._thumbScene = previewScene;
+				this.thumbnailScenes.push(previewScene);
 					if (previewScene.setViewDrag) {
 						previewScene.setViewDrag(this.thumbnailYaw, this.thumbnailPitch);
 					}
@@ -4129,7 +4192,9 @@
 						this.seenUnsolvedFaceletSinceState = false;
 						this.seenUnsolvedVirtualSinceState = false;
 						this.lastFaceletSolved = false;
-						this.resetDetectCtx(state);
+						this.randomizePracticeAuf();
+						this.currentPracticeSequence = this.getPracticeSequenceText(state);
+						this.resetDetectCtx(state, this.currentPracticeSequence);
 						this.recordFormulaVisit(index);
 						this.setActiveFormulaCard(index);
 					}
@@ -4138,7 +4203,8 @@
 					if (this.isPracticeMode) {
 						this.resetVirtualState();
 					}
-					var moves = this.buildTwistyMoves(this.getInitialStateMoves(state), true, this.isPracticeMode);
+					var initialSequence = this.isPracticeMode ? this.currentPracticeSequence : "";
+					var moves = this.buildTwistyMoves(this.getInitialStateMoves(state, initialSequence), true, this.isPracticeMode);
 					if (moves.length) {
 						this.twistyScene.applyMoves(moves);
 					}
@@ -4152,7 +4218,31 @@
 
 					this.syncPracticeToggle();
 					this.updatePracticeAoTimes();
+					this.refreshActivePracticeThumb();
 					this.log("state", "applied " + state.name);
+				},
+
+				// 当前卡片的缩略图按最新四向序列重渲染（每次应用公式都会重新随机，参照必须同步）。
+				refreshActivePracticeThumb: function() {
+					if (!this.isPracticeMode || this.currentFormulaIndex < 0 || !this.elements.practiceGrid) {
+						return;
+					}
+					var state = this.importedFormulas[this.currentFormulaIndex];
+					if (!state) return;
+					var btn = this.elements.practiceGrid.querySelector('[data-state-index="' + this.currentFormulaIndex + '"]');
+					var card = btn && btn.closest ? btn.closest(".stateCard") : null;
+					var preview = card && card.querySelector(".statePreview");
+					if (!preview) return;
+					var old = preview._thumbScene;
+					if (old) {
+						var sceneIdx = this.thumbnailScenes.indexOf(old);
+						if (sceneIdx >= 0) this.thumbnailScenes.splice(sceneIdx, 1);
+					}
+					preview.innerHTML = "";
+					this.renderFormulaPreview(preview, state);
+					if (this.seamlessMode) {
+						this.syncHiddenLook();
+					}
 				},
 
 				setActiveFormulaCard: function(index) {
@@ -4448,12 +4538,13 @@
 					return true;
 				},
 
-				resetDetectCtx: function(state) {
+				resetDetectCtx: function(state, algText) {
 					this.performedProcessMoves = [];
 					this.processTargetMoves = [];
 					this.activeRestorationTarget = state && state.customSolvedState || null;
-					if (state && state.alg) {
-						try { this.processTargetMoves = FormulaCore.processTarget(state.alg); } catch (error) {}
+					var source = typeof algText === "string" && algText ? algText : (state && state.alg);
+					if (source) {
+						try { this.processTargetMoves = FormulaCore.processTarget(source); } catch (error) {}
 					}
 				},
 
@@ -4490,6 +4581,48 @@
 					var inputs = document.querySelectorAll("[data-strict-detection]");
 					for (var i = 0; i < inputs.length; i++) {
 						inputs[i].checked = this.solveDetectionMode === 1;
+					}
+				},
+
+				// 四向开关：公式前 / 公式后各一个复选框，切换后立即重发当前题目。
+				ensureAufOpts: function(root) {
+					if (!root || root.querySelector("[data-auf-controls]")) return;
+					var host = root.querySelector(".viewSec");
+					if (!host) return;
+					var controls = document.createElement("div");
+					controls.className = "controls aufControls";
+					controls.setAttribute("data-auf-controls", "1");
+					controls.setAttribute("aria-label", "四向");
+					controls.innerHTML = '<span class="aufTitle">四向</span>' + '<label class="smartCheck aufToggle" title="在公式前加一段随机 U 层旋转"><input type="checkbox" data-auf-pre><span class="checkVisual"></span><span>公式前</span></label>' + '<label class="smartCheck aufToggle" title="在公式后加一段随机 U 层旋转"><input type="checkbox" data-auf-post><span class="checkVisual"></span><span>公式后</span></label>';
+					var self = this;
+					controls.addEventListener("change", function(event) {
+						var input = event.target.closest("[data-auf-pre], [data-auf-post]");
+						if (!input) return;
+						if (input.hasAttribute("data-auf-pre")) self.aufPreEnabled = input.checked;
+						else self.aufPostEnabled = input.checked;
+						self.savePracticeStats();
+						self.renderAufOpts();
+						if (self.isPracticeMode && self.importedFormulas.length && self.currentFormulaIndex >= 0) {
+							self.applyImportedFormula(self.currentFormulaIndex);
+						}
+					});
+					host.appendChild(controls);
+					this.renderAufOpts();
+				},
+
+				renderAufOpts: function() {
+					var inputs = document.querySelectorAll("[data-auf-pre], [data-auf-post]");
+					for (var i = 0; i < inputs.length; i++) {
+						var input = inputs[i];
+						input.checked = input.hasAttribute("data-auf-pre") ? !!this.aufPreEnabled : !!this.aufPostEnabled;
+					}
+				},
+
+				// 记忆库读取后按当前公式 + 四向序列整条重建训练状态
+				// （本方法在 10.0.1597-beta.74 后被误删，调用残留至今，缺失会让同步流程中断）。
+				resetPracticeFormula: function() {
+					if (this.isPracticeMode && this.importedFormulas.length && this.currentFormulaIndex >= 0) {
+						this.applyImportedFormula(this.currentFormulaIndex);
 					}
 				},
 
@@ -6352,6 +6485,77 @@
 					this.elements.moveCount.textContent = "0";
 					this.elements.lastTs.textContent = "--:--";
 					this.log("view", "视图已重置");
+				},
+
+				// 对齐状态：把屏幕魔方的贴纸状态对准智能魔方的当前真实状态。
+				// 状态来源与 Analyzer 同口径：蓝牙回调里的 facelet 面位串（this.currentFacelet）。
+				// 差 1~2 步（facelet-gap 搜得到）→ 按真实转动补上（动画 + 记录），与连接握手补发同口径；
+				// 差更多（本来就是另一套状态，如练习模式没摆好魔方）→ 整体重建显示状态。
+				alignState: function() {
+					if (!this.connected || !this.hasValidCubeState) {
+						this.log("error", "未连接智能魔方，无法对齐状态");
+						return;
+					}
+					var target = String(this.currentFacelet || "").toUpperCase().replace(/[^URFDLB]/g, "");
+					if (target.length !== 54) {
+						this.log("error", "未取得有效的设备状态，无法对齐");
+						return;
+					}
+					var display = this.getDisplayFacelet();
+					if (!display) {
+						this.log("error", "无法读取屏幕魔方状态");
+						return;
+					}
+					if (display === target) {
+						this.log("state", "屏幕状态已与智能魔方一致");
+						return;
+					}
+					var gap = this.findFaceletGap(display, target, 2);
+					if (gap && gap.length) {
+						this.log("state", "对齐状态：补上没上报的转动 " + gap.join(" "));
+						this.processCubeMoveBatch(gap, this.deviceName || "cube", Date.now(), target);
+						return;
+					}
+					this.rebuildStateToFacelet(target);
+				},
+
+				// 状态整体重建：直接按设备面位重摆贴纸（朝向 / 视线 / 陀螺仪显示都不动）。
+				// 记账层与重置视图同口径：状态整体跳变后旧记录不再对应，历史清空。
+				rebuildStateToFacelet: function(target) {
+					var scene = this.twistyScene;
+					var twisty = scene && scene.getTwisty ? scene.getTwisty() : null;
+					if (!scene || !twisty || typeof twisty.setFacelet !== "function") {
+						this.log("error", "当前场景不支持状态对齐");
+						return;
+					}
+					var self = this;
+					if (!scene.isMoveFinished()) {
+						// 动画在途时直接改贴纸会被在途动画覆盖：等收口后再对齐一次
+						this.log("state", "动画进行中，收口后自动对齐");
+						window.setTimeout(function() {
+							self.alignState();
+						}, 350);
+						return;
+					}
+					if (!twisty.setFacelet(twisty, target)) {
+						this.log("error", "设备状态无效，无法对齐");
+						return;
+					}
+					if (scene.render) {
+						scene.render();
+					}
+					this.moveHistory = [];
+					this.manualMoveHistory = [];
+					this.moveCount = 0;
+					this.sliceCoreQueue = null;
+					this.ensureWideMerge().reset();
+					this.clearPendingCubeMove(false);
+					this.hideMacHelp();
+					this.renderMoves();
+					this.elements.moveCount.textContent = "0";
+					this.elements.lastTs.textContent = "--:--";
+					this.updateSolveDetection(target, false);
+					this.log("state", "已对齐智能魔方当前状态（历史已清空）");
 				},
 
 				onCubeCallback: function(facelet, prevMoves, lastTs, hardware) {
