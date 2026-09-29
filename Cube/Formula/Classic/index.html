@@ -22,7 +22,7 @@
 	<script src="/assets/backend/profile-manager.js?v=1877" defer></script>
 	<script src="/assets/services/global/global-data-manager.js?v=1877" defer></script>
 	<script src="/assets/services/sync/payload-codec.js?v=1892" defer></script>
-	<script src="/assets/services/sync/cloud-sync-manager.js?v=1892" defer></script>
+	<script src="/assets/services/sync/cloud-sync-manager.js?v=1989" defer></script>
 
 	<script src="../../assets/codec/lzstring.js?v=1877" defer></script>
 	<script src="../../assets/codec/sha256.js?v=1877" defer></script>
@@ -4801,7 +4801,7 @@
 						origSetJson = window.storageManager.setJson.bind(window.storageManager);
 						window.storageManager.setJson = function(key, value) {
 							origSetJson(key, value);
-							if ((key === "cube_memory_progress" || key === "smartCubeFormulaEntries" || key === "smartCubePracticeStats") && !self.cloudApplyingDownload && !window._siteNavApplyingCloudData) {
+							if ((key === "cube_memory_progress" || key === "smartCubePracticeStats") && !self.cloudApplyingDownload && !window._siteNavApplyingCloudData) {
 								self.markDataDirty();
 							}
 						};

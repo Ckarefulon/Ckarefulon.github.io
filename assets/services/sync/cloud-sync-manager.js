@@ -6,7 +6,7 @@
 	 *
 	 * 本阶段只做手动上传/下载，不做自动同步。
 	 * 所有云端读写都使用 user_id + site_scope。
-	 * 只上传 cube_memory_progress、smartCubeFormulaEntries 和 smartCubePracticeStats。
+	 * 只上传 cube_memory_progress 和 smartCubePracticeStats（公式制作 smartCubeFormulaEntries 只存本地，不上云）。
 	 * 不上传 smartCubeMacMap、smartCubeTheme、密码、token、Supabase session。
 	 * smartCubeStateImportText 已合并到 cube_memory_progress 中（planText 字段）。
 	 */
@@ -25,7 +25,7 @@ var autoSyncTimer = null;
  */
 function hasPayloadData(data) {
 	if (!data || typeof data !== "object") return false;
-	var keys = ["cube_memory_progress", "smartCubeFormulaEntries", "smartCubePracticeStats"];
+	var keys = ["cube_memory_progress", "smartCubePracticeStats"];
 	for (var i = 0; i < keys.length; i++) {
 		var v = data[keys[i]];
 		if (v == null) continue;
@@ -191,12 +191,10 @@ function unpackCloudStatusPayload(cloudPayload) {
 			var scope = resolveScope();
 			var basePath = window.getCurrentSiteBasePath ? window.getCurrentSiteBasePath() : "";
 			var mem = window.storageManager ? window.storageManager.getJson("cube_memory_progress", null) : null;
-			var entries = window.storageManager ? window.storageManager.getJson("smartCubeFormulaEntries", []) : [];
 			var practiceStats = window.storageManager ? window.storageManager.getJson("smartCubePracticeStats", null) : null;
 
 			var data = {
 				cube_memory_progress: mem,
-				smartCubeFormulaEntries: entries,
 				smartCubePracticeStats: practiceStats
 			};
 			data.meta = buildMeta(data);

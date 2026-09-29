@@ -269,6 +269,21 @@ app.getFormulaGroups = function() {
 		saveData();
 	};
 
+	// 「规划学习」列表已经出现过的公式指纹；老数据返回 null，交界面做一次性迁移
+	app.getPlanSeenFormulaKeys = function() {
+		var l = lib();
+		if (!l) return null;
+		var keys = l.planSeenFormulaKeys;
+		return (keys && typeof keys === "object" && !Array.isArray(keys)) ? keys : null;
+	};
+
+	app.setPlanSeenFormulaKeys = function(keys) {
+		var l = lib();
+		if (!l) return;
+		l.planSeenFormulaKeys = (keys && typeof keys === "object") ? keys : {};
+		saveData();
+	};
+
 	app.getAllFormulas = function() {
 		var l = lib();
 		return l ? (l.allFormulas && l.allFormulas.length ? l.allFormulas : (l.formulas || [])) : [];

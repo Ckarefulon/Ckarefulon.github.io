@@ -1238,11 +1238,30 @@
 .planFormulaRow {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	padding: 8px 12px;
+	gap: 0;
+	/* 左内边距交给复选框热区，整块作为「按住滑动批量勾选」的手势区 */
+	padding: 8px 12px 8px 0;
 	cursor: pointer;
 	border-bottom: 1px solid var(--line);
 	transition: background 0.12s ease;
+}
+
+.planFormulaCheckZone {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	padding: 8px 10px 8px 12px;
+	margin: -8px 0;
+	touch-action: none;
+	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.planFormulaList.isPlanRangeSelecting {
+	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
 }
 
 .planFormulaRow:last-child {

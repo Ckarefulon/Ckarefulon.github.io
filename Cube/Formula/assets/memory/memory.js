@@ -63,7 +63,8 @@
 			idSeed: 1,
 			hiddenStickerMask: {},
 			syncEnabled: true,
-			trainingSelectedFormulaIds: {}
+			trainingSelectedFormulaIds: {},
+			planSeenFormulaKeys: {}
 		};
 	}
 
@@ -127,6 +128,7 @@
 			migrated.hiddenStickerMask = {};
 			migrated.syncEnabled = value.syncEnabled !== false;
 			migrated.trainingSelectedFormulaIds = (value.trainingSelectedFormulaIds && typeof value.trainingSelectedFormulaIds === "object") ? value.trainingSelectedFormulaIds : {};
+			migrated.planSeenFormulaKeys = null;
 			base.libraries["lib_default"] = migrated;
 			base.activeLibraryId = "lib_default";
 			return reviveDates(base);
@@ -160,6 +162,8 @@
 			dest.hiddenStickerMask = (src.hiddenStickerMask && typeof src.hiddenStickerMask === "object" && !Array.isArray(src.hiddenStickerMask)) ? src.hiddenStickerMask : {};
 			dest.syncEnabled = src.syncEnabled !== false;
 			dest.trainingSelectedFormulaIds = (src.trainingSelectedFormulaIds && typeof src.trainingSelectedFormulaIds === "object" && !Array.isArray(src.trainingSelectedFormulaIds)) ? src.trainingSelectedFormulaIds : {};
+			// 老数据无该字段时写回 null（未初始化），由界面首次打开「规划学习」时一次性迁移
+			dest.planSeenFormulaKeys = (src.planSeenFormulaKeys && typeof src.planSeenFormulaKeys === "object" && !Array.isArray(src.planSeenFormulaKeys)) ? src.planSeenFormulaKeys : null;
 			base.libraries[lid] = dest;
 		});
 		if (!base.libraries[base.activeLibraryId]) {

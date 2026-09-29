@@ -3006,7 +3006,7 @@
 						origSetJson = window.storageManager.setJson.bind(window.storageManager);
 						window.storageManager.setJson = function(key, value) {
 							origSetJson(key, value);
-							if ((key === "cube_memory_progress" || key === "smartCubeFormulaEntries" || key === "smartCubePracticeStats") && !self.cloudApplyingDownload && !window._siteNavApplyingCloudData) {
+							if ((key === "cube_memory_progress" || key === "smartCubePracticeStats") && !self.cloudApplyingDownload && !window._siteNavApplyingCloudData) {
 								self.markDataDirty();
 							}
 						};
@@ -3123,6 +3123,8 @@
 					var self = this;
 					this._planSelectedIds = {};
 					this._planTextView = false;
+					this._planSuppressRowClick = false;
+					this._planRangeDrag = { active: false, pointerId: null, paint: false, lastY: 0, lastIndex: -1, raf: 0 };
 					if (this.elements.planExpandBtn) {
 						this.bindPlanPanel();
 					}
@@ -3208,14 +3210,18 @@
 						});
 					}
 					if (this.elements.planFormulaList) {
+						// 复选框一侧的按下即进入「滑动批量勾选」手势，状态由 pointerdown 结算
+						this.elements.planFormulaList.addEventListener("pointerdown", function(event) {
+							self.handlePlanRowPointerDown(event);
+						});
 						this.elements.planFormulaList.addEventListener("click", function(event) {
+							if (self._planSuppressRowClick) {
+								self._planSuppressRowClick = false;
+								return;
+							}
 							var row = event.target.closest(".planFormulaRow");
 							if (!row) return;
-							var fid = row.getAttribute("data-formula-id");
-							if (!fid) return;
-							self._planSelectedIds[fid] = !self._planSelectedIds[fid];
-							self.updatePlanCheckVisual(row, self._planSelectedIds[fid]);
-							self.updatePlanCount();
+							self.togglePlanRowSelection(row);
 						});
 					}
 					if (this.elements.planSaveBtn) {
@@ -3354,6 +3360,11 @@
 							this._planSelectedIds[f.id] = saved[f.id] === true;
 						}, this);
 					}
+					// 新增 / 更改过的公式（内容指纹没在列表里出现过）默认勾选
+					var seen = this.ensurePlanSeenKeys(allFormulas);
+					allFormulas.forEach(function(f) {
+						if (!seen[this.planFormulaKey(f)]) this._planSelectedIds[f.id] = true;
+					}, this);
 				},
 
 				renderPlanFormulaList: function() {
@@ -3369,7 +3380,7 @@
 						var isSelected = !!this._planSelectedIds[f.id];
 						var isLearned = !!(learnedIds[f.id]);
 						var checkClass = isLearned ? 'isLearned' : (isSelected ? 'isSelected' : '');
-						return '<div class="planFormulaRow" data-formula-id="' + this.escapeHtml(f.id) + '"><div class="planFormulaCheck ' + checkClass + '"></div><div class="planFormulaLabel"><strong>' + this.escapeHtml(f.name) + '</strong>: ' + this.escapeHtml(f.alg || f.formula || '') + '</div></div>';
+						return '<div class="planFormulaRow" data-formula-id="' + this.escapeHtml(f.id) + '"><div class="planFormulaCheckZone"><div class="planFormulaCheck ' + checkClass + '"></div></div><div class="planFormulaLabel"><strong>' + this.escapeHtml(f.name) + '</strong>: ' + this.escapeHtml(f.alg || f.formula || '') + '</div></div>';
 					}, this).join('');
 					this.elements.planFormulaList.innerHTML = html;
 					this.updatePlanCount();
@@ -3387,6 +3398,175 @@
 					} else if (checked) {
 						check.classList.add('isSelected');
 					}
+				},
+
+				togglePlanRowSelection: function(row) {
+					var fid = row.getAttribute("data-formula-id");
+					if (!fid) return;
+					this._planSelectedIds[fid] = !this._planSelectedIds[fid];
+					this.updatePlanCheckVisual(row, this._planSelectedIds[fid]);
+					this.updatePlanCount();
+				},
+
+				// 公式内容指纹（名称 + 公式）：「规划学习」用它判断哪些是新增 / 更改过的
+				planFormulaKey: function(formula) {
+					if (!formula) return "";
+					var name = String(formula.name == null ? "" : formula.name).trim();
+					var alg = String(formula.alg || formula.formula || "").replace(/\s+/g, "").toUpperCase();
+					return name + "\u0001" + alg;
+				},
+
+				// 已经出现过的公式指纹集合；老数据没有该字段时做一次性迁移（当前公式全记为已见，
+				// 只让此后新增 / 更改的公式自动勾选），避免升级后首开面板把整份列表全选上
+				ensurePlanSeenKeys: function(allFormulas) {
+					var seen = typeof this.getPlanSeenFormulaKeys === 'function' ? this.getPlanSeenFormulaKeys() : {};
+					if (seen && typeof seen === 'object') return seen;
+					seen = {};
+					(allFormulas || []).forEach(function(f) {
+						seen[this.planFormulaKey(f)] = true;
+					}, this);
+					if (typeof this.setPlanSeenFormulaKeys === 'function') this.setPlanSeenFormulaKeys(seen);
+					return seen;
+				},
+
+				markPlanSeenKeys: function(allFormulas) {
+					var seen = {};
+					(allFormulas || []).forEach(function(f) {
+						seen[this.planFormulaKey(f)] = true;
+					}, this);
+					if (typeof this.setPlanSeenFormulaKeys === 'function') this.setPlanSeenFormulaKeys(seen);
+				},
+
+				// 按住复选框一侧：以按下行的反状态为「笔刷」，向上 / 下滑过多少行就刷多少行
+				handlePlanRowPointerDown: function(event) {
+					var list = this.elements.planFormulaList;
+					if (!list) return;
+					var row = event.target.closest(".planFormulaRow");
+					var zone = event.target.closest(".planFormulaCheckZone");
+					// 点在这块热区里就由 pointerdown 结算，随后的 click 不能再来一次
+					this._planSuppressRowClick = !!(row && zone);
+					if (!row || !zone) return;
+					if (event.pointerType === "mouse" && event.button !== 0) return;
+					var fid = row.getAttribute("data-formula-id");
+					if (!fid) return;
+					event.preventDefault();
+					var self = this;
+					var drag = this._planRangeDrag || (this._planRangeDrag = { active: false, pointerId: null, paint: false, lastY: 0, lastIndex: -1, raf: 0 });
+					if (!this._planDragMoveBound) {
+						this._planDragMoveBound = function(ev) { self.handlePlanRowPointerMove(ev); };
+						this._planDragUpBound = function(ev) { self.endPlanRangeDrag(ev); };
+						this._planDragBlurBound = function() { self.endPlanRangeDrag(); };
+					}
+					drag.active = true;
+					drag.pointerId = event.pointerId;
+					drag.paint = !this._planSelectedIds[fid];
+					drag.lastY = event.clientY;
+					drag.lastIndex = this.getPlanRowIndexAt(event.clientY);
+					this._planSelectedIds[fid] = drag.paint;
+					this.updatePlanCheckVisual(row, drag.paint);
+					this.updatePlanCount();
+					list.classList.add("isPlanRangeSelecting");
+					window.addEventListener("pointermove", this._planDragMoveBound, { passive: false });
+					window.addEventListener("pointerup", this._planDragUpBound);
+					window.addEventListener("pointercancel", this._planDragUpBound);
+					window.addEventListener("blur", this._planDragBlurBound);
+					this.startPlanRangeAutoScroll();
+				},
+
+				handlePlanRowPointerMove: function(event) {
+					var drag = this._planRangeDrag;
+					if (!drag || !drag.active) return;
+					if (drag.pointerId !== null && event.pointerId !== drag.pointerId) return;
+					event.preventDefault();
+					drag.lastY = event.clientY;
+					this.paintPlanRowRange(this.getPlanRowIndexAt(event.clientY));
+				},
+
+				// 从上次落点一路补画到当前行：快速滑动跳过中间行也不会漏
+				paintPlanRowRange: function(index) {
+					var drag = this._planRangeDrag;
+					var list = this.elements.planFormulaList;
+					if (!drag || !drag.active || !list || index < 0) return;
+					var rows = list.querySelectorAll(".planFormulaRow");
+					if (!rows.length) return;
+					var from = drag.lastIndex < 0 ? index : drag.lastIndex;
+					var lo = Math.min(from, index);
+					var hi = Math.max(from, index);
+					for (var i = lo; i <= hi; i++) {
+						var row = rows[i];
+						if (!row) continue;
+						var fid = row.getAttribute("data-formula-id");
+						if (!fid) continue;
+						if (!!this._planSelectedIds[fid] === drag.paint) continue;
+						this._planSelectedIds[fid] = drag.paint;
+						this.updatePlanCheckVisual(row, drag.paint);
+					}
+					drag.lastIndex = index;
+					this.updatePlanCount();
+				},
+
+				getPlanRowIndexAt: function(clientY) {
+					var list = this.elements.planFormulaList;
+					if (!list) return -1;
+					var rows = list.querySelectorAll(".planFormulaRow");
+					if (!rows.length) return -1;
+					for (var i = 0; i < rows.length; i++) {
+						if (clientY < rows[i].getBoundingClientRect().bottom) return i;
+					}
+					return rows.length - 1;
+				},
+
+				// 指针贴住列表上下边缘时自动滚动，滚进来的行继续按同一笔刷刷过去
+				startPlanRangeAutoScroll: function() {
+					var self = this;
+					var drag = this._planRangeDrag;
+					if (!drag || drag.raf) return;
+					var step = function() {
+						var list = self.elements.planFormulaList;
+						if (!drag.active || !list) {
+							drag.raf = 0;
+							return;
+						}
+						var rect = list.getBoundingClientRect();
+						var edge = 36;
+						var speed = 0;
+						if (drag.lastY < rect.top + edge) {
+							speed = -Math.ceil(Math.min(1, (rect.top + edge - drag.lastY) / edge) * 16);
+						} else if (drag.lastY > rect.bottom - edge) {
+							speed = Math.ceil(Math.min(1, (drag.lastY - (rect.bottom - edge)) / edge) * 16);
+						}
+						if (speed) {
+							var before = list.scrollTop;
+							list.scrollTop = before + speed;
+							if (list.scrollTop !== before) {
+								self.paintPlanRowRange(self.getPlanRowIndexAt(drag.lastY));
+							}
+						}
+						drag.raf = requestAnimationFrame(step);
+					};
+					drag.raf = requestAnimationFrame(step);
+				},
+
+				endPlanRangeDrag: function(event) {
+					var drag = this._planRangeDrag;
+					if (!drag || !drag.active) return;
+					if (event && event.pointerId !== undefined && drag.pointerId !== null && event.pointerId !== drag.pointerId) return;
+					drag.active = false;
+					drag.pointerId = null;
+					if (drag.raf) {
+						cancelAnimationFrame(drag.raf);
+						drag.raf = 0;
+					}
+					if (this.elements.planFormulaList) {
+						this.elements.planFormulaList.classList.remove("isPlanRangeSelecting");
+					}
+					if (this._planDragMoveBound) {
+						window.removeEventListener("pointermove", this._planDragMoveBound);
+						window.removeEventListener("pointerup", this._planDragUpBound);
+						window.removeEventListener("pointercancel", this._planDragUpBound);
+						window.removeEventListener("blur", this._planDragBlurBound);
+					}
+					this.updatePlanCount();
 				},
 
 				updatePlanCount: function() {
@@ -3431,6 +3611,7 @@
 					if (typeof this.setActiveGroupSettings === 'function') {
 						this.setActiveGroupSettings({ dailyCount: daily });
 					}
+					this.markPlanSeenKeys(allFormulas);
 					if (this.isMemoryMode) {
 						if (selected.length === 0) {
 							this.showToast("请至少选择一个公式");
@@ -3459,7 +3640,7 @@
 						this.importedFormulas = this.formulaInputEntries;
 						this.formulaImported = this.formulaInputEntries.length > 0;
 						this.randomBag = [];
-						this.showNextState();
+						this.nextPracticeFormula();
 					}
 				},
 
