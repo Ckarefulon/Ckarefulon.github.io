@@ -382,7 +382,7 @@
   function syncFilterUI(){ $('#methodFilter').value=state.filters.method;$('#sessionFilter').value=state.filters.session;$('#deviceFilter').value=state.filters.device;$('#startDate').value=state.filters.start;$('#endDate').value=state.filters.end }
 
   const trainer={
-    phase:'scramble',scramble:'',scrambleMoves:[],scrambleObservedMoves:[],scrambleViewStore:null,scrambleTargetFacelet:'',scrambleBaseReady:false,scrambleComplete:false,
+    phase:'scramble',freeScramble:false,scramble:'',scrambleMoves:[],scrambleObservedMoves:[],scrambleViewStore:null,scrambleTargetFacelet:'',scrambleBaseReady:false,scrambleComplete:false,
     moves:[],timestamps:[],rawSolutionSequence:[],snapshots:[],gyroSamples:[],startFacelet:'',startedAt:0,startedEpoch:0,
     inspectionStartedAt:0,inspectionPenalty:'ok',raf:0,lastSolved:false,timingMode:'pending'
   };
@@ -456,7 +456,13 @@
 
   function renderScramble(){
     const el=$('#scrambleText'),meta=$('#scrambleMeta');if(!el)return;
-    if(!trainer.scrambleMoves.length){el.textContent='—';if(meta)meta.textContent='';return}
+    const freePending=trainer.freeScramble&&!trainer.scrambleComplete;
+    const doneBtn=$('#freeScrambleDoneBtn');if(doneBtn)doneBtn.hidden=!freePending;
+    if(!trainer.scrambleMoves.length){
+      el.textContent='—';
+      if(meta)meta.textContent=freePending?(trainer.scrambleBaseReady?'自由打乱中 · 拧乱后按「打乱完成」或 Space':'自由打乱 · 请先把智能魔方复原'):'';
+      return;
+    }
     const view=computeScrambleView();
     ScrambleView.render(el,view);
     if(!meta)return;
@@ -530,15 +536,72 @@
     const f=facelet||Cube.getFacelet?.()||'';
     if(Cube.isSolved(f)){
       trainer.scrambleBaseReady=true;trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;trainer.scrambleComplete=false;
-      phase('scramble','按公式打乱','完成后即可开始计时');renderScramble();
+      phase('scramble',trainer.freeScramble?'自由打乱 · 开始拧':'按公式打乱','完成后即可开始计时');renderScramble();
     }else{
       trainer.scrambleBaseReady=false;trainer.scrambleComplete=false;
       phase('scramble','请先复原魔方','复原后自动进入打乱跟踪');renderScramble();
     }
   }
 
+  function startFreeScramble(){
+    if(!Cube||!Cube.isConnected()){notify('自由打乱需要连接智能魔方，否则无法记录转动');return}
+    if(trainer.phase==='running'||trainer.phase==='inspection'){notify('计时中不能切换打乱方式');return}
+    cancelAnimationFrame(trainer.raf);resetLive();
+    trainer.freeScramble=true;trainer.scramble='';trainer.scrambleMoves=[];trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;trainer.scrambleTargetFacelet='';trainer.scrambleComplete=false;trainer.timingMode='pending';
+    $('#timerValue').textContent='0.00';
+    const f=Cube.getFacelet?.()||'';
+    trainer.scrambleBaseReady=!!(f&&Cube.isSolved(f));
+    if(trainer.scrambleBaseReady)phase('scramble','自由打乱 · 开始拧','随便拧乱魔方，拧完按「打乱完成」或 Space');
+    else phase('scramble','自由打乱 · 先复原魔方','复原后随便拧乱，拧完按「打乱完成」');
+    renderScramble();
+  }
+
+  function finishFreeScramble(){
+    if(!trainer.freeScramble||trainer.phase!=='scramble'||trainer.scrambleComplete)return;
+    const facelet=Cube&&Cube.isConnected()?Cube.getFacelet?.()||'':'';
+    if(!facelet){notify('无法读取魔方状态，稍后再试');return}
+    if(Cube.isSolved(facelet)){notify('魔方还是复原状态，先拧乱再完成打乱');return}
+    const observed=trainer.scrambleObservedMoves.filter(Boolean);
+    let tokens=simplifyMoves(observed),ok=!!tokens.length&&sameFacelet(faceletAfterMoves(tokens),facelet);
+    if(!ok&&observed.length&&sameFacelet(faceletAfterMoves(observed),facelet)){tokens=observed;ok=true}
+    if(!ok){notify('未能从本次转动复原出打乱公式（可能含不支持的动作），本把不记打乱公式');
+      trainer.freeScramble=false;trainer.scramble='';trainer.scrambleMoves=[];trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;trainer.scrambleTargetFacelet=facelet;trainer.scrambleBaseReady=true;
+      enterReadyAfterScramble();return}
+    trainer.freeScramble=false;trainer.scramble=tokens.join(' ');trainer.scrambleMoves=tokens.slice();trainer.scrambleTargetFacelet=facelet;trainer.scrambleBaseReady=true;
+    notify(`自由打乱公式已生成（${tokens.length} 步）`);
+    enterReadyAfterScramble();
+  }
+
+  function generateScrambleFromState(){
+    if(trainer.phase==='running'||trainer.phase==='inspection'){notify('计时中不能重新生成打乱');return}
+    if(!Cube||!Cube.isConnected()){notify('需要连接智能魔方读取当前状态');return}
+    const facelet=Cube.getFacelet?.()||'';
+    if(!facelet){notify('无法读取魔方状态');return}
+    if(Cube.isSolved(facelet)){notify('魔方已复原，用「换一个」生成随机打乱即可');return}
+    const solver=window.Cube;
+    if(!solver||typeof solver.fromString!=='function'||typeof solver.initSolver!=='function'){notify('求解器未加载，请刷新页面');return}
+    const btn=$('#scrambleFromStateBtn');if(btn)btn.disabled=true;
+    const meta=$('#scrambleMeta');if(meta)meta.textContent='正在求解当前状态（首次需约 1-2 秒构建求解表）…';
+    window.setTimeout(()=>{
+      try{
+        if(!solver.__analyzerReady){solver.initSolver();solver.__analyzerReady=true}
+        const solution=solver.fromString(facelet).solve();
+        if(!solution)throw new Error('求解器未返回结果');
+        const tokens=invertMoves(solution.split(/\s+/));
+        if(!tokens.length)throw new Error('生成公式为空');
+        if(!sameFacelet(faceletAfterMoves(tokens),facelet))throw new Error('校验失败（公式无法复原当前状态）');
+        cancelAnimationFrame(trainer.raf);resetLive();
+        trainer.freeScramble=false;trainer.scramble=tokens.join(' ');trainer.scrambleMoves=tokens.slice();trainer.scrambleViewStore=null;trainer.scrambleTargetFacelet=facelet;trainer.scrambleBaseReady=true;trainer.scrambleComplete=true;trainer.timingMode='pending';
+        $('#timerValue').textContent='0.00';
+        notify(`打乱公式已由当前状态生成（${tokens.length} 步）`);
+        enterReadyAfterScramble();
+      }catch(e){console.warn('scramble-from-state failed',e);notify('生成失败：'+(e&&e.message||'未知错误'))}
+      finally{if(btn)btn.disabled=false;renderScramble()}
+    },30);
+  }
+
   function nextScramble(){
-    cancelAnimationFrame(trainer.raf);resetLive();trainer.scramble=randomScramble();trainer.scrambleMoves=trainer.scramble.split(/\s+/).filter(Boolean);trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;
+    cancelAnimationFrame(trainer.raf);resetLive();trainer.freeScramble=false;trainer.scramble=randomScramble();trainer.scrambleMoves=trainer.scramble.split(/\s+/).filter(Boolean);trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;
     trainer.scrambleTargetFacelet=faceletAfterMoves(trainer.scrambleMoves);trainer.scrambleBaseReady=false;trainer.scrambleComplete=false;trainer.timingMode='pending';$('#timerValue').textContent='0.00';
     if(Cube&&Cube.isConnected())prepareScrambleBase(Cube.getFacelet?.());
     else phase('scramble','按公式打乱','完成后按 Space 手动起停；连接魔方后也可状态自动起停');
@@ -551,19 +614,19 @@
     if(trainer.phase!=='scramble')return false;
     if(!trainer.scrambleBaseReady){
       if(detail.previousFacelet&&Cube.isSolved(detail.previousFacelet))trainer.scrambleBaseReady=true;
-      else if(detail.solved){trainer.scrambleBaseReady=true;trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;renderScramble();phase('scramble','按公式打乱','完成后即可开始计时');return true}
+      else if(detail.solved){trainer.scrambleBaseReady=true;trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;renderScramble();phase('scramble',trainer.freeScramble?'自由打乱 · 开始拧':'按公式打乱','完成后即可开始计时');return true}
       else{renderScramble();return true}
     }
     const observed=Array.isArray(detail.rawMoves)&&detail.rawMoves.length?detail.rawMoves:[detail.move];trainer.scrambleObservedMoves.push(...observed.filter(Boolean));renderScramble();
     const current=detail.facelet||Cube.getFacelet?.()||'';
-    if(detail.batchFinal!==false){if(trainer.scrambleTargetFacelet&&current){if(sameFacelet(current,trainer.scrambleTargetFacelet))markScrambleComplete()}else if(computeScrambleView().done)markScrambleComplete();}
+    if(detail.batchFinal!==false&&!trainer.freeScramble){if(trainer.scrambleTargetFacelet&&current){if(sameFacelet(current,trainer.scrambleTargetFacelet))markScrambleComplete()}else if(computeScrambleView().done)markScrambleComplete();}
     return true;
   }
 
   function handleCubeState(detail){
     if(trainer.phase==='scramble'){
-      if(!trainer.scrambleBaseReady&&detail.solved){trainer.scrambleBaseReady=true;trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;phase('scramble','按公式打乱','完成后即可开始计时');renderScramble();return}
-      if(trainer.scrambleBaseReady&&!trainer.scrambleComplete&&trainer.scrambleTargetFacelet&&sameFacelet(detail.facelet,trainer.scrambleTargetFacelet))markScrambleComplete();
+      if(!trainer.scrambleBaseReady&&detail.solved){trainer.scrambleBaseReady=true;trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;phase('scramble',trainer.freeScramble?'自由打乱 · 开始拧':'按公式打乱','完成后即可开始计时');renderScramble();return}
+      if(trainer.scrambleBaseReady&&!trainer.scrambleComplete&&!trainer.freeScramble&&trainer.scrambleTargetFacelet&&sameFacelet(detail.facelet,trainer.scrambleTargetFacelet))markScrambleComplete();
     }
   }
 
@@ -660,6 +723,7 @@
       if(trainer.timingMode==='space'){Cube?.flushPending?.();finishSolve('space');}
       return;
     }
+    if(trainer.phase==='scramble'&&trainer.freeScramble){finishFreeScramble();return}
     if(trainer.phase==='scramble'&&Cube?.isConnected()&&!trainer.scrambleComplete){notify('请先按打乱公式完成打乱');return}
     beginSolve('space');
   }
@@ -740,7 +804,7 @@
     }
     $('#workspaceMode').onclick=e=>{const b=e.target.closest('[data-mode]');if(b)switchWorkspace(b.dataset.mode)};
     $('#goAnalysisBtn').onclick=()=>switchWorkspace('analysis');
-    $('#connectCubeBtn').onclick=toggleCube;$('#newScrambleBtn').onclick=nextScramble;$('#readyBtn').onclick=handleSpaceTimer;$('#cancelTimerBtn').onclick=cancelTraining;
+    $('#connectCubeBtn').onclick=toggleCube;$('#newScrambleBtn').onclick=nextScramble;$('#freeScrambleBtn').onclick=startFreeScramble;$('#freeScrambleDoneBtn').onclick=finishFreeScramble;$('#scrambleFromStateBtn').onclick=generateScrambleFromState;$('#readyBtn').onclick=handleSpaceTimer;$('#cancelTimerBtn').onclick=cancelTraining;
     $('#trainingMethod').onchange=e=>{state.training.method=e.target.value;save(false);renderTrainerSummary()};
     $('#trainingSession').onchange=e=>{state.training.session=e.target.value.trim()||'日常训练';e.target.value=state.training.session;save(false);renderTrainerSummary()};
     $('#inspectionToggle').onchange=e=>{state.training.inspection=e.target.checked;save(false)};

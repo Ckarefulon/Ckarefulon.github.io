@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/nav/nav.css?v=1877">
   <link rel="stylesheet" href="../assets/scramble/scramble.css?v=1892">
   <link rel="stylesheet" href="../assets/state-reset/state-reset.css?v=1949">
-  <link rel="stylesheet" href="./analyzer.css?v=2005">
+  <link rel="stylesheet" href="./analyzer.css?v=2034">
 
   <script src="../assets/base/jquery-4.0.0.min.js"></script>
   <script src="../assets/base/compat.js?v=1877" defer></script>
@@ -37,6 +37,8 @@
   <script src="../assets/codec/isaac.js?v=1877" defer></script>
   <script src="../assets/cube-solve/mathlib.js?v=1877" defer></script>
   <script src="../assets/cube-solve/formula-core.js?v=1877" defer></script>
+  <script src="../assets/cube-solve/cubejs-cube.js?v=2034" defer></script>
+  <script src="../assets/cube-solve/cubejs-solve.js?v=2034" defer></script>
   <script src="../assets/bluetooth/bluetooth.js?v=1877" defer></script>
   <script src="../assets/bluetooth/giikercube.js?v=2005" defer></script>
   <script src="../assets/bluetooth/gocube.js?v=2005" defer></script>
@@ -58,7 +60,7 @@
   <script src="../assets/audio/cube-audio.js?v=2005" defer></script>
   <script src="./analyzer-quality.js?v=2005" defer></script>
   <script src="./analyzer-ai.js?v=2005" defer></script>
-  <script src="./analyzer-app.js?v=2005" defer></script>
+  <script src="./analyzer-app.js?v=2034" defer></script>
 </head>
 <body data-workspace="training">
   <div class="page-shell">
@@ -107,7 +109,12 @@
                 <span class="section-kicker">打乱</span>
                 <span class="scramble-legend"><i class="pending"></i>待完成 <i class="current"></i>当前 / 修正 <i class="done"></i>已完成</span>
               </div>
-              <button class="text-btn" id="newScrambleBtn" type="button">换一个</button>
+              <div class="scramble-actions">
+                <button class="text-btn" id="newScrambleBtn" type="button">换一个</button>
+                <button class="text-btn" id="freeScrambleBtn" type="button" title="不按公式，自己随便拧乱；拧完由转动记录反算打乱公式">自由打乱</button>
+                <button class="text-btn" id="scrambleFromStateBtn" type="button" title="魔方不在复原状态时：求解当前状态并反推打乱公式">由当前状态生成</button>
+                <button class="text-btn" id="freeScrambleDoneBtn" type="button" hidden>打乱完成</button>
+              </div>
             </div>
             <div class="scramble-text" id="scrambleText"></div>
             <div class="scramble-meta" id="scrambleMeta"></div>
