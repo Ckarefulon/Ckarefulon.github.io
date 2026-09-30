@@ -1305,6 +1305,8 @@ execMain(function() {
 		prefix: ['GAN', 'MG', 'AiCube'],
 		init: init,
 		opservs: [SERVICE_UUID_DATA, SERVICE_UUID_META, SERVICE_UUID_V2DATA, SERVICE_UUID_V3DATA, SERVICE_UUID_V4DATA],
+		// fff0 与 qiyicube 共用，不能挂（无名设备回退会误选 GAN 解析器）；只挂 GAN 独占的 V2/V3/V4 服务
+		servFilters: [SERVICE_UUID_V2DATA, SERVICE_UUID_V3DATA, SERVICE_UUID_V4DATA],
 		cics: GAN_CIC_LIST,
 		getBatteryLevel: getBatteryLevel,
 		clear: clear,

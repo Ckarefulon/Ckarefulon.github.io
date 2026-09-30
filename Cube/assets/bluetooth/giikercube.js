@@ -176,6 +176,7 @@ execMain(function() {
 		prefix: ['Gi', 'Mi Smart Magic Cube', 'Hi-'],
 		init: init,
 		opservs: [SERVICE_UUID_DATA, SERVICE_UUID_RW],
+		servFilters: [SERVICE_UUID_DATA], // AADB 为 Giiker 独占标志服务
 		getBatteryLevel: getBatteryLevel,
 		clear: clear
 	});

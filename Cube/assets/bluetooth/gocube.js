@@ -228,6 +228,7 @@ execMain(function() {
 		prefix: ['GoCube', 'Rubiks'],
 		init: init,
 		opservs: [SERVICE_UUID],
+		servFilters: [SERVICE_UUID], // 标准 Nordic UART（…dcca9e 结尾），与 GAN 的 …dc4179 变体全串不同，不冲突
 		getBatteryLevel: getBatteryLevel,
 		clear: clear
 	});

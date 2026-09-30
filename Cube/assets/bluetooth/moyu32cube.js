@@ -423,6 +423,7 @@ execMain(function() {
 		prefix: 'WCU_MY3',
 		init: init,
 		opservs: [SERVICE_UUID],
+		servFilters: [SERVICE_UUID], // 0783b03e-… 独占；与 moyucube 的 00001000 不冲突
 		cics: MOYU32_CIC_LIST,
 		getBatteryLevel: getBatteryLevel,
 		clear: clear

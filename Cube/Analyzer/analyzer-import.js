@@ -236,7 +236,7 @@
     const tps = num(raw.tps, raw.TPS) ?? C.extractTPS(turnCount, totalTime);
     const fluencyTs = moves.length === timestamps.length ? C.turnTimestamps(moves, timestamps) : timestamps;
     const fluency = num(raw.fluencyPercent, raw.fluency) ?? C.fluencyFromTimestamps(fluencyTs, totalTime);
-    const session = first(raw.session?.name, raw.sessionName, raw.session?.id, raw.sessionId, '默认训练');
+    const session = first(raw.session?.name, typeof raw.session === 'string' && raw.session.trim() ? raw.session.trim() : undefined, raw.sessionName, raw.session?.id, raw.sessionId, '默认训练');
     const device = first(raw.usedDevice?.name, raw.device?.name, raw.deviceName, raw.usedDevice?.id, raw.deviceId, raw.device, '未知设备');
     return {
       id: first(raw.id, raw.solveId, `import-${index+1}`),
@@ -266,6 +266,9 @@
       gyroSamples: Array.isArray(raw.gyroSamples) ? raw.gyroSamples : [],
       source: first(raw.source, raw.hasReplay ? '智能魔方导入' : 'import'),
       raw,
+      // 异常标记透传（2026-09-29）：体检标注与误报恢复状态必须随记录进入内存，load 后不得被重检覆盖
+      anomaly: Array.isArray(raw.anomaly) ? raw.anomaly : undefined,
+      anomalyCleared: raw.anomalyCleared === true ? true : undefined,
     };
   }
 
@@ -325,6 +328,8 @@
       fluencyPercent:s.fluencyPercent,analysisType:s.analysisType,session:s.session,device:s.device,
       scramble:s.scramble,timestamps:s.timestamps,moveTimestamps:s.moveTimestamps||s.timestamps,moves:s.moves,rawSolutionSequence:s.rawSolutionSequence||[],startFacelet:s.startFacelet,
       snapshots:s.snapshots,stateSequence:s.stateSequence||s.snapshots||[],steps:s.steps,analysisFrame:s.analysisFrame||null,analysisVersion:s.analysisVersion||s.analysisFrame?.analysisVersion||0,colorNeutral:s.colorNeutral!==false,gyroSampleCount:Array.isArray(s.gyroSamples)?s.gyroSamples.length:0,timingMode:s.timingMode||'',captureType:s.captureType||'',source:s.source,
+      // 异常标记透传（2026-09-29）：记录永不删除，体检标注与误报恢复状态必须随记录落盘
+      anomaly:Array.isArray(s.anomaly)?s.anomaly:undefined, anomalyCleared:s.anomalyCleared===true?true:undefined,
     };
   }
 

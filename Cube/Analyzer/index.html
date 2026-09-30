@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/nav/nav.css?v=1877">
   <link rel="stylesheet" href="../assets/scramble/scramble.css?v=1892">
   <link rel="stylesheet" href="../assets/state-reset/state-reset.css?v=1949">
-  <link rel="stylesheet" href="./analyzer.css?v=1877">
+  <link rel="stylesheet" href="./analyzer.css?v=2005">
 
   <script src="../assets/base/jquery-4.0.0.min.js"></script>
   <script src="../assets/base/compat.js?v=1877" defer></script>
@@ -38,24 +38,27 @@
   <script src="../assets/cube-solve/mathlib.js?v=1877" defer></script>
   <script src="../assets/cube-solve/formula-core.js?v=1877" defer></script>
   <script src="../assets/bluetooth/bluetooth.js?v=1877" defer></script>
-  <script src="../assets/bluetooth/giikercube.js?v=1877" defer></script>
-  <script src="../assets/bluetooth/gocube.js?v=1877" defer></script>
-  <script src="../assets/bluetooth/gancube.js?v=1949" defer></script>
-  <script src="../assets/bluetooth/moyucube.js?v=1877" defer></script>
-  <script src="../assets/bluetooth/moyu32cube.js?v=1877" defer></script>
+  <script src="../assets/bluetooth/giikercube.js?v=2005" defer></script>
+  <script src="../assets/bluetooth/gocube.js?v=2005" defer></script>
+  <script src="../assets/bluetooth/gancube.js?v=2005" defer></script>
+  <script src="../assets/bluetooth/moyucube.js?v=2005" defer></script>
+  <script src="../assets/bluetooth/moyu32cube.js?v=2005" defer></script>
   <script src="../assets/bluetooth/qiyicube.js?v=1877" defer></script>
   <script src="../assets/state-reset/state-reset.js?v=1949" defer></script>
   <script src="../assets/bluetooth/facelet-gap.js?v=1927" defer></script>
 
   <script src="./analyzer-core.js?v=1877" defer></script>
-  <script src="./analyzer-import.js?v=1892" defer></script>
+  <script src="./analyzer-import.js?v=2005" defer></script>
   <script src="./analyzer-charts.js?v=1877" defer></script>
   <script src="./smartcube-bridge.js?v=1927" defer></script>
   <script src="./solve-analyzer.js?v=1877" defer></script>
   <script src="/assets/services/sync/payload-codec.js?v=1892" defer></script>
   <script src="./analyzer-cloud.js?v=1892" defer></script>
   <script src="../assets/scramble/scramble.js?v=1892" defer></script>
-  <script src="./analyzer-app.js?v=1892" defer></script>
+  <script src="../assets/audio/cube-audio.js?v=2005" defer></script>
+  <script src="./analyzer-quality.js?v=2005" defer></script>
+  <script src="./analyzer-ai.js?v=2005" defer></script>
+  <script src="./analyzer-app.js?v=2005" defer></script>
 </head>
 <body data-workspace="training">
   <div class="page-shell">
@@ -80,7 +83,12 @@
         <label class="toolbar-field compact-field session-field">Session
           <input id="trainingSession" type="text" maxlength="40" value="日常训练" autocomplete="off">
         </label>
-        <label class="toolbar-check"><input id="inspectionToggle" type="checkbox"> <span>15 秒观察</span></label>
+        <label class="toolbar-check" title="开始前观察倒计时；超时按 WCA 口径 +2 / DNF"><input id="inspectionToggle" type="checkbox"> <span>观察倒计时</span></label>
+        <label class="toolbar-field compact-field" title="观察阶段总时长；剩 12s / 8s 语音报点与判罚窗口随之调整">观察
+          <select id="inspectionSec"><option value="10">10s</option><option value="12">12s</option><option value="15" selected>15s</option><option value="20">20s</option><option value="30">30s</option></select>
+        </label>
+        <label class="toolbar-check" title="观察阶段剩 12s / 8s 语音提醒（WCA 报点口径，中/英 × 男/女可在音频模块切换）"><input id="voiceToggle" type="checkbox" checked> <span>语音</span></label>
+        <label class="toolbar-check" title="开始计时 / 观察判罚提示音"><input id="soundToggle" type="checkbox" checked> <span>音效</span></label>
         <span class="auto-frame-chip" title="CFOP、Roux、ZZ 均遍历完整方位识别，不锁定白底或固定持握方向">六色底 / 方位自动识别</span>
       </div>
 
@@ -129,7 +137,7 @@
             </article>
 
             <article class="card session-card">
-              <div class="panel-head compact-head"><div><h2>本次 Session</h2><div class="panel-sub" id="sessionSummary">暂无成绩</div></div></div>
+              <div class="panel-head compact-head"><div><h2>本次 Session</h2><div class="panel-sub" id="sessionSummary">暂无成绩</div></div><button class="text-btn" id="sessionAiBtn" type="button" title="用 AI 生成本 Session 训练小结">AI 小结 →</button></div>
               <div class="session-metrics" id="sessionMetrics"></div>
             </article>
           </aside>
@@ -156,6 +164,7 @@
               <input id="fileInput" type="file" accept=".json,.csv,application/json,text/csv" hidden multiple>
               <button class="text-btn" id="importBtn" type="button">导入</button>
               <button class="text-btn" id="exportBtn" type="button">导出</button>
+              <button class="text-btn" id="qualityBtn" type="button" hidden title="异常记录只标记不修改；确认误报后可恢复纳入统计">体检</button>
               <button class="text-btn danger-text" id="clearBtn" type="button">清空</button>
             </div>
           </div>
@@ -176,6 +185,7 @@
           <button class="tab" data-tab="tps">TPS 曲线</button>
           <button class="tab" data-tab="cases">Case</button>
           <button class="tab" data-tab="solves">单次</button>
+          <button class="tab" data-tab="ai">AI</button>
         </nav>
 
         <section class="tab-panel active" data-panel="overview"><div id="overviewContent"></div></section>
@@ -184,6 +194,7 @@
         <section class="tab-panel" data-panel="tps"><div id="tpsContent"></div></section>
         <section class="tab-panel" data-panel="cases"><div id="casesContent"></div></section>
         <section class="tab-panel" data-panel="solves"><div id="solvesContent"></div></section>
+        <section class="tab-panel" data-panel="ai"><div id="aiContent"></div></section>
       </section>
     </main>
   </div>

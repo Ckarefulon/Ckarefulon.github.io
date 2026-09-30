@@ -70,3 +70,50 @@ body[data-workspace="analysis"] .training-only{display:none}.workspace-panel{dis
 /* Training recommendations */
 .priority-list,.training-plan{display:grid;gap:8px}.priority-row,.plan-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius);background:var(--input)}.priority-rank{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--primary-soft);color:var(--primary-hover);font:700 12px var(--mono)}.priority-row>div:nth-child(2) span{display:block;color:var(--text-muted);font-size:10px;margin-top:2px}.priority-row>div:nth-child(n+3){text-align:right}.priority-row .mini-label{display:block}.plan-item{grid-template-columns:auto 1fr;align-items:start}.plan-item p{margin:3px 0 0;color:var(--text-muted);font-size:12px}.plan-item .badge{margin-top:1px}.case-card:first-child{border-color:color-mix(in srgb,var(--accent) 35%,var(--card-border))}
 @media(max-width:720px){.priority-row{grid-template-columns:auto 1fr}.priority-row>div:nth-child(n+3){text-align:left}.priority-row>div:nth-child(3),.priority-row>div:nth-child(4){padding-left:40px}.plan-item{grid-template-columns:1fr}.plan-item .badge{width:max-content}}
+
+/* ===== 融入批次（2026-09-29）：案例 SVG 配图 / 数据体检 / AI 报告 ===== */
+/* Case 卡配图：图区固定 4:3，容器不因有无图而变高，卡内文字区尺寸与无图版一致 */
+.case-card.with-thumb{padding:0;overflow:hidden}
+.case-thumb{display:block;width:100%;aspect-ratio:4/3;background:var(--input);border-bottom:1px solid var(--border-subtle);object-fit:contain;padding:8px}
+.case-card.with-thumb .case-body{padding:11px 13px 13px}
+.case-tier{display:inline-flex;align-items:center;margin-top:10px;height:22px;padding:0 9px;border-radius:999px;font-size:10px;font-weight:650;border:1px solid var(--border);color:var(--text-muted)}
+.case-tier.tier-weak{color:var(--warning);border-color:color-mix(in srgb,var(--warning) 45%,var(--border));background:color-mix(in srgb,var(--warning) 10%,transparent)}
+.case-tier.tier-watch{color:var(--info);border-color:color-mix(in srgb,var(--info) 40%,var(--border));background:color-mix(in srgb,var(--info) 8%,transparent)}
+.case-tier.tier-good{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,var(--border));background:color-mix(in srgb,var(--good) 8%,transparent)}
+.good-text{color:var(--good)}.bad-text{color:var(--danger)}
+/* 控制栏融入控件防挤压：控件不收缩、文字不竖排，放不下时整行换行（2026-09-29） */
+.training-controls{flex-wrap:wrap;row-gap:6px}
+.training-controls .toolbar-check,.training-controls .toolbar-field,.training-controls .auto-frame-chip{flex:none}
+.training-controls .toolbar-check span{white-space:nowrap}
+/* 数据体检：异常徽标 + 体检列表（记录永不删除，只标记与恢复） */
+.anomaly-flag{display:inline-flex;align-items:center;height:18px;margin-left:6px;padding:0 6px;border-radius:999px;font-size:10px;font-weight:650;color:var(--warning);border:1px solid color-mix(in srgb,var(--warning) 45%,transparent);background:color-mix(in srgb,var(--warning) 10%,transparent);vertical-align:middle}
+.quality-list{display:grid;gap:8px}
+.quality-row{padding:12px 14px;display:grid;grid-template-columns:90px minmax(120px,1fr) minmax(150px,auto) auto;gap:12px;align-items:center}
+@media(max-width:760px){.quality-row{grid-template-columns:90px minmax(0,1fr)}.quality-row>div:nth-child(n+3){grid-column:1/-1}}
+/* AI 报告 */
+.ai-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ai-provider-chip{height:30px;display:inline-flex;align-items:center;padding:0 10px;border-radius:999px;border:1px solid var(--border);background:var(--input);color:var(--text-muted);font-size:11px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ai-output{padding:16px;min-height:180px}
+.ai-loading{color:var(--text-muted);font-size:13px;padding:6px 0}
+.ai-report h2{font-size:16px;margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border-subtle)}
+.ai-report h2:first-child{margin-top:0}
+.ai-report ul,.ai-report ol{margin:6px 0 10px;padding-left:22px}
+.ai-report li{margin:4px 0}
+.ai-report p{margin:8px 0}
+.ai-report code{font:12px var(--mono);background:var(--input);border:1px solid var(--border-subtle);border-radius:5px;padding:1px 5px}
+.ai-ask-row{display:flex;justify-content:flex-end;margin-top:12px}
+.ai-inline{margin-top:12px;border-top:1px dashed var(--border);padding-top:10px}
+.ai-inline .ai-report h2{font-size:14px;margin:10px 0 6px}
+.ai-inline-error{color:var(--danger);font-size:12px}
+/* AI 设置弹窗 */
+.ai-settings-body{display:grid;gap:10px;min-width:min(520px,86vw);padding:4px 2px 10px}
+.field-col{display:flex;flex-direction:column;gap:5px}
+.field-col>span{font-size:11px;color:var(--text-subtle)}
+.field-col input,.field-col select{height:34px;border:1px solid var(--border);border-radius:var(--radius);background:var(--input);color:var(--foreground);padding:0 10px;outline:none}
+.field-col input:focus,.field-col select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.field-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.field-label{font-size:11px;color:var(--text-subtle)}
+.ai-hint{font-style:normal;color:var(--good);font-size:10px;margin-left:6px}
+.ai-hint-line{margin:2px 0 0;color:var(--text-subtle);font-size:11px;line-height:1.6}
+.ai-settings-actions{display:flex;gap:9px;justify-content:flex-end}
+.ai-test-result{min-height:18px;font-size:12px;color:var(--text-muted);white-space:pre-wrap}

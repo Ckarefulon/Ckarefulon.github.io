@@ -152,6 +152,7 @@ execMain(function() {
 		prefix: 'MHC',
 		init: init,
 		opservs: [SERVICE_UUID],
+		servFilters: [SERVICE_UUID], // 00001000 服务簇（1000-1004）独占；moyu32 用另一服务
 		getBatteryLevel: getBatteryLevel,
 		clear: clear
 	});

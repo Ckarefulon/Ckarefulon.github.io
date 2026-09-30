@@ -4,6 +4,16 @@
   const esc=Ch.esc;
   // DNF 只存在于记录中：记录列表与复原次数包含它，所有分析（趋势/AO/分段/TPS/Case 等）一律排除。
   const noDnf=s=>s&&C.normalizeFlag(s.flag)!=='dnf';
+  // 数据体检（2026-09-29）：异常记录只打 Flag、绝不修改/删除，分析统计侧与 DNF 同口径排除；
+  // 用户可在「数据体检」中确认为误报后恢复纳入（anomalyCleared），原始检测结果保留。
+  const Q=window.CubeAnalyzerQuality;
+  const noAnomaly=s=>!(Q&&Q.active(s));
+  const analyzable=solves=>solves.filter(noDnf).filter(noAnomaly);
+  // —— 体验设置（观察秒数 / 语音报点 / 提示音）：独立 localStorage 键，绝不进训练数据与云同步载荷 ——
+  const XP_KEY='cubeAnalyzerExperienceV1';
+  const xp=Object.assign({inspectionSec:15,soundOn:true,voiceOn:true,caseOrder:'weak'},(()=>{try{return JSON.parse(localStorage.getItem(XP_KEY)||'{}')}catch(e){return{}}})());
+  function saveXp(){try{localStorage.setItem(XP_KEY,JSON.stringify(xp))}catch(e){}}
+  const inspectionMs=()=>(Number(xp.inspectionSec)||15)*1000;
   const STORAGE=(window.CubeAnalyzerCloud&&window.CubeAnalyzerCloud.storageKey)||'cubeAnalyzerDataV2', SETTINGS=(window.CubeAnalyzerCloud&&window.CubeAnalyzerCloud.settingsKey)||'cubeAnalyzerSettingsV2';
   const state={solves:[],datasetName:'训练数据',activeTab:'overview',workspaceMode:'training',trendMetric:'single',resolution:'all',tpsMode:'segregated',goal:{CFOP:15,Roux:18,ZZ:18},caseType:'ALL',filters:{method:'all',session:'all',device:'all',start:'',end:''},training:{method:'CFOP',session:'日常训练',inspection:false}};
   let toastTimer=null, cloudHydrated=false, migratedData=false;
@@ -127,6 +137,7 @@
       }catch(e){}
       if(migratedData)save(false);
     }catch(e){console.warn(e)}
+    if(Q)Q.ensure(state.solves); // 数据体检：只补检未标注的记录，绝不覆盖已有标记
     state.datasetName='训练数据';
   }
 
@@ -169,7 +180,14 @@
       ${metricCard('BEST SINGLE',fmtMs(S.best),`Median ${fmtMs(S.median)}`)}
       ${metricCard('MEDIAN TPS',fmtNum(S.medianTps),S.avgTps?`Avg ${fmtNum(S.avgTps)}`:'需要智能魔方数据')}
     </div>`;
-    el.innerHTML=metrics+`<div class="grid-2"><div id="overviewTrend"></div><div id="overviewQuality"></div></div><div id="overviewPlan" style="margin-top:10px"></div>`;
+    const base=baselineStats();
+    const baseHtml=base?panel('今日 vs 基线',`基线 = 最近 ${base.count} 把有效成绩（DNF 与异常记录排除，+2 已计入）`,`<div class="kpi-bar">
+      <div class="kpi-inline"><span class="muted">今日</span><strong>${base.todayCount?`${base.todayCount} 把 · ${fmtMs(base.todayMean)}`:'—'}</strong></div>
+      <div class="kpi-inline"><span class="muted">基线均值</span><strong>${fmtMs(base.mean)}</strong></div>
+      <div class="kpi-inline"><span class="muted">基线最优</span><strong>${fmtMs(base.best)}</strong></div>
+      ${base.todayMean!=null?`<div class="kpi-inline"><span class="muted">相对基线</span><strong class="${base.todayMean<base.mean?'good-text':'bad-text'}">${base.todayMean<base.mean?'快':'慢'} ${Math.abs((base.todayMean-base.mean)/base.mean*100).toFixed(1)}%</strong></div>`:''}
+    </div>`):'';
+    el.innerHTML=metrics+baseHtml+`<div class="grid-2"><div id="overviewTrend"></div><div id="overviewQuality"></div></div><div id="overviewPlan" style="margin-top:10px"></div>`;
     $('#overviewTrend').outerHTML=panel('近期成绩趋势','最近 80 个有效数据点','<div class="chart-box" id="overviewChart"></div>');
     const series=solves.filter(s=>C.normalizeFlag(s.flag)!=='dnf').slice(-80).map(s=>({x:s.date,y:C.displayTimeMs(s),solve:s}));
     Ch.lineChart($('#overviewChart'),series,{yFormatter:v=>`${(v/1000).toFixed(1)}s`,xFormatter:x=>fmtDate(x,true),tooltip:d=>`${fmtDate(d.x)} · <strong>${fmtMs(d.y)}</strong>`,onPointClick:d=>d.solve&&openSolve(d.solve)});
@@ -195,7 +213,8 @@
   function renderTrend(solves){
     const el=$('#trendContent');if(!solves.length){el.innerHTML=empty('没有趋势数据','调整筛选条件。');return}
     const metricControls=`<div class="segmented" id="metricSeg">${[['single','Single'],['ao5','AO5'],['ao12','AO12'],['ao100','AO100']].map(([v,l])=>`<button data-v="${v}" class="${state.trendMetric===v?'active':''}">${l}</button>`).join('')}</div><div class="segmented" id="resolutionSeg">${[['grouped','Grouped'],['daily','Daily'],['all','All Points']].map(([v,l])=>`<button data-v="${v}" class="${state.resolution===v?'active':''}">${l}</button>`).join('')}</div>`;
-    el.innerHTML=panel('成绩趋势','提供 Single / AO5 / AO12 / AO100，并支持分组、按日和全部数据点','<div class="chart-box" id="trendChart"></div>',metricControls)+`<div style="height:10px"></div>`+panel('成绩明细','点击任意行查看阶段和 TPS 详情','<div id="historyTable"></div>');
+    const trendText=weeklyTrendText(solves);
+    el.innerHTML=panel('成绩趋势',(trendText?`${trendText} · `:'')+'提供 Single / AO5 / AO12 / AO100，并支持分组、按日和全部数据点','<div class="chart-box" id="trendChart"></div>',metricControls)+`<div style="height:10px"></div>`+panel('成绩明细','点击任意行查看阶段和 TPS 详情','<div id="historyTable"></div>');
     const values=currentMetricSeries(solves,state.trendMetric);const metric=(s,i)=>values[i];const series=C.groupSeries(solves,metric,state.resolution);
     Ch.lineChart($('#trendChart'),series,{yFormatter:v=>`${(v/1000).toFixed(1)}s`,xFormatter:x=>fmtDate(x,true),tooltip:d=>`${fmtDate(d.x)} · <strong>${fmtMs(d.y)}</strong>`});
     const recent=solves.slice(-120).reverse();
@@ -249,22 +268,33 @@
     const scarcity=r.count<3?450:r.count<6?220:0;
     return median + rec*0.75 + scarcity;
   }
+  function caseTier(r,scores){
+    if(r.count<3)return{key:'few',label:'样本少'};
+    const s=caseWeaknessScore(r),sorted=scores.slice().sort((a,b)=>a-b);
+    const q=p=>sorted[Math.min(sorted.length-1,Math.floor(sorted.length*p))];
+    if(s>=q(.75))return{key:'weak',label:'薄弱'};
+    if(s>=q(.4))return{key:'watch',label:'关注'};
+    return{key:'good',label:'稳定'};
+  }
   function renderCases(solves){
     const el=$('#casesContent'),all=C.caseStatistics(solves.filter(noDnf)),types=['ALL','OLL','PLL','F2L','CMLL'];
     const filteredRows=state.caseType==='ALL'?all:all.filter(x=>x.caseType===state.caseType);
-    const rows=filteredRows.slice().sort((a,b)=>caseWeaknessScore(b)-caseWeaknessScore(a));
-    const controls=`<div class="segmented" id="caseSeg">${types.map(v=>`<button data-v="${v}" class="${state.caseType===v?'active':''}">${v}</button>`).join('')}</div>`;
+    const rows=filteredRows.slice().sort(state.caseOrder==='index'?(a,b)=>a.caseType.localeCompare(b.caseType)||Number(a.caseIndex)-Number(b.caseIndex):(a,b)=>caseWeaknessScore(b)-caseWeaknessScore(a));
+    const scores=rows.map(caseWeaknessScore);
+    const controls=`<div class="segmented" id="caseSeg">${types.map(v=>`<button data-v="${v}" class="${state.caseType===v?'active':''}">${v}</button>`).join('')}</div><div class="segmented" id="caseOrderSeg"><button data-v="weak" class="${state.caseOrder!=='index'?'active':''}">薄弱优先</button><button data-v="index" class="${state.caseOrder==='index'?'active':''}">案例序</button></div>`;
     const priority=rows.slice(0,3);
     const priorityPanel=priority.length?panel('优先训练','按照个人中位耗时、识别时间与样本量综合排序，不使用不可验证的云端排名',`<div class="priority-list">${priority.map((r,i)=>`<div class="priority-row"><span class="priority-rank">${i+1}</span><div><strong>${esc(r.caseName)}</strong><span>${r.caseType} · n=${r.count}</span></div><div><span class="mini-label">Recognition</span><strong class="mono">${fmtMs(r.medianRecognition)}</strong></div><div><span class="mini-label">Execution</span><strong class="mono">${fmtMs(r.medianExecution)}</strong></div></div>`).join('')}</div>`):'';
-    const body=rows.length?`<div class="case-grid">${rows.map(r=>{const pct=localBetterThan(r);return `<article class="card case-card"><div class="case-top"><span class="case-name">${esc(r.caseName)}</span><span class="badge subtle">n=${r.count}</span></div><div class="case-time">${fmtMs(r.median)}</div><div class="case-meta"><span>识别 <strong class="mono">${fmtMs(r.medianRecognition)}</strong></span><span>执行 <strong class="mono">${fmtMs(r.medianExecution)}</strong></span><span>最快 <strong class="mono">${fmtMs(r.fastest)}</strong></span><span>相对表现 <strong class="mono">${pct==null?'—':pct+'%'}</strong></span></div></article>`}).join('')}</div>`:empty('没有 Case 数据','需要智能魔方训练中可靠识别到标准 Case。中间状态不会被强行标成 Case。');
-    el.innerHTML=priorityPanel+(priorityPanel?'<div style="height:10px"></div>':'')+panel('Case Statistics','按当前弱项优先级排序；总时间 = Recognition + Execution',body,controls)+`<div style="height:10px"></div>`+panel('相对表现','使用你的个人历史数据作为基准',`<div class="callout">相对表现使用该 Case 的个人历史 p20 / median / p80 作为参照，只反映你自己的近期变化，不伪造跨用户排名。</div>`);
+    const body=rows.length?`<div class="case-grid">${rows.map(r=>{const pct=localBetterThan(r),thumb=caseImgUrl(r.caseType,r.caseName),tier=caseTier(r,scores);return `<article class="card case-card ${thumb?'with-thumb':''}">${thumb?`<img class="case-thumb" src="${esc(thumb)}" alt="" loading="lazy" onerror="this.remove()">`:''}<div class="case-body"><div class="case-top"><span class="case-name">${esc(r.caseName)}</span><span class="badge subtle">n=${r.count}</span></div><div class="case-time">${fmtMs(r.median)}</div><div class="case-meta"><span>识别 <strong class="mono">${fmtMs(r.medianRecognition)}</strong></span><span>执行 <strong class="mono">${fmtMs(r.medianExecution)}</strong></span><span>最快 <strong class="mono">${fmtMs(r.fastest)}</strong></span><span>相对表现 <strong class="mono">${pct==null?'—':pct+'%'}</strong></span></div><div class="case-tier tier-${tier.key}">${tier.label}</div></div></article>`}).join('')}</div>`:empty('没有 Case 数据','需要智能魔方训练中可靠识别到标准 Case。中间状态不会被强行标成 Case。');
+    el.innerHTML=priorityPanel+(priorityPanel?'<div style="height:10px"></div>':'')+panel('Case Statistics','按当前弱项优先级排序；总时间 = Recognition + Execution；OLL/PLL 配图为该案例状态示意（矢量 SVG）',body,controls)+`<div style="height:10px"></div>`+panel('相对表现','使用你的个人历史数据作为基准',`<div class="callout">相对表现使用该 Case 的个人历史 p20 / median / p80 作为参照，只反映你自己的近期变化，不伪造跨用户排名。</div>`);
     $('#caseSeg').onclick=e=>{const b=e.target.closest('button[data-v]');if(b){state.caseType=b.dataset.v;renderCases(solves)}};
+    const orderSeg=$('#caseOrderSeg');
+    if(orderSeg)orderSeg.onclick=e=>{const b=e.target.closest('button[data-v]');if(b){xp.caseOrder=b.dataset.v;saveXp();renderCases(solves)}};
   }
 
   function renderSolves(solves){
     const el=$('#solvesContent');if(!solves.length){el.innerHTML=empty('没有单次数据','调整筛选条件。');return}
     const rows=solves.slice().reverse().slice(0,300);
-    el.innerHTML=panel('单次复盘',`显示最近 ${rows.length} / ${solves.length} 次；点击查看本次训练详情`,`<div class="solve-list">${rows.map(s=>`<article class="card solve-row-card" data-id="${esc(s.id)}"><div><div class="solve-time ${C.normalizeFlag(s.flag)==='dnf'?'bad':''}">${solveTime(s)}</div><div class="solve-date">${fmtDate(s.date)}</div></div><div><strong>${esc(s.analysisType)}</strong><span class="mini-label">${esc(s.session)}</span></div><div class="data-col"><span class="mini-label">TPS</span><span class="mono">${fmtNum(s.tps)}</span></div><div class="data-col"><span class="mini-label">Turns</span><span class="mono">${fmtNum(s.turnCount,0)}</span></div><div class="optional-col data-col"><span class="mini-label">Fluency</span><span class="mono">${fmtNum(s.fluencyPercent,0)}%</span></div><div class="optional-col data-col"><span class="mini-label">Device</span><span>${esc(s.device)}</span></div><div class="accent">›</div></article>`).join('')}</div>`);
+    el.innerHTML=panel('单次复盘',`显示最近 ${rows.length} / ${solves.length} 次；点击查看本次训练详情；⚠ 为异常标记记录（保留在列表，已从统计中排除）`,`<div class="solve-list">${rows.map(s=>`<article class="card solve-row-card" data-id="${esc(s.id)}"><div><div class="solve-time ${C.normalizeFlag(s.flag)==='dnf'?'bad':''}">${solveTime(s)}</div><div class="solve-date">${fmtDate(s.date)}${Q&&Q.active(s)?' <span class="anomaly-flag" title="'+esc(Q.label(s.anomaly))+'">⚠ 异常</span>':''}</div></div><div><strong>${esc(s.analysisType)}</strong><span class="mini-label">${esc(s.session)}</span></div><div class="data-col"><span class="mini-label">TPS</span><span class="mono">${fmtNum(s.tps)}</span></div><div class="data-col"><span class="mini-label">Turns</span><span class="mono">${fmtNum(s.turnCount,0)}</span></div><div class="optional-col data-col"><span class="mini-label">Fluency</span><span class="mono">${fmtNum(s.fluencyPercent,0)}%</span></div><div class="optional-col data-col"><span class="mini-label">Device</span><span>${esc(s.device)}</span></div><div class="accent">›</div></article>`).join('')}</div>`);
     el.onclick=e=>{const row=e.target.closest('[data-id]');if(row)openSolve(solves.find(s=>String(s.id)===row.dataset.id))};
   }
 
@@ -281,19 +311,69 @@
     const turnTs=C.turnTimestamps(s);const lastTurn=turnTs.length?turnTs[turnTs.length-1]:null;
     const reaction=Number.isFinite(lastTurn)&&Number(s.totalTime)>lastTurn?Number(s.totalTime)-lastTurn:null;
     const rows=steps.map(x=>{const label=x.slotIndex?`F2L ${x.slotIndex}`:(x.label||x.name||x.key||'Stage');const caseText=x.caseName||((x.caseType&&x.caseIndex!=null)?`${x.caseType} ${x.caseIndex}`:'—');const aufText=x.auf&&x.auf.count?`${esc(x.auf.pre.join(' ')||'—')} → ${esc(x.auf.post.join(' ')||'—')}`:'—';return `<tr><td><strong>${esc(label)}</strong></td><td>${esc(caseText)}</td><td>${aufText}</td><td class="mono">${fmtMs(x.time)}</td><td class="mono">${fmtMs(x.recognition)}</td><td class="mono">${fmtMs(x.execution)}</td><td class="mono">${fmtNum(x.turns,0)}</td><td class="mono">${Number(x.execution)>0?fmtNum(Number(x.turns||0)*1000/Number(x.execution)):'—'}</td></tr>`}).join('');
-    body.innerHTML=`<div class="detail-grid"><div class="detail-item"><span class="mini-label">Time</span><strong>${solveTime(s)}</strong></div><div class="detail-item"><span class="mini-label">TPS</span><strong>${fmtNum(s.tps)}</strong></div><div class="detail-item"><span class="mini-label">Turns</span><strong>${fmtNum(s.turnCount,0)}</strong></div><div class="detail-item"><span class="mini-label">Fluency</span><strong>${fmtNum(s.fluencyPercent,0)}%</strong></div></div>${steps.length?splitStack(steps,total):''}<div class="table-wrap"><table><thead><tr><th>Stage</th><th>Case</th><th>AUF</th><th>Time</th><th>Recognition</th><th>Execution</th><th>Turns</th><th>Exec TPS</th></tr></thead><tbody>${rows||'<tr><td colspan="8">无法可靠分段；保留原始动作与成绩，不生成猜测阶段。</td></tr>'}</tbody></table></div><div style="height:10px"></div><div class="callout"><strong>Scramble</strong><br><span class="mono">${esc(s.scramble||'—')}</span><br><br><strong>动作记录</strong> · ${s.timestamps?.length||0} logical events · ${s.rawSolutionSequence?.reduce((n,x)=>n+(Array.isArray(x.rawMoves)&&x.rawMoves.length?x.rawMoves.length:1),0)||s.timestamps?.length||0} raw moves · ${esc(s.device)}<br><strong>数据源</strong> · ${esc(s.source||'import')}<br><strong>解法方位</strong> · ${s.analysisFrame?.autoDetected?(s.analysisFrame.crossFace?`识别底面 ${esc(s.analysisFrame.crossFace)}`:'六色底 / 任意持握自动识别'):'未可靠识别'}${reaction!=null?`<br><strong>复原后停表反应</strong> · ${fmtMs(reaction)}（不计入最后阶段执行时间）`:''}</div>`;
+    body.innerHTML=`${Q&&Q.active(s)?`<div class="callout" style="margin-bottom:10px"><strong>异常标记</strong> · ${esc(Q.label(s.anomaly))}；本条已从统计中排除（记录原样保留，可在数据体检中确认为误报后恢复纳入）。</div>`:''}<div class="detail-grid"><div class="detail-item"><span class="mini-label">Time</span><strong>${solveTime(s)}</strong></div><div class="detail-item"><span class="mini-label">TPS</span><strong>${fmtNum(s.tps)}</strong></div><div class="detail-item"><span class="mini-label">Turns</span><strong>${fmtNum(s.turnCount,0)}</strong></div><div class="detail-item"><span class="mini-label">Fluency</span><strong>${fmtNum(s.fluencyPercent,0)}%</strong></div></div>${steps.length?splitStack(steps,total):''}<div class="table-wrap"><table><thead><tr><th>Stage</th><th>Case</th><th>AUF</th><th>Time</th><th>Recognition</th><th>Execution</th><th>Turns</th><th>Exec TPS</th></tr></thead><tbody>${rows||'<tr><td colspan="8">无法可靠分段；保留原始动作与成绩，不生成猜测阶段。</td></tr>'}</tbody></table></div><div style="height:10px"></div><div class="callout"><strong>Scramble</strong><br><span class="mono">${esc(s.scramble||'—')}</span><br><br><strong>动作记录</strong> · ${s.timestamps?.length||0} logical events · ${s.rawSolutionSequence?.reduce((n,x)=>n+(Array.isArray(x.rawMoves)&&x.rawMoves.length?x.rawMoves.length:1),0)||s.timestamps?.length||0} raw moves · ${esc(s.device)}<br><strong>数据源</strong> · ${esc(s.source||'import')}<br><strong>解法方位</strong> · ${s.analysisFrame?.autoDetected?(s.analysisFrame.crossFace?`识别底面 ${esc(s.analysisFrame.crossFace)}`:'六色底 / 任意持握自动识别'):'未可靠识别'}${reaction!=null?`<br><strong>复原后停表反应</strong> · ${fmtMs(reaction)}（不计入最后阶段执行时间）`:''}</div><div class="ai-ask-row"><button class="btn btn-ghost" id="askAiBtn" type="button">问 AI · 分析这把</button></div><div id="askAiHost"></div>`;
+    const askBtn=$('#askAiBtn');
+    if(askBtn)askBtn.onclick=()=>{if(window.CubeAnalyzerAI)CubeAnalyzerAI.askSolve(s,$('#askAiHost'));else notify('AI 模块未加载')};
     modal.hidden=false;
   }
 
 
 
+  /* —— 数据体检面板：异常记录只展示与标注，绝不修改/删除（2026-09-29）—— */
+  function openQuality(){
+    if(!Q)return;
+    const bad=state.solves.filter(s=>Q.active(s));
+    const modal=$('#solveModal'),body=$('#solveModalBody');$('#solveModalTitle').textContent='数据体检';
+    body.innerHTML=(bad.length?`<div class="callout" style="margin-bottom:10px">检出 <strong>${bad.length}</strong> 条异常记录。处理原则：<strong>只做标记、绝不修改或删除</strong>——说不定其中就有一次很优秀的解法流复原。分析统计（趋势 / AO / 分段 / Case / AI）已自动排除，记录仍保留在列表与总计数中；确认为误报后可一键恢复纳入。</div><div class="quality-list">${bad.map(s=>`<div class="quality-row card"><div><div class="solve-time ${C.normalizeFlag(s.flag)==='dnf'?'bad':''}">${solveTime(s)}</div><div class="solve-date">${fmtDate(s.date)}</div></div><div><strong>${esc(s.analysisType)}</strong><span class="mini-label">${esc(s.session)} · ${esc(s.device||'')}</span></div><div><span class="anomaly-flag">⚠ ${esc(Q.label(s.anomaly))}</span></div><div><button class="btn btn-ghost" data-unflag="${esc(s.id)}" style="min-height:30px">误报恢复</button></div></div>`).join('')}</div>`:empty('数据体检通过','没有检出异常记录。检测项：用时无效 / 过短（<2s）/ 过长（>10min）/ 动作数据缺失 / 时间戳倒挂。'));
+    body.onclick=e=>{const b=e.target.closest('[data-unflag]');if(!b)return;const rec=state.solves.find(x=>String(x.id)===b.dataset.unflag);if(rec){rec.anomalyCleared=true;save(false);renderAll();openQuality();notify('已恢复纳入分析')}};
+    modal.hidden=false;
+  }
+
   function renderDatasetMeta(solves){
     $('#datasetName').textContent=state.datasetName;$('#datasetCount').textContent=`${solves.length} solves`;
     const deep=solves.filter(s=>s.timestamps?.length>1).length,split=solves.filter(s=>s.steps?.length).length;
     const b=$('#deepDataBadge');b.textContent=deep?`${deep} 完整动作 · ${split} 已分段`:`${split} 已分段 · 无完整动作`;b.className=`badge ${deep?'accent':'subtle'}`;
+    const qb=$('#qualityBtn');
+    if(qb){const bad=Q?solves.filter(s=>Q.active(s)).length:0;qb.hidden=!bad;qb.textContent=`体检 ${bad}`;}
   }
 
-  function renderAll(){const s=filtered();renderDatasetMeta(s);renderOverview(s);renderTrend(s);renderSplits(s);renderTPS(s);renderCases(s);renderSolves(s)}
+  /* —— 基线与周趋势（2026-09-29 融入）—— */
+  // 基线：最近 1000 把有效成绩（DNF 与异常记录排除，+2 已计入），照 AI_CFOP 口径。
+  function baselineStats(){
+    const all=analyzable(state.solves);
+    if(all.length<10)return null;
+    const slice=all.slice(-1000);
+    const bt=slice.map(s=>C.displayTimeMs(s)).filter(Number.isFinite);
+    if(bt.length<10)return null;
+    const mean=bt.reduce((a,b)=>a+b,0)/bt.length;
+    const todayKey=new Date().toDateString();
+    const today=slice.filter(s=>new Date(s.date).toDateString()===todayKey);
+    const tt=today.map(s=>C.displayTimeMs(s)).filter(Number.isFinite);
+    const todayMean=tt.length?tt.reduce((a,b)=>a+b,0)/tt.length:null;
+    return {count:bt.length,mean,best:Math.min(...bt),todayCount:tt.length,todayMean};
+  }
+  // 周趋势：近 7 天 vs 前 7 天均值（本地规则，不耗 AI）。
+  function weeklyTrendText(solves){
+    const valid=analyzable(solves);
+    const now=Date.now(),d7=now-7*86400000,d14=now-14*86400000;
+    const cur=valid.filter(s=>{const t=new Date(s.date).getTime();return t>=d7&&t<=now});
+    const prev=valid.filter(s=>{const t=new Date(s.date).getTime();return t>=d14&&t<d7});
+    if(cur.length<3||prev.length<3)return null;
+    const cm=cur.map(s=>C.displayTimeMs(s)).filter(Number.isFinite),pm=prev.map(s=>C.displayTimeMs(s)).filter(Number.isFinite);
+    if(!cm.length||!pm.length)return null;
+    const c=cm.reduce((a,b)=>a+b,0)/cm.length,p=pm.reduce((a,b)=>a+b,0)/pm.length;
+    const diff=(c-p)/p;
+    if(!Number.isFinite(diff))return null;
+    if(Math.abs(diff)<0.03)return `近 7 天较上周基本持平（${diff>=0?'+':''}${(diff*100).toFixed(1)}%）`;
+    return diff<0?`近 7 天较上周快 ${Math.abs(diff*100).toFixed(1)}%`:`近 7 天较上周慢 ${(diff*100).toFixed(1)}%`;
+  }
+  function caseImgUrl(type,name){
+    if(type==='OLL'){const m=/OLL\s*(\d+)/.exec(String(name||''));return m?`./assets/cases/OLL/OLL${m[1]}.svg`:null}
+    if(type==='PLL'){return /^[A-Z]{1,2}[ab]?$/.test(String(name||''))?`./assets/cases/PLL/PLL_${name}.svg`:null}
+    return null; // F2L / CMLL 暂无配图，纯文字回退
+  }
+
+  function renderAll(){const s=filtered();renderDatasetMeta(s);const st=analyzable(s);renderOverview(st);renderTrend(st);renderSplits(st);renderTPS(st);renderCases(st);renderSolves(s)}
 
   async function importFiles(files){
     const all=[];for(const file of files){const text=await file.text();const parsed=I.parseAny(text,file.name).map(upgradeSolve);all.push(...parsed)}
@@ -426,17 +506,22 @@
       if(trainer.phase==='running'){
         const elapsed=now-trainer.startedAt;$('#timerValue').textContent=(elapsed/1000).toFixed(2);updateLive(elapsed);
       }else if(trainer.phase==='inspection'){
-        const elapsed=now-trainer.inspectionStartedAt,remain=Math.max(0,15000-elapsed);
+        // 观察阶段：可配置总时长（默认 15s 不变）；跨「剩 12s / 剩 8s」阈值语音报点（WCA 官方 8s/12s 提醒）。
+        const total=inspectionMs(),elapsed=now-trainer.inspectionStartedAt,remain=Math.max(0,total-elapsed);
+        if(window.CubeAudio){
+          if(!trainer.voiceMark12&&total>12000&&elapsed>=total-12000){trainer.voiceMark12=true;CubeAudio.voice('12')}
+          if(!trainer.voiceMark8&&total>8000&&elapsed>=total-8000){trainer.voiceMark8=true;CubeAudio.voice('8')}
+        }
         $('#timerValue').textContent=(remain/1000).toFixed(1);
-        $('#timerStatus').textContent=elapsed>17000?'观察超时 · DNF':elapsed>15000?'观察超时 · +2':'观察中';
+        $('#timerStatus').textContent=elapsed>total+2000?'观察超时 · DNF':elapsed>total?'观察超时 · +2':'观察中';
       }else{return}
       trainer.raf=requestAnimationFrame(loop);
     };trainer.raf=requestAnimationFrame(loop);
   }
 
   function enterReadyAfterScramble(){
-    trainer.scrambleComplete=true;trainer.scrambleObservedMoves=trainer.scrambleMoves.slice();renderScramble();resetLive();trainer.inspectionPenalty='ok';
-    if($('#inspectionToggle').checked){trainer.inspectionStartedAt=performance.now();trainer.timingMode='pending';phase('inspection','观察中','按 Space 开始，或直接转动启用状态自动计时');$('#timerValue').textContent='15.0';tick()}
+    trainer.scrambleComplete=true;trainer.scrambleObservedMoves=trainer.scrambleMoves.slice();renderScramble();resetLive();trainer.inspectionPenalty='ok';trainer.voiceMark12=false;trainer.voiceMark8=false;
+    if($('#inspectionToggle').checked){trainer.inspectionStartedAt=performance.now();trainer.timingMode='pending';phase('inspection','观察中','按 Space 开始，或直接转动启用状态自动计时');$('#timerValue').textContent=(inspectionMs()/1000).toFixed(1);tick()}
     else{trainer.timingMode='pending';phase('ready','已打乱','按 Space 开始，或直接转动启用状态自动计时');$('#timerValue').textContent='0.00'}
   }
 
@@ -486,7 +571,8 @@
     if(trainer.phase!=='ready'&&trainer.phase!=='inspection'&&!(trainer.phase==='scramble'&&mode==='space'&&!Cube?.isConnected()))return false;
     if(trainer.phase==='scramble'&&mode==='space'&&!Cube?.isConnected())trainer.scrambleComplete=true;
     if(trainer.phase==='inspection'){
-      const inspect=performance.now()-trainer.inspectionStartedAt;trainer.inspectionPenalty=inspect>17000?'dnf':inspect>15000?'plus_two':'ok';
+      const total=inspectionMs(),inspect=performance.now()-trainer.inspectionStartedAt;trainer.inspectionPenalty=inspect>total+2000?'dnf':inspect>total?'plus_two':'ok';
+      if(trainer.inspectionPenalty!=='ok'&&window.CubeAudio)CubeAudio.effect('alert');
     }else trainer.inspectionPenalty='ok';
     resetLive();
     trainer.timingMode=mode;
@@ -496,6 +582,7 @@
     trainer.startFacelet=(firstDetail?.previousFacelet)||(Cube&&Cube.getFacelet?Cube.getFacelet():'')||trainer.scrambleTargetFacelet||'';
     if(trainer.startFacelet)trainer.snapshots.push({facelet:trainer.startFacelet,timestamp:0});
     phase('running','计时中',mode==='space'?'按 Space 停止':'复原后自动停止');$('#timerValue').textContent='0.00';tick();
+    if(window.CubeAudio)CubeAudio.effect('click');
     return true;
   }
 
@@ -557,10 +644,12 @@
       timingMode:stopMode,captureType:smartData?'smartcube':'manual',source:smartData?`智能魔方训练 · ${stopMode==='space'?'空格起停':'状态起停'}`:'手动训练'
     });
     state.solves.push(record);state.solves.sort((a,b)=>new Date(a.date)-new Date(b.date));state.datasetName='训练数据';
+    if(Q)record.anomaly=Q.assess(record); // 新记录立即体检，异常只标记不改动
     $('#timerValue').textContent=(elapsed/1000).toFixed(2);
     const solvedNow=Cube&&Cube.isConnected()?Cube.isSolved(Cube.getFacelet?.()||''):true;
     const sub=smartData?(autoAnalysis?'已保存完整轨迹 · 已自动识别解法方位并分段':(solvedNow?'已保存完整动作与时间戳 · 分段识别未命中':'已保存完整动作与时间戳 · 最终状态未复原')):'已保存手工计时记录';
     phase('done',record.flag==='dnf'?'DNF':record.flag==='plus_two'?'完成 · +2':'完成',sub);
+    if(window.CubeAudio)CubeAudio.effect('click');
     refreshFilterOptions();save(true);renderTrainerSummary();renderAll();$('#totalSolveBadge').textContent=`${state.solves.length} solves`;notify('成绩已保存');
     window.setTimeout(()=>nextScramble(),450);
   }
@@ -608,6 +697,7 @@
   async function mergeImportFiles(files){
     const imported=[];for(const file of files){const text=await file.text();imported.push(...I.parseAny(text,file.name).map(upgradeSolve))}
     if(!imported.length)throw new Error('没有识别到有效 solve');
+    if(Q)Q.ensure(state.solves); // 导入合并后体检（只补检，不改既有标记）
     const key=s=>`${s.id}|${s.date}`;const map=new Map(state.solves.map(s=>[key(s),s]));imported.forEach(s=>map.set(key(s),s));state.solves=[...map.values()].sort((a,b)=>new Date(a.date)-new Date(b.date));state.datasetName='训练数据';
     state.filters={method:'all',session:'all',device:'all',start:'',end:''};refreshFilterOptions();syncFilterUI();save(true);renderTrainerSummary();renderAll();$('#totalSolveBadge').textContent=`${state.solves.length} solves`;notify(`已导入 ${imported.length} 条记录`)
   }
@@ -654,6 +744,16 @@
     $('#trainingMethod').onchange=e=>{state.training.method=e.target.value;save(false);renderTrainerSummary()};
     $('#trainingSession').onchange=e=>{state.training.session=e.target.value.trim()||'日常训练';e.target.value=state.training.session;save(false);renderTrainerSummary()};
     $('#inspectionToggle').onchange=e=>{state.training.inspection=e.target.checked;save(false)};
+    // —— 融入控件：观察秒数 / 语音报点 / 提示音 / 数据体检（2026-09-29）——
+    const secSel=$('#inspectionSec');
+    if(secSel){secSel.value=String(xp.inspectionSec);secSel.onchange=e=>{xp.inspectionSec=Number(e.target.value)||15;saveXp();notify(`观察时长 ${xp.inspectionSec}s（判罚窗口随之调整）`)}}
+    const vT=$('#voiceToggle');
+    if(vT){vT.checked=!!xp.voiceOn;vT.onchange=e=>{xp.voiceOn=e.target.checked;saveXp();if(window.CubeAudio)CubeAudio.setPrefs({voiceOn:xp.voiceOn})}}
+    const sT=$('#soundToggle');
+    if(sT){sT.checked=!!xp.soundOn;sT.onchange=e=>{xp.soundOn=e.target.checked;saveXp();if(window.CubeAudio)CubeAudio.setPrefs({soundOn:xp.soundOn})}}
+    const qBtn=$('#qualityBtn');if(qBtn)qBtn.onclick=openQuality;
+    const sAi=$('#sessionAiBtn');
+    if(sAi)sAi.onclick=()=>{if(!sessionSolves().length){notify('本 Session 还没有成绩');return}switchWorkspace('analysis');state.activeTab='ai';$$('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab==='ai'));$$('.tab-panel').forEach(x=>x.classList.toggle('active',x.dataset.panel==='ai'));if(window.CubeAnalyzerAI)CubeAnalyzerAI.renderTabShell();};
     $('#trainingRecent').onclick=e=>{const p=e.target.closest('[data-penalty]'),del=e.target.closest('[data-delete]');if(p){e.stopPropagation();changePenalty(p.dataset.id,p.dataset.penalty);return}if(del){e.stopPropagation();deleteSolve(del.dataset.delete);return}const row=e.target.closest('[data-open]');if(row)openSolve(state.solves.find(s=>String(s.id)===row.dataset.open))};
     document.addEventListener('keydown',e=>{if(e.code!=='Space'||e.repeat||/INPUT|TEXTAREA|SELECT|BUTTON/.test(document.activeElement?.tagName||''))return;if(state.workspaceMode!=='training')return;e.preventDefault();handleSpaceTimer()});
 
@@ -673,6 +773,9 @@
     if(window.siteNav&&typeof window.siteNav.init==='function')window.siteNav.init({setTheme});
     window._siteNavReloadData=reloadFromStorage;
     bindCube();bind();nextScramble();refreshFilterOptions();syncFilterUI();renderTrainerSummary();renderAll();switchWorkspace('training');$('#totalSolveBadge').textContent=`${state.solves.length} solves`;updateCloudIndicator();
+    // —— 融入启动（2026-09-29）：体验偏好同步到音频模块；AI 报告桥接站点数据（DNF/异常由 AI 模块内二次排除）——
+    if(window.CubeAudio){CubeAudio.setPrefs({voiceOn:!!xp.voiceOn,soundOn:!!xp.soundOn});CubeAudio.preload();}
+    if(window.CubeAnalyzerAI)CubeAnalyzerAI.init({getFiltered:()=>filtered(),getBaseline:baselineStats});
     if(window.authManager&&typeof window.authManager.onAuthStateChange==='function')window.authManager.onAuthStateChange(handleAuthState);
   }
 
