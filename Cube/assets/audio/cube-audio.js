@@ -19,11 +19,11 @@
 	function scriptDir() {
 		try {
 			var s = document.currentScript && document.currentScript.src;
-			if (!s) return BASE;
+			if (!s) return '';
 			return s.replace(/[^/]*$/, '');
-		} catch (e) { return BASE; }
+		} catch (e) { return ''; }
 	}
-	var baseUrl = scriptDir();
+	var baseUrl = scriptDir() + BASE;
 
 	function loadPrefs() {
 		try {
