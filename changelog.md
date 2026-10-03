@@ -1,5 +1,10 @@
 ## [15.2.2048] - 2026-10-03
 
+### Global
+
+#### Removed
+- 独立入口「OneDrive」不再挂站点导航栏。
+
 ### Tools-Roster
 
 #### Added

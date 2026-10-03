@@ -15,22 +15,13 @@
         })();
     </script>
 
-    <!-- 设计令牌 + 站点顶栏（本页 3 秒后跳走，故不接 Supabase 登录栈） -->
+    <!-- 设计令牌（本页是独立入口，不接站点 nav / 登录栈） -->
     <link rel="stylesheet" href="/ui/colors_and_type.css">
-    <link rel="stylesheet" href="/nav/nav.css?v=1877">
-    <script src="/nav/nav.js?v=1892" defer></script>
-    <script src="/assets/services/core/site-scope.js?v=1877" defer></script>
 
     <style>
         html, body {
             height: 100%;
             margin: 0;
-        }
-
-        /* nav.css 已给 body 加了 padding-top（顶栏高度），这里用 border-box
-           让 100% 高度包含这段内边距，图标仍然是「顶着屏幕垂直居中」 */
-        body {
-            box-sizing: border-box;
         }
 
         .container {
@@ -86,17 +77,6 @@
         </a>
     </div>
     <script>
-        // nav.js 只注册 window.siteNav，顶栏要由页面自己 init
-        document.addEventListener("DOMContentLoaded", function () {
-            if (window.siteNav && typeof window.siteNav.init === "function") {
-                window.siteNav.init({
-                    setTheme: function (theme) {
-                        document.documentElement.dataset.theme = theme;
-                        try { localStorage.setItem("smartCubeTheme", theme); } catch (e) {}
-                    }
-                });
-            }
-        });
         sleep(3000)
         window.location.href = "https://ckarefulon-my.sharepoint.com/:f:/g/personal/careful_ckarefulon_onmicrosoft_com/Eu2fTkVQiJJJnR2bRxtwvRkB8yo4wTi8XFfdNs0cgjmSKg?e=lgzfwk";
     </script>
