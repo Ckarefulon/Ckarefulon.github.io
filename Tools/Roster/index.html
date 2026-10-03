@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>本地图卡记忆</title>
+<style>
+  :root{
+    /* ============================================================
+       1) 设计系统色阶（供扩展使用）
+       ============================================================ */
+    --dsk-purple-50:#efeafb;--dsk-purple-100:#ddd4f6;--dsk-purple-200:#b9a9ed;--dsk-purple-300:#957fe4;--dsk-purple-400:#7a65d0;--dsk-purple-500:#5d4ea8;--dsk-purple-600:#4d3f96;--dsk-purple-700:#3e3276;--dsk-purple-800:#2e2556;--dsk-purple-900:#1e1836;--dsk-purple-950:#141026;
+    --dsk-cyan-50:#e6fdfc;--dsk-cyan-100:#c5faf7;--dsk-cyan-200:#8cf4ef;--dsk-cyan-300:#52eee7;--dsk-cyan-400:#24f0ea;--dsk-cyan-500:#14c9c4;--dsk-cyan-600:#0e9995;--dsk-cyan-700:#0a6e6b;--dsk-cyan-800:#074745;--dsk-cyan-900:#042524;
+    --dsk-slate-50:#f7f8fc;--dsk-slate-100:#eceef6;--dsk-slate-200:#d5d8e5;--dsk-slate-300:#b5b9cc;--dsk-slate-400:#8a8fa6;--dsk-slate-500:#676c84;--dsk-slate-600:#50556a;--dsk-slate-700:#3e4154;--dsk-slate-800:#2a2c3c;--dsk-slate-900:#1a1b28;--dsk-slate-950:#10101a;
+
+    /* ============================================================
+       2) 语义色（供组件使用）
+       ============================================================ */
+    --dsk-success:#24f0ea;
+    --dsk-success-light:#0e9995;
+    --dsk-danger:#e85d6a;
+    --dsk-warning:#e6b84a;
+    --dsk-hard:#e0913c;
+    --dsk-info:#6b8cff;
+
+    /* ============================================================
+       3) 语义色的柔化版本（边框环 / 弱化背景）
+       ============================================================ */
+    --dsk-danger-ring:rgba(232,93,106,0.45);
+    --dsk-hard-ring:rgba(224,145,60,0.45);
+    --dsk-accent-ring-strong:rgba(36,240,234,0.45);
+    --dsk-info-ring:rgba(107,140,255,0.45);
+    --dsk-warning-ring:rgba(230,184,74,0.5);
+    --dsk-warning-soft:rgba(230,184,74,0.12);
+
+    /* ============================================================
+       4) 基底令牌
+       ============================================================ */
+    --dsk-background:#0f0d18;
+    --dsk-background-elevated:#161328;
+    --dsk-foreground:#e8e8f4;
+    --dsk-foreground-muted:#a0a3b8;
+    --dsk-foreground-subtle:#6e7088;
+
+    --dsk-card:#1a1829;
+    --dsk-card-translucent:rgba(26,24,41,0.94);
+    --dsk-card-foreground:#ececf6;
+    --dsk-card-muted:#9a9db2;
+    --dsk-card-border:#2a2840;
+
+    --dsk-popover:#1e1c30;
+    --dsk-popover-translucent:rgba(30,28,48,0.96);
+    --dsk-popover-foreground:#ececf6;
+    --dsk-popover-border:#32304a;
+
+    --dsk-primary:#6b5dc2;
+    --dsk-primary-foreground:#ffffff;
+    --dsk-primary-hover:#7d6fd4;
+    --dsk-primary-active:#5a4db0;
+    --dsk-primary-soft:rgba(107,93,194,0.18);
+    --dsk-primary-soft-strong:rgba(107,93,194,0.32);
+    --dsk-primary-ring:rgba(107,93,194,0.4);
+
+    --dsk-accent:#24f0ea;
+    --dsk-accent-foreground:#0a1212;
+    --dsk-accent-soft:rgba(36,240,234,0.10);
+    --dsk-accent-ring:rgba(36,240,234,0.35);
+    --dsk-accent-glow:rgba(36,240,234,0.18);
+
+    --dsk-muted:#2a2840;
+    --dsk-muted-foreground:#9a9db2;
+
+    --dsk-border:#2e2c44;
+    --dsk-border-subtle:#222036;
+
+    --dsk-input:#201e32;
+    --dsk-input-foreground:#ececf6;
+    --dsk-ring:rgba(36,240,234,0.4);
+
+    --dsk-shadow-sm:0 1px 2px rgba(0,0,0,0.3);
+    --dsk-shadow-md:0 4px 12px rgba(0,0,0,0.28);
+    --dsk-shadow-lg:0 12px 40px rgba(0,0,0,0.35);
+
+    /* 页面背景（实色，给 body） */
+    --dsk-page-bg:
+      radial-gradient(ellipse 60% 40% at 12% 0%,rgba(93,78,168,0.22),transparent 60%),
+      radial-gradient(ellipse 50% 35% at 100% 10%,rgba(93,78,168,0.10),transparent 55%),
+      radial-gradient(circle at 85% 90%,rgba(36,240,234,0.04),transparent 40%),
+      linear-gradient(180deg,#12101f 0%,#0b0a14 100%);
+
+    /* 遮罩背景（半透明，给 overlay）—— 保留光晕，最后一层半透明 */
+    --dsk-overlay-bg:
+      radial-gradient(ellipse 60% 40% at 12% 0%,rgba(93,78,168,0.22),transparent 60%),
+      radial-gradient(ellipse 50% 35% at 100% 10%,rgba(93,78,168,0.10),transparent 55%),
+      radial-gradient(circle at 85% 90%,rgba(36,240,234,0.04),transparent 40%),
+      rgba(15,13,24,0.92);
+
+    --dsk-font-sans:'Inter','Segoe UI',system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+    --dsk-font-mono:'SF Mono','Cascadia Mono','Consolas','Monaco',monospace;
+
+    --dsk-text-xs:11px;--dsk-text-sm:13px;--dsk-text-base:14px;--dsk-text-lg:16px;--dsk-text-xl:18px;--dsk-text-2xl:22px;--dsk-text-3xl:28px;--dsk-text-4xl:36px;
+    --dsk-leading-tight:1.2;--dsk-leading-normal:1.5;--dsk-leading-relaxed:1.65;
+
+    --dsk-radius-sm:6px;--dsk-radius-md:8px;--dsk-radius-lg:12px;--dsk-radius-xl:16px;--dsk-radius-full:9999px;
+
+    --dsk-space-1:4px;--dsk-space-2:8px;--dsk-space-3:12px;--dsk-space-4:16px;--dsk-space-5:20px;--dsk-space-6:24px;--dsk-space-8:32px;--dsk-space-10:40px;
+
+    /* ============================================================
+       5) 页面私有语义别名（派生自 dsk 令牌）
+       ============================================================ */
+    --bg:var(--dsk-background);
+    --panel:var(--dsk-card);
+    --line:var(--dsk-border);
+    --fg:var(--dsk-foreground);
+    --dim:var(--dsk-foreground-muted);
+    --again:var(--dsk-danger);
+    --hard:var(--dsk-hard);
+    --good:var(--dsk-info);       /* 良好 → 蓝色 */
+    --easy:var(--dsk-accent);     /* 简单 / 完全认识 → 青色 */
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--dsk-background);color:var(--fg);
+    background-image:var(--dsk-page-bg);
+    font-family:var(--dsk-font-sans);
+    display:flex;flex-direction:column;
+    -webkit-tap-highlight-color:transparent;user-select:none;overflow:hidden;
+  }
+  img{-webkit-user-drag:none;user-select:none}
+
+  header{
+    flex:0 0 auto;display:flex;align-items:center;gap:var(--dsk-space-2);
+    padding:10px 14px;font-size:var(--dsk-text-sm);color:var(--dim);
+    border-bottom:1px solid var(--line);flex-wrap:wrap;
+  }
+  header .spacer{flex:1}
+  header button{
+    background:transparent;border:1px solid var(--line);color:var(--dim);
+    border-radius:var(--dsk-radius-md);padding:5px 10px;font-size:var(--dsk-text-sm);cursor:pointer;
+    font-family:var(--dsk-font-sans);
+    transition:color .15s,border-color .15s;
+  }
+  header button:hover{color:var(--fg);border-color:var(--dsk-primary-ring)}
+
+  .badge{
+    display:inline-flex;align-items:center;
+    padding:3px 9px;border-radius:var(--dsk-radius-full);
+    font-size:var(--dsk-text-xs);white-space:nowrap;
+    background:var(--dsk-background-elevated);border:1px solid var(--line);color:var(--dim);
+    cursor:pointer;
+  }
+  .badge.on{
+    color:var(--dsk-accent);border-color:var(--dsk-accent-ring);
+    background:var(--dsk-accent-soft);
+  }
+  .badge.warn{
+    color:var(--dsk-warning);
+    border-color:var(--dsk-warning-ring);
+    background:var(--dsk-warning-soft);
+  }
+
+  #stage{
+    flex:1 1 auto;min-height:0;position:relative;
+    display:flex;align-items:center;justify-content:center;padding:14px;
+  }
+  #stage.clickable{cursor:pointer}
+  #pic{
+    max-width:100%;max-height:100%;object-fit:contain;
+    border-radius:var(--dsk-radius-lg);background:var(--dsk-slate-950);
+    box-shadow:var(--dsk-shadow-lg);
+    display:block;transition:opacity .15s;
+  }
+  #pic.loading{opacity:0}
+
+  #filename{
+    position:absolute;left:50%;bottom:18px;
+    transform:translateX(-50%) translateY(6px);
+    max-width:88%;padding:9px 16px;border-radius:var(--dsk-radius-lg);
+    background:var(--dsk-card-translucent);border:1px solid var(--line);
+    font-size:var(--dsk-text-base);word-break:break-all;text-align:center;
+    opacity:0;transition:opacity .18s,transform .18s;pointer-events:none;
+    box-shadow:var(--dsk-shadow-lg);
+  }
+  #filename.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  footer{flex:0 0 auto;padding:0 14px calc(14px + env(safe-area-inset-bottom))}
+
+  #progWrap{
+    display:flex;align-items:center;gap:var(--dsk-space-2);
+    margin-bottom:10px;font-size:var(--dsk-text-sm);color:var(--dim);
+  }
+  #progBar{
+    flex:1;height:6px;border-radius:var(--dsk-radius-full);background:var(--dsk-background-elevated);overflow:hidden;
+  }
+  #progFill{
+    display:block;height:100%;width:0;border-radius:var(--dsk-radius-full);
+    background:linear-gradient(90deg,var(--dsk-primary),var(--dsk-accent));
+    transition:width .35s ease;
+  }
+  #progFill.full{background:linear-gradient(90deg,var(--dsk-success),var(--dsk-cyan-300))}
+  #progText{white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--dsk-slate-300)}
+  #progText.done{color:var(--dsk-accent);font-weight:600}
+
+  #hint{
+    text-align:center;font-size:var(--dsk-text-sm);color:var(--dim);
+    height:20px;line-height:20px;margin-bottom:10px;
+  }
+  #hint.browse{color:var(--dsk-accent)}
+
+  #ratings{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--dsk-space-2)}
+  #ratings button{
+    padding:13px 6px;border-radius:var(--dsk-radius-lg);cursor:pointer;
+    font-size:var(--dsk-text-base);font-weight:600;font-family:var(--dsk-font-sans);
+    background:var(--panel);border:1px solid var(--line);color:var(--fg);
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    transition:transform .08s,background .15s,border-color .15s;
+  }
+  #ratings button:active{transform:scale(.97)}
+  #ratings button small{font-weight:400;font-size:var(--dsk-text-xs);color:var(--dim)}
+  #ratings button[data-g="1"]{border-color:var(--dsk-danger-ring);color:var(--again)}
+  #ratings button[data-g="2"]{border-color:var(--dsk-hard-ring);color:var(--hard)}
+  #ratings button[data-g="3"]{border-color:var(--dsk-info-ring);color:var(--good)}              /* 良好 → 蓝 */
+  #ratings button[data-g="4"]{border-color:var(--dsk-accent-ring-strong);color:var(--easy)}     /* 简单 → 青 */
+
+  #overlay{
+    position:fixed;inset:0;
+    /* 半透明遮罩 + 光晕叠层，底下图片能透出来 */
+    background:var(--dsk-overlay-bg);
+    display:flex;align-items:center;justify-content:center;
+    padding:var(--dsk-space-6);z-index:50;text-align:center;
+  }
+  #overlay .card{max-width:470px;display:flex;flex-direction:column;gap:14px;align-items:center}
+  #overlay h2{margin:0;font-size:var(--dsk-text-xl);font-weight:600}
+  #overlay p{margin:0;font-size:var(--dsk-text-sm);line-height:var(--dsk-leading-relaxed);color:var(--dim)}
+  #overlay code{
+    background:var(--dsk-background-elevated);padding:1px 6px;border-radius:var(--dsk-radius-sm);
+    font-size:var(--dsk-text-sm);color:var(--dsk-slate-300);
+  }
+  #overlay button{
+    padding:11px 20px;border-radius:var(--dsk-radius-lg);border:1px solid var(--line);
+    background:var(--panel);color:var(--fg);font-size:var(--dsk-text-base);cursor:pointer;
+    font-family:var(--dsk-font-sans);
+    transition:border-color .15s,background .15s;
+  }
+  #overlay button.primary{
+    background:var(--dsk-primary-soft-strong);
+    border-color:var(--dsk-primary-ring);
+    color:var(--dsk-primary-foreground);
+  }
+  #overlay button:hover{border-color:var(--dsk-border)}
+  #overlay button.primary:hover{
+    background:var(--dsk-primary-soft);
+    border-color:var(--dsk-primary-hover);
+  }
+  #overlay .row{display:flex;gap:var(--dsk-space-2);flex-wrap:wrap;justify-content:center}
+
+  .hidden{display:none!important}
+
+  #toast{
+    position:fixed;left:50%;top:22px;transform:translateX(-50%) translateY(-12px);
+    background:var(--dsk-popover-translucent);border:1px solid var(--line);color:var(--fg);
+    padding:var(--dsk-space-2) var(--dsk-space-4);border-radius:var(--dsk-radius-full);font-size:var(--dsk-text-sm);
+    opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:80;
+    white-space:nowrap;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.done{color:var(--dsk-accent);border-color:var(--dsk-accent-ring)}
+</style>
+</head>
+<body>
+
+<header>
+  <span id="stat">准备中…</span>
+  <span id="storeBadge" class="badge">存储：检测中</span>
+  <span class="spacer"></span>
+  <button id="btnConnect">连接 Data 文件夹</button>
+  <button id="btnImport">导入进度</button>
+  <button id="btnReset">重置</button>
+</header>
+
+<div id="stage">
+  <img id="pic" alt="" class="loading">
+  <div id="filename"></div>
+</div>
+
+<footer>
+  <div id="progWrap" class="hidden">
+    <div id="progBar"><i id="progFill"></i></div>
+    <span id="progText">今日 0%</span>
+  </div>
+  <div id="hint"></div>
+  <div id="ratings" class="hidden">
+    <button data-g="1">重来<small>+0%</small></button>
+    <button data-g="2">困难<small>+25%</small></button>
+    <button data-g="3">良好<small>+50%</small></button>
+    <button data-g="4">简单<small>+100%</small></button>
+  </div>
+</footer>
+
+<div id="overlay"><div class="card" id="overlayCard"></div></div>
+<div id="toast"></div>
+<input type="file" id="dirInput" webkitdirectory directory multiple class="hidden">
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+     隐私声明
+     ------------------------------------------------------------
+     1. 本文件不发起任何跨域 / 远程网络请求。
+     2. 图片通过 Blob URL 在本地内存中读取，文件名只在点击后显示。
+     3. 进度 JSON 只包含「文件名带盐哈希」，不含原始文件名、不含图片。
+     4. 磁盘写入只发生在你亲自授权的 Data 文件夹。
+     5. IndexedDB 里只保存一个「目录句柄」，不含任何学习数据。
+     ============================================================ */
+
+  /* ============================================================
+     第一层：FSRS-5
+     ============================================================ */
+  const W = [
+    0.40255, 1.18385, 3.173, 15.69105, 7.1949, 0.5345, 1.4604, 0.0046,
+    1.54575, 0.1192, 1.01925, 1.9395, 0.11, 0.29605, 2.2698, 0.2315,
+    2.9898, 0.51655, 0.6621
+  ];
+  const DECAY = -0.5;
+  const FACTOR = Math.pow(0.9, 1 / DECAY) - 1;
+  const TARGET_R = 0.9;
+  const MAX_IVL = 36500;
+  const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+
+  const initS = g => Math.max(W[g - 1], 0.1);
+  const initD = g => clamp(W[4] - Math.exp(W[5] * (g - 1)) + 1, 1, 10);
+  const retrievability = (t, s) => s <= 0 ? 0 : Math.pow(1 + FACTOR * t / s, DECAY);
+  function nextD(d, g) {
+    const delta = -W[6] * (g - 3);
+    const damped = d + delta * (10 - d) / 9;
+    return clamp(W[7] * initD(4) + (1 - W[7]) * damped, 1, 10);
+  }
+  function nextSRecall(d, s, r, g) {
+    const hp = g === 2 ? W[15] : 1;
+    const eb = g === 4 ? W[16] : 1;
+    return s * (1 + Math.exp(W[8]) * (11 - d) * Math.pow(s, -W[9])
+      * (Math.exp((1 - r) * W[10]) - 1) * hp * eb);
+  }
+  function nextSForget(d, s, r) {
+    return W[11] * Math.pow(d, -W[12]) * (Math.pow(s + 1, W[13]) - 1)
+      * Math.exp((1 - r) * W[14]);
+  }
+  function intervalFromS(s) {
+    const raw = (s / FACTOR) * (Math.pow(TARGET_R, 1 / DECAY) - 1);
+    return clamp(Math.round(raw), 1, MAX_IVL);
+  }
+  function schedule(prev, g, today) {
+    if (!prev || prev.state === 0 || !prev.s) {
+      const s = initS(g), d = initD(g), ivl = intervalFromS(s);
+      return { s, d, last: today, due: today + ivl, reps: 1,
+               lapses: g === 1 ? 1 : 0, state: 1, ivl };
+    }
+    const elapsed = Math.max(0, today - prev.last);
+    const r = retrievability(elapsed, prev.s);
+    const d = nextD(prev.d, g);
+    let s;
+    if (g === 1) {
+      s = nextSForget(d, prev.s, r);
+      if (!isFinite(s) || s <= 0) s = prev.s * 0.5;
+      s = Math.min(s, prev.s);
+    } else {
+      s = nextSRecall(d, prev.s, r, g);
+    }
+    if (!isFinite(s) || s <= 0) s = 0.5;
+    s = clamp(s, 0.05, MAX_IVL);
+    const ivl = intervalFromS(s);
+    return { s, d, last: today, due: today + ivl,
+             reps: (prev.reps || 0) + 1,
+             lapses: (prev.lapses || 0) + (g === 1 ? 1 : 0),
+             state: 1, ivl };
+  }
+
+  /* ============================================================
+     第二层：今日掌握度（同天重复）
+     ============================================================ */
+  const GAIN = { 1: 0, 2: 25, 3: 50, 4: 100 };
+  const MAX_REPS = 3;
+  const getProg = (c, t) => (!c || c.progDay !== t) ? 0 : (c.prog || 0);
+  const getDayReps = (c, t) => (!c || c.dayRepsDay !== t) ? 0 : (c.dayReps || 0);
+
+  /* ===================== 工具 ===================== */
+  function todayIndex() {
+    const d = new Date();
+    return Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 86400000);
+  }
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  const HASH_SALT = 'fsrs-img-local-v1::';
+  function hashName(s) {
+    const str = HASH_SALT + s;
+    let h1 = 0x811c9dc5, h2 = 0x1000193;
+    for (let i = 0; i < str.length; i++) {
+      const c = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+      h2 = Math.imul(h2 ^ (c + i), 0x85ebca6b) >>> 0;
+    }
+    return h1.toString(36) + '-' + h2.toString(36) + '-' + str.length.toString(36);
+  }
+  const IMG_RE = /\.(jpe?g|jfif|pjpeg|png|apng|gif|webp|bmp|avif|svg|ico|tiff?|heic|heif)$/i;
+
+  function humanDays(d) {
+    if (d <= 0) return '今天';
+    if (d === 1) return '明天';
+    return d + ' 天后';
+  }
+
+  /* ===================== DOM ===================== */
+  const $ = id => document.getElementById(id);
+  const stage = $('stage'), pic = $('pic'), filenameEl = $('filename');
+  const hintEl = $('hint'), ratingsEl = $('ratings'), statEl = $('stat');
+  const overlay = $('overlay'), overlayCard = $('overlayCard');
+  const toastEl = $('toast'), dirInput = $('dirInput');
+  const progWrap = $('progWrap'), progFill = $('progFill'), progText = $('progText');
+  const storeBadge = $('storeBadge');
+
+  /* ===================== 状态 ===================== */
+  const PROGRESS_FILE = 'fsrs-progress.json';
+  const IDB_NAME = 'fsrs-img-handles';
+  const IDB_STORE = 'handles';
+
+  let images = [];
+  let cards = {};
+  let queue = [];
+  let current = null;
+  let revealed = false;
+  let locked = false;
+  let browseMode = false;         // 纯浏览：不改任何数据
+  const bad = new Set();
+
+  let storageMode = 'none';
+  let dirHandle = null;
+
+  const HAS_FS_API = typeof window.showDirectoryPicker === 'function';
+
+  /* ===================== IndexedDB ===================== */
+  function idbOpen() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idbSet(k, v) {
+    try {
+      const db = await idbOpen();
+      await new Promise((res, rej) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put(v, k);
+        tx.oncomplete = res;
+        tx.onerror = () => rej(tx.error);
+      });
+      db.close();
+    } catch (e) {}
+  }
+  async function idbGet(k) {
+    try {
+      const db = await idbOpen();
+      const v = await new Promise((res, rej) => {
+        const tx = db.transaction(IDB_STORE, 'readonly');
+        const r = tx.objectStore(IDB_STORE).get(k);
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+      db.close();
+      return v;
+    } catch (e) { return null; }
+  }
+  async function idbDel(k) {
+    try {
+      const db = await idbOpen();
+      await new Promise((res, rej) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(k);
+        tx.oncomplete = res;
+        tx.onerror = () => rej(tx.error);
+      });
+      db.close();
+    } catch (e) {}
+  }
+
+  /* ===================== 磁盘进度读写 ===================== */
+
+  async function readDiskProgress() {
+    if (!dirHandle) return null;
+    try {
+      const fh = await dirHandle.getFileHandle(PROGRESS_FILE);
+      const text = await (await fh.getFile()).text();
+      if (!text.trim()) return null;
+      const d = JSON.parse(text);
+      if (d && d.cards && typeof d.cards === 'object') return d.cards;
+    } catch (e) {}
+    return null;
+  }
+
+  let writeChain = Promise.resolve();
+  function scheduleDiskWrite() {
+    if (!dirHandle) return;
+    writeChain = writeChain.then(async () => {
+      try {
+        const fh = await dirHandle.getFileHandle(PROGRESS_FILE, { create: true });
+        const w = await fh.createWritable();
+        await w.write(JSON.stringify({
+          v: 1,
+          updated: new Date().toISOString(),
+          cards
+        }, null, 2));
+        await w.close();
+      } catch (e) {
+        console.warn('[FSRS] 写盘失败：', e);
+      }
+    }).catch(() => {});
+  }
+
+  let dlTimer = null;
+  function scheduleDownload() {
+    if (dlTimer) clearTimeout(dlTimer);
+    dlTimer = setTimeout(() => {
+      const blob = new Blob(
+        [JSON.stringify({ v: 1, updated: new Date().toISOString(), cards }, null, 2)],
+        { type: 'application/json' }
+      );
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = PROGRESS_FILE;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+    }, 1500);
+  }
+
+  function persist() {
+    if (storageMode === 'disk' && dirHandle) {
+      scheduleDiskWrite();
+    } else if (storageMode === 'download') {
+      scheduleDownload();
+    }
+  }
+
+  /* ===================== 存储徽标 ===================== */
+  function updateBadge() {
+    if (storageMode === 'disk' && dirHandle) {
+      storeBadge.textContent = '存储：Data/' + PROGRESS_FILE;
+      storeBadge.className = 'badge on';
+      storeBadge.title = '进度直接写入你授权的 Data 文件夹';
+    } else if (storageMode === 'download') {
+      storeBadge.textContent = '存储：下载兜底';
+      storeBadge.className = 'badge warn';
+      storeBadge.title = '无法获得写盘权限，评分后自动下载 JSON 到默认下载目录';
+    } else {
+      storeBadge.textContent = '存储：未连接';
+      storeBadge.className = 'badge';
+    }
+  }
+  storeBadge.onclick = () => {
+    if (storageMode === 'disk') toast('进度文件：Data/' + PROGRESS_FILE);
+    else if (storageMode === 'download') toast('进度以下载方式保存，默认目录可在浏览器设置里改');
+    else toast('请先连接 Data 文件夹');
+  };
+
+  /* ===================== 读图片 ===================== */
+  async function loadImagesFromDir(h) {
+    const out = [];
+    let iter;
+    try {
+      iter = h.values();
+    } catch (e) {
+      console.warn('[FSRS] 无法遍历目录：', e);
+      return out;
+    }
+    while (true) {
+      let next;
+      try {
+        next = await iter.next();
+      } catch (e) {
+        console.warn('[FSRS] 目录遍历中断：', e);
+        break;
+      }
+      if (next.done) break;
+      const entry = next.value;
+      if (!entry || entry.kind !== 'file') continue;
+      if (!IMG_RE.test(entry.name)) continue;
+      try {
+        const f = await entry.getFile();
+        out.push({ name: entry.name, url: URL.createObjectURL(f) });
+      } catch (e) {}
+    }
+    return out;
+  }
+
+  function pickImagesViaInput() {
+    return new Promise(resolve => {
+      let done = false;
+      const finish = v => { if (!done) { done = true; resolve(v); } };
+
+      dirInput.value = '';
+      dirInput.onchange = () => {
+        const list = [...(dirInput.files || [])].filter(f => IMG_RE.test(f.name));
+        finish(list.length
+          ? list.map(f => ({ name: f.name, url: URL.createObjectURL(f) }))
+          : null);
+      };
+      dirInput.addEventListener('cancel', () => finish(null), { once: true });
+      dirInput.click();
+    });
+  }
+
+  /* ===================== 界面 ===================== */
+  function toast(msg, isDone) {
+    toastEl.textContent = msg;
+    toastEl.classList.toggle('done', !!isDone);
+    toastEl.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => {
+      toastEl.classList.remove('show');
+      toastEl.classList.remove('done');
+    }, 1800);
+  }
+  function showOverlay(html) {
+    overlayCard.innerHTML = html;
+    overlay.classList.remove('hidden');
+  }
+  function hideOverlay() { overlay.classList.add('hidden'); }
+
+  function updateStat() {
+    if (!images.length) { statEl.textContent = '准备中…'; return; }
+    const today = todayIndex();
+    let fresh = 0, due = 0, learned = 0;
+    for (const img of images) {
+      const c = cards[img.key];
+      if (!c) { fresh++; continue; }
+      learned++;
+      if (c.due <= today && c.last !== today && getProg(c, today) < 100) due++;
+    }
+    statEl.textContent = `新卡 ${fresh} · 待复习 ${due} · 已学 ${learned} / 共 ${images.length}`;
+  }
+
+  /**
+   * 进度条渲染
+   * - 浏览模式：始终隐藏
+   * - 未评分：隐藏
+   * - 未满 100%：显示 "今日 X% · 第 N 次"
+   * - 已满 100%：显示 "✓ X 天后复习"（按 FSRS 实际间隔）
+   */
+  function renderProgress() {
+    if (browseMode) { progWrap.classList.add('hidden'); return; }
+    if (!current) { progWrap.classList.add('hidden'); return; }
+    const today = todayIndex();
+    const c = cards[current.key];
+    if (!c || c.progDay !== today) { progWrap.classList.add('hidden'); return; }
+
+    const p = getProg(c, today);
+    const n = getDayReps(c, today);
+    const done = p >= 100;
+
+    progWrap.classList.remove('hidden');
+    progFill.style.width = p + '%';
+    progFill.classList.toggle('full', done);
+    progText.classList.toggle('done', done);
+
+    if (done) {
+      const dueDay = (typeof c.due === 'number') ? c.due : (today + 1);
+      const days = Math.max(1, dueDay - today);
+      progText.textContent = '✓ ' + humanDays(days) + '复习';
+    } else {
+      progText.textContent = `今日 ${p}% · 第 ${n} 次`;
+    }
+  }
+
+  /* ===================== 队列 ===================== */
+  function buildQueue() {
+    const today = todayIndex();
+    const cands = [];
+    for (const img of images) {
+      if (bad.has(img.key)) continue;
+      const c = cards[img.key];
+      if (getProg(c, today) >= 100) continue;
+      if (getDayReps(c, today) >= MAX_REPS) continue;
+      if (!c) { cands.push({ img, reps: 0 }); continue; }
+      if (c.due <= today || c.progDay === today) {
+        cands.push({ img, reps: getDayReps(c, today) });
+      }
+    }
+    if (!cands.length) { queue = []; return; }
+    const minReps = Math.min(...cands.map(x => x.reps));
+    queue = shuffle(cands.filter(x => x.reps === minReps).map(x => x.img));
+  }
+
+  function nextCard() {
+    locked = false;
+    let img = null;
+
+    for (let guard = 0; guard < 10000; guard++) {
+      if (!queue.length) {
+        if (browseMode) { endBrowse(); return; }
+        buildQueue();
+      }
+      if (!queue.length) { showDone(); return; }
+      const cand = queue.shift();
+      if (!bad.has(cand.key)) { img = cand; break; }
+    }
+    if (!img) {
+      if (browseMode) { endBrowse(); return; }
+      showDone();
+      return;
+    }
+
+    current = img;
+    revealed = false;
+
+    filenameEl.textContent = '';
+    filenameEl.classList.remove('show');
+    stage.classList.add('clickable');
+    hintEl.classList.remove('browse');
+
+    if (browseMode) {
+      hintEl.textContent = '浏览模式 · 点击显示文件名';
+      ratingsEl.classList.add('hidden');
+    } else {
+      hintEl.textContent = '点击屏幕显示文件名';
+      ratingsEl.classList.add('hidden');
+    }
+
+    renderProgress();
+
+    pic.classList.add('loading');
+    pic.onload = () => pic.classList.remove('loading');
+    pic.onerror = () => {
+      bad.add(img.key);
+      pic.classList.remove('loading');
+      nextCard();
+    };
+    pic.src = img.url;
+
+    if (!browseMode) updateStat();
+  }
+
+  function reveal() {
+    if (locked || revealed || !current) return;
+    revealed = true;
+    filenameEl.textContent = current.name;
+    filenameEl.classList.add('show');
+
+    if (browseMode) {
+      // 浏览模式：显示文件名 + 提示切下一张，不出现评分按钮
+      hintEl.textContent = '点击切到下一张（Esc 退出）';
+      hintEl.classList.add('browse');
+      ratingsEl.classList.add('hidden');
+      stage.classList.add('clickable');
+    } else {
+      hintEl.textContent = '这张图片你记得多清楚？';
+      ratingsEl.classList.remove('hidden');
+      stage.classList.remove('clickable');
+    }
+  }
+
+  // 浏览模式：切下一张
+  function browseNext() {
+    current = null;
+    revealed = false;
+    filenameEl.classList.remove('show');
+    hintEl.classList.remove('browse');
+    nextCard();
+  }
+
+  function rate(g) {
+    if (browseMode) return;
+    if (locked || !revealed || !current) return;
+    locked = true;
+    revealed = false;
+    ratingsEl.classList.add('hidden');
+    stage.classList.remove('clickable');
+
+    const today = todayIndex();
+    const key = current.key;
+    const prev = cards[key];
+
+    const curProg = getProg(prev, today);
+    const gain = GAIN[g] || 0;
+    const newProg = Math.min(100, curProg + gain);
+    const dayReps = getDayReps(prev, today) + 1;
+
+    const fsrsToday = prev && prev.state && prev.last === today;
+    let nc = fsrsToday ? Object.assign({}, prev) : schedule(prev, g, today);
+
+    nc.prog = newProg;
+    nc.progDay = today;
+    nc.dayReps = dayReps;
+    nc.dayRepsDay = today;
+    nc.due = today + (nc.ivl || 1);
+    if (newProg < 100) nc.due = Math.min(nc.due, today + 1);
+
+    cards[key] = nc;
+    persist();
+
+    renderProgress();
+    updateStat();
+
+    if (newProg >= 100) {
+      const days = Math.max(1, nc.due - today);
+      toast('✓ ' + humanDays(days) + '复习', true);
+    } else if (gain === 0) {
+      toast('今日进度不变 · 稍后还会再见');
+    } else {
+      toast(`+${gain}% → 今日 ${newProg}%`);
+    }
+
+    setTimeout(() => {
+      current = null;
+      locked = false;
+      nextCard();
+    }, 480);
+  }
+
+  /* ===================== 浏览模式入口 / 出口 ===================== */
+
+  function startBrowse() {
+    hideOverlay();
+    browseMode = true;
+    queue = shuffle(images.slice());   // 全部图片随机过一遍
+    current = null;
+    revealed = false;
+    locked = false;
+    ratingsEl.classList.add('hidden');
+    progWrap.classList.add('hidden');
+    nextCard();
+  }
+
+  function endBrowse() {
+    browseMode = false;
+    current = null;
+    revealed = false;
+    locked = false;
+    ratingsEl.classList.add('hidden');
+    progWrap.classList.add('hidden');
+    hintEl.classList.remove('browse');
+    filenameEl.classList.remove('show');
+
+    // 看今天是否还有正经待复习的卡
+    const today = todayIndex();
+    let hasDue = false;
+    for (const img of images) {
+      const c = cards[img.key];
+      if (bad.has(img.key)) continue;
+      if (!c) { hasDue = true; break; }
+      if (getProg(c, today) >= 100) continue;
+      if (getDayReps(c, today) >= MAX_REPS) continue;
+      if (c.due <= today || c.progDay === today) { hasDue = true; break; }
+    }
+
+    showOverlay(`
+      <h2>浏览完成</h2>
+      <p>本次浏览没有改动任何记忆进度，<br>也没有影响下一次复习时间。</p>
+      <div class="row">
+        ${hasDue ? '<button id="ovCont" class="primary">继续今天的复习</button>' : ''}
+        <button id="ovAgain">再看一遍</button>
+      </div>
+    `);
+
+    const ovCont = $('ovCont');
+    if (ovCont) {
+      ovCont.onclick = () => {
+        hideOverlay();
+        queue = [];
+        buildQueue();
+        updateStat();
+        nextCard();
+      };
+    }
+    $('ovAgain').onclick = () => { hideOverlay(); startBrowse(); };
+  }
+
+  /* ===================== 完成页 ===================== */
+  function showDone() {
+    const today = todayIndex();
+    const total = images.length;
+    let learned = 0, todayDone = 0, nextDue = Infinity;
+    for (const img of images) {
+      const c = cards[img.key];
+      if (!c) continue;
+      learned++;
+      if (c.progDay === today && c.prog >= 100) todayDone++;
+      if (c.due < nextDue) nextDue = c.due;
+    }
+    const msg = nextDue === Infinity
+      ? '还没有建立任何记忆记录。'
+      : `最近一张安排在${humanDays(Math.max(1, nextDue - today))}复习。`;
+
+    showOverlay(`
+      <h2>今天的复习完成 🎉</h2>
+      <p>共 ${total} 张图片 · 今日掌握 ${todayDone} 张 · 已建立记忆记录 ${learned} 张。<br>${msg}</p>
+      <button id="ovBrowse" class="primary">快速浏览一遍（不改动进度）</button>
+      <button id="ovPick2">更换文件夹</button>
+    `);
+
+    $('ovBrowse').onclick = startBrowse;
+    $('ovPick2').onclick = chooseFolder;
+  }
+
+  /* ===================== 选择文件夹 ===================== */
+
+  async function chooseFolder() {
+    if (HAS_FS_API) {
+      let h;
+      try {
+        h = await window.showDirectoryPicker({ id: 'fsrs-data', mode: 'readwrite' });
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        enterDownloadMode();
+        return;
+      }
+
+      dirHandle = h;
+      storageMode = 'disk';
+      idbSet('dataDir', h);
+      updateBadge();
+
+      const diskCards = await readDiskProgress();
+      if (diskCards) cards = diskCards;
+
+      const list = await loadImagesFromDir(h);
+      if (!list.length) {
+        showOverlay(`
+          <h2>这个文件夹里没有图片</h2>
+          <p>已连接目录（进度会写入 <code>Data/fsrs-progress.json</code>），<br>
+             但没有找到图片文件。<br>请把图片放进这个文件夹，或换一个文件夹。</p>
+          <button id="ovRe" class="primary">重新选择</button>
+        `);
+        $('ovRe').onclick = chooseFolder;
+        return;
+      }
+
+      if (!diskCards && Object.keys(cards).length) scheduleDiskWrite();
+
+      hideOverlay();
+      setImages(list);
+      updateBadge();
+      toast('已连接 Data 文件夹');
+      return;
+    }
+
+    enterDownloadMode();
+  }
+
+  async function enterDownloadMode() {
+    storageMode = 'download';
+    dirHandle = null;
+    updateBadge();
+
+    showOverlay(`
+      <h2>使用「下载兜底」模式</h2>
+      <p>
+        当前浏览器不提供目录读写能力。<br>
+        点击「继续」后请选择 <b>Data</b> 文件夹读取图片。<br><br>
+        进度会在每次评分后自动下载为 <code>fsrs-progress.json</code>。<br>
+        想让它落进 Data 文件夹，请在浏览器设置里把<b>默认下载位置</b>改为 Data 目录。<br>
+        图片与文件名<b>不会上传到任何地方</b>。
+      </p>
+      <button id="ovGo" class="primary">继续，选择 Data 文件夹</button>
+    `);
+    $('ovGo').onclick = async () => {
+      const list = await pickImagesViaInput();
+      if (!list || !list.length) { toast('没有找到图片'); return; }
+      hideOverlay();
+      setImages(list);
+      updateBadge();
+      if (Object.keys(cards).length) scheduleDownload();
+    };
+  }
+
+  function setImages(list) {
+    images = list.map(it => ({
+      name: it.name,
+      url: it.url,
+      key: hashName(it.name)
+    })).sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+    bad.clear();
+    browseMode = false;
+    hideOverlay();
+    queue = [];
+    buildQueue();
+    updateStat();
+    nextCard();
+  }
+
+  /* ===================== 启动 ===================== */
+
+  async function tryRestoreHandle() {
+    let h = null;
+    try { h = await idbGet('dataDir'); } catch (e) { return null; }
+    if (!h || typeof h.queryPermission !== 'function') return null;
+    let perm = 'prompt';
+    try { perm = await h.queryPermission({ mode: 'readwrite' }); }
+    catch (e) { return null; }
+    return { handle: h, granted: perm === 'granted' };
+  }
+
+  async function boot() {
+    updateBadge();
+    showOverlay(`
+      <h2>正在准备…</h2>
+      <p>几秒后会请你连接 Data 文件夹。</p>
+    `);
+
+    const restored = await tryRestoreHandle();
+    if (restored) {
+      if (restored.granted) {
+        dirHandle = restored.handle;
+        storageMode = 'disk';
+        updateBadge();
+        const diskCards = await readDiskProgress();
+        if (diskCards) cards = diskCards;
+        const list = await loadImagesFromDir(restored.handle);
+        if (list.length) {
+          hideOverlay();
+          setImages(list);
+          updateBadge();
+          return;
+        }
+        showOverlay(`
+          <h2>上次的文件夹里没有图片</h2>
+          <p>请重新选择一个包含图片的 Data 文件夹。</p>
+          <button id="ovRe" class="primary">重新选择</button>
+        `);
+        $('ovRe').onclick = chooseFolder;
+        return;
+      }
+
+      showOverlay(`
+        <h2>继续上次的 Data 文件夹</h2>
+        <p>浏览器需要你确认一次读写权限，<br>
+           才能读取与保存 <code>fsrs-progress.json</code>。</p>
+        <div class="row">
+          <button id="ovResume" class="primary">授权并继续</button>
+          <button id="ovOther">换一个文件夹</button>
+        </div>
+      `);
+      $('ovResume').onclick = async () => {
+        try {
+          const p = await restored.handle.requestPermission({ mode: 'readwrite' });
+          if (p === 'granted') {
+            dirHandle = restored.handle;
+            storageMode = 'disk';
+            updateBadge();
+            const diskCards = await readDiskProgress();
+            if (diskCards) cards = diskCards;
+            const list = await loadImagesFromDir(restored.handle);
+            if (list.length) { hideOverlay(); setImages(list); updateBadge(); return; }
+            showOverlay(`
+              <h2>这个文件夹里没有图片</h2>
+              <p>请重新选择。</p>
+              <button id="ovRe2" class="primary">重新选择</button>
+            `);
+            $('ovRe2').onclick = chooseFolder;
+          } else {
+            showOverlay(`
+              <h2>未获得权限</h2>
+              <p>可以重试授权，或改用下载模式。</p>
+              <div class="row">
+                <button id="ovRetry" class="primary">重试授权</button>
+                <button id="ovFallback">改用下载模式</button>
+              </div>
+            `);
+            $('ovRetry').onclick = () => boot();
+            $('ovFallback').onclick = enterDownloadMode;
+          }
+        } catch (e) {
+          enterDownloadMode();
+        }
+      };
+      $('ovOther').onclick = async () => {
+        await idbDel('dataDir');
+        chooseFolder();
+      };
+      return;
+    }
+
+    if (HAS_FS_API) {
+      showOverlay(`
+        <h2>连接 Data 文件夹</h2>
+        <p>
+          点击下面按钮选择包含图片的 <b>Data</b> 文件夹。<br>
+          授权后，进度会自动写入 <code>Data/fsrs-progress.json</code>，<br>
+          之后每次打开都能直接接着用。<br><br>
+          图片与文件名<b>不会上传到任何地方</b>。
+        </p>
+        <div class="row">
+          <button id="ovConnect" class="primary">连接 Data 文件夹</button>
+          <button id="ovDL">改用下载模式</button>
+        </div>
+      `);
+      $('ovConnect').onclick = chooseFolder;
+      $('ovDL').onclick = enterDownloadMode;
+    } else {
+      enterDownloadMode();
+    }
+  }
+
+  /* ===================== 事件 ===================== */
+  stage.addEventListener('click', () => {
+    if (locked || !current) return;
+    if (!revealed) { reveal(); return; }
+    if (browseMode) { browseNext(); }
+  });
+
+  ratingsEl.addEventListener('click', e => {
+    if (browseMode) return;
+    const btn = e.target.closest('button[data-g]');
+    if (!btn) return;
+    rate(Number(btn.dataset.g));
+  });
+
+  document.addEventListener('keydown', e => {
+    // 浏览模式：ESC 退出
+    if (e.key === 'Escape' && browseMode) {
+      e.preventDefault();
+      endBrowse();
+      return;
+    }
+    if (locked || !current) return;
+    if (!revealed) {
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); reveal(); }
+      return;
+    }
+    if (browseMode) {
+      if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        browseNext();
+      }
+      return;
+    }
+    if (e.key >= '1' && e.key <= '4') { e.preventDefault(); rate(Number(e.key)); }
+  });
+
+  $('btnConnect').onclick = chooseFolder;
+
+  $('btnImport').onclick = () => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = '.json,application/json';
+    inp.onchange = async () => {
+      const f = inp.files && inp.files[0];
+      if (!f) return;
+      try {
+        const d = JSON.parse(await f.text());
+        if (d && d.cards && typeof d.cards === 'object') {
+          cards = d.cards;
+          persist();
+          queue = [];
+          buildQueue();
+          updateStat();
+          nextCard();
+          toast('进度已导入');
+        } else {
+          toast('文件格式不正确');
+        }
+      } catch (e) { toast('导入失败'); }
+    };
+    inp.click();
+  };
+
+  $('btnReset').onclick = () => {
+    if (!confirm('确定清空所有记忆进度？此操作不可撤销。')) return;
+    cards = {};
+    persist();
+    queue = [];
+    buildQueue();
+    updateStat();
+    nextCard();
+    toast('已重置');
+  };
+
+  boot();
+})();
+</script>
+</body>
+</html>
