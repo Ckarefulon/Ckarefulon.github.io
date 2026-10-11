@@ -1,4 +1,4 @@
-﻿# 本地服务托盘：HTTP / HTTPS 底座（互斥）+ 公网隧道（可叠加）
+﻿# 本地服务托盘：HTTP / HTTPS 底座（互斥）+ 公网隧道 / Tailscale（可叠加）
 # 双击根目录“.本地服务.lnk”默认启动 HTTP 并隐藏到托盘；右键托盘图标可勾选服务组合。
 # 也可带参数启动：powershell -File launcher.ps1 [http|https|tunnel|http+tunnel|https+tunnel]
 
@@ -43,6 +43,10 @@ $TunnelItem = New-Object System.Windows.Forms.ToolStripMenuItem
 $TunnelItem.Text = '公网隧道'
 $TunnelItem.CheckOnClick = $false
 
+$TailscaleItem = New-Object System.Windows.Forms.ToolStripMenuItem
+$TailscaleItem.Text = 'Tailscale'
+$TailscaleItem.CheckOnClick = $false
+
 $OpenItem = New-Object System.Windows.Forms.ToolStripMenuItem
 $OpenItem.Text = '打开主页'
 
@@ -52,6 +56,14 @@ $LanItem.Text = '局域网页面'
 $CopyUrlItem = New-Object System.Windows.Forms.ToolStripMenuItem
 $CopyUrlItem.Text = '复制隧道地址'
 $CopyUrlItem.Visible = $false
+
+$TsOpenItem = New-Object System.Windows.Forms.ToolStripMenuItem
+$TsOpenItem.Text = '打开 Tailscale 页面'
+$TsOpenItem.Enabled = $false
+
+$TsCopyItem = New-Object System.Windows.Forms.ToolStripMenuItem
+$TsCopyItem.Text = '复制 Tailscale 地址'
+$TsCopyItem.Visible = $false
 
 $ExitItem = New-Object System.Windows.Forms.ToolStripMenuItem
 $ExitItem.Text = '退出并停止'
@@ -63,10 +75,13 @@ $ContextMenu = New-Object System.Windows.Forms.ContextMenuStrip
 [void]$ContextMenu.Items.Add($HttpItem)
 [void]$ContextMenu.Items.Add($HttpsItem)
 [void]$ContextMenu.Items.Add($TunnelItem)
+[void]$ContextMenu.Items.Add($TailscaleItem)
 [void]$ContextMenu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
 [void]$ContextMenu.Items.Add($OpenItem)
 [void]$ContextMenu.Items.Add($LanItem)
+[void]$ContextMenu.Items.Add($TsOpenItem)
 [void]$ContextMenu.Items.Add($CopyUrlItem)
+[void]$ContextMenu.Items.Add($TsCopyItem)
 [void]$ContextMenu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
 [void]$ContextMenu.Items.Add($ExitItem)
 
@@ -136,10 +151,13 @@ function Update-TrayStatus {
     $HttpItem.Checked = $State.HttpChecked
     $HttpsItem.Checked = $State.HttpsChecked
     $TunnelItem.Checked = $State.TunnelChecked
+    $TailscaleItem.Checked = $State.TailscaleChecked
 
     $OpenItem.Enabled = $State.CanOpen
     $LanItem.Enabled = $State.CanOpenLan
     $CopyUrlItem.Visible = $State.CanCopyUrl
+    $TsOpenItem.Enabled = $State.CanOpenTailscale
+    $TsCopyItem.Visible = $State.CanCopyTailscaleUrl
 
     $Tooltip = $State.Tooltip
     if ($Tooltip.Length -gt 62) {
@@ -160,13 +178,23 @@ function Open-Page {
     }
 }
 
+function Open-TailscalePage {
+    try {
+        $Url = (Get-SvcState).TailscaleUrl
+        if ($Url) { Start-Process $Url }
+    }
+    catch {
+    }
+}
+
 # 引擎配置：气泡回调走 launcher 里的 Show-SvcBalloon 函数（按名字找，不用 ScriptBlock）
 Initialize-SvcEngine `
     -Port 9527 `
     -RootDir $RootDir `
     -HttpsScript (Join-Path $PSScriptRoot 'start_https.ps1') `
     -SetupScript (Join-Path $PSScriptRoot 'setup_https.ps1') `
-    -Cloudflared 'C:\Users\Vxiao\.workbuddy\binaries\cloudflared.exe'
+    -Cloudflared 'C:\Users\Vxiao\.workbuddy\binaries\cloudflared.exe' `
+    -Tailscale 'C:\Program Files\Tailscale\tailscale.exe'
 
 # ---------- 菜单交互（多选语义）----------
 
@@ -219,6 +247,22 @@ $TunnelItem.Add_Click({
     }
 })
 
+$TailscaleItem.Add_Click({
+    try {
+        if ((Get-SvcState).TailscaleChecked) {
+            Set-SvcTailscale $false
+        }
+        else {
+            [void](Set-SvcTailscale $true)
+        }
+
+        Update-TrayStatus
+    }
+    catch {
+        Write-SvcTrayError $_
+    }
+})
+
 $OpenItem.Add_Click({
     try { Open-Page $false } catch { Write-SvcTrayError $_ }
 })
@@ -230,6 +274,20 @@ $LanItem.Add_Click({
 $CopyUrlItem.Add_Click({
     try {
         $Url = (Get-SvcState).TunnelUrl
+        if ($Url) { Set-Clipboard -Value $Url }
+    }
+    catch {
+        Write-SvcTrayError $_
+    }
+})
+
+$TsOpenItem.Add_Click({
+    try { Open-TailscalePage } catch { Write-SvcTrayError $_ }
+})
+
+$TsCopyItem.Add_Click({
+    try {
+        $Url = (Get-SvcState).TailscaleUrl
         if ($Url) { Set-Clipboard -Value $Url }
     }
     catch {
@@ -278,6 +336,12 @@ $Timer.Add_Tick({
             Test-SvcTunnelOrigin
         }
 
+        # Tailscale：对齐连接态；返回值非空 = 首次就绪（气泡由引擎发过，这里只复制地址）
+        $NewTsUrl = Sync-SvcTailscale
+        if ($NewTsUrl) {
+            try { Set-Clipboard -Value $NewTsUrl } catch {}
+        }
+
         Update-TrayStatus
     }
     catch {
@@ -286,9 +350,10 @@ $Timer.Add_Tick({
 })
 $Timer.Start()
 
-# 启动方式：参数 http|https|tunnel|http+tunnel|https+tunnel，默认 http
+# 启动方式：参数 http|https|tunnel|http+tunnel|https+tunnel|ts 及 +ts 组合，默认 http
 $StartupBase = 'http'
 $StartupTunnel = $false
+$StartupTailscale = $false
 
 if ($args.Count -ge 1) {
     switch ($args[0]) {
@@ -306,6 +371,33 @@ if ($args.Count -ge 1) {
             $StartupBase = 'https'
             $StartupTunnel = $true
         }
+        'ts' {
+            $StartupBase = 'http'
+            $StartupTailscale = $true
+        }
+        'http+ts' {
+            $StartupBase = 'http'
+            $StartupTailscale = $true
+        }
+        'https+ts' {
+            $StartupBase = 'https'
+            $StartupTailscale = $true
+        }
+        'tunnel+ts' {
+            $StartupBase = 'http'
+            $StartupTunnel = $true
+            $StartupTailscale = $true
+        }
+        'http+tunnel+ts' {
+            $StartupBase = 'http'
+            $StartupTunnel = $true
+            $StartupTailscale = $true
+        }
+        'https+tunnel+ts' {
+            $StartupBase = 'https'
+            $StartupTunnel = $true
+            $StartupTailscale = $true
+        }
     }
 }
 
@@ -316,6 +408,10 @@ try {
         if ($StartupTunnel) {
             Set-SvcTunnel $true
         }
+
+        if ($StartupTailscale) {
+            [void](Set-SvcTailscale $true)
+        }
     }
     catch {
         Write-SvcTrayError $_
@@ -323,7 +419,7 @@ try {
 
     Update-TrayStatus
 
-    $Hint = '已隐藏到托盘，右键图标可勾选 HTTP / HTTPS / 公网隧道'
+    $Hint = '已隐藏到托盘，右键图标可勾选 HTTP / HTTPS / 公网隧道 / Tailscale'
     if ((Get-SvcState).StatusText -eq '已停止') {
         $Hint = '本地服务未启动，右键托盘图标勾选要启用的服务'
     }

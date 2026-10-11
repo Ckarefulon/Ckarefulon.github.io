@@ -13,12 +13,20 @@
   }
   function getLocal(key, fallback) {
     try {
+      // 训练记录可能被分层存放在 IndexedDB，Store 持有完整记录集缓存；
+      // 云同步/导出必须拿到「全部记录」，否则云端备份会缺掉较早的那部分。
+      if (key === STORAGE_KEY && window.CubeAnalyzerStore) {
+        const full = window.CubeAnalyzerStore.getFullPayload();
+        if (full) return full;
+      }
       if (window.storageManager && typeof window.storageManager.getJson === 'function') return window.storageManager.getJson(key, fallback);
       const raw = localStorage.getItem(key);
       return raw ? JSON.parse(raw) : fallback;
     } catch (e) { return fallback; }
   }
   function setLocal(key, value) {
+    // 训练记录统一由 CubeAnalyzerStore 分层落盘，这里不再直接覆盖，避免绕过分层把完整数据挤爆
+    if (key === STORAGE_KEY && window.CubeAnalyzerStore) return;
     if (window.storageManager && typeof window.storageManager.setJson === 'function') window.storageManager.setJson(key, value);
     else localStorage.setItem(key, JSON.stringify(value));
   }
@@ -198,7 +206,16 @@
       window._siteNavApplyingCloudData = true;
       const applied = {};
       try {
-        if (dataBlock.cubeAnalyzerData !== undefined) { setLocal(STORAGE_KEY, dataBlock.cubeAnalyzerData); applied.cubeAnalyzerData = true; }
+        if (dataBlock.cubeAnalyzerData !== undefined) {
+          const cd = dataBlock.cubeAnalyzerData || {};
+          if (window.CubeAnalyzerStore && Array.isArray(cd.solves)) {
+            // 走分层落盘：云端恢复的整份记录同样按容量分流，localStorage 的同步写入立即生效
+            window.CubeAnalyzerStore.persist({ name: cd.name || '训练数据', solves: cd.solves }, dataBlock.cubeAnalyzerSettings || {});
+          } else {
+            setLocal(STORAGE_KEY, dataBlock.cubeAnalyzerData);
+          }
+          applied.cubeAnalyzerData = true;
+        }
         if (dataBlock.cubeAnalyzerSettings !== undefined) { setLocal(SETTINGS_KEY, dataBlock.cubeAnalyzerSettings); applied.cubeAnalyzerSettings = true; }
         return applied;
       } finally {

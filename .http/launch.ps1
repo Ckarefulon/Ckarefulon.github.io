@@ -13,11 +13,14 @@ $Arguments = (
     '-File "' + $TrayScript + '"'
 )
 
-# 可选启动方式参数：http | https | tunnel
-if (
-    $args.Count -ge 1 -and
-    ($args[0] -eq 'http' -or $args[0] -eq 'https' -or $args[0] -eq 'tunnel')
-) {
+# 可选启动方式参数：http | https | tunnel | ts 及 +ts 组合
+$AllowedModes = @(
+    'http', 'https', 'tunnel', 'http+tunnel', 'https+tunnel',
+    'ts', 'http+ts', 'https+ts', 'tunnel+ts',
+    'http+tunnel+ts', 'https+tunnel+ts'
+)
+
+if ($args.Count -ge 1 -and ($AllowedModes -contains $args[0])) {
     $Arguments = $Arguments + ' ' + $args[0]
 }
 

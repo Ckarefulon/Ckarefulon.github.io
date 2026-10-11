@@ -1,4 +1,4 @@
-﻿# 本地服务引擎：HTTP / HTTPS 底座（互斥，共用端口）+ 公网隧道（独立开关、可叠加）
+﻿# 本地服务引擎：HTTP / HTTPS 底座（互斥，共用端口）+ 公网隧道 / Tailscale（独立开关、可叠加）
 # 不依赖 WinForms，可被托盘 launcher.ps1 或测试脚本 dot-source。
 #
 # 用法：
@@ -16,6 +16,14 @@
 #   * 启隧道前先等底座端口真正可连，避免 cloudflared 抢跑造成启动初期 502。
 #   * 启 HTTPS 前做证书自检（SAN 覆盖当前 LAN IP + http.sys 绑定指纹与记录一致），
 #     不满足就以管理员跑一次 setup_https.ps1 重签重绑 —— 这是「HTTPS 老出问题」的根因。
+#   * Tailscale 是「连接开关」不是进程托管：勾选 = 探测 BackendState，Stopped 就 tailscale up 连回、
+#     NeedsLogin / 服务没跑就拉起官方 GUI（单实例）；取消 = tailscale serve --https=<端口> off
+#     （只撤本程序自己的映射，绝不全量 serve reset —— 443 等端口留给用户手动配的服务）+ tailscale down。
+#     连上后再用 tailscale serve --bg --https=<外部端口> 把本端口反代到
+#     https://<机器名>.<tailnet>.ts.net:<外部端口>（证书自动签发，首次签发需约半分钟，之后秒开）；
+#     HTTPS 底座时上游用 https+insecure://127.0.0.1:端口。
+#     探测走 status --json（Task 异步读输出 + WaitForExit 带超时，daemon 卡死也拖不死托盘线程），
+#     tick 里最多 5 秒真实探一次，避免每 2 秒起一个 tailscale.exe。
 
 $ErrorActionPreference = 'Stop'
 
@@ -29,6 +37,7 @@ $script:SvcCloudflared = ''
 $script:SvcPython      = ''
 $script:SvcLogPrefix   = 'careful_service_'
 $script:SvcTunnelHost  = '127.0.0.1'
+$script:SvcTailscale   = ''       # tailscale.exe 路径（空 = 未启用 Tailscale 功能）
 
 # ---------- 状态 ----------
 
@@ -43,6 +52,17 @@ $script:SvcHttpsSpawnAt      = $null
 $script:SvcHttpsFailReported = $false
 $script:SvcTunnelUrl         = $null
 $script:SvcTunnelProbed      = $false
+
+# Tailscale（连接开关的内部态）
+$script:SvcTailscaleOn        = $false
+$script:SvcTailscaleState     = ''      # BackendState：Running / Stopped / NeedsLogin / NoState / DaemonDown
+$script:SvcTailscaleIp        = $null   # 本机 tailnet IPv4（100.x）
+$script:SvcTailscaleProbeAt   = $null   # 上次真实探测时间（节流 5 秒）
+$script:SvcTailscaleWarned    = $false  # 异常气泡只报一次，恢复后清零
+$script:SvcTailscaleGuiAt     = $null   # 上次拉起 GUI 的时间（节流 30 秒）
+$script:SvcTailscaleReadySeen = $false  # 本次开启后是否就绪过（首次就绪只报一次）
+$script:SvcTailscaleServeUrl  = $null   # https://<机器名>.<tailnet>.ts.net:<外部端口>（serve 反代地址，就绪口径）
+$script:SvcTailscaleServeBase = ''      # 设置 serve 时的底座类型，底座切换后需重设上游
 
 # ---------- 内部工具 ----------
 
@@ -314,7 +334,8 @@ function Initialize-SvcEngine {
         [string]$Cloudflared,
         [string]$PythonPath = '',
         [string]$LogPrefix = 'careful_service_',
-        [string]$TunnelHost = '127.0.0.1'
+        [string]$TunnelHost = '127.0.0.1',
+        [string]$Tailscale = ''
     )
 
     $script:SvcPort = $Port
@@ -325,6 +346,7 @@ function Initialize-SvcEngine {
     $script:SvcPython = $PythonPath
     $script:SvcLogPrefix = $LogPrefix
     $script:SvcTunnelHost = $TunnelHost
+    $script:SvcTailscale = $Tailscale
 }
 
 function Resolve-SvcPython {
@@ -780,6 +802,378 @@ function Set-SvcTunnel {
     Stop-SvcTunnelProcess
 }
 
+# ---------- Tailscale（独立开关：管理本机 tailnet 连接）----------
+
+function Get-SvcTailscaleInfo {
+    # 只读探测：status --json -> BackendState + Self.TailscaleIPs[0]。
+    # daemon 不可达 / 解析失败一律返回 $null（上层按 DaemonDown 处理）。
+    # 输出用 Task 异步读，WaitForExit 带超时：daemon 卡死也不会把托盘线程一起拖死。
+    if (-not (Test-Path -LiteralPath $script:SvcTailscale -PathType Leaf)) {
+        return $null
+    }
+
+    try {
+        $Info = New-Object System.Diagnostics.ProcessStartInfo
+        $Info.FileName = $script:SvcTailscale
+        $Info.Arguments = 'status --json'
+        $Info.UseShellExecute = $false
+        $Info.CreateNoWindow = $true
+        $Info.RedirectStandardOutput = $true
+        $Info.RedirectStandardError = $true
+
+        $Process = New-Object System.Diagnostics.Process
+        $Process.StartInfo = $Info
+
+        if (-not $Process.Start()) {
+            return $null
+        }
+
+        $OutTask = $Process.StandardOutput.ReadToEndAsync()
+        $ErrTask = $Process.StandardError.ReadToEndAsync()
+
+        if (-not $Process.WaitForExit(8000)) {
+            try { Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue } catch {}
+            try { $Process.Dispose() } catch {}
+            return $null
+        }
+
+        $Output = ''
+        try { $Output = $OutTask.Result } catch {}
+        try { [void]$ErrTask.Result } catch {}
+        $Process.Dispose()
+
+        $Json = $Output | ConvertFrom-Json
+        $Ip = $null
+        if ($Json.Self -and $Json.Self.TailscaleIPs -and @($Json.Self.TailscaleIPs).Count -gt 0) {
+            $Ip = [string]@($Json.Self.TailscaleIPs)[0]
+        }
+
+        return [PSCustomObject]@{
+            Reachable = $true
+            State     = [string]$Json.BackendState
+            Ip        = $Ip
+        }
+    }
+    catch {
+        return $null
+    }
+}
+
+function Invoke-SvcTailscaleCli {
+    # 同步跑一条 tailscale CLI 命令（up / down），返回退出码是否为 0。
+    # CLI 走本地命名管道 API，无需管理员。
+    param(
+        [string[]]$CliArguments,
+        [int]$TimeoutMs = 15000
+    )
+
+    if (-not (Test-Path -LiteralPath $script:SvcTailscale -PathType Leaf)) {
+        return $false
+    }
+
+    try {
+        $Info = New-Object System.Diagnostics.ProcessStartInfo
+        $Info.FileName = $script:SvcTailscale
+        $Info.Arguments = ($CliArguments -join ' ')
+        $Info.UseShellExecute = $false
+        $Info.CreateNoWindow = $true
+        $Info.RedirectStandardOutput = $true
+        $Info.RedirectStandardError = $true
+
+        $Process = New-Object System.Diagnostics.Process
+        $Process.StartInfo = $Info
+
+        if (-not $Process.Start()) {
+            return $false
+        }
+
+        $OutTask = $Process.StandardOutput.ReadToEndAsync()
+        $ErrTask = $Process.StandardError.ReadToEndAsync()
+
+        if (-not $Process.WaitForExit($TimeoutMs)) {
+            try { Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue } catch {}
+            try { $Process.Dispose() } catch {}
+            return $false
+        }
+
+        try { [void]$OutTask.Result } catch {}
+        try { [void]$ErrTask.Result } catch {}
+        $Code = $Process.ExitCode
+        $Process.Dispose()
+
+        return ($Code -eq 0)
+    }
+    catch {
+        return $false
+    }
+}
+
+function Start-SvcTailscaleGui {
+    # 拉起官方 GUI（tailscale-ipn.exe，单实例）：需要登录 / 服务未装时由它处理（必要时自带 UAC）
+    if (-not (Test-Path -LiteralPath $script:SvcTailscale -PathType Leaf)) {
+        return
+    }
+
+    try {
+        $Gui = Join-Path (Split-Path -Parent $script:SvcTailscale) 'tailscale-ipn.exe'
+        if (Test-Path -LiteralPath $Gui -PathType Leaf) {
+            [void](Start-SvcQuietProcess -FilePath $Gui)
+        }
+    }
+    catch {
+    }
+}
+
+function Start-SvcTailscaleGuiThrottled {
+    # GUI 拉起节流（30 秒），避免探测循环里反复 spawn
+    $NeedGui = (
+        (-not $script:SvcTailscaleGuiAt) -or
+        (((Get-Date) - $script:SvcTailscaleGuiAt).TotalMilliseconds -gt 30000)
+    )
+
+    if ($NeedGui) {
+        $script:SvcTailscaleGuiAt = Get-Date
+        Start-SvcTailscaleGui
+    }
+}
+
+function Get-SvcTailscaleUrl {
+    return $script:SvcTailscaleServeUrl
+}
+
+function Get-SvcTailscaleServeStatusText {
+    # serve status --json 的原始输出（daemon 不可达时返回 ''）
+    if (-not (Test-Path -LiteralPath $script:SvcTailscale -PathType Leaf)) {
+        return ''
+    }
+
+    try {
+        $Info = New-Object System.Diagnostics.ProcessStartInfo
+        $Info.FileName = $script:SvcTailscale
+        $Info.Arguments = 'serve status --json'
+        $Info.UseShellExecute = $false
+        $Info.CreateNoWindow = $true
+        $Info.RedirectStandardOutput = $true
+        $Info.RedirectStandardError = $true
+
+        $Process = New-Object System.Diagnostics.Process
+        $Process.StartInfo = $Info
+
+        if (-not $Process.Start()) {
+            return ''
+        }
+
+        $OutTask = $Process.StandardOutput.ReadToEndAsync()
+        $ErrTask = $Process.StandardError.ReadToEndAsync()
+
+        if (-not $Process.WaitForExit(8000)) {
+            try { Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue } catch {}
+            try { $Process.Dispose() } catch {}
+            return ''
+        }
+
+        $Output = ''
+        try { $Output = $OutTask.Result } catch {}
+        try { [void]$ErrTask.Result } catch {}
+        $Process.Dispose()
+
+        return ([string]$Output)
+    }
+    catch {
+        return ''
+    }
+}
+
+function Find-SvcTailscaleServeUrl {
+    # 从 serve status --json 解析本节点的 ts.net 反代地址。
+    # ⚠️ JSON 里没有 https:// 字样：域名只出现在键名 "机器名.ts.net:<外部端口>" 里；
+    #    明文 https:// 形式只在非 JSON 的 status 输出里，两种都兼容。
+    # 匹配键必须带本服务的外部端口（= SvcPort），防止把 443 上别人手动配的服务认领成自己的。
+    $Text = Get-SvcTailscaleServeStatusText
+
+    if (-not $Text -or -not $Text.Contains(':' + $script:SvcPort)) {
+        return $null
+    }
+
+    $ServeHost = $null
+
+    if ($Text -match ('([A-Za-z0-9.-]+\.ts\.net):' + [regex]::Escape([string]$script:SvcPort))) {
+        $ServeHost = $Matches[1]
+    }
+    elseif ($Text -match 'https://([A-Za-z0-9.-]+\.ts\.net)(?::[0-9]+)?') {
+        $ServeHost = $Matches[1]
+    }
+
+    if (-not $ServeHost) {
+        return $null
+    }
+
+    return ('https://' + $ServeHost.TrimEnd('.') + ':' + $script:SvcPort + '/')
+}
+
+function Invoke-SvcTailscaleServeSet {
+    # tailscale serve --bg --https=<外部端口>：反代到 https://<机器名>.<tailnet>.ts.net:<外部端口>。
+    # 显式指定外部端口（与底座同号），不占用 443 —— 443 留给用户手动配的其他服务。
+    # HTTPS 底座时上游也是 TLS（自签名），得用 https+insecure 指过去。
+    # 配置本身秒级生效，证书在后台签发（首次约半分钟），超时只是防 daemon 卡死。
+    $Target = '127.0.0.1:' + $script:SvcPort
+
+    if ($script:SvcBase -eq 'https') {
+        $Target = 'https+insecure://127.0.0.1:' + $script:SvcPort
+    }
+
+    return (Invoke-SvcTailscaleCli -CliArguments @('serve', '--bg', ('--https=' + $script:SvcPort), $Target) -TimeoutMs 30000)
+}
+
+function Sync-SvcTailscale {
+    # 按「Tailscale 开关」对齐 tailnet 连接。托盘 tick 周期调用，Set-SvcTailscale 即时调用。
+    # 返回首次就绪时的访问地址（其余情况返回 ''，托盘只负责复制）。
+    if (-not $script:SvcTailscaleOn) {
+        return ''
+    }
+
+    # 探测节流：tick 2 秒一次，真实进程探测最多 5 秒一次
+    $NeedProbe = $true
+    if (
+        $script:SvcTailscaleProbeAt -and
+        (((Get-Date) - $script:SvcTailscaleProbeAt).TotalMilliseconds -lt 5000)
+    ) {
+        $NeedProbe = $false
+    }
+
+    if ($NeedProbe) {
+        $script:SvcTailscaleProbeAt = Get-Date
+        $Info = Get-SvcTailscaleInfo
+
+        if ($Info -and $Info.Reachable) {
+            $script:SvcTailscaleState = $Info.State
+            if ($Info.Ip) { $script:SvcTailscaleIp = $Info.Ip }
+        }
+        else {
+            $script:SvcTailscaleState = 'DaemonDown'
+        }
+    }
+
+    if ($script:SvcTailscaleState -ne 'Running') {
+        # 未连网：按 BackendState 自动拉起
+        switch ($script:SvcTailscaleState) {
+            'Stopped' {
+                # 服务在跑、tailnet 被断开：tailscale up 直接连回
+                if (Invoke-SvcTailscaleCli -CliArguments @('up')) {
+                    $script:SvcTailscaleProbeAt = $null
+                }
+                elseif (-not $script:SvcTailscaleWarned) {
+                    $script:SvcTailscaleWarned = $true
+                    Invoke-SvcNotify 'Tailscale 连接失败' 'tailscale up 未能连回 tailnet，请查看 Tailscale 窗口' 'Error'
+                }
+            }
+            'NeedsLogin' {
+                Start-SvcTailscaleGuiThrottled
+                if (-not $script:SvcTailscaleWarned) {
+                    $script:SvcTailscaleWarned = $true
+                    Invoke-SvcNotify 'Tailscale 需要登录' '已打开 Tailscale 窗口，请在窗口里完成登录' 'Warning'
+                }
+            }
+            default {
+                # DaemonDown / NoState：GUI 自己会带起服务（必要时 UAC）
+                Start-SvcTailscaleGuiThrottled
+                if (-not $script:SvcTailscaleWarned) {
+                    $script:SvcTailscaleWarned = $true
+                    Invoke-SvcNotify 'Tailscale 未运行' '已尝试打开 Tailscale，请按窗口提示启动或登录' 'Warning'
+                }
+            }
+        }
+
+        return ''
+    }
+
+    # tailnet 已连：确保 serve 反代（HTTPS）就位
+    $NeedServeSync = (
+        (-not $script:SvcTailscaleServeUrl) -or
+        ($script:SvcTailscaleServeBase -ne $script:SvcBase)
+    )
+
+    if ($NeedServeSync) {
+        # 先查现有配置（幂等：daemon 已有本端口反代就不用重设），
+        # set 后配置落到后端有 ~1 秒延迟，带重试轮询再定论（实测立刻读会拿到空 {}）。
+        $Found = Find-SvcTailscaleServeUrl
+
+        if (-not $Found) {
+            if (Invoke-SvcTailscaleServeSet) {
+                for ($Attempt = 0; $Attempt -lt 4 -and -not $Found; $Attempt++) {
+                    Start-Sleep -Milliseconds 500
+                    $Found = Find-SvcTailscaleServeUrl
+                }
+            }
+        }
+
+        if ($Found) {
+            $script:SvcTailscaleServeUrl = $Found
+            $script:SvcTailscaleServeBase = $script:SvcBase
+        }
+
+        if (-not $script:SvcTailscaleServeUrl) {
+            if (-not $script:SvcTailscaleWarned) {
+                $script:SvcTailscaleWarned = $true
+                Invoke-SvcNotify 'Tailscale HTTPS 配置失败' (
+                    'tailscale serve 未能就位，请在 Tailscale 管理台确认 MagicDNS 与 HTTPS 证书已开启') 'Error'
+            }
+
+            return ''
+        }
+    }
+
+    $script:SvcTailscaleWarned = $false
+
+    if (-not $script:SvcTailscaleReadySeen) {
+        $script:SvcTailscaleReadySeen = $true
+        Invoke-SvcNotify 'Tailscale' (
+            'HTTPS 已就绪：' + $script:SvcTailscaleServeUrl + '（首次访问需等证书签发约半分钟）') 'Info'
+        return $script:SvcTailscaleServeUrl
+    }
+
+    return ''
+}
+
+function Set-SvcTailscale {
+    param([bool]$On)
+
+    if ($On) {
+        if (-not (Test-Path -LiteralPath $script:SvcTailscale -PathType Leaf)) {
+            Invoke-SvcNotify '启动失败' '未找到 tailscale.exe，请先安装 Tailscale' 'Error'
+            return $false
+        }
+
+        $script:SvcTailscaleOn = $true
+        $script:SvcTailscaleWarned = $false
+        $script:SvcTailscaleReadySeen = $false
+        $script:SvcTailscaleProbeAt = $null
+        $script:SvcTailscaleGuiAt = $null
+        $script:SvcTailscaleServeUrl = $null
+        $script:SvcTailscaleServeBase = ''
+
+        [void](Sync-SvcTailscale)
+        return $true
+    }
+
+    # 关闭 = 撤掉 serve 反代 + tailscale down 断开 tailnet（服务与 GUI 保留，随时可再连回）
+    $script:SvcTailscaleOn = $false
+    $script:SvcTailscaleState = ''
+    $script:SvcTailscaleIp = $null
+    $script:SvcTailscaleWarned = $false
+    $script:SvcTailscaleReadySeen = $false
+    $script:SvcTailscaleProbeAt = $null
+    $script:SvcTailscaleServeUrl = $null
+    $script:SvcTailscaleServeBase = ''
+
+    if (Test-Path -LiteralPath $script:SvcTailscale -PathType Leaf) {
+        # 只撤本程序自己那条映射（--https=<端口> off），绝不全量 serve reset ——
+        # 节点上可能还有用户手动配的其他服务（比如占 443 的），一把 reset 会把别人清掉。
+        [void](Invoke-SvcTailscaleCli -CliArguments @('serve', ('--https=' + $script:SvcPort), 'off'))
+        [void](Invoke-SvcTailscaleCli -CliArguments @('down'))
+    }
+}
+
 # ---------- 定时健康检查（托盘 tick 调用）----------
 
 function Update-SvcTunnelUrl {
@@ -902,6 +1296,13 @@ function Get-SvcState {
         $TunnelRunning = (Test-SvcProcAlive $script:SvcTunnelProc) -or [bool]$script:SvcTunnelUrl
     }
 
+    $TailscaleRunning = $false
+    if ($script:SvcTailscaleOn) {
+        $TailscaleRunning = (
+            $script:SvcTailscaleState -eq 'Running' -and [bool]$script:SvcTailscaleServeUrl
+        )
+    }
+
     $Names = @()
 
     if ($script:SvcBase -eq 'http') {
@@ -919,10 +1320,15 @@ function Get-SvcState {
         $Names += '公网隧道'
     }
 
-    $AnyRunning = $BaseRunning -or $TunnelRunning
+    if ($script:SvcTailscaleOn) {
+        $Names += 'Tailscale'
+    }
+
+    $AnyRunning = $BaseRunning -or $TunnelRunning -or $TailscaleRunning
     $AllReady = (
         ($script:SvcBase -eq '' -or $BaseReady) -and
-        (-not $script:SvcTunnelOn -or [bool]$script:SvcTunnelUrl)
+        (-not $script:SvcTunnelOn -or [bool]$script:SvcTunnelUrl) -and
+        (-not $script:SvcTailscaleOn -or $TailscaleRunning)
     )
 
     if ($Names.Count -eq 0 -or -not $AnyRunning) {
@@ -947,9 +1353,14 @@ function Get-SvcState {
         HttpChecked      = ($script:SvcBase -eq 'http')
         HttpsChecked     = ($script:SvcBase -eq 'https')
         TunnelChecked    = [bool]$script:SvcTunnelOn
+        TailscaleChecked = [bool]$script:SvcTailscaleOn
+        TailscaleRunning = $TailscaleRunning
+        TailscaleUrl     = (Get-SvcTailscaleUrl)
         CanOpen          = $AnyRunning
         CanOpenLan       = $BaseRunning
         CanCopyUrl       = [bool]$script:SvcTunnelUrl
+        CanOpenTailscale = ($TailscaleRunning -and $BaseRunning)
+        CanCopyTailscaleUrl = $TailscaleRunning
         Tooltip          = ('本地服务：' + $StatusText)
     }
 }

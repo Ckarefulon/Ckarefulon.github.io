@@ -226,8 +226,12 @@
     const timestamps = extractTimestamps(raw);
     const moves = extractMoves(raw);
     const rawSolutionSequence = extractRawSolutionSequence(raw);
-    const snapshots = extractSnapshots(raw);
+    let snapshots = extractSnapshots(raw);
     const stateSequence = Array.isArray(raw.stateSequence) ? raw.stateSequence : snapshots;
+    // 落盘去重的还原（见 exportableSolve）：两份数组在保存时已证明完全相同，这里还原成两个独立数组
+    if (raw.snapshotsDup === true && !snapshots.length && Array.isArray(stateSequence)) {
+      snapshots = stateSequence.map(x => (x && typeof x === 'object') ? { ...x } : x);
+    }
     let steps = stepsFromFlat(raw, method);
     if (!steps.length) steps = stepsFromAnalysis(raw.analysis, method);
     if (totalTime == null && steps.length) totalTime = C.sum(steps.filter(s => !s.slotIndex).map(s => s.time));
@@ -264,6 +268,9 @@
       analysisVersion: num(raw.analysisVersion, raw.analysisFrame?.analysisVersion) || 0,
       colorNeutral: raw.colorNeutral !== false,
       gyroSamples: Array.isArray(raw.gyroSamples) ? raw.gyroSamples : [],
+      // 陀螺仪采样本体不落盘（体积原因），计数是唯一幸存记录，加载时必须还原
+      // （目前无人读取，但按「字段一个都不少」的口径绝不丢）
+      gyroSampleCount: num(raw.gyroSampleCount) ?? (Array.isArray(raw.gyroSamples) ? raw.gyroSamples.length : 0),
       source: first(raw.source, raw.hasReplay ? '智能魔方导入' : 'import'),
       raw,
       // 异常标记透传（2026-09-29）：体检标注与误报恢复状态必须随记录进入内存，load 后不得被重检覆盖
@@ -322,15 +329,58 @@
     }
   }
 
+  /* ---------- 落盘去重（2026-10-11）----------
+   * 只删「在保存这一刻可证完全相同」的字段，加载时原样还原；任何一处无法证明相同就原样保留。
+   * 因此这不是压缩、更不是丢弃：字段一个不少，值一个不变，只是不再把同一份数据存两遍。
+   *
+   * 目前仅两处成立：
+   *   1. moveTimestamps —— 所有写入方都直接等于 timestamps 的副本；
+   *   2. snapshots —— 当它与 stateSequence 逐项完全相同时（此时保留 stateSequence 即可还原两者）。
+   * 其余字段（含 4 个墙钟时间戳、isSlice / isRotation、gyroSampleCount 等目前无人读取的字段）
+   * 一律原样落盘，不做任何推断性删除。
+   */
+
+  function sameNumberArray(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (Number(a[i]) !== Number(b[i])) return false;
+    return true;
+  }
+
+  function sameObjectArray(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      const x = a[i], y = b[i];
+      if (x === y) continue;
+      if (!x || !y || typeof x !== 'object' || typeof y !== 'object') return false;
+      const kx = Object.keys(x), ky = Object.keys(y);
+      if (kx.length !== ky.length) return false;
+      for (const k of kx) if (x[k] !== y[k]) return false;
+    }
+    return true;
+  }
+
   function exportableSolve(s) {
-    return {
+    const out = {
       id:s.id,date:s.date,totalTime:s.totalTime,flag:s.flag,tps:s.tps,turnCount:s.turnCount,
       fluencyPercent:s.fluencyPercent,analysisType:s.analysisType,session:s.session,device:s.device,
-      scramble:s.scramble,timestamps:s.timestamps,moveTimestamps:s.moveTimestamps||s.timestamps,moves:s.moves,rawSolutionSequence:s.rawSolutionSequence||[],startFacelet:s.startFacelet,
-      snapshots:s.snapshots,stateSequence:s.stateSequence||s.snapshots||[],steps:s.steps,analysisFrame:s.analysisFrame||null,analysisVersion:s.analysisVersion||s.analysisFrame?.analysisVersion||0,colorNeutral:s.colorNeutral!==false,gyroSampleCount:Array.isArray(s.gyroSamples)?s.gyroSamples.length:0,timingMode:s.timingMode||'',captureType:s.captureType||'',source:s.source,
+      scramble:s.scramble,timestamps:s.timestamps,moves:s.moves,startFacelet:s.startFacelet,
+      snapshots:s.snapshots,stateSequence:s.stateSequence||s.snapshots||[],
+      rawSolutionSequence:s.rawSolutionSequence||[],
+      steps:s.steps,analysisFrame:s.analysisFrame||null,analysisVersion:s.analysisVersion||s.analysisFrame?.analysisVersion||0,
+      colorNeutral:s.colorNeutral!==false,timingMode:s.timingMode||'',captureType:s.captureType||'',source:s.source,
+      // 陀螺仪采样本体不落盘（体积原因），计数是唯一幸存记录，必须原样保留。
+      // 取「数组长度」与「显式计数」的较大值：加载后 gyroSamples 会还原为空数组，
+      // 只看 length 会把计数清零（二次保存即丢失）。
+      gyroSampleCount:Math.max(Array.isArray(s.gyroSamples)?s.gyroSamples.length:0,Number(s.gyroSampleCount)||0),
       // 异常标记透传（2026-09-29）：记录永不删除，体检标注与误报恢复状态必须随记录落盘
       anomaly:Array.isArray(s.anomaly)?s.anomaly:undefined, anomalyCleared:s.anomalyCleared===true?true:undefined,
     };
+    // 与 timestamps 完全相同的副本不再落盘（加载时还原为独立数组，语义不变）
+    if (sameNumberArray(s.moveTimestamps, s.timestamps)) out.moveTimestampsDup = true;
+    else out.moveTimestamps = s.moveTimestamps;
+    // snapshots 与 stateSequence 完全相同时只存一份（加载时还原为两个独立数组）
+    if (sameObjectArray(s.snapshots, out.stateSequence)) out.snapshotsDup = true;
+    return out;
   }
 
   window.CubeAnalyzerImport = { normalizeSolve, parseJSON, parseCSV, parseAny, exportableSolve, timeToMs, stepsFromAnalysis };
