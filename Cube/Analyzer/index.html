@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/nav/nav.css?v=1877">
   <link rel="stylesheet" href="../assets/scramble/scramble.css?v=1892">
   <link rel="stylesheet" href="../assets/state-reset/state-reset.css?v=1949">
-  <link rel="stylesheet" href="./analyzer.css?v=2034">
+  <link rel="stylesheet" href="./analyzer.css?v=2083">
 
   <script src="../assets/base/jquery-4.0.0.min.js"></script>
   <script src="../assets/base/compat.js?v=1877" defer></script>
@@ -49,6 +49,12 @@
   <script src="../assets/state-reset/state-reset.js?v=1949" defer></script>
   <script src="../assets/bluetooth/facelet-gap.js?v=1927" defer></script>
 
+  <!-- 3D 魔方（Cube 公用：pnltri → three → twisty → twistynnn），录像回放用 -->
+  <script src="../assets/cube-3d/pnltri.js?v=1877" defer></script>
+  <script src="../assets/cube-3d/threemin.js?v=1877" defer></script>
+  <script src="../assets/cube-3d/twisty.js?v=1877" defer></script>
+  <script src="../assets/cube-3d/twistynnn.js?v=1977" defer></script>
+
   <script src="./analyzer-core.js?v=1877" defer></script>
   <script src="./analyzer-import.js?v=2063" defer></script>
   <script src="./analyzer-charts.js?v=1877" defer></script>
@@ -61,7 +67,8 @@
   <script src="../assets/audio/cube-audio.js?v=2034" defer></script>
   <script src="./analyzer-quality.js?v=2005" defer></script>
   <script src="./analyzer-ai.js?v=2005" defer></script>
-  <script src="./analyzer-app.js?v=2063" defer></script>
+  <script src="./analyzer-replay.js?v=2083" defer></script>
+  <script src="./analyzer-app.js?v=2083" defer></script>
 </head>
 <body data-workspace="training">
   <div class="page-shell">
@@ -208,6 +215,7 @@
   </div>
 
   <div class="toast" id="toast" role="status"></div>
+  <div class="modal-backdrop" id="replayModal" hidden></div>
   <div class="modal-backdrop" id="solveModal" hidden>
     <div class="modal card" role="dialog" aria-modal="true" aria-labelledby="solveModalTitle">
       <div class="modal-head"><h2 id="solveModalTitle">单次详情</h2><button class="icon-btn" id="closeSolveModal" type="button">×</button></div>

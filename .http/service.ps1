@@ -30,6 +30,7 @@ $ErrorActionPreference = 'Stop'
 # ---------- 配置 ----------
 
 $script:SvcPort        = 9527
+$script:SvcVersion     = '1.0.0'
 $script:SvcRoot        = ''
 $script:SvcHttpsScript = ''
 $script:SvcSetupScript = ''
@@ -1363,6 +1364,77 @@ function Get-SvcState {
         CanCopyTailscaleUrl = $TailscaleRunning
         Tooltip          = ('本地服务：' + $StatusText)
     }
+}
+
+# ---------- 菜单动作（托盘右键与命令行共用同一份实现，避免两边行为漂移）----------
+#
+# 命名对齐托盘菜单项：Toggle-* 是「再点一次就取消」的勾选语义，
+# 与 launcher.ps1 里各菜单项点击回调完全一致。
+
+function Invoke-SvcToggleBase {
+    # HTTP 服务 / HTTPS 服务菜单项：已勾选 -> 全部停止；未勾选 -> 底座切过去
+    param(
+        [ValidateSet('http', 'https')]
+        [string]$Kind
+    )
+
+    $State = Get-SvcState
+
+    $Checked = $State.HttpChecked
+    if ($Kind -eq 'https') {
+        $Checked = $State.HttpsChecked
+    }
+
+    if ($Checked) {
+        Clear-SvcBase
+    }
+    else {
+        Set-SvcBase $Kind
+    }
+}
+
+function Invoke-SvcToggleTunnel {
+    # 公网隧道菜单项
+    Set-SvcTunnel (-not (Get-SvcState).TunnelChecked)
+}
+
+function Invoke-SvcToggleTailscale {
+    # Tailscale 菜单项
+    if ((Get-SvcState).TailscaleChecked) {
+        Set-SvcTailscale $false
+    }
+    else {
+        [void](Set-SvcTailscale $true)
+    }
+}
+
+function Invoke-SvcOpenPage {
+    # 打开主页菜单项（Lan = $true 则是「局域网页面」）
+    param(
+        [bool]$Lan = $false
+    )
+
+    Start-Process (Get-SvcOpenUrl -Lan $Lan)
+}
+
+function Invoke-SvcCopyTunnelUrl {
+    # 复制隧道地址菜单项
+    $Url = (Get-SvcState).TunnelUrl
+    if ($Url) {
+        Set-Clipboard -Value $Url
+    }
+
+    return $Url
+}
+
+function Invoke-SvcCopyTailscaleUrl {
+    # 复制 Tailscale 地址菜单项
+    $Url = (Get-SvcState).TailscaleUrl
+    if ($Url) {
+        Set-Clipboard -Value $Url
+    }
+
+    return $Url
 }
 
 function Get-SvcOpenUrl {

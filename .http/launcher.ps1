@@ -12,6 +12,10 @@ $IconPath = Join-Path $PSScriptRoot 'icon.ico'
 
 . (Join-Path $PSScriptRoot 'network.ps1')
 . (Join-Path $PSScriptRoot 'service.ps1')
+. (Join-Path $PSScriptRoot 'control.ps1')
+
+# 命令行控制通道：先起监听线程（后台），命令由下面的 $CtlTimer 在 UI 线程上执行
+Initialize-CtlChannel -Port 9527
 
 # 单实例保护
 $CreatedNew = $false
@@ -200,14 +204,7 @@ Initialize-SvcEngine `
 
 $HttpItem.Add_Click({
     try {
-        # 已勾选 -> 全部停止；未勾选 -> 底座切到 HTTP（隧道若开着则跟随重启）
-        if ((Get-SvcState).HttpChecked) {
-            Clear-SvcBase
-        }
-        else {
-            Set-SvcBase 'http'
-        }
-
+        Invoke-SvcToggleBase 'http'
         Update-TrayStatus
     }
     catch {
@@ -217,13 +214,7 @@ $HttpItem.Add_Click({
 
 $HttpsItem.Add_Click({
     try {
-        if ((Get-SvcState).HttpsChecked) {
-            Clear-SvcBase
-        }
-        else {
-            Set-SvcBase 'https'
-        }
-
+        Invoke-SvcToggleBase 'https'
         Update-TrayStatus
     }
     catch {
@@ -233,13 +224,7 @@ $HttpsItem.Add_Click({
 
 $TunnelItem.Add_Click({
     try {
-        if ((Get-SvcState).TunnelChecked) {
-            Set-SvcTunnel $false
-        }
-        else {
-            Set-SvcTunnel $true
-        }
-
+        Invoke-SvcToggleTunnel
         Update-TrayStatus
     }
     catch {
@@ -249,13 +234,7 @@ $TunnelItem.Add_Click({
 
 $TailscaleItem.Add_Click({
     try {
-        if ((Get-SvcState).TailscaleChecked) {
-            Set-SvcTailscale $false
-        }
-        else {
-            [void](Set-SvcTailscale $true)
-        }
-
+        Invoke-SvcToggleTailscale
         Update-TrayStatus
     }
     catch {
@@ -273,8 +252,7 @@ $LanItem.Add_Click({
 
 $CopyUrlItem.Add_Click({
     try {
-        $Url = (Get-SvcState).TunnelUrl
-        if ($Url) { Set-Clipboard -Value $Url }
+        Invoke-SvcCopyTunnelUrl
     }
     catch {
         Write-SvcTrayError $_
@@ -287,8 +265,7 @@ $TsOpenItem.Add_Click({
 
 $TsCopyItem.Add_Click({
     try {
-        $Url = (Get-SvcState).TailscaleUrl
-        if ($Url) { Set-Clipboard -Value $Url }
+        Invoke-SvcCopyTailscaleUrl
     }
     catch {
         Write-SvcTrayError $_
@@ -300,7 +277,8 @@ $TrayIcon.Add_DoubleClick({
     try { Open-Page $false } catch { Write-SvcTrayError $_ }
 })
 
-$ExitItem.Add_Click({
+function Invoke-TrayExit {
+    # 「退出并停止」的唯一实现：菜单项和命令行 exit 都走这里，避免两套清理逻辑
     try {
         Stop-SvcAll
 
@@ -319,9 +297,11 @@ $ExitItem.Add_Click({
     }
 
     [System.Windows.Forms.Application]::ExitThread()
-})
+}
 
-# 定时刷新状态、健康检查、轮询隧道地址
+$ExitItem.Add_Click({ Invoke-TrayExit })
+
+# 定时刷新状态、健康检查、轮询隧道地址、处理命令行控制请求
 # 回调里必须整体兜异常：一旦有异常冒泡出事件回调，整个托盘进程会被带走。
 $Timer = New-Object System.Windows.Forms.Timer
 $Timer.Interval = 2000
@@ -349,6 +329,32 @@ $Timer.Add_Tick({
     }
 })
 $Timer.Start()
+
+# 命令行控制通道：单独的快速定时器（100ms），别挂在 2 秒的状态定时器上 ——
+# 命令行是同步等回包的，2 秒一跳会让每条命令白等两秒。
+$CtlTimer = New-Object System.Windows.Forms.Timer
+$CtlTimer.Interval = 100
+$CtlTimer.Add_Tick({
+    try {
+        Update-CtlChannel
+
+        # exit：回包已写进队列（后台线程负责发给客户端），这里再收摊。
+        # 不能立刻退 —— 会抢在客户端读到回包之前把管道断掉，所以留 400ms 再收。
+        if ($script:CtlExitRequested) {
+            $script:CtlExitRequested = $false
+            $script:CtlExitAt = (Get-Date).AddMilliseconds(400)
+        }
+
+        if ($script:CtlExitAt -and (Get-Date) -ge $script:CtlExitAt) {
+            $script:CtlExitAt = $null
+            Invoke-TrayExit
+        }
+    }
+    catch {
+        Write-SvcTrayError $_
+    }
+})
+$CtlTimer.Start()
 
 # 启动方式：参数 http|https|tunnel|http+tunnel|https+tunnel|ts 及 +ts 组合，默认 http
 $StartupBase = 'http'

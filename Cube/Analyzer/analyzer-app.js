@@ -1,6 +1,7 @@
 (() => {
   'use strict';
   const C=window.CubeAnalyzerCore, I=window.CubeAnalyzerImport, Ch=window.CubeAnalyzerCharts, Cube=window.CubeAnalyzerSmartCube, A=window.CubeAnalyzerSolveAnalysis;
+  const Replay=window.CubeAnalyzerReplay;
   const esc=Ch.esc;
   // DNF 只存在于记录中：记录列表与复原次数包含它，所有分析（趋势/AO/分段/TPS/Case 等）一律排除。
   const noDnf=s=>s&&C.normalizeFlag(s.flag)!=='dnf';
@@ -307,8 +308,8 @@
   function renderSolves(solves){
     const el=$('#solvesContent');if(!solves.length){el.innerHTML=empty('没有单次数据','调整筛选条件。');return}
     const rows=solves.slice().reverse().slice(0,300);
-    el.innerHTML=panel('单次复盘',`显示最近 ${rows.length} / ${solves.length} 次；点击查看本次训练详情；⚠ 为异常标记记录（保留在列表，已从统计中排除）`,`<div class="solve-list">${rows.map(s=>`<article class="card solve-row-card" data-id="${esc(s.id)}"><div><div class="solve-time ${C.normalizeFlag(s.flag)==='dnf'?'bad':''}">${solveTime(s)}</div><div class="solve-date">${fmtDate(s.date)}${Q&&Q.active(s)?' <span class="anomaly-flag" title="'+esc(Q.label(s.anomaly))+'">⚠ 异常</span>':''}</div></div><div><strong>${esc(s.analysisType)}</strong><span class="mini-label">${esc(s.session)}</span></div><div class="data-col"><span class="mini-label">TPS</span><span class="mono">${fmtNum(s.tps)}</span></div><div class="data-col"><span class="mini-label">Turns</span><span class="mono">${fmtNum(s.turnCount,0)}</span></div><div class="optional-col data-col"><span class="mini-label">Fluency</span><span class="mono">${fmtNum(s.fluencyPercent,0)}%</span></div><div class="optional-col data-col"><span class="mini-label">Device</span><span>${esc(s.device)}</span></div><div class="accent">›</div></article>`).join('')}</div>`);
-    el.onclick=e=>{const row=e.target.closest('[data-id]');if(row)openSolve(solves.find(s=>String(s.id)===row.dataset.id))};
+    el.innerHTML=panel('单次复盘',`显示最近 ${rows.length} / ${solves.length} 次；点击查看本次训练详情；▶ 可直接录像回放；⚠ 为异常标记记录（保留在列表，已从统计中排除）`,`<div class="solve-list">${rows.map(s=>`<article class="card solve-row-card" data-id="${esc(s.id)}"><div><div class="solve-time ${C.normalizeFlag(s.flag)==='dnf'?'bad':''}">${solveTime(s)}</div><div class="solve-date">${fmtDate(s.date)}${Q&&Q.active(s)?' <span class="anomaly-flag" title="'+esc(Q.label(s.anomaly))+'">⚠ 异常</span>':''}</div></div><div><strong>${esc(s.analysisType)}</strong><span class="mini-label">${esc(s.session)}</span></div><div class="data-col"><span class="mini-label">TPS</span><span class="mono">${fmtNum(s.tps)}</span></div><div class="data-col"><span class="mini-label">Turns</span><span class="mono">${fmtNum(s.turnCount,0)}</span></div><div class="optional-col data-col"><span class="mini-label">Fluency</span><span class="mono">${fmtNum(s.fluencyPercent,0)}%</span></div><div class="optional-col data-col"><span class="mini-label">Device</span><span>${esc(s.device)}</span></div><div class="row-actions">${Replay&&Replay.available(s)?`<button type="button" class="replay-entry" data-replay="${esc(s.id)}" title="录像回放">▶</button>`:''}<span class="accent">›</span></div></article>`).join('')}</div>`);
+    el.onclick=e=>{const rp=e.target.closest('[data-replay]');if(rp){e.stopPropagation();openReplay(solves.find(s=>String(s.id)===rp.dataset.replay));return}const row=e.target.closest('[data-id]');if(row)openSolve(solves.find(s=>String(s.id)===row.dataset.id))};
   }
 
   function detailSteps(s){
@@ -324,10 +325,27 @@
     const turnTs=C.turnTimestamps(s);const lastTurn=turnTs.length?turnTs[turnTs.length-1]:null;
     const reaction=Number.isFinite(lastTurn)&&Number(s.totalTime)>lastTurn?Number(s.totalTime)-lastTurn:null;
     const rows=steps.map(x=>{const label=x.slotIndex?`F2L ${x.slotIndex}`:(x.label||x.name||x.key||'Stage');const caseText=x.caseName||((x.caseType&&x.caseIndex!=null)?`${x.caseType} ${x.caseIndex}`:'—');const aufText=x.auf&&x.auf.count?`${esc(x.auf.pre.join(' ')||'—')} → ${esc(x.auf.post.join(' ')||'—')}`:'—';return `<tr><td><strong>${esc(label)}</strong></td><td>${esc(caseText)}</td><td>${aufText}</td><td class="mono">${fmtMs(x.time)}</td><td class="mono">${fmtMs(x.recognition)}</td><td class="mono">${fmtMs(x.execution)}</td><td class="mono">${fmtNum(x.turns,0)}</td><td class="mono">${Number(x.execution)>0?fmtNum(Number(x.turns||0)*1000/Number(x.execution)):'—'}</td></tr>`}).join('');
-    body.innerHTML=`${Q&&Q.active(s)?`<div class="callout" style="margin-bottom:10px"><strong>异常标记</strong> · ${esc(Q.label(s.anomaly))}；本条已从统计中排除（记录原样保留，可在数据体检中确认为误报后恢复纳入）。</div>`:''}<div class="detail-grid"><div class="detail-item"><span class="mini-label">Time</span><strong>${solveTime(s)}</strong></div><div class="detail-item"><span class="mini-label">TPS</span><strong>${fmtNum(s.tps)}</strong></div><div class="detail-item"><span class="mini-label">Turns</span><strong>${fmtNum(s.turnCount,0)}</strong></div><div class="detail-item"><span class="mini-label">Fluency</span><strong>${fmtNum(s.fluencyPercent,0)}%</strong></div></div>${steps.length?splitStack(steps,total):''}<div class="table-wrap"><table><thead><tr><th>Stage</th><th>Case</th><th>AUF</th><th>Time</th><th>Recognition</th><th>Execution</th><th>Turns</th><th>Exec TPS</th></tr></thead><tbody>${rows||'<tr><td colspan="8">无法可靠分段；保留原始动作与成绩，不生成猜测阶段。</td></tr>'}</tbody></table></div><div style="height:10px"></div><div class="callout"><strong>Scramble</strong><br><span class="mono">${esc(s.scramble||'—')}</span><br><br><strong>动作记录</strong> · ${s.timestamps?.length||0} logical events · ${s.rawSolutionSequence?.reduce((n,x)=>n+(Array.isArray(x.rawMoves)&&x.rawMoves.length?x.rawMoves.length:1),0)||s.timestamps?.length||0} raw moves · ${esc(s.device)}<br><strong>数据源</strong> · ${esc(s.source||'import')}<br><strong>解法方位</strong> · ${s.analysisFrame?.autoDetected?(s.analysisFrame.crossFace?`识别底面 ${esc(s.analysisFrame.crossFace)}`:'六色底 / 任意持握自动识别'):'未可靠识别'}${reaction!=null?`<br><strong>复原后停表反应</strong> · ${fmtMs(reaction)}（不计入最后阶段执行时间）`:''}</div><div class="ai-ask-row"><button class="btn btn-ghost" id="askAiBtn" type="button">问 AI · 分析这把</button></div><div id="askAiHost"></div>`;
+    body.innerHTML=`${Q&&Q.active(s)?`<div class="callout" style="margin-bottom:10px"><strong>异常标记</strong> · ${esc(Q.label(s.anomaly))}；本条已从统计中排除（记录原样保留，可在数据体检中确认为误报后恢复纳入）。</div>`:''}<div class="detail-grid"><div class="detail-item"><span class="mini-label">Time</span><strong>${solveTime(s)}</strong></div><div class="detail-item"><span class="mini-label">TPS</span><strong>${fmtNum(s.tps)}</strong></div><div class="detail-item"><span class="mini-label">Turns</span><strong>${fmtNum(s.turnCount,0)}</strong></div><div class="detail-item"><span class="mini-label">Fluency</span><strong>${fmtNum(s.fluencyPercent,0)}%</strong></div></div>${steps.length?splitStack(steps,total):''}<div class="table-wrap"><table><thead><tr><th>Stage</th><th>Case</th><th>AUF</th><th>Time</th><th>Recognition</th><th>Execution</th><th>Turns</th><th>Exec TPS</th></tr></thead><tbody>${rows||'<tr><td colspan="8">无法可靠分段；保留原始动作与成绩，不生成猜测阶段。</td></tr>'}</tbody></table></div><div style="height:10px"></div><div class="callout"><strong>Scramble</strong><br><span class="mono">${esc(s.scramble||'—')}</span><br><br><strong>动作记录</strong> · ${s.timestamps?.length||0} logical events · ${s.rawSolutionSequence?.reduce((n,x)=>n+(Array.isArray(x.rawMoves)&&x.rawMoves.length?x.rawMoves.length:1),0)||s.timestamps?.length||0} raw moves · ${esc(s.device)}<br><strong>数据源</strong> · ${esc(s.source||'import')}<br><strong>解法方位</strong> · ${s.analysisFrame?.autoDetected?(s.analysisFrame.crossFace?`识别底面 ${esc(s.analysisFrame.crossFace)}`:'六色底 / 任意持握自动识别'):'未可靠识别'}${reaction!=null?`<br><strong>复原后停表反应</strong> · ${fmtMs(reaction)}（不计入最后阶段执行时间）`:''}</div><div class="solve-detail-actions">${Replay&&Replay.available(s)?`<button class="btn btn-primary" id="openReplayBtn" type="button">录像回放</button>`:''}<button class="btn btn-ghost" id="askAiBtn" type="button">问 AI · 分析这把</button></div><div id="askAiHost"></div>`;
     const askBtn=$('#askAiBtn');
     if(askBtn)askBtn.onclick=()=>{if(window.CubeAnalyzerAI)CubeAnalyzerAI.askSolve(s,$('#askAiHost'));else notify('AI 模块未加载')};
+    const replayBtn=$('#openReplayBtn');
+    if(replayBtn)replayBtn.onclick=()=>{openReplay(s)};
     modal.hidden=false;
+  }
+
+  /* —— 录像回放入口（2026-10-12）——
+   * 回放是独立的全屏弹窗：从单次详情进入时先把详情弹窗收起，避免两层遮罩叠在一起。
+   * 关闭回放后由 window._replayOnClose 决定是否把详情弹窗再放回来。 */
+  function openReplay(s){
+    if(!s)return;
+    if(!Replay||!Replay.available(s)){notify('这条记录没有完整的动作时间戳，无法回放');return}
+    const detailWasOpen=!$('#solveModal').hidden;
+    if(detailWasOpen)$('#solveModal').hidden=true;
+    window._replayOnClose=detailWasOpen?()=>{ if(s)openSolve(s) }:(null);
+    if(!Replay.open(s)){
+      window._replayOnClose=null;
+      if(detailWasOpen)openSolve(s);
+    }
   }
 
 
@@ -748,7 +766,7 @@
     $('#sessionSummary').textContent=solves.length?`${solves.length} 次 · ${$('#trainingMethod').value}`:'暂无成绩';
     $('#sessionMetrics').innerHTML=S?`<div><span>Latest</span><strong>${solveTime(solves[solves.length-1])}</strong></div><div><span>AO5</span><strong>${S.ao5?.isDNF?'DNF':fmtMs(S.ao5?.time)}</strong></div><div><span>AO12</span><strong>${S.ao12?.isDNF?'DNF':fmtMs(S.ao12?.time)}</strong></div><div><span>Best</span><strong>${fmtMs(S.best)}</strong></div>`:`<div class="muted">完成第一把后显示统计</div>`;
     const rows=state.solves.slice(-8).reverse();
-    $('#trainingRecent').innerHTML=rows.length?`<div class="training-solve-list">${rows.map(s=>`<div class="training-solve-row" data-open="${esc(s.id)}"><div><strong class="mono">${solveTime(s)}</strong><span>${fmtDate(s.date)}</span></div><div><strong>${esc(s.session)}</strong><span>${esc(s.device)}</span></div><div class="recent-stats"><span>TPS ${fmtNum(s.tps)}</span><span>${fmtNum(s.turnCount,0)} turns</span></div><div class="recent-actions"><button type="button" data-penalty="plus_two" data-id="${esc(s.id)}">+2</button><button type="button" data-penalty="dnf" data-id="${esc(s.id)}">DNF</button><button type="button" data-delete="${esc(s.id)}">删除</button></div></div>`).join('')}</div>`:empty('还没有训练记录','连接智能魔方开始训练，或使用空格进行手动计时。');
+    $('#trainingRecent').innerHTML=rows.length?`<div class="training-solve-list">${rows.map(s=>`<div class="training-solve-row" data-open="${esc(s.id)}"><div><strong class="mono">${solveTime(s)}</strong><span>${fmtDate(s.date)}</span></div><div><strong>${esc(s.session)}</strong><span>${esc(s.device)}</span></div><div class="recent-stats"><span>TPS ${fmtNum(s.tps)}</span><span>${fmtNum(s.turnCount,0)} turns</span></div><div class="recent-actions">${Replay&&Replay.available(s)?`<button type="button" data-replay="${esc(s.id)}" title="录像回放">▶ 回放</button>`:''}<button type="button" data-penalty="plus_two" data-id="${esc(s.id)}">+2</button><button type="button" data-penalty="dnf" data-id="${esc(s.id)}">DNF</button><button type="button" data-delete="${esc(s.id)}">删除</button></div></div>`).join('')}</div>`:empty('还没有训练记录','连接智能魔方开始训练，或使用空格进行手动计时。');
   }
 
   function changePenalty(id,flag){const s=state.solves.find(x=>String(x.id)===String(id));if(!s)return;s.flag=C.normalizeFlag(s.flag)===flag?'ok':flag;save(true);renderTrainerSummary();renderAll()}
@@ -836,8 +854,8 @@
     const qBtn=$('#qualityBtn');if(qBtn)qBtn.onclick=openQuality;
     const sAi=$('#sessionAiBtn');
     if(sAi)sAi.onclick=()=>{if(!sessionSolves().length){notify('本 Session 还没有成绩');return}switchWorkspace('analysis');state.activeTab='ai';$$('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab==='ai'));$$('.tab-panel').forEach(x=>x.classList.toggle('active',x.dataset.panel==='ai'));if(window.CubeAnalyzerAI)CubeAnalyzerAI.renderTabShell();};
-    $('#trainingRecent').onclick=e=>{const p=e.target.closest('[data-penalty]'),del=e.target.closest('[data-delete]');if(p){e.stopPropagation();changePenalty(p.dataset.id,p.dataset.penalty);return}if(del){e.stopPropagation();deleteSolve(del.dataset.delete);return}const row=e.target.closest('[data-open]');if(row)openSolve(state.solves.find(s=>String(s.id)===row.dataset.open))};
-    document.addEventListener('keydown',e=>{if(e.code!=='Space'||e.repeat||/INPUT|TEXTAREA|SELECT|BUTTON/.test(document.activeElement?.tagName||''))return;if(state.workspaceMode!=='training')return;e.preventDefault();handleSpaceTimer()});
+    $('#trainingRecent').onclick=e=>{const rp=e.target.closest('[data-replay]');if(rp){e.stopPropagation();openReplay(state.solves.find(s=>String(s.id)===rp.dataset.replay));return}const p=e.target.closest('[data-penalty]'),del=e.target.closest('[data-delete]');if(p){e.stopPropagation();changePenalty(p.dataset.id,p.dataset.penalty);return}if(del){e.stopPropagation();deleteSolve(del.dataset.delete);return}const row=e.target.closest('[data-open]');if(row)openSolve(state.solves.find(s=>String(s.id)===row.dataset.open))};
+    document.addEventListener('keydown',e=>{if(e.code!=='Space'||e.repeat||/INPUT|TEXTAREA|SELECT|BUTTON/.test(document.activeElement?.tagName||''))return;if(state.workspaceMode!=='training')return;if(Replay&&Replay.isOpen())return;e.preventDefault();handleSpaceTimer()});
 
     $('#importBtn').onclick=()=>$('#fileInput').click();$('#fileInput').onchange=async e=>{try{await mergeImportFiles([...e.target.files])}catch(err){console.error(err);notify(`导入失败：${err.message}`)}finally{e.target.value=''}};
     $('#exportBtn').onclick=()=>download(`cube-analyzer-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(window.CubeAnalyzerCloud?window.CubeAnalyzerCloud.buildLocalPayload():{version:2,data:{cubeAnalyzerData:{name:'训练数据',solves:state.solves.map(I.exportableSolve)}}},null,2));
@@ -845,7 +863,7 @@
     ['method','session','device'].forEach(k=>{$(`#${k}Filter`).onchange=e=>{state.filters[k]=e.target.value;renderAll()}});$('#startDate').onchange=e=>{state.filters.start=e.target.value;renderAll()};$('#endDate').onchange=e=>{state.filters.end=e.target.value;renderAll()};
     $('#resetFilterBtn').onclick=()=>{state.filters={method:'all',session:'all',device:'all',start:'',end:''};syncFilterUI();renderAll()};
     $('#tabs').onclick=e=>{const b=e.target.closest('.tab[data-tab]');if(!b)return;state.activeTab=b.dataset.tab;$$('.tab').forEach(x=>x.classList.toggle('active',x===b));$$('.tab-panel').forEach(x=>x.classList.toggle('active',x.dataset.panel===state.activeTab))};
-    $('#closeSolveModal').onclick=()=>$('#solveModal').hidden=true;$('#solveModal').onclick=e=>{if(e.target===$('#solveModal'))$('#solveModal').hidden=true};document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#solveModal').hidden=true});
+    $('#closeSolveModal').onclick=()=>$('#solveModal').hidden=true;$('#solveModal').onclick=e=>{if(e.target===$('#solveModal'))$('#solveModal').hidden=true};document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!(Replay&&Replay.isOpen()))$('#solveModal').hidden=true});
     window.addEventListener('cube-analyzer-cloud-sync',e=>updateCloudIndicator(e.detail?.success?'已保存到 Supabase':'云保存失败'));
   }
 
