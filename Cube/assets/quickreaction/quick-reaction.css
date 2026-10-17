@@ -1,0 +1,76 @@
+/*
+ * Formula 练习辅助样式（Cube 公用）
+ * ---------------------------------------------------------------------------
+ * 归属：Cube/assets/quickreaction/，Formula 练习模式挂载。
+ * 只剩节拍器面板一组（案例图案与题源切换已随案例并入公式库而移除）。
+ *
+ * 口径：设计令牌一律 dsk-*；不写 position:fixed（本模块没有任何悬浮入口）。
+ */
+
+.metroControls {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.metroTitle {
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-foreground-subtle);
+	flex: none;
+}
+
+.metroRange {
+	width: 110px;
+	accent-color: var(--dsk-primary);
+}
+
+.metroTps {
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-sm);
+	font-weight: 700;
+	color: var(--dsk-accent);
+	min-width: 40px;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+.metroBeat {
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-sm);
+	font-weight: 700;
+	color: var(--dsk-foreground-subtle);
+	min-width: 14px;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+	transition: color .06s linear, transform .06s linear;
+}
+
+.metroBeat.isBeat {
+	color: var(--dsk-accent);
+	transform: scale(1.35);
+}
+
+.metroBtn {
+	font: inherit;
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	padding: 3px 10px;
+	border-radius: var(--dsk-radius-full);
+	border: 1px solid var(--dsk-card-border);
+	background: transparent;
+	color: var(--dsk-foreground-muted);
+	cursor: pointer;
+	transition: color .16s ease, border-color .16s ease;
+}
+
+.metroBtn:hover {
+	color: var(--dsk-accent);
+	border-color: var(--dsk-accent-ring);
+}
+
+.metroBtn:focus-visible {
+	outline: 2px solid var(--dsk-accent-ring);
+	outline-offset: 1px;
+}
