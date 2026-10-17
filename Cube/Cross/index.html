@@ -22,15 +22,15 @@
 	<!-- 站点导航栏（登录态由 nav 触发 authManager.init，必须先于云同步） -->
 	<link rel="stylesheet" href="/ui/colors_and_type.css">
 	<link rel="stylesheet" href="/nav/nav.css?v=1877">
-	<script src="/nav/nav.js?v=1892" defer></script>
+	<script src="/nav/nav.js?v=2143" defer></script>
 
 	<!-- Cube 功能块样式（展开图 / 打乱视图）在前，页面自己的样式在后 -->
 	<link rel="stylesheet" href="../assets/cube-net/cube-net.css?v=1877">
 	<link rel="stylesheet" href="../assets/scramble/scramble.css?v=1892">
 	<link rel="stylesheet" href="../assets/state-reset/state-reset.css?v=1949">
-	<link rel="stylesheet" href="cross.css?v=1877" data-page-node-id="cGMKbHBoFi4OXcPWKCl2dg">
+	<link rel="stylesheet" href="cross.css?v=2143" data-page-node-id="cGMKbHBoFi4OXcPWKCl2dg">
 
-	<script src="/assets/services/core/site-scope.js?v=1877" defer></script>
+	<script src="/assets/services/core/site-scope.js?v=2143" defer></script>
 	<!-- 云同步（Supabase，登录态与 Formula 共享） -->
 	<script src="../../assets/vendor/supabase/supabase.min.js" defer></script>
 	<script src="/supabase/supabase-config.js?v=1877" defer></script>
@@ -75,6 +75,8 @@
 				<button class="btn btnGhost btnSm" id="cubeBtn" type="button" data-page-node-id="LaKo1qz6JFTGl0EbGKDzSP">状态图</button>
 				<button class="btn btnPrimary btnSm" id="newScramble" type="button" data-page-node-id="5WiZD7EVWC0YoCQhdWdtr2">换一条</button>
 			</div>
+			<!-- 十字难度徽章：六底色最优步数 + 7+ 难十字标记（CrossJudge 渲染，规则吸收自 XC大师） -->
+			<div class="diffRow" id="crossDiff" hidden></div>
 			<div class="cubePopWrap" id="cubePopWrap" data-page-node-id="jAVwq3fmL09hfgHt4UJaYW">
 				<div class="cubePop" id="cubePop" data-page-node-id="RmrsjFacnOXR0qUYreyPNJ">
 					<div class="cubePopHead" data-page-node-id="ObURqn54mi3QcCp8CZUxFN">
@@ -130,6 +132,8 @@
 			</div>
 			<div class="rowActions" data-page-node-id="JffPf3DUpqvXosAhkXFgZR">
 				<span class="metaText" id="matchInfo" data-page-node-id="m7jSxzcr43ptEdODdH4KjX"></span>
+				<!-- Optimal / Optimal +n 完成徽章（CrossJudge 渲染） -->
+				<span class="optBadge" id="optBadge" hidden></span>
 			</div>
 		</section>
 	</div>
@@ -155,8 +159,10 @@
 	     cross-app.js 的 init() 在 readyState=interactive 时是【同步】执行的，不等 DOMContentLoaded，
 	     排它后面的 defer 脚本届时还没加载。 -->
 	<script src="../assets/cube-net/cube-net.js?v=1877" defer></script>
-	<script src="../assets/scramble/scramble.js?v=1892" defer></script>
-	<script src="cross-app.js?v=1877" defer></script>
+<script src="../assets/scramble/scramble.js?v=1892" defer></script>
+<!-- 判定链（难度徽章 / Optimal+N）：必须排在 cross-app.js 之前，理由同 cube-net.js -->
+<script src="cross-judge.js?v=2143" defer></script>
+<script src="cross-app.js?v=2143" defer></script>
 	<!-- 智能魔方蓝牙栈（Cube 公用：依赖链 jquery 同步在前 → /Cube/compat.js → /Cube/lib/{lzstring,sha256,isaac,mathlib} → /Cube/hardware/） -->
 	<script src="../assets/base/jquery-4.0.0.min.js"></script>
 	<script src="../assets/base/compat.js?v=1877" defer></script>

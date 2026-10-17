@@ -48,6 +48,7 @@
 		"cube/analyzer": "Cube/Analyzer",
 		"cube/cross": "Cube/Cross",
 		"cube/music": "Cube/Music",
+		"cube/trainer": "Cube/Trainer",
 		"study": "Study",
 		"study/focus": "Study/Focus",
 		"study/question": "Study/Question",

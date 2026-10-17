@@ -1,0 +1,319 @@
+/*
+ * Trainer 训练场（页面级样式）
+ * ---------------------------------------------------------------------------
+ * 页面职责：首页的「节点图选择 + 底色/起点设置 + 我的路径」排版，
+ *           训练页的页面级排版与历史列表。
+ * 块级视觉（计时台 / 阶段条 / 实时数据 / 展开图）在公用块里：
+ *   Cube/assets/timer/cube-timer.css
+ *   Cube/assets/stages/cube-graph.css
+ *
+ * 口径：设计令牌 dsk-* 必须先于本文件加载；UI 一律小写；固定 px 尺寸不缩放。
+ */
+
+.trainerPage {
+	max-width: 1020px;
+	margin: 0 auto;
+	padding: 28px 24px 72px;
+}
+
+/* ---------------- 首页标题 ---------------- */
+.trTitle {
+	margin: 6px 0 0;
+	font-size: var(--dsk-text-4xl);
+	font-weight: 650;
+	line-height: var(--dsk-leading-tight);
+	letter-spacing: -0.02em;
+}
+.trTitle b {
+	font-weight: inherit;
+	background: linear-gradient(118deg, var(--dsk-purple-200), var(--dsk-accent));
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+.trSub {
+	margin: 8px 0 0;
+	font-size: var(--dsk-text-sm);
+	color: var(--dsk-foreground-muted);
+}
+
+/* ---------------- 节点图块 ---------------- */
+.trGraphBlock { margin-top: 22px; }
+.trGraphHead {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+	margin-bottom: 8px;
+	flex-wrap: wrap;
+}
+.trGraphTitle {
+	font-size: var(--dsk-text-sm);
+	font-weight: 650;
+	color: var(--dsk-foreground-muted);
+}
+.trGraphHint {
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+}
+.trGraphHead .trBtn { margin-left: auto; }
+
+/* ---------------- 选择结果 + 设置 ---------------- */
+.trPickRow {
+	margin-top: 18px;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 300px;
+	gap: 16px;
+	align-items: start;
+}
+@media (max-width: 900px) {
+	.trPickRow { grid-template-columns: minmax(0, 1fr); }
+}
+.trPickMain, .trPickSide {
+	padding: 14px 16px;
+	border-radius: var(--dsk-radius-lg);
+	border: 1px solid var(--dsk-card-border);
+	background: var(--dsk-card);
+}
+.trPickMain { display: flex; flex-direction: column; gap: 10px; }
+.trPickSide { display: flex; flex-direction: column; }
+.trBlockLabel {
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-foreground-subtle);
+	margin-bottom: 8px;
+	letter-spacing: 0.02em;
+}
+.trActions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* 底色 / 朝向按钮 */
+.trColorRow { display: flex; gap: 6px; flex-wrap: wrap; }
+.trColorBtn {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	font: inherit;
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	padding: 4px 9px 4px 5px;
+	border-radius: var(--dsk-radius-full);
+	border: 1px solid var(--dsk-card-border);
+	background: transparent;
+	color: var(--dsk-foreground-muted);
+	cursor: pointer;
+	transition: border-color .14s ease, color .14s ease, background .14s ease;
+}
+.trColorBtn:hover { border-color: var(--dsk-accent-ring); color: var(--dsk-accent); }
+.trColorBtn[aria-pressed="true"] {
+	border-color: var(--dsk-accent);
+	color: var(--dsk-accent);
+	background: var(--dsk-accent-soft);
+}
+.trColorSwatch {
+	width: 12px;
+	height: 12px;
+	border-radius: 3px;
+	background: var(--swatch, #888);
+	border: 1px solid rgba(0, 0, 0, 0.25);
+	flex: none;
+}
+.trColorLabel { line-height: 1; }
+.trColorNote {
+	margin-top: 8px;
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+	line-height: var(--dsk-leading-relaxed);
+}
+
+/* 起点状态 */
+.trOriginRow { display: flex; gap: 6px; flex-wrap: wrap; }
+.trOriginBtn {
+	font: inherit;
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	padding: 5px 10px;
+	border-radius: var(--dsk-radius-full);
+	border: 1px solid var(--dsk-card-border);
+	background: transparent;
+	color: var(--dsk-foreground-muted);
+	cursor: pointer;
+}
+.trOriginBtn:hover { color: var(--dsk-accent); border-color: var(--dsk-accent-ring); }
+.trOriginBtn[aria-pressed="true"] {
+	color: var(--dsk-accent);
+	border-color: var(--dsk-accent);
+	background: var(--dsk-accent-soft);
+}
+
+/* ---------------- 我的路径 ---------------- */
+.trSavedBlock { margin-top: 20px; }
+
+/* ---------------- 首页统计条 ---------------- */
+.trStatsStrip {
+	margin-top: 22px;
+	padding: 14px 18px;
+	border-radius: var(--dsk-radius-lg);
+	border: 1px solid var(--dsk-card-border);
+	background: var(--dsk-card);
+	display: flex;
+	gap: 26px;
+	flex-wrap: wrap;
+}
+.trStatItem { min-width: 120px; }
+.trStatLabel {
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+	font-family: var(--dsk-font-mono);
+}
+.trStatValue {
+	margin-top: 2px;
+	font-size: var(--dsk-text-lg);
+	font-weight: 650;
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-purple-200);
+}
+:root[data-theme="light"] .trStatValue { color: var(--dsk-purple-600); }
+
+/* ---------------- 训练页 ---------------- */
+.trTrainBar {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 12px;
+	flex-wrap: wrap;
+}
+.trPathName {
+	font-size: var(--dsk-text-2xl);
+	font-weight: 650;
+	letter-spacing: -0.01em;
+	color: var(--dsk-foreground);
+}
+.ctSpacer { flex: 1; }
+.ctChips { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ctChip {
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-foreground-muted);
+	border: 1px solid var(--dsk-card-border);
+	border-radius: var(--dsk-radius-full);
+	padding: 2px 10px;
+	white-space: nowrap;
+}
+.ctChip b { color: var(--dsk-accent); font-weight: 600; }
+
+.trFrameTag {
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-accent);
+	border: 1px solid var(--dsk-accent-ring);
+	border-radius: var(--dsk-radius-full);
+	padding: 2px 10px;
+	white-space: nowrap;
+}
+.trFrameTag[hidden] { display: none; }
+
+.trNetHint {
+	margin-top: 14px;
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+	line-height: var(--dsk-leading-relaxed);
+}
+.trNetHint b { color: var(--dsk-foreground-muted); font-weight: 600; }
+
+/* ---------------- 历史列表 ---------------- */
+.trHistory { margin-top: 20px; }
+.trHistoryHead {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+	margin-bottom: 8px;
+	flex-wrap: wrap;
+}
+.trHistoryTitle {
+	font-size: var(--dsk-text-sm);
+	font-weight: 650;
+	color: var(--dsk-foreground-muted);
+}
+.ctHistMeta {
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-foreground-subtle);
+}
+
+/* ---------------- 按钮（页面级，复用 dsk 令牌） ---------------- */
+.trBtn {
+	font: inherit;
+	font-size: var(--dsk-text-sm);
+	padding: 7px 14px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-card-border);
+	background: var(--dsk-card);
+	color: var(--dsk-foreground);
+	cursor: pointer;
+	transition: border-color .16s ease, background .16s ease, color .16s ease;
+}
+.trBtn:hover { border-color: var(--dsk-accent-ring); color: var(--dsk-accent); }
+.trBtn:focus-visible { outline: 2px solid var(--dsk-accent-ring); outline-offset: 2px; }
+.trBtn.primary {
+	background: var(--dsk-primary);
+	border-color: var(--dsk-primary);
+	color: var(--dsk-primary-foreground);
+	font-weight: 600;
+}
+.trBtn.primary:hover { background: var(--dsk-primary-hover); color: #fff; }
+.trBtn.primary:disabled {
+	background: var(--dsk-card);
+	border-color: var(--dsk-card-border);
+	color: var(--dsk-foreground-subtle);
+	cursor: not-allowed;
+}
+.trBtn.ghost { background: transparent; }
+.trBtn.sm { padding: 4px 10px; font-size: var(--dsk-text-xs); }
+.trBtn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ---------------- 说明弹层 ---------------- */
+.trHelpMask {
+	position: fixed;
+	inset: 0;
+	background: rgba(10, 8, 20, 0.62);
+	z-index: 60;
+}
+.trHelpBox {
+	position: fixed;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: 560px;
+	max-width: calc(100vw - 40px);
+	max-height: calc(100vh - 80px);
+	overflow: auto;
+	padding: 20px 22px;
+	border-radius: var(--dsk-radius-lg);
+	border: 1px solid var(--dsk-card-border);
+	background: var(--dsk-popover);
+	box-shadow: var(--dsk-shadow-lg);
+	z-index: 61;
+}
+.trHelpTitle {
+	font-size: var(--dsk-text-lg);
+	font-weight: 650;
+	margin-bottom: 10px;
+}
+.trHelpBody {
+	font-size: var(--dsk-text-sm);
+	color: var(--dsk-foreground-muted);
+	line-height: var(--dsk-leading-relaxed);
+}
+.trHelpBody b { color: var(--dsk-foreground); font-weight: 600; }
+.trHelpBody code {
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-xs);
+	background: var(--dsk-primary-soft);
+	padding: 1px 4px;
+	border-radius: 4px;
+}
+.trHelpBody p { margin: 8px 0; }
+.trHelpFoot { margin-top: 14px; text-align: right; }
+
+/* ---------------- 浅色适配 ---------------- */
+:root[data-theme="light"] .trPickMain,
+:root[data-theme="light"] .trPickSide { background: #fff; }

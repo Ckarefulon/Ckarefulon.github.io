@@ -58,7 +58,9 @@
 				if (child.matches("#sharedGroupBar, #planBox, #planExpandBtn, #planPanel, #planFileInput, .memoryDataControls")) {
 					append("data", child);
 				} else if (child.matches(".strictDetectionControls")) {
-					append("settings", child);
+					/* 「判定口径」只对练习模式有意义（记忆/制作/公式库没有解题判定），
+					 * 别让它跟着 import 框漂到别的模式里当摆设。 */
+					if (mode === "practice") append("settings", child);
 				}
 			});
 			var hasVisibleChild = Array.from(importBox.children).some(function (child) {

@@ -4296,3 +4296,181 @@ body.isFullscreen .sideNav {
 	body.isFullscreen .cubeArea { grid-column: 1; }
 	body.isFullscreen .modeView { grid-column: 2; }
 }
+
+/* ===========================================================================
+   操作面板 · 控件行版式（2026-10-15 统一）
+   ---------------------------------------------------------------------------
+   背景：面板里的控制行原先各有各的模型 —— 有的用 .controls 的
+   `grid-template-columns: 1fr 1fr`（宽面板下被拉成两个巨格），有的是全宽 flex
+   且 justifyContent 默认（标签与控件被甩到两端），结果「判定」「节拍器」这类
+   短标签被压成竖排、控件离散到几百 px 外。
+
+   统一口径（本节以下为唯一权威，前面的零散覆盖不再决定形状）：
+     .opRow        一行 = 标签 + 控件区，标签定宽、控件区左对齐自然排列
+     .opRow-label  行首标签
+     .opRow-body   控件区（inline-flex，可换行；子项不再各自撑满整行）
+   要求：任何控件行都必须长这样，不再用 .controls 的 1fr 1fr 去扛面板版式。
+   ========================================================================== */
+
+/* 面板内容统一左对齐，禁止各个子项各自撑满 */
+.panelDrawer .opGroupBody,
+.panelDrawer .modeOpsBody,
+.panelDrawer .globalOps {
+	grid-template-columns: minmax(0, 1fr);
+	justify-items: stretch;
+}
+
+/* ---- 通用控件行 ---- */
+.panelDrawer .opRow {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	min-height: 36px;
+	padding: 2px 0;
+}
+
+.panelDrawer .opRow + .opRow {
+	margin-top: 4px;
+}
+
+.panelDrawer .opRow-label {
+	flex: 0 0 auto;
+	min-width: 44px;
+	font-size: 12px;
+	font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+	color: var(--muted);
+	white-space: nowrap;
+}
+
+.panelDrawer .opRow-body {
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	min-width: 0;
+}
+
+/* 行内控件不再各自撑满整行 */
+.panelDrawer .opRow-body > .smartCheck,
+.panelDrawer .opRow-body > .button,
+.panelDrawer .opRow-body > button,
+.panelDrawer .opRow-body > input[type="range"] {
+	width: auto;
+	min-width: 0;
+	flex: 0 0 auto;
+}
+
+/* ---- 判定口径：三选一并排，不再各自 100% 宽 ---- */
+.panelDrawer .strictDetectionControls {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 14px;
+	grid-template-columns: none;
+	margin-top: 0;
+}
+
+.panelDrawer .strictDetectionToggle {
+	width: auto;
+	min-width: 0;
+	min-height: 32px;
+	justify-content: flex-start;
+	padding: 0;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+/* ---- 四向：标题 + 两个复选并排 ---- */
+.panelDrawer .aufControls {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 14px;
+	grid-template-columns: none;
+	margin-top: 0;
+}
+
+.panelDrawer .aufControls .aufToggle {
+	width: auto;
+	min-width: 0;
+	min-height: 32px;
+	white-space: nowrap;
+}
+
+/* ---- 节拍器：标签 + 滑杆 + 数值 + 拍号 + 按钮，一行排开 ---- */
+.panelDrawer .metroControls {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	grid-template-columns: none;
+}
+
+.panelDrawer .metroControls .metroTitle {
+	flex: 0 0 auto;
+	min-width: 44px;
+	font-size: 12px;
+	font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+	color: var(--muted);
+	white-space: nowrap;
+}
+
+.panelDrawer .metroControls .metroRange {
+	flex: 0 1 150px;
+	width: 150px;
+	min-width: 90px;
+	margin: 0;
+}
+
+.panelDrawer .metroControls .metroTps {
+	flex: 0 0 auto;
+	min-width: 36px;
+	text-align: right;
+}
+
+.panelDrawer .metroControls .metroBeat {
+	flex: 0 0 auto;
+	min-width: 14px;
+	text-align: center;
+}
+
+.panelDrawer .metroControls .metroBtn {
+	flex: 0 0 auto;
+	width: auto;
+	min-height: 32px;
+	padding: 0 14px;
+}
+
+/* ---- 练习模式选择：不再用 1fr 撑满（原 1691px 空档） ---- */
+.panelDrawer .practiceControls {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	grid-template-columns: none;
+}
+
+.panelDrawer .practiceControls .practiceModeSelect {
+	flex: 0 0 auto;
+	width: auto;
+	min-width: 132px;
+	max-width: 220px;
+}
+
+/* ---- 全局操作三键：等分排满一行，不留孤行 ---- */
+.panelDrawer .globalOpsGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+	gap: 9px;
+}
+
+.panelDrawer .globalOpsGrid > .button {
+	min-width: 0;
+	padding-inline: 8px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+

@@ -90,3 +90,26 @@ VHLS 29:y'U2R'U'F'UFUR;
 VHLS 30:F'U2L'ULF;
 VHLS 31:y'R'U'F'U'FUR;
 VHLS 32:RU'R'UF'L'U'LU'F;
+
+<PLL>
+PLL Aa: x R' U R' D2 R U' R' D2 R2 x';
+PLL Ab: x R2 D2 R U R' D2 R U' R x';
+PLL E: x' R U' R' D R U R' D' R U R' D R U' R' D' x;
+PLL F: R' U' F' R U R' U' R' F R2 U' R' U' R U R' U R;
+PLL Ga: R2 U R' U R' U' R U' R2 U' D R' U R D';
+PLL Gb: R' U' R U D' R2 U R' U R U' R U' R2 D;
+PLL Gc: R2 U' R U' R U R' U R2 U D' R U' R' D;
+PLL Gd: R U2 R' U B' R' U' R U R B U R' U' R' U R;
+PLL H: M2 U M2 U2 M2 U M2;
+PLL Ja: R' U L' U2 R U' R' U2 R L U';
+PLL Jb: R U R' F' R U R' U' R' F R2 U' R';
+PLL Na: R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R';
+PLL Nb: R' U R U' R' F' U' F R U R' F R' F' R U' R;
+PLL Ra: R U' R' U' R U R D R' U' R D' R' U2 R';
+PLL Rb: R' U2 R U2 R' F R U R' U' R' F' R2 U';
+PLL T: R U R' U' R' F R2 U' R' U' R U R' F';
+PLL Ua: M2 U M U2 M' U M2;
+PLL Ub: M2 U' M U2 M' U' M2;
+PLL V: R' U R' U' R D' R' D R' U D' R2 U' R2 D R2;
+PLL Y: F R U' R' U' R U R' F' R U R' U' R' F R F';
+PLL Z: M2 U M2 U M' U2 M2 U2 M' U2;

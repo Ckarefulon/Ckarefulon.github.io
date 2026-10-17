@@ -1157,7 +1157,9 @@ function Set-SvcTailscale {
         return $true
     }
 
-    # 关闭 = 撤掉 serve 反代 + tailscale down 断开 tailnet（服务与 GUI 保留，随时可再连回）
+    # 关闭 = 只撤掉本程序自己的 serve 反代（9527），tailnet 保持连接。
+    # ⚠️ 绝不能在这里 tailscale down：那是整机断网，会把节点上与本程序无关的路由
+    # （如 7259 → 127.0.0.1:19387、443 上手动配的服务）一起干掉（2026-10-15 用户定）。
     $script:SvcTailscaleOn = $false
     $script:SvcTailscaleState = ''
     $script:SvcTailscaleIp = $null
@@ -1171,7 +1173,6 @@ function Set-SvcTailscale {
         # 只撤本程序自己那条映射（--https=<端口> off），绝不全量 serve reset ——
         # 节点上可能还有用户手动配的其他服务（比如占 443 的），一把 reset 会把别人清掉。
         [void](Invoke-SvcTailscaleCli -CliArguments @('serve', ('--https=' + $script:SvcPort), 'off'))
-        [void](Invoke-SvcTailscaleCli -CliArguments @('down'))
     }
 }
 

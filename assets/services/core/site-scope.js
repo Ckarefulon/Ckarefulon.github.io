@@ -31,6 +31,7 @@
 		"cube/analyzer":        { scope: "Cube-Analyzer",  path: "/Cube/Analyzer" },
 		"cube/cross":           { scope: "Cube-Cross",     path: "/Cube/Cross" },
 		"cube/music":           { scope: "Cube-Music",     path: "/Cube/Music" },
+		"cube/trainer":         { scope: "Cube-Trainer",   path: "/Cube/Trainer" },
 		"study/focus":          { scope: "Study-Focus",    path: "/Study/Focus" },
 		"study/question":       { scope: "Study-Question", path: "/Study/Question" },
 		"study/timer":          { scope: "Study-Timer",    path: "/Study/Timer" },

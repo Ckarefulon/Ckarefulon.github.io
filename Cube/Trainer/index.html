@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Trainer — 训练场</title>
+	<link rel="icon" href="/favicon.svg?v=1877" type="image/svg+xml">
+
+	<!-- 主题先落地，避免深浅色闪一下。口径与 Cube/Cross 一致：本页是深色设计的，
+	     没主动选过主题时保持深色，只有用户在顶栏选过浅色才跟随。 -->
+	<script>
+		(function () {
+			var saved = null;
+			try { saved = localStorage.getItem("smartCubeTheme"); } catch (e) {}
+			document.documentElement.dataset.theme = saved === "light" ? "light" : "dark";
+		})();
+	</script>
+
+	<!-- 设计令牌（dsk-*）必须先于页面样式 -->
+	<link rel="stylesheet" href="/ui/colors_and_type.css">
+	<link rel="stylesheet" href="/nav/nav.css?v=1877">
+	<script src="/nav/nav.js?v=2143" defer></script>
+
+	<!-- Cube 功能块样式：展开图 → 阶段节点图 → 公用计时台 → 页面自己的样式 -->
+	<link rel="stylesheet" href="../assets/cube-net/cube-net.css?v=1877">
+	<link rel="stylesheet" href="../assets/stages/cube-graph.css?v=2170">
+	<link rel="stylesheet" href="../assets/timer/cube-timer.css?v=2170">
+	<link rel="stylesheet" href="trainer.css?v=2170">
+
+	<!-- 站点作用域 + 云同步（登录态与其它页共享） -->
+	<script src="/assets/services/core/site-scope.js?v=2143" defer></script>
+	<script src="../../assets/vendor/supabase/supabase.min.js" defer></script>
+	<script src="/supabase/supabase-config.js?v=1877" defer></script>
+	<script src="/supabase/supabase-client.js?v=1877" defer></script>
+	<script src="/supabase/auth-manager.js?v=1892" defer></script>
+
+	<!-- 魔方引擎：compat（DEBUG 全局）→ isaac → mathlib（顺序不可换）；
+	     formula-core 解析算法；qr-cases 提供 ll/zbll 案例题库（本页独用）。
+	     本页不做参考解求解，故不加载 cubejs 求解器（省 52KB 且无需建表）。 -->
+	<script src="../assets/base/compat.js?v=1877" defer></script>
+	<script src="../assets/codec/isaac.js?v=1877" defer></script>
+	<script src="../assets/cube-solve/mathlib.js?v=1877" defer></script>
+	<script src="../assets/cube-solve/formula-core.js?v=1877" defer></script>
+	<script src="../assets/quickreaction/qr-cases.js?v=2143" defer></script>
+	<script src="../assets/cube-net/cube-net.js?v=1877" defer></script>
+
+	<!-- 节拍器公用块：自带 CubeAudio 懒加载，必须在 trainer-common.js 之前 -->
+	<script src="../assets/metronome/metronome.js?v=2143" defer></script>
+
+	<!-- 页面逻辑：公共组件在前，主应用在后 -->
+	<script src="trainer-common.js?v=2170" defer></script>
+	<!-- 阶段节点库（判定 + 六色底参考系）→ 节点图组件 → 公用计时台 -->
+	<script src="../assets/stages/cube-stages.js?v=2170" defer></script>
+	<script src="../assets/stages/cube-graph.js?v=2170" defer></script>
+	<script src="../assets/timer/cube-timer.js?v=2170" defer></script>
+	<script src="trainer-app.js?v=2170" defer></script>
+</head>
+<body>
+	<div class="trainerPage">
+
+		<!-- ============ 首页：选一条要练的路 ============ -->
+		<section class="trHome" id="trHome">
+			<h1 class="trTitle">trainer <b>训练场</b></h1>
+			<p class="trSub">在节点图上点两个节点连成一条路，只练这一段 · 支持六色底 · 连接智能魔方自动判定</p>
+
+			<!-- 节点图 -->
+			<div class="trGraphBlock">
+				<div class="trGraphHead">
+					<span class="trGraphTitle">节点图</span>
+					<span class="trGraphHint">点节点选起止（第一个=起点，最后一个=终点），再点别的节点可插入中间分段；<b>任意两个节点都能连</b>，画出的线只是导航参考；拖动节点可改布局</span>
+					<button class="trBtn ghost sm" id="trGraphReset" type="button">还原布局</button>
+				</div>
+				<div class="gpWrap" id="trGraph"></div>
+				<div class="gpLegend" id="trGraphLegend"></div>
+			</div>
+
+			<!-- 选中结果 + 出题设置 -->
+			<div class="trPickRow">
+				<div class="trPickMain">
+					<div class="trBlockLabel">选中的路</div>
+					<div class="gpPathBox" id="trPathBox"></div>
+					<div class="gpHint" id="trPathHint"></div>
+					<div class="trPresets" id="trPresets"></div>
+					<div class="trActions">
+						<button class="trBtn primary" id="trStartBtn" type="button" disabled>开始这段训练</button>
+						<button class="trBtn" id="trSavePathBtn" type="button" disabled>存为我的路径</button>
+						<button class="trBtn ghost" id="trClearPathBtn" type="button">清空选择</button>
+					</div>
+				</div>
+
+				<div class="trPickSide">
+					<div class="trBlockLabel">底色</div>
+					<div class="trColorRow" id="trColorRow"></div>
+					<div class="trBlockLabel" style="margin-top:12px">前面朝向</div>
+					<div class="trColorRow" id="trFrontRow"></div>
+					<div class="trColorNote" id="trColorNote">完整打乱态自动识别；其它情况请自己选。</div>
+
+					<div class="trBlockLabel" style="margin-top:14px">起点状态</div>
+					<div class="trOriginRow" id="trOriginRow">
+						<button class="trOriginBtn" type="button" data-origin="scramble">新打乱</button>
+						<button class="trOriginBtn" type="button" data-origin="current">用魔方当前状态</button>
+					</div>
+					<div class="trColorNote" id="trOriginNote">新打乱 = 随机打乱后开始；用当前状态 = 把蓝牙魔方现在的状态当作起点。</div>
+				</div>
+			</div>
+
+			<!-- 我的路径 -->
+			<div class="trSavedBlock">
+				<div class="trBlockLabel">我的路径</div>
+				<div class="gpSaved" id="trSavedList"></div>
+			</div>
+
+			<!-- 总览 -->
+			<div class="trStatsStrip" id="trStatsStrip"></div>
+		</section>
+
+		<!-- ============ 训练页 ============ -->
+		<section class="trTrain" id="trTrain" hidden>
+			<div class="trTrainBar">
+				<button class="trBtn ghost" id="trBack" type="button">&#8592; 返回</button>
+				<span class="trPathName" id="trPathName"></span>
+				<span class="trChips" id="trChips"></span>
+				<span class="ctSpacer"></span>
+				<button class="trBtn ghost" id="trHelpBtn" type="button">说明</button>
+			</div>
+
+			<!-- 设备行 -->
+			<div class="ctDevice" id="trDeviceRow">
+				<button class="ctDeviceBtn" id="trConnectBtn" type="button">
+					<span class="ctDeviceDot"></span><span id="trConnectLabel">连接魔方</span>
+				</button>
+				<span class="ctDeviceStatus" id="trDeviceStatus">未连接 · 可手动计时</span>
+				<span class="trFrameTag" id="trFrameTag" hidden></span>
+			</div>
+
+			<div class="ctGrid">
+				<!-- 左：虚拟魔方展开图 -->
+				<div class="ctPanel">
+					<div class="cubeNet ctNet" id="trNet"></div>
+					<div class="trNetHint" id="trNetHint"></div>
+				</div>
+
+				<!-- 右：计时 / 阶段 / 实时 / 输入 / 控制 -->
+				<div class="ctSide">
+					<div class="ctStage">
+						<div class="ctTimerBox" id="trTimerBox" data-phase="ready">
+							<div class="ctTimer" id="trTimer">0.00</div>
+							<div class="ctPhase" id="trPhase" data-phase="ready">准备</div>
+						</div>
+						<div class="ctStageBar" id="trStageBar"></div>
+					</div>
+
+					<div class="ctLive">
+						<div class="ctLiveItem">
+							<div class="ctLiveLabel">turns</div>
+							<div class="ctLiveValue" id="trLiveTurns">0</div>
+						</div>
+						<div class="ctLiveItem">
+							<div class="ctLiveLabel">tps</div>
+							<div class="ctLiveValue" id="trLiveTps">—</div>
+						</div>
+						<div class="ctLiveItem">
+							<div class="ctLiveLabel">已完成段</div>
+							<div class="ctLiveValue" id="trLiveSegs">0/0</div>
+						</div>
+					</div>
+					<div class="ctMoves" id="trMoves"></div>
+
+					<div class="ctTarget" id="trTarget"></div>
+
+					<div class="ctInputRow">
+						<input class="ctInput" id="trAlgInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+							placeholder="输入算法，如 R U R' U'（小写=双层，回车应用）">
+						<button class="ctBtn" id="trApplyBtn" type="button">应用</button>
+					</div>
+					<div class="ctHint" id="trInputHint"></div>
+
+					<div class="ctKeys" id="trKeys" hidden></div>
+
+					<div class="ctControls">
+						<button class="ctBtn primary" id="trRunBtn" type="button">开始</button>
+						<button class="ctBtn" id="trStopBtn" type="button" disabled>停表</button>
+						<button class="ctBtn" id="trNewBtn" type="button">换一题</button>
+						<button class="ctBtn" id="trResetBtn" type="button" disabled>重做</button>
+					</div>
+
+					<div class="ctResult" id="trResult" hidden></div>
+					<div class="ctSplitsWrap" id="trSplitsWrap" hidden></div>
+				</div>
+			</div>
+
+			<div class="trHistory">
+				<div class="trHistoryHead">
+					<span class="trHistoryTitle">这条路的最近成绩</span>
+					<span class="ctHistMeta" id="trHistoryMeta"></span>
+				</div>
+				<div class="ctHist" id="trHistList"></div>
+			</div>
+		</section>
+	</div>
+
+	<div id="trHelpMount"></div>
+</body>
+</html>

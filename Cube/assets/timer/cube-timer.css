@@ -1,0 +1,465 @@
+/*
+ * Cube 计时训练台（公用样式）
+ * ---------------------------------------------------------------------------
+ * 「计时 + 实时数据 + 屏幕魔方 + 动作流」这一套训练界面的公用样式。
+ * 训练场（Cube/Trainer）与后续 Analyzer 训练页共用同一份，避免两处各写一套。
+ *
+ * 口径：设计令牌 dsk-* 必须先于本文件加载；UI 一律小写；
+ *       本文件只管「块内」的视觉，页面级排版（栅格、页面容器）由调用页负责。
+ *       所有类名带 ct- 前缀（cube timer），避免与页面自己的类名相撞。
+ */
+
+/* ---------------- 计时台 ---------------- */
+.ctStage {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.ctTimerBox {
+	padding: 16px 18px;
+	border-radius: var(--dsk-radius-lg);
+	border: 1px solid var(--dsk-card-border);
+	background: linear-gradient(158deg, rgba(107, 93, 194, 0.14), rgba(22, 19, 40, 0.92) 60%);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+:root[data-theme="light"] .ctTimerBox {
+	background: linear-gradient(158deg, rgba(93, 78, 168, 0.07), rgba(255, 255, 255, 0.96) 60%);
+}
+.ctTimer {
+	font-family: var(--dsk-font-mono);
+	font-size: 40px;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	color: var(--dsk-purple-100);
+	font-variant-numeric: tabular-nums;
+	line-height: 1.1;
+}
+:root[data-theme="light"] .ctTimer { color: var(--dsk-purple-600); }
+.ctTimerBox[data-phase="running"] .ctTimer { color: var(--dsk-accent); }
+.ctTimerBox[data-phase="done"] .ctTimer { color: var(--dsk-success); }
+.ctTimerBox[data-phase="dnf"] .ctTimer { color: var(--dsk-danger); }
+.ctPhase {
+	font-size: var(--dsk-text-sm);
+	font-family: var(--dsk-font-mono);
+	padding: 3px 12px;
+	border-radius: var(--dsk-radius-full);
+	border: 1px solid var(--dsk-card-border);
+	color: var(--dsk-foreground-muted);
+	white-space: nowrap;
+}
+.ctPhase[data-phase="running"] { color: var(--dsk-accent); border-color: var(--dsk-accent-ring); }
+.ctPhase[data-phase="done"] { color: var(--dsk-success); border-color: var(--dsk-accent-ring); }
+.ctPhase[data-phase="dnf"] { color: var(--dsk-danger); border-color: rgba(232, 93, 106, 0.5); }
+
+/* ---------------- 阶段进度：分段条 ---------------- */
+.ctStageBar {
+	display: flex;
+	align-items: stretch;
+	gap: 6px;
+	padding: 10px 12px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-card-border);
+	background: rgba(42, 40, 64, 0.35);
+}
+:root[data-theme="light"] .ctStageBar { background: rgba(236, 238, 246, 0.6); }
+.ctStageSeg {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 6px 8px;
+	border-radius: var(--dsk-radius-sm);
+	border: 1px solid transparent;
+	background: rgba(107, 93, 194, 0.10);
+	transition: background .16s ease, border-color .16s ease;
+}
+.ctStageSeg[data-state="done"] {
+	background: var(--dsk-accent-soft);
+	border-color: var(--dsk-accent-ring);
+}
+.ctStageSeg[data-state="current"] {
+	background: rgba(107, 93, 194, 0.28);
+	border-color: var(--dsk-purple-400);
+}
+.ctStageSegName {
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-foreground-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.ctStageSeg[data-state="done"] .ctStageSegName { color: var(--dsk-accent); }
+.ctStageSegTime {
+	font-size: var(--dsk-text-sm);
+	font-family: var(--dsk-font-mono);
+	font-weight: 700;
+	color: var(--dsk-foreground);
+	font-variant-numeric: tabular-nums;
+}
+.ctStageSegArrow {
+	align-self: center;
+	color: var(--dsk-foreground-subtle);
+	font-size: var(--dsk-text-sm);
+}
+
+/* ---------------- 实时数据 ---------------- */
+.ctLive {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+	padding: 10px 12px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-card-border);
+	background: rgba(42, 40, 64, 0.35);
+}
+:root[data-theme="light"] .ctLive { background: rgba(236, 238, 246, 0.6); }
+.ctLiveItem { min-width: 62px; }
+.ctLiveLabel {
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-foreground-subtle);
+}
+.ctLiveValue {
+	font-size: var(--dsk-text-lg);
+	font-weight: 700;
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-purple-200);
+	font-variant-numeric: tabular-nums;
+}
+:root[data-theme="light"] .ctLiveValue { color: var(--dsk-purple-600); }
+.ctLiveValue[data-tone="accent"] { color: var(--dsk-accent); }
+
+/* 动作流 */
+.ctMoves {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding: 8px 10px;
+	min-height: 34px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-card-border);
+	background: var(--dsk-popover);
+}
+.ctMoveChip {
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-xs);
+	font-weight: 700;
+	padding: 2px 6px;
+	border-radius: var(--dsk-radius-sm);
+	background: var(--dsk-primary-soft);
+	color: var(--dsk-foreground-muted);
+}
+.ctMoveChip.latest { background: var(--dsk-accent-soft); color: var(--dsk-accent); }
+.ctMovesEmpty {
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+	align-self: center;
+}
+
+/* ---------------- 设备行 ---------------- */
+.ctDevice {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+.ctDeviceBtn {
+	font: inherit;
+	font-size: var(--dsk-text-sm);
+	font-weight: 600;
+	padding: 7px 14px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-primary);
+	background: var(--dsk-primary);
+	color: var(--dsk-primary-foreground);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	transition: background .16s ease, border-color .16e ease;
+}
+.ctDeviceBtn:hover { background: var(--dsk-primary-hover); }
+.ctDeviceBtn.connected {
+	background: transparent;
+	color: var(--dsk-accent);
+	border-color: var(--dsk-accent-ring);
+}
+.ctDeviceBtn:disabled { opacity: .5; cursor: not-allowed; }
+.ctDeviceDot {
+	width: 8px;
+	height: 8px;
+	border-radius: var(--dsk-radius-full);
+	background: currentColor;
+	border: 1px solid currentColor;
+	background: transparent;
+}
+.ctDeviceBtn.connected .ctDeviceDot { background: var(--dsk-accent); }
+.ctDeviceStatus {
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-foreground-subtle);
+}
+
+/* ---------------- 控制行 ---------------- */
+.ctControls { display: flex; gap: 8px; flex-wrap: wrap; }
+.ctBtn {
+	font: inherit;
+	font-size: var(--dsk-text-sm);
+	padding: 7px 14px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-card-border);
+	background: var(--dsk-card);
+	color: var(--dsk-foreground);
+	cursor: pointer;
+	transition: border-color .16s ease, background .16s ease, color .16s ease;
+}
+.ctBtn:hover { border-color: var(--dsk-accent-ring); color: var(--dsk-accent); }
+.ctBtn:focus-visible { outline: 2px solid var(--dsk-accent-ring); outline-offset: 2px; }
+.ctBtn.primary {
+	background: var(--dsk-primary);
+	border-color: var(--dsk-primary);
+	color: var(--dsk-primary-foreground);
+	font-weight: 600;
+}
+.ctBtn.primary:hover { background: var(--dsk-primary-hover); color: #fff; }
+.ctBtn.ghost { background: transparent; }
+.ctBtn:disabled { opacity: .45; cursor: not-allowed; }
+.ctBtn.sm { padding: 4px 10px; font-size: var(--dsk-text-xs); }
+
+/* 提示行 */
+.ctHint {
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-foreground-subtle);
+	min-height: 15px;
+}
+.ctHint[data-kind="err"] { color: var(--dsk-danger); }
+.ctHint[data-kind="ok"] { color: var(--dsk-success); }
+.ctHint[data-kind="warn"] { color: var(--dsk-warning); }
+
+/* ---------------- 结果条 ---------------- */
+.ctResult {
+	padding: 14px 18px;
+	border-radius: var(--dsk-radius-lg);
+	border: 1px solid var(--dsk-accent-ring);
+	background: linear-gradient(158deg, rgba(36, 240, 234, 0.07), rgba(22, 19, 40, 0.92) 60%);
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	flex-wrap: wrap;
+}
+.ctResult[hidden] { display: none; }
+:root[data-theme="light"] .ctResult {
+	background: linear-gradient(158deg, rgba(20, 201, 196, 0.10), rgba(255, 255, 255, 0.96) 60%);
+}
+.ctResultMain {
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-2xl);
+	font-weight: 700;
+	color: var(--dsk-success);
+	font-variant-numeric: tabular-nums;
+}
+.ctResultMain[data-dnf="1"] { color: var(--dsk-danger); }
+.ctResultMeta {
+	font-size: var(--dsk-text-sm);
+	color: var(--dsk-foreground-muted);
+	font-family: var(--dsk-font-mono);
+}
+.ctBadge {
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	font-weight: 700;
+	padding: 3px 10px;
+	border-radius: var(--dsk-radius-full);
+	border: 1px solid var(--dsk-accent-ring);
+	color: var(--dsk-accent);
+	background: var(--dsk-accent-soft);
+	white-space: nowrap;
+}
+.ctBadge[data-kind="over"] { color: var(--dsk-warning); border-color: rgba(230, 184, 74, 0.4); background: rgba(230, 184, 74, 0.08); }
+.ctBadge[data-kind="hard"] { color: var(--dsk-danger); border-color: rgba(232, 93, 106, 0.4); background: rgba(232, 93, 106, 0.08); }
+.ctBadge[data-kind="dnf"] { color: var(--dsk-danger); border-color: rgba(232, 93, 106, 0.4); background: rgba(232, 93, 106, 0.08); }
+.ctResultNote {
+	margin-left: auto;
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-foreground-subtle);
+	text-align: right;
+	max-width: 340px;
+}
+
+/* ---------------- 分段明细表 ---------------- */
+.ctSplits {
+	width: 100%;
+	border-collapse: collapse;
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-sm);
+}
+.ctSplits th {
+	text-align: left;
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+	font-weight: 600;
+	padding: 5px 8px;
+	border-bottom: 1px solid var(--dsk-card-border);
+	white-space: nowrap;
+}
+.ctSplits td {
+	padding: 6px 8px;
+	border-bottom: 1px solid rgba(42, 40, 64, 0.5);
+	color: var(--dsk-foreground-muted);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+.ctSplits tr:last-child td { border-bottom: none; }
+.ctSplits td.ctSplitsTime { color: var(--dsk-purple-100); font-weight: 700; }
+:root[data-theme="light"] .ctSplits td.ctSplitsTime { color: var(--dsk-purple-700); }
+.ctSplits td.ctSplitsStage { font-family: inherit; color: var(--dsk-foreground); font-weight: 600; }
+.ctSplitsWrap {
+	border: 1px solid var(--dsk-card-border);
+	border-radius: var(--dsk-radius-md);
+	overflow: hidden;
+	background: var(--dsk-card);
+}
+
+/* ---------------- 历史列表 ---------------- */
+.ctHist { display: flex; flex-direction: column; gap: 4px; }
+.ctHistRow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 7px 12px;
+	border-radius: var(--dsk-radius-sm);
+	border: 1px solid var(--dsk-card-border);
+	background: var(--dsk-card);
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-sm);
+}
+.ctHistIdx { width: 26px; color: var(--dsk-foreground-subtle); font-size: var(--dsk-text-xs); }
+.ctHistTime { width: 84px; font-weight: 700; color: var(--dsk-purple-100); font-variant-numeric: tabular-nums; }
+:root[data-theme="light"] .ctHistTime { color: var(--dsk-purple-700); }
+.ctHistTime[data-dnf="1"] { color: var(--dsk-danger); }
+.ctHistSteps { width: 64px; color: var(--dsk-foreground-muted); font-size: var(--dsk-text-xs); }
+.ctHistBadge { font-size: var(--dsk-text-xs); color: var(--dsk-accent); }
+.ctHistWhen { margin-left: auto; font-size: var(--dsk-text-xs); color: var(--dsk-foreground-subtle); }
+.ctHistEmpty {
+	padding: 18px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px dashed var(--dsk-card-border);
+	color: var(--dsk-foreground-subtle);
+	font-size: var(--dsk-text-sm);
+	text-align: center;
+}
+.ctHistSegs { display: flex; gap: 6px; font-size: var(--dsk-text-xs); color: var(--dsk-foreground-subtle); }
+.ctHistSeg { font-family: var(--dsk-font-mono); }
+
+/* ---------------- 键盘 ---------------- */
+.ctKeys {
+	display: grid;
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+	gap: 6px;
+}
+.ctKey {
+	font: inherit;
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-sm);
+	font-weight: 700;
+	height: 38px;
+	border-radius: var(--dsk-radius-sm);
+	border: 1px solid var(--dsk-card-border);
+	background: var(--dsk-popover);
+	color: var(--dsk-foreground);
+	cursor: pointer;
+	transition: border-color .12s ease, color .12s ease, background .12s ease;
+}
+.ctKey:hover { border-color: var(--dsk-accent-ring); color: var(--dsk-accent); }
+.ctKey:active { background: var(--dsk-primary-soft); }
+.ctKey:focus-visible { outline: 2px solid var(--dsk-accent-ring); outline-offset: 1px; }
+.ctKey:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ---------------- 训练页栅格 ---------------- */
+.ctGrid {
+	display: grid;
+	grid-template-columns: minmax(0, 580px) minmax(0, 400px);
+	gap: 20px;
+	align-items: start;
+}
+@media (max-width: 1040px) {
+	.ctGrid { grid-template-columns: minmax(0, 1fr); }
+}
+.ctPanel {
+	padding: 18px;
+	border-radius: var(--dsk-radius-lg);
+	border: 1px solid var(--dsk-card-border);
+	background: var(--dsk-card);
+}
+.ctSide { display: flex; flex-direction: column; gap: 12px; }
+.ctSectionTitle {
+	font-size: var(--dsk-text-sm);
+	font-weight: 650;
+	color: var(--dsk-foreground-muted);
+	margin-bottom: 8px;
+}
+
+/* 打乱/目标条 */
+.ctTarget {
+	padding: 12px 14px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px dashed var(--dsk-card-border);
+	background: rgba(42, 40, 64, 0.35);
+	font-size: var(--dsk-text-sm);
+}
+:root[data-theme="light"] .ctTarget { background: rgba(236, 238, 246, 0.6); }
+.ctTargetLabel {
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-foreground-subtle);
+	margin-bottom: 4px;
+}
+.ctTargetText {
+	font-family: var(--dsk-font-mono);
+	font-weight: 700;
+	font-size: var(--dsk-text-base);
+	line-height: var(--dsk-leading-relaxed);
+	word-break: break-all;
+	color: var(--dsk-purple-100);
+}
+:root[data-theme="light"] .ctTargetText { color: var(--dsk-purple-700); }
+.ctTargetNote {
+	margin-top: 6px;
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+}
+
+/* 立方体展开图放大（结构仍归 cube-net.css） */
+.ctNet { gap: 10px; }
+.ctNet .face {
+	grid-template-columns: repeat(3, 40px);
+	grid-template-rows: repeat(3, 40px);
+	gap: 8px;
+}
+.ctNet .sticker { border-radius: 5px; }
+
+/* 算法输入 */
+.ctInputRow { display: flex; gap: 8px; }
+.ctInput {
+	flex: 1;
+	min-width: 0;
+	font: inherit;
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-base);
+	font-weight: 600;
+	padding: 9px 12px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-card-border);
+	background: var(--dsk-popover);
+	color: var(--dsk-foreground);
+}
+.ctInput:focus { outline: none; border-color: var(--dsk-accent-ring); }
+.ctInput::placeholder { color: var(--dsk-foreground-subtle); font-weight: 400; }

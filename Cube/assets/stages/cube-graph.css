@@ -1,0 +1,271 @@
+/*
+ * 复原流程节点图（Cube 公用样式）
+ * ---------------------------------------------------------------------------
+ * 训练场首页的「节点连线」选择界面：一张平面上的节点散点图，
+ * 用户点两个节点即连成一条要练的路径（起点→终点），可再点中间节点加入分段。
+ *
+ * 口径：设计令牌 dsk-* 必须先于本文件；配色随站点深/浅色。
+ */
+
+.gpWrap {
+	position: relative;
+	width: 100%;
+	border-radius: var(--dsk-radius-lg);
+	border: 1px solid var(--dsk-card-border);
+	background:
+		radial-gradient(circle at 22% 18%, rgba(107, 93, 194, 0.16), transparent 55%),
+		radial-gradient(circle at 78% 76%, rgba(36, 240, 234, 0.10), transparent 58%),
+		var(--dsk-card);
+	overflow: hidden;
+}
+:root[data-theme="light"] .gpWrap {
+	background:
+		radial-gradient(circle at 22% 18%, rgba(93, 78, 168, 0.08), transparent 55%),
+		radial-gradient(circle at 78% 76%, rgba(20, 201, 196, 0.07), transparent 58%),
+		var(--dsk-card);
+}
+
+.gpSvg {
+	display: block;
+	width: 100%;
+	height: auto;
+	touch-action: none;
+	user-select: none;
+}
+
+/* 连线 */
+.gpLink {
+	stroke: var(--dsk-purple-400);
+	stroke-width: 2;
+	fill: none;
+	opacity: 0.5;
+}
+.gpLink.active {
+	stroke: var(--dsk-accent);
+	opacity: 1;
+	stroke-width: 3;
+	filter: drop-shadow(0 0 6px rgba(36, 240, 234, 0.55));
+}
+.gpLinkHit {
+	stroke: transparent;
+	stroke-width: 16;
+	fill: none;
+	cursor: pointer;
+	pointer-events: stroke;
+}
+.gpLinkGhost {
+	stroke: var(--dsk-accent);
+	stroke-width: 2;
+	stroke-dasharray: 6 6;
+	fill: none;
+	opacity: 0.8;
+	pointer-events: none;
+}
+
+/* 节点 */
+.gpNode { cursor: pointer; }
+.gpNodeCircle {
+	fill: var(--dsk-popover);
+	stroke: var(--dsk-card-border);
+	stroke-width: 2;
+	transition: stroke .15s ease, fill .15s ease, r .15s ease;
+}
+.gpNode:hover .gpNodeCircle { stroke: var(--dsk-accent); }
+.gpNode[data-role="start"] .gpNodeCircle { stroke: var(--dsk-purple-400); stroke-width: 3; }
+.gpNode[data-role="end"] .gpNodeCircle { stroke: var(--dsk-accent); stroke-width: 3; }
+.gpNode[data-selected="1"] .gpNodeCircle {
+	fill: var(--dsk-primary-soft);
+	stroke: var(--dsk-accent);
+	stroke-width: 4;
+}
+.gpNodeLabel {
+	font-family: var(--dsk-font-mono);
+	font-size: 11px;
+	font-weight: 700;
+	fill: var(--dsk-foreground);
+	pointer-events: none;
+	text-anchor: middle;
+}
+.gpNode[data-selected="1"] .gpNodeLabel { fill: var(--dsk-accent); }
+.gpNodeDot { pointer-events: none; }
+.gpNodeOrder {
+	font-family: var(--dsk-font-mono);
+	font-size: 10px;
+	font-weight: 700;
+	fill: var(--dsk-background, #0f0d18);
+	pointer-events: none;
+	text-anchor: middle;
+}
+
+/* 图例 */
+.gpLegend {
+	display: flex;
+	gap: 14px;
+	flex-wrap: wrap;
+	padding: 10px 14px;
+	border-top: 1px solid var(--dsk-card-border);
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-foreground-subtle);
+}
+.gpLegendItem { display: inline-flex; align-items: center; gap: 6px; }
+.gpLegendDot {
+	width: 9px;
+	height: 9px;
+	border-radius: var(--dsk-radius-full);
+}
+
+/* 选择面板 */
+.gpPick {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+.gpPathBox {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	padding: 10px 12px;
+	min-height: 44px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-card-border);
+	background: rgba(42, 40, 64, 0.35);
+}
+:root[data-theme="light"] .gpPathBox { background: rgba(236, 238, 246, 0.6); }
+.gpPathEmpty {
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+}
+.gpChip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	font-weight: 700;
+	padding: 4px 8px 4px 10px;
+	border-radius: var(--dsk-radius-full);
+	border: 1px solid var(--dsk-accent-ring);
+	background: var(--dsk-accent-soft);
+	color: var(--dsk-accent);
+}
+.gpChip[data-role="mid"] {
+	border-color: var(--dsk-card-border);
+	background: var(--dsk-primary-soft);
+	color: var(--dsk-foreground-muted);
+}
+.gpChipOrder {
+	font-size: 9px;
+	opacity: .7;
+}
+.gpChipX {
+	border: none;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+	line-height: 1;
+	padding: 0 2px;
+	opacity: .65;
+}
+.gpChipX:hover { opacity: 1; }
+.gpArrow { color: var(--dsk-foreground-subtle); font-size: var(--dsk-text-sm); }
+
+.gpActions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.gpActionBtn {
+	font: inherit;
+	font-size: var(--dsk-text-sm);
+	padding: 7px 14px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-card-border);
+	background: var(--dsk-card);
+	color: var(--dsk-foreground);
+	cursor: pointer;
+	transition: border-color .16s ease, color .16s ease, background .16s ease;
+}
+.gpActionBtn:hover { border-color: var(--dsk-accent-ring); color: var(--dsk-accent); }
+.gpActionBtn.primary {
+	background: var(--dsk-primary);
+	border-color: var(--dsk-primary);
+	color: var(--dsk-primary-foreground);
+	font-weight: 600;
+}
+.gpActionBtn.primary:hover { background: var(--dsk-primary-hover); color: #fff; }
+.gpActionBtn.primary:disabled {
+	background: var(--dsk-card);
+	border-color: var(--dsk-card-border);
+	color: var(--dsk-foreground-subtle);
+	cursor: not-allowed;
+}
+.gpActionBtn.ghost { background: transparent; }
+.gpActionBtn:focus-visible { outline: 2px solid var(--dsk-accent-ring); outline-offset: 2px; }
+
+.gpHint {
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-foreground-subtle);
+	min-height: 15px;
+}
+.gpHint[data-kind="err"] { color: var(--dsk-danger); }
+.gpHint[data-kind="ok"] { color: var(--dsk-success); }
+
+/* 预设 */
+.gpPresets { display: flex; gap: 6px; flex-wrap: wrap; }
+.gpPresetBtn {
+	font: inherit;
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	padding: 4px 10px;
+	border-radius: var(--dsk-radius-full);
+	border: 1px solid var(--dsk-card-border);
+	background: transparent;
+	color: var(--dsk-foreground-muted);
+	cursor: pointer;
+}
+.gpPresetBtn:hover { color: var(--dsk-accent); border-color: var(--dsk-accent-ring); }
+.gpPresetBtn:focus-visible { outline: 2px solid var(--dsk-accent-ring); outline-offset: 1px; }
+
+/* 已存路径 */
+.gpSaved {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: 10px;
+}
+.gpSavedCard {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 12px 14px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-card-border);
+	background: var(--dsk-card);
+	cursor: pointer;
+	text-align: left;
+	font: inherit;
+	color: inherit;
+	transition: border-color .16s ease, transform .16s ease;
+}
+.gpSavedCard:hover { border-color: var(--dsk-accent-ring); transform: translateY(-1px); }
+.gpSavedPath {
+	font-size: var(--dsk-text-sm);
+	font-family: var(--dsk-font-mono);
+	font-weight: 700;
+	color: var(--dsk-purple-100);
+	word-break: break-word;
+}
+:root[data-theme="light"] .gpSavedPath { color: var(--dsk-purple-700); }
+.gpSavedStat {
+	font-size: var(--dsk-text-xs);
+	font-family: var(--dsk-font-mono);
+	color: var(--dsk-foreground-subtle);
+}
+.gpSavedEmpty {
+	padding: 18px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px dashed var(--dsk-card-border);
+	color: var(--dsk-foreground-subtle);
+	font-size: var(--dsk-text-sm);
+	text-align: center;
+	grid-column: 1 / -1;
+}

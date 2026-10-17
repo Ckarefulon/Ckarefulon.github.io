@@ -1823,7 +1823,7 @@
 						this.practiceStats = { schemaVersion: 3, groups: {}, solveDetectionMode: 2 };
 					} else if (saved.schemaVersion === 3 && saved.groups) {
 						this.practiceStats = saved;
-						this.practiceStats.solveDetectionMode = Number(saved.solveDetectionMode) === 1 ? 1 : 2;
+						this.practiceStats.solveDetectionMode = this.normalizeSolveDetectionMode(saved.solveDetectionMode);
 					} else {
 						var groupId = (typeof this.getActiveGroupId === 'function') ? this.getActiveGroupId() : 'lib_default';
 						this.practiceStats = {
@@ -1835,7 +1835,7 @@
 						}
 						this.savePracticeStats();
 					}
-					this.solveDetectionMode = Number(this.practiceStats.solveDetectionMode) === 1 ? 1 : 2;
+					this.solveDetectionMode = this.normalizeSolveDetectionMode(this.practiceStats.solveDetectionMode);
 					this.aufPreEnabled = !!this.practiceStats.aufPre;
 					this.aufPostEnabled = !!this.practiceStats.aufPost;
 					var groupData = this.getPracticeData();
@@ -4597,6 +4597,17 @@
 						if (completed && targetReduced.length === 0) {
 							completed = this.performedProcessMoves.join(" ") === this.processTargetMoves.join(" ");
 						}
+					} else if (this.solveDetectionMode === 3) {
+						/* 结构口径：只认「每行纯色」（容忍 AUF 未收尾）。
+						 * 优先用 virtualCubie 影子态（任何场景都有判定源，
+						 * 蓝牙断开时也照常判定）；影子态不可用才退回屏幕 facelet。 */
+						var shadow = null;
+						try {
+							if (this.virtualCubie && this.virtualCubie.toFaceCube) {
+								shadow = this.virtualCubie.toFaceCube();
+							}
+						} catch (e) { shadow = null; }
+						completed = this.structureMatches(shadow || facelet);
 					} else if (this.virtualCubie) {
 						completed = this.virtualMatches(this.activeRestorationTarget);
 					} else {
@@ -4729,8 +4740,17 @@
 					}
 				},
 
+				/* 判定口径三选一：
+				 *   1 严格 —— 逐转动比对目标公式序列（最严，要求做法完全一致）
+				 *   2 状态 —— 逐格比对具体目标态（默认；默认要求 AUF 收尾到位）
+				 *   3 结构 —— 只认每行纯色，容忍 AUF 未收尾（吸收自速训口径，最宽松可用） */
+				normalizeSolveDetectionMode: function(mode) {
+					var n = Number(mode);
+					return (n === 1 || n === 3) ? n : 2;
+				},
+
 				setSolveDetectionMode: function(mode) {
-					this.solveDetectionMode = Number(mode) === 1 ? 1 : 2;
+					this.solveDetectionMode = this.normalizeSolveDetectionMode(mode);
 					if (this.practiceStats && this.isPracticeMode) {
 						this.practiceStats.solveDetectionMode = this.solveDetectionMode;
 						this.savePracticeStats();
@@ -4747,12 +4767,15 @@
 					var controls = document.createElement("div");
 					controls.className = "controls strictDetectionControls";
 					controls.setAttribute("data-solve-detection-controls", "1");
-					controls.setAttribute("aria-label", "严格检测");
-					controls.innerHTML = '<label class="smartCheck strictDetectionToggle"><input type="checkbox" data-strict-detection><span class="checkVisual"></span><span>严格检测</span></label>';
+					controls.setAttribute("aria-label", "判定口径");
+					controls.innerHTML = '<span class="detectTitle">判定</span>' +
+						'<label class="smartCheck strictDetectionToggle" title="逐转动比对目标公式序列：做法必须与目标公式完全一致才算完成"><input type="radio" name="solveDetection" value="1" data-strict-detection><span class="checkVisual"></span><span>严格</span></label>' +
+						'<label class="smartCheck strictDetectionToggle" title="逐格比对具体目标态：默认口径，按标准公式打完即判定完成"><input type="radio" name="solveDetection" value="2" data-strict-detection><span class="checkVisual"></span><span>状态</span></label>' +
+						'<label class="smartCheck strictDetectionToggle" title="只认每行纯色，容忍收尾 AUF 没做：适合练「拧完就停」，不必补最后的 U"><input type="radio" name="solveDetection" value="3" data-strict-detection><span class="checkVisual"></span><span>结构</span></label>';
 					var self = this;
 					controls.addEventListener("change", function(event) {
 						var input = event.target.closest("[data-strict-detection]");
-						if (input) self.setSolveDetectionMode(input.checked ? 1 : 2);
+						if (input) self.setSolveDetectionMode(Number(input.value));
 					});
 					host.appendChild(controls);
 					this.renderDetectOpts();
@@ -4761,7 +4784,7 @@
 				renderDetectOpts: function() {
 					var inputs = document.querySelectorAll("[data-strict-detection]");
 					for (var i = 0; i < inputs.length; i++) {
-						inputs[i].checked = this.solveDetectionMode === 1;
+						inputs[i].checked = Number(inputs[i].value) === this.solveDetectionMode;
 					}
 				},
 
@@ -4861,6 +4884,42 @@
 					if (current.length !== 54 || target.length !== 54) return false;
 					for (var i = 0; i < 54; i++) {
 						if (!(this.hiddenStickerMask || {})[i] && current.charAt(i) !== target.charAt(i)) return false;
+					}
+					return true;
+				},
+
+				/* 结构性复原判定（吸收自 Quick Reaction 速训）：
+				 * U 面全 U + D 面全 D + 四侧 12 行各自单色。不看「转到哪一面」，
+				 * 只看「每行是不是纯色」⇒ 容忍整层 AUF 未收尾，也容忍 U 层循环置换。
+				 * 与上面两路的差别：virtualMatches/faceletMatches 要求逐格对齐具体目标态，
+				 * 这一路只要求结构成立，适合「拧完最后一层但懒得收 AUF」的练习口径。
+				 * 隐藏贴纸开启时该口径无意义（行内混入被屏蔽格）⇒ 直接退回逐格判定。 */
+				STRUCT_ROWS: [
+					[9, 10, 11], [18, 19, 20], [36, 37, 38], [45, 46, 47],
+					[12, 13, 14], [21, 22, 23], [39, 40, 41], [48, 49, 50],
+					[15, 16, 17], [24, 25, 26], [42, 43, 44], [51, 52, 53]
+				],
+
+				structureMatches: function(facelet) {
+					var current = String(facelet || "").toUpperCase().replace(/[^URFDLB]/g, "");
+					if (current.length !== 54) return false;
+					if (Object.keys(this.hiddenStickerMask || {}).length) {
+						return this.faceletMatches(current, this.activeRestorationTarget);
+					}
+					var i;
+					for (i = 0; i < 9; i++) {
+						if (current.charAt(i) !== "U") return false;
+					}
+					for (i = 27; i < 36; i++) {
+						if (current.charAt(i) !== "D") return false;
+					}
+					var rows = this.STRUCT_ROWS;
+					for (var r = 0; r < rows.length; r++) {
+						var idx = rows[r];
+						var c0 = current.charAt(idx[0]);
+						for (var k = 1; k < idx.length; k++) {
+							if (current.charAt(idx[k]) !== c0) return false;
+						}
 					}
 					return true;
 				},

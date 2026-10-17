@@ -173,6 +173,11 @@
 		if (el.cubePopWrap.classList.contains('isPinned')) { positionCubePop(); }
 		updatePhaseChip();
 		el.matchInfo.textContent = '';
+		/* 判定链（XC大师规则吸收）：难度徽章 + 清掉上一题的 Optimal 徽章 */
+		if (window.CrossJudge) {
+			window.CrossJudge.clearSolved();
+			window.CrossJudge.onPuzzle(p, state.colorFace, crossFace());
+		}
 	}
 
 	/* ---------------- 打乱公式动态视图 ----------------
@@ -248,6 +253,11 @@
 		el.matchInfo.textContent = p.steps > 0
 			? '已按魔方实际状态更新解法（' + p.steps + ' 步）'
 			: '魔方当前已完成十字，无需再解';
+		/* 状态换了，难度徽章按实际状态重算；上一轮做答作废，Optimal 徽章清掉 */
+		if (window.CrossJudge) {
+			window.CrossJudge.clearSolved();
+			window.CrossJudge.onPuzzle(p, state.colorFace, crossFace());
+		}
 		return true;
 	}
 
@@ -356,6 +366,8 @@
 		for (var i = 0; i < p.solutionTexts.length; i++) {
 			if (p.solutionTexts[i] === text) { hit = i; break; }
 		}
+		/* 十字是否已做通（命中展示解法，或状态上已完成）——Optimal 徽章与兜底提示共用 */
+		var crossDone = hit >= 0 || E.isCrossDone(currentFacelets(), state.colorFace, crossFace());
 		if (hit >= 0) {
 			/* 完成时该解法已处于显示状态 → 紫色标记，记录里算普通未完成解法 */
 			var wasRevealed = !!state.revealed[hit];
@@ -363,12 +375,17 @@
 			markRecordResult(p.solutionTexts[hit], wasRevealed);
 		}
 		// 兜底：步数相同且十字已完成（解法过多被截断时）
-		if (hit < 0 && simp.length === state.steps && E.isCrossDone(currentFacelets(), state.colorFace, crossFace())) {
+		if (hit < 0 && simp.length === state.steps && crossDone) {
 			el.matchInfo.textContent = '已完成十字（' + text + '），这条不在展示的前若干条里。';
 		} else if (hit >= 0) {
 			el.matchInfo.textContent = '命中解法 #' + (hit + 1) + '：' + text;
 		} else {
 			el.matchInfo.textContent = '';
+		}
+		/* Optimal / Optimal +n 徽章（XC大师完成判定）：做通即评，未命中展示列表也算 */
+		if (window.CrossJudge) {
+			if (crossDone) { window.CrossJudge.onSolved(simp.length, p, state.colorFace, crossFace()); }
+			else { window.CrossJudge.clearSolved(); }
 		}
 		renderMoves();
 	}
@@ -612,6 +629,8 @@
 			state.scrambleProgress = 0;
 			state.scrambleStore = null;
 			el.matchInfo.textContent = '';
+			/* Optimal 徽章同步清掉：清空=本轮做答作废（与 matchInfo 同模式） */
+			if (window.CrossJudge) { window.CrossJudge.clearSolved(); }
 			/* 连着魔方时「清空」= 以魔方实际状态重新来一道 */
 			if (state.connected && state.realFacelets) { newPuzzle(); return; }
 			if (state.connected) { state.phase = 'scramble'; }
@@ -1364,10 +1383,12 @@
 			el.revealAll.dataset.all = reveal ? '1' : '';
 			el.revealAll.textContent = reveal ? '重新隐藏' : '看答案';
 		});
-		el.phaseChip.addEventListener('click', function () {
-			if (!state.connected) { return; }
-			state.phase = state.phase === 'scramble' ? 'solve' : 'scramble';
-			state.userMoves = [];
+	el.phaseChip.addEventListener('click', function () {
+		if (!state.connected) { return; }
+		state.phase = state.phase === 'scramble' ? 'solve' : 'scramble';
+		state.userMoves = [];
+		/* 切换阶段=本轮做答作废，Optimal 徽章清掉 */
+		if (window.CrossJudge) { window.CrossJudge.clearSolved(); }
 			if (state.phase === 'scramble') {
 				state.allMoves = [];
 				state.scrambleProgress = 0;
