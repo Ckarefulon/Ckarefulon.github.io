@@ -171,6 +171,39 @@
 .gpChipX:hover { opacity: 1; }
 .gpArrow { color: var(--dsk-foreground-subtle); font-size: var(--dsk-text-sm); }
 
+/* 路径项：胶囊 + 后面的箭头作为一个整体移动，拖动换序时不会与箭头错位 */
+.gpPathItem {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+.gpPathItem:last-child > .gpArrow { display: none; }
+
+/* 可拖动 */
+.gpChip {
+	cursor: grab;
+	touch-action: none;
+	user-select: none;
+	transition: opacity .12s ease;
+}
+.gpChip:active { cursor: grabbing; }
+/* 拖动中：原地留一个淡化的占位，指示会落在哪 */
+.gpChip.dragging {
+	opacity: .32;
+	outline: 1px dashed var(--dsk-accent-ring);
+	outline-offset: 2px;
+}
+/* 跟着指针走的浮动副本 */
+.gpChipGhost {
+	position: fixed;
+	z-index: 80;
+	margin: 0;
+	pointer-events: none;
+	opacity: .95;
+	box-shadow: 0 8px 22px rgba(0, 0, 0, .45);
+	transform: scale(1.04);
+}
+
 .gpActions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .gpActionBtn {
 	font: inherit;

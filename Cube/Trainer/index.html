@@ -23,7 +23,7 @@
 
 	<!-- Cube 功能块样式：展开图 → 阶段节点图 → 公用计时台 → 页面自己的样式 -->
 	<link rel="stylesheet" href="../assets/cube-net/cube-net.css?v=1877">
-	<link rel="stylesheet" href="../assets/stages/cube-graph.css?v=2255">
+	<link rel="stylesheet" href="../assets/stages/cube-graph.css?v=2267">
 	<link rel="stylesheet" href="../assets/timer/cube-timer.css?v=2170">
 	<link rel="stylesheet" href="trainer.css?v=2170">
 
@@ -51,9 +51,9 @@
 	<script src="trainer-common.js?v=2170" defer></script>
 	<!-- 阶段节点库（判定 + 六色底参考系）→ 节点图组件 → 公用计时台 -->
 	<script src="../assets/stages/cube-stages.js?v=2170" defer></script>
-	<script src="../assets/stages/cube-graph.js?v=2255" defer></script>
+	<script src="../assets/stages/cube-graph.js?v=2267" defer></script>
 	<script src="../assets/timer/cube-timer.js?v=2170" defer></script>
-	<script src="trainer-app.js?v=2170" defer></script>
+	<script src="trainer-app.js?v=2267" defer></script>
 </head>
 <body>
 	<div class="trainerPage">
@@ -67,7 +67,7 @@
 			<div class="trGraphBlock">
 				<div class="trGraphHead">
 					<span class="trGraphTitle">节点图</span>
-					<span class="trGraphHint">点节点选起止（第一个=起点，最后一个=终点），再点别的节点可插入中间分段；<b>任意两个节点都能连</b>，画出的线只是导航参考；拖动节点可改布局</span>
+					<span class="trGraphHint">点节点选起止（第一个=起点，最后一个=终点），再点别的节点可插入中间分段；<b>任意两个节点都能连</b>，画出的线只是导航参考；拖动节点可改布局，下方胶囊可拖动改顺序</span>
 					<button class="trBtn ghost sm" id="trGraphReset" type="button">还原布局</button>
 				</div>
 				<div class="gpWrap" id="trGraph"></div>

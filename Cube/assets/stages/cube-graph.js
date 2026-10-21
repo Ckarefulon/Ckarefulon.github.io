@@ -24,6 +24,15 @@
 	var W = 940, H = 520;
 	var R = 26;
 
+	/* 布局约束（自动整理用）：
+	 *   GAP_X  路径上相邻两步之间至少要拉开的水平距离（「下一步在上一步右边」）
+	 *   MIN_SEP 两个节点之间避免重叠的最小距离
+	 *   ANIM_MS 位移动画时长 */
+	var GAP_X = R * 2 + 26;
+	var MIN_SEP = R * 2 + 10;
+	var STAIR_DY = 34;   /* 路径相邻两步的纵向错位：让移动看起来是斜的，而不是横移 */
+	var ANIM_MS = 340;
+
 	/* 连线 = 所有「不回退」的两点组合（按规则自动生成，不再手写白名单）。
 	 *
 	 * 口径（用户定）：只要不破坏已经还原好的部分，任意两点都能连。
@@ -123,10 +132,6 @@
 	}
 
 	/* ---------- 几何 ---------- */
-	function nodeCenter(id, pos, i) {
-		var q = pos[id] || defaultPos(id, i);
-		return { x: q[0], y: q[1] };
-	}
 	/* 两圆之间的连线端点（裁到圆周，箭头不插进圆里） */
 	function trim(a, b, r) {
 		var dx = b.x - a.x, dy = b.y - a.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -159,9 +164,229 @@
 			return 0;
 		}
 
-		function emit() {
+		/* ---------- 位置：已提交值 / 动画中的显示值 ---------- */
+		var disp = {};        /* 动画期间的插值位置（id → {x,y}），动画结束后清空 */
+		var anim = null;      /* { from, to, t0, dur, raf } */
+
+		function baseOf(id) {
+			var q = pos[id];
+			if (!q) { q = defaultPos(id, nodeIndex(id)); }
+			return { x: q[0], y: q[1] };
+		}
+		/* 画面上此刻应该在的地方：动画中取插值，否则取已提交值 */
+		function displayOf(id) {
+			return disp[id] || baseOf(id);
+		}
+		function snapshot() {
+			var o = {};
+			CS.NODES.forEach(function (n) { o[n.id] = displayOf(n.id); });
+			return o;
+		}
+
+		/* 缓动：easeOutCubic（起步快、收尾稳，滑动看起来更「丝滑」） */
+		function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+		function stopAnim() {
+			if (anim && anim.raf) { cancelAnimationFrame(anim.raf); }
+			anim = null;
+		}
+
+		/* 把一批节点平滑移到目标位置；结束后写回 pos 并落盘 */
+		function animateTo(targets, dur) {
+			var ids = Object.keys(targets || {});
+			if (!ids.length) { return; }
+			var from = {};
+			ids.forEach(function (id) { from[id] = displayOf(id); });
+			stopAnim();
+			anim = { from: from, ids: ids, to: targets, t0: performance.now(), dur: dur || ANIM_MS, raf: 0 };
+
+			function step() {
+				if (!anim) { return; }
+				var k = Math.min(1, (performance.now() - anim.t0) / anim.dur);
+				var e = easeOut(k);
+				anim.ids.forEach(function (id) {
+					var a = anim.from[id], b = anim.to[id];
+					disp[id] = { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e };
+				});
+				render();
+				if (k < 1) {
+					anim.raf = requestAnimationFrame(step);
+				} else {
+					anim.ids.forEach(function (id) {
+						var b = anim.to[id];
+						pos[id] = [Math.round(b.x), Math.round(b.y)];
+						delete disp[id];
+					});
+					savePos(pos);
+					anim = null;
+					render();
+				}
+			}
+			anim.raf = requestAnimationFrame(step);
+		}
+
+		/* ---------- 布局求解：顺序约束 + 互不重叠（二维） ----------
+		 * 硬约束（都要满足）：
+		 *   ① 路径上「下一步」必须在前一步右边，横向至少拉开 GAP_X；
+		 *   ② 任意两个节点不许重叠 —— 节点是圆的，所以按**圆心距离**判定；
+		 *   ③ 全部留在画布内。
+		 *
+		 * 三条都是硬约束，且**两个方向都能动、上一步也能动** ——
+		 * 所以这是标准的约束松弛（投影法）：反复把违反约束的两方各推开一半。
+		 *   · 缺顺序时：前一个向左、后一个向右各分摊一半（两边都动，位移最小）。
+		 *   · 有重叠时：沿**两圆圆心连线**推开，而不是挑某个坐标轴 ——
+		 *     这样修正量是斜向的，看起来自然得多（挑轴向会变成纯水平/纯垂直的"横移"）。
+		 * 位移最小化靠「各让一半 + 沿连线推」自然达成。
+		 */
+		function planOrder(path) {
+			if (!path || path.length < 2) { return null; }
+			var start = snapshot();
+			var work = {};
+			CS.NODES.forEach(function (n) {
+				work[n.id] = { x: start[n.id].x, y: start[n.id].y };
+			});
+
+			var ids = CS.NODES.map(function (n) { return n.id; });
+			var MIN_X = R + 4, MAX_X = W - R - 4;
+			var MIN_Y = R + 4, MAX_Y = H - R - 4;
+
+			function clampAll() {
+				ids.forEach(function (id) {
+					var p = work[id];
+					if (p.x < MIN_X) { p.x = MIN_X; }
+					if (p.x > MAX_X) { p.x = MAX_X; }
+					if (p.y < MIN_Y) { p.y = MIN_Y; }
+					if (p.y > MAX_Y) { p.y = MAX_Y; }
+				});
+			}
+
+			/* 圆心距离（小于 MIN_SEP 即视为重叠） */
+			function tooClose(P, Q) {
+				var dx = Q.x - P.x, dy = Q.y - P.y;
+				return (dx * dx + dy * dy) < (MIN_SEP - 0.5) * (MIN_SEP - 0.5);
+			}
+
+			function violations() {
+				var v = 0;
+				for (var i = 1; i < path.length; i++) {
+					var a = work[path[i - 1]], b = work[path[i]];
+					if (a && b && (b.x - a.x) < GAP_X - 0.5) { v++; }
+				}
+				for (var m = 0; m < ids.length; m++) {
+					for (var n = m + 1; n < ids.length; n++) {
+						if (tooClose(work[ids[m]], work[ids[n]])) { v++; }
+					}
+				}
+				return v;
+			}
+			if (!violations()) { return null; }
+
+			/* 迭代松弛：每轮投影一次，越到后面步长越大，保证收敛 */
+			var ITER = 120;
+			for (var it = 0; it < ITER; it++) {
+				var relax = it < ITER * 0.75 ? 0.5 : 1;
+
+				/* ① 顺序：后一个要落到前一个右边，并且**落在前一个的右下方/右上方**。
+				 *    如果只是对齐到同一行，虽然 x 够了，但纵向位移被「两行之间那点距离」
+				 *    锁死，动画看起来仍然几乎是一条水平线。
+				 *    所以这里给一个阶梯偏移 STAIR：后一个的目标是 (A.x + GAP_X, A.y ± STAIR)，
+				 *    于是它从原位置斜着滑过去，长距离移动也看得出是斜的。
+				 *    方向按空间余量选（默认往下，贴近底边就往上）。
+				 *    A 也给一点反向纵向位移，保证「最主要的那两个」都在斜移。 */
+				for (var i = 1; i < path.length; i++) {
+					var A = work[path[i - 1]], B = work[path[i]];
+					if (!A || !B) { continue; }
+					var deficit = (A.x + GAP_X) - B.x;
+					if (deficit > 0.5) {
+						var half = deficit * relax / 2;
+						var dy0 = A.y - B.y;
+						var stairDir = (A.y + STAIR_DY <= MAX_Y) ? 1 : -1;
+						var targetY = A.y + stairDir * STAIR_DY;
+						A.x -= half;
+						B.x += half;
+						A.y -= dy0 * relax * 0.15;
+						B.y += (targetY - B.y) * relax * 0.45;
+					}
+				}
+
+				/* ② 分离：沿圆心连线推开（斜向），两边各让一半 */
+				for (var m = 0; m < ids.length; m++) {
+					for (var n = m + 1; n < ids.length; n++) {
+						var P = work[ids[m]], Q = work[ids[n]];
+						var dx = Q.x - P.x, dy = Q.y - P.y;
+						var dist = Math.sqrt(dx * dx + dy * dy);
+						if (dist >= MIN_SEP - 0.5) { continue; }
+						var ux, uy;
+						if (dist < 0.01) {
+							/* 完全重合：给一个确定的斜向，避免除零 */
+							ux = 0.7071; uy = 0.7071;
+							dist = 0;
+						} else {
+							ux = dx / dist; uy = dy / dist;
+						}
+						var push = (MIN_SEP - dist) * relax / 2 + 0.05;
+						P.x -= ux * push; P.y -= uy * push;
+						Q.x += ux * push; Q.y += uy * push;
+					}
+				}
+
+				clampAll();
+			}
+
+			/* 收尾：把仍差一点点的顺序约束补齐；
+			 * 优先把后一个往右推，右边顶到头了就把前一个往左拉 */
+			for (var k = 1; k < path.length; k++) {
+				var A2 = work[path[k - 1]], B2 = work[path[k]];
+				if (!A2 || !B2) { continue; }
+				var d2 = (A2.x + GAP_X) - B2.x;
+				if (d2 > 0.5) {
+					var roomRight = MAX_X - B2.x;
+					var moveRight = Math.min(d2, Math.max(0, roomRight));
+					B2.x += moveRight;
+					var remain = d2 - moveRight;
+					if (remain > 0.5) { A2.x -= remain; }
+				}
+			}
+			clampAll();
+
+			/* 只提交真正移动了的 */
+			var targets = {};
+			ids.forEach(function (id) {
+				var b = work[id], cur = displayOf(id);
+				if (Math.abs(cur.x - b.x) > 0.5 || Math.abs(cur.y - b.y) > 0.5) {
+					targets[id] = { x: Math.round(b.x), y: Math.round(b.y) };
+				}
+			});
+			return Object.keys(targets).length ? targets : null;
+		}
+
+		/* 让路径满足「下一步在上一步右边」，并平滑移动 */
+		function applyOrder(opts) {
+			opts = opts || {};
+			var t = planOrder(orderedPath());
+			if (!t) {
+				if (!opts.silent) { render(); }
+				return false;
+			}
+			if (opts.animate === false) {
+				Object.keys(t).forEach(function (id) {
+					pos[id] = [Math.round(t[id].x), Math.round(t[id].y)];
+					delete disp[id];
+				});
+				savePos(pos);
+				render();
+				return true;
+			}
+			animateTo(t, opts.dur);
+			return true;
+		}
+
+		function emit(opts) {
+			opts = opts || {};
 			onChange(orderedPath(), { selected: selected.slice() });
-			render();
+			if (opts.layout === false) { render(); return; }
+			/* 原样透传：animate / dur 都要交给 applyOrder，否则 animate:false 会被丢掉 */
+			applyOrder(opts);
 		}
 
 		function toggle(id) {
@@ -171,9 +396,9 @@
 			emit();
 		}
 
-		function setPath(p) {
+		function setPath(p, opts) {
 			selected = (p || []).slice();
-			emit();
+			emit(opts);
 		}
 
 		/* ---------- 渲染 ---------- */
@@ -196,7 +421,7 @@
 			for (var i = 0; i + 1 < path.length; i++) { activeLinks[edgeKey(path[i], path[i + 1])] = true; }
 
 			var centers = {};
-			CS.NODES.forEach(function (n, i) { centers[n.id] = nodeCenter(n.id, loadPos(), i); });
+			CS.NODES.forEach(function (n, i) { centers[n.id] = displayOf(n.id); });
 
 			/* 连线：全部「不回退」的组合都画出来，但底色极淡（当作可选范围的底纹），
 			 * 只有①选中路径上的边 ②鼠标悬停节点时该节点的边 才亮起来。
@@ -283,11 +508,13 @@
 				return { x: (src.clientX - box.left) * sx, y: (src.clientY - box.top) * sy };
 			}
 			g.addEventListener("pointerdown", function (ev) {
+				stopAnim();          /* 手动拖动优先，先终止进行中的自动动画 */
 				dragging = true; moved = false;
 				var p = pt(ev);
 				startX = p.x; startY = p.y;
 				origX = center.x; origY = center.y;
-				g.setPointerCapture && g.setPointerCapture(ev.pointerId);
+				/* 合成事件可能没有活跃指针，捕获失败不影响拖动本身 */
+				try { g.setPointerCapture && g.setPointerCapture(ev.pointerId); } catch (e) {}
 			});
 			g.addEventListener("pointermove", function (ev) {
 				if (!dragging) { return; }
@@ -297,15 +524,16 @@
 				if (!moved) { return; }
 				var nx = Math.max(R + 4, Math.min(W - R - 4, origX + dx));
 				var ny = Math.max(R + 4, Math.min(H - R - 4, origY + dy));
-				var store = loadPos();
-				store[id] = [Math.round(nx), Math.round(ny)];
-				savePos(store);
+				/* 只改内存里的位置，拖动过程中不写 localStorage（60fps 下会明显卡） */
+				pos[id] = [Math.round(nx), Math.round(ny)];
+				delete disp[id];
 				var c2 = centers[id];
 				c2.x = nx; c2.y = ny;
 				render();
 			});
 			g.addEventListener("pointerup", function (ev) {
 				if (dragging && moved) {
+					savePos(pos);          /* 松手时落盘一次即可 */
 					/* 拖动结束时不要再触发 click 的选中切换 */
 					ev.preventDefault();
 					ev.stopPropagation();
@@ -334,7 +562,18 @@
 			path: orderedPath,
 			selected: function () { return selected.slice(); },
 			clear: function () { selected = []; emit(); },
-			resetLayout: function () { try { localStorage.removeItem(POS_KEY); } catch (e) {} render(); },
+			resetLayout: function () {
+				try { localStorage.removeItem(POS_KEY); } catch (e) {}
+				pos = {};
+				disp = {};
+				stopAnim();
+				render();
+			},
+			/* 只整理布局、不改选择；返回是否真的移动了东西 */
+			applyOrder: function (o) { return applyOrder(o); },
+			/* 供拖动胶囊改顺序后调用：顺序变了，重排并平滑移动 */
+			reorder: function (p) { setPath(p, { layout: true }); },
+			isAnimating: function () { return !!anim; },
 			render: render,
 			EDGES: EDGES,
 			hasEdge: hasEdge

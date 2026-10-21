@@ -193,24 +193,36 @@
 		if (!st.path.length) {
 			box.appendChild(el("span", "gpPathEmpty", "还没有选择。在图上点起点，再点终点。"));
 		} else {
+			/* 每个胶囊连同它后面的箭头一起包进 .gpPathItem：
+			 * 拖动改顺序时整体挪动，箭头跟着走，不会与胶囊错位。 */
 			st.path.forEach(function (id, i) {
-				if (i > 0) { box.appendChild(el("span", "gpArrow", "\u2192")); }
+				var item = el("span", "gpPathItem");
+				item.dataset.id = id;
+
 				var chip = el("span", "gpChip");
+				chip.dataset.id = id;
 				chip.dataset.role = (i === 0 || i === st.path.length - 1) ? "end" : "mid";
+				chip.title = "按住拖动可调整顺序";
 				var ord = el("span", "gpChipOrder", String(i + 1));
 				chip.appendChild(ord);
 				chip.appendChild(el("span", null, nodeName(id)));
 				var x = el("button", "gpChipX", "\u00d7");
 				x.type = "button";
 				x.title = "从这条路里去掉";
-				x.addEventListener("click", function () {
+				x.addEventListener("click", function (ev) {
+					ev.stopPropagation();
 					var at = st.path.indexOf(id);
 					if (at >= 0) { st.path.splice(at, 1); }
 					if (st.graph) { st.graph.setPath(st.path); }
 					updatePathUI();
 				});
 				chip.appendChild(x);
-				box.appendChild(chip);
+				item.appendChild(chip);
+
+				if (i < st.path.length - 1) {
+					item.appendChild(el("span", "gpArrow", "\u2192"));
+				}
+				box.appendChild(item);
 			});
 		}
 
@@ -230,6 +242,113 @@
 
 		$("trStartBtn").disabled = !v.ok;
 		$("trSavePathBtn").disabled = !v.ok;
+	}
+
+	/* ================= 拖动胶囊改顺序 =================
+	 * 按住胶囊拖动即可换位：拖动中原地留一个半透明占位、另起一个浮层跟着指针，
+	 * 指针经过哪个位置就把占位插到那里，松手后按 DOM 顺序提交。
+	 * 提交时调用 graph.reorder()，图上的节点会平滑滑到新位置，
+	 * 并保证「下一步在上一步的右边」。
+	 */
+	function pathItems() {
+		return [].slice.call($("trPathBox").querySelectorAll(".gpPathItem"));
+	}
+	function itemIds() {
+		return pathItems().map(function (it) { return it.dataset.id; });
+	}
+	function renumberChips() {
+		pathItems().forEach(function (it, i) {
+			var num = it.querySelector(".gpChipOrder");
+			if (num) { num.textContent = String(i + 1); }
+			var chip = it.querySelector(".gpChip");
+			if (chip) {
+				chip.dataset.role = (i === 0 || i === pathItems().length - 1) ? "end" : "mid";
+			}
+		});
+	}
+	/* 指针落在哪个胶囊之前（按阅读顺序：先比行，再比列） */
+	function insertBeforeFor(clientX, clientY, draggingItem) {
+		var items = pathItems().filter(function (it) { return it !== draggingItem; });
+		for (var i = 0; i < items.length; i++) {
+			var r = items[i].getBoundingClientRect();
+			if (clientY < r.top) { return items[i]; }                 /* 在上一行之上 */
+			if (clientY <= r.bottom) {                                 /* 同一行 */
+				if (clientX < r.left + r.width / 2) { return items[i]; }
+			}
+		}
+		return null;   /* 放到最后 */
+	}
+
+	var chipDrag = null;
+	function bindChipDrag() {
+		var box = $("trPathBox");
+
+		box.addEventListener("pointerdown", function (ev) {
+			if (ev.button != null && ev.button !== 0) { return; }
+			if (ev.target.closest && ev.target.closest(".gpChipX")) { return; }
+			var chip = ev.target.closest ? ev.target.closest(".gpChip") : null;
+			if (!chip) { return; }
+			chipDrag = {
+				pointerId: ev.pointerId, chip: chip,
+				item: chip.parentNode,
+				startX: ev.clientX, startY: ev.clientY,
+				active: false
+			};
+		});
+
+		box.addEventListener("pointermove", function (ev) {
+			var d = chipDrag;
+			if (!d || ev.pointerId !== d.pointerId) { return; }
+
+			if (!d.active) {
+				if (Math.abs(ev.clientX - d.startX) < 5 && Math.abs(ev.clientY - d.startY) < 5) { return; }
+				d.active = true;
+				var r = d.chip.getBoundingClientRect();
+				d.offX = d.startX - r.left;
+				d.offY = d.startY - r.top;
+				/* 浮层：跟着指针走的那一份 */
+				var ghost = d.chip.cloneNode(true);
+				ghost.classList.add("gpChipGhost");
+				ghost.removeAttribute("title");
+				ghost.style.width = r.width + "px";
+				d.ghost = ghost;
+				document.body.appendChild(ghost);
+				d.chip.classList.add("dragging");
+				try { box.setPointerCapture(ev.pointerId); } catch (e) {}
+			}
+
+			d.ghost.style.left = (ev.clientX - d.offX) + "px";
+			d.ghost.style.top = (ev.clientY - d.offY) + "px";
+
+			/* 实时把占位插到指针所在的位置，其它胶囊自动让位 */
+			var before = insertBeforeFor(ev.clientX, ev.clientY, d.item);
+			if (before) {
+				if (before !== d.item.nextSibling) { box.insertBefore(d.item, before); }
+			} else if (d.item !== box.lastChild) {
+				box.appendChild(d.item);
+			}
+			renumberChips();
+			ev.preventDefault();
+		});
+
+		function endDrag(ev) {
+			var d = chipDrag;
+			if (!d || (ev && ev.pointerId !== d.pointerId)) { return; }
+			chipDrag = null;
+			if (!d.active) { return; }           /* 只是点了一下，交给 click 处理 */
+			if (d.ghost && d.ghost.parentNode) { d.ghost.parentNode.removeChild(d.ghost); }
+			d.chip.classList.remove("dragging");
+
+			var ids = itemIds();
+			/* 先按新顺序提交选择，再让图平滑整理布局 */
+			st.path = ids;
+			if (st.graph) { st.graph.reorder(ids); }
+			updatePathUI();
+			/* 拖动结束后不要把这一下当成「点选节点」，吞掉后续 click */
+			if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+		}
+		box.addEventListener("pointerup", endDrag);
+		box.addEventListener("pointercancel", endDrag);
 	}
 
 	function renderPresets() {
@@ -772,6 +891,8 @@
 		$("trGraphReset").addEventListener("click", function () {
 			if (st.graph) { st.graph.resetLayout(); }
 		});
+		/* 胶囊拖动改顺序（图上的节点会跟着平滑移动） */
+		bindChipDrag();
 
 		/* 起点来源 */
 		$("trOriginRow").addEventListener("click", function (e) {
