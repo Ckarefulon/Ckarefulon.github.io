@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+
+	<!-- 主题先落地，避免深浅色闪一下（与其它页面共用 smartCubeTheme） -->
+	<script>
+		(function () {
+			var saved = null;
+			try { saved = localStorage.getItem("smartCubeTheme"); } catch (e) {}
+			var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+			document.documentElement.dataset.theme = saved || (prefersDark ? "dark" : "light");
+		})();
+	</script>
+
+	<!-- 设计令牌（dsk-*），必须先于页面样式 -->
+	<link rel="stylesheet" href="/ui/colors_and_type.css">
+	<link rel="stylesheet" href="/nav/nav.css?v=2143">
+	<link rel="stylesheet" href="merit.css?v=2255">
+
+	<script src="/nav/nav.js?v=2143" defer></script>
+	<script src="/assets/services/core/site-scope.js?v=2255" defer></script>
+
+	<title>综评计分器 — 西安交通大学本科生综合素质测评</title>
+</head>
+<body>
+<div class="mPage">
+
+	<!-- ============ 顶部：学年 + 总分看板 ============ -->
+	<header class="mHead">
+		<div class="mHeadRow">
+			<div class="mYear">
+				<button class="mYearBtn" id="yearBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+					<span id="yearText">2025—2026 学年</span>
+					<span class="mYearChevron" aria-hidden="true"></span>
+				</button>
+				<div class="mYearMenu" id="yearMenu" role="listbox"></div>
+			</div>
+			<div class="mHeadTools">
+				<span class="cloudTag" data-state="local">本机存储</span>
+				<button class="mTool" id="btnPanel" type="button">整理</button>
+			</div>
+		</div>
+
+		<div class="scoreHero">
+			<div class="scoreHeroMain">
+				<div class="scoreHeroLabel">综合素质测评成绩</div>
+				<div class="scoreHeroVal"><b id="totalScore">0.0</b><span class="scoreHeroMax">/ 105</span></div>
+				<div class="scoreHeroSub" id="totalSub">尚未录入任何项目</div>
+			</div>
+			<div class="scoreRings" id="scoreRings"></div>
+		</div>
+
+		<div class="mTabs" id="mTabs" role="tablist">
+			<button class="mTab isActive" type="button" data-tab="pin" role="tab" aria-selected="true">品行素质</button>
+			<button class="mTab" type="button" data-tab="cap" role="tab" aria-selected="false">能力拓展</button>
+			<button class="mTab" type="button" data-tab="reward" role="tab" aria-selected="false">奖励分</button>
+			<button class="mTab" type="button" data-tab="insight" role="tab" aria-selected="false">推演 · 提示</button>
+		</div>
+	</header>
+
+	<!-- ============ 滚动主体：三个录入分区 ============ -->
+	<main class="mScroll" id="mScroll">
+
+		<!-- ---------- 品行素质 ---------- -->
+		<section class="mPane isActive" id="pane-pin" role="tabpanel">
+			<div class="mPaneIntro">
+				品行素质满分 <b>80 分</b>：基准 70 分 + 集体活动 ≤3 + 思政理论学习 ≤3 + 社会服务 ≤4。
+				<span class="mWarn">扣分项不设上限。</span>
+			</div>
+
+			<!-- 基准分 -->
+			<div class="blk" data-cap-key="base">
+				<div class="blkHead">
+					<div class="blkTitle">一、基准分</div>
+					<div class="blkCap">满分 70</div>
+				</div>
+				<div class="row rowToggle">
+					<label class="sw">
+						<input type="checkbox" id="pinBaseOk">
+						<span class="swBox"><span class="swDot"></span></span>
+						<span class="rowText">经班级评议小组评议合格、书院审定通过</span>
+					</label>
+					<div class="rowVal" id="pinBaseVal">0</div>
+				</div>
+			</div>
+
+			<!-- 集体活动 -->
+			<div class="blk" data-cap-key="collective">
+				<div class="blkHead">
+					<div class="blkTitle">二、集体活动分</div>
+					<div class="blkCap">满分 3</div>
+				</div>
+				<div class="row rowCtl">
+					<div class="ctlLabel">认定口径</div>
+					<div class="seg" id="collectiveModeSeg">
+						<button class="segBtn isActive" type="button" data-mode="count" title="按参与次数计分（彭康书院口径）">按次计分</button>
+						<button class="segBtn" type="button" data-mode="flat" title="对集体荣誉有突出贡献，经书院认定一次性给满分">突出贡献</button>
+					</div>
+				</div>
+				<div class="row rowCtl" id="collectiveCountWrap">
+					<div class="ctlLabel">参与次数</div>
+					<div class="stepper" id="collectiveCount">
+						<button class="stepBtn" type="button" data-step="-1" aria-label="减少">−</button>
+						<input class="stepIn" id="collectiveCountIn" type="number" min="0" max="99" step="1" value="0" inputmode="numeric">
+						<button class="stepBtn" type="button" data-step="1" aria-label="增加">+</button>
+					</div>
+					<div class="rowVal" id="collectiveVal">0</div>
+				</div>
+				<div class="row rowNote" id="collectiveNote">
+					<span class="noteTag">书院口径</span>
+					<span id="collectiveNoteText">校级办法未统一规定单次分值，由各书（学）院自行认定。当前按 <b>彭康书院</b> 口径：参与一次 0.6 分，封顶 3 分。</span>
+					<button class="noteMore" id="collectiveSwitch" type="button">切换</button>
+				</div>
+			</div>
+
+			<!-- 思想政治理论学习 -->
+			<div class="blk" data-cap-key="ideology">
+				<div class="blkHead">
+					<div class="blkTitle">三、思想政治理论学习分</div>
+					<div class="blkCap">满分 3</div>
+				</div>
+				<div class="row rowToggle">
+					<label class="sw">
+						<input type="checkbox" data-k="ideo_base">
+						<span class="swBox"><span class="swDot"></span></span>
+						<span class="rowText">参加各级党团组织的理论学习培训<span class="rowSub">含网络学习</span></span>
+					</label>
+					<div class="rowVal">+1</div>
+				</div>
+				<div class="row rowToggle">
+					<label class="sw">
+						<input type="checkbox" data-k="ideo_prov">
+						<span class="swBox"><span class="swDot"></span></span>
+						<span class="rowText">参加省、部级理论学习培训</span>
+					</label>
+					<div class="rowVal">+2</div>
+				</div>
+				<div class="row rowToggle">
+					<label class="sw">
+						<input type="checkbox" data-k="ideo_star">
+						<span class="swBox"><span class="swDot"></span></span>
+						<span class="rowText">培训获「优秀学员」称号</span>
+					</label>
+					<div class="rowVal">+1</div>
+				</div>
+				<div class="row rowNote">
+					<span class="noteTag">叠加</span>
+					<span>三项可叠加，但总分封顶 <b>3</b> 分。</span>
+				</div>
+			</div>
+
+			<!-- 社会服务 -->
+			<div class="blk" data-cap-key="social">
+				<div class="blkHead">
+					<div class="blkTitle">四、社会服务分</div>
+					<div class="blkCap">满分 4</div>
+				</div>
+
+				<div class="row rowCtl">
+					<div class="ctlLabel">志愿服务时长</div>
+					<div class="ctlRight">
+						<div class="numWrap">
+							<input class="numIn" id="volHours" type="number" min="0" max="500" step="1" value="0" inputmode="decimal">
+							<span class="unit">小时</span>
+						</div>
+						<div class="rowVal" id="volVal">0</div>
+					</div>
+				</div>
+				<div class="row rowBar" id="volBarRow">
+					<div class="barTrack"><div class="barFill" id="volBarFill"></div></div>
+					<div class="barNote"><b>32</b> 小时起计分（每学年累计，不足按比例折算）</div>
+				</div>
+
+				<div class="row rowToggle">
+					<label class="sw">
+						<input type="checkbox" data-k="soc_school">
+						<span class="swBox"><span class="swDot"></span></span>
+						<span class="rowText">校级社会实践<span class="rowSub">考核合格的团队成员</span></span>
+					</label>
+					<div class="rowVal">+1</div>
+				</div>
+				<div class="row rowToggle">
+					<label class="sw">
+						<input type="checkbox" data-k="soc_city">
+						<span class="swBox"><span class="swDot"></span></span>
+						<span class="rowText">市、县级挂职锻炼及政府见习</span>
+					</label>
+					<div class="rowVal">+1</div>
+				</div>
+				<div class="row rowToggle">
+					<label class="sw">
+						<input type="checkbox" data-k="soc_prov">
+						<span class="swBox"><span class="swDot"></span></span>
+						<span class="rowText">省、部级挂职锻炼及政府见习<span class="rowSub">含国际组织见习</span></span>
+					</label>
+					<div class="rowVal">+2</div>
+				</div>
+				<div class="row rowToggle">
+					<label class="sw">
+						<input type="checkbox" data-k="soc_honor">
+						<span class="swBox"><span class="swDot"></span></span>
+						<span class="rowText">获先进个人及表彰</span>
+					</label>
+					<div class="rowVal">+1</div>
+				</div>
+				<div class="row rowNote">
+					<span class="noteTag">叠加</span>
+					<span>各项可累计，总分封顶 <b>4</b> 分。</span>
+				</div>
+			</div>
+
+			<!-- 扣分 -->
+			<div class="blk blkDanger" data-cap-key="deduct">
+				<div class="blkHead">
+					<div class="blkTitle">五、品行素质扣分</div>
+					<div class="blkCap">无上限 · 从基准分扣除</div>
+				</div>
+
+				<div class="row rowCtl">
+					<div class="ctlLabel">通报批评</div>
+					<div class="ctlRight">
+						<div class="numWrap">
+							<input class="numIn" data-k="d_notify" type="number" min="0" max="99" step="1" value="0" inputmode="numeric">
+							<span class="unit">次</span>
+						</div>
+						<div class="rowVal" id="dNotifyVal">0</div>
+					</div>
+				</div>
+				<div class="row rowCtl">
+					<div class="ctlLabel">旷课<span class="rowSub">未达处分条件</span></div>
+					<div class="ctlRight">
+						<div class="numWrap">
+							<input class="numIn" data-k="d_skip" type="number" min="0" max="99" step="1" value="0" inputmode="numeric">
+							<span class="unit">次</span>
+						</div>
+						<div class="rowVal" id="dSkipVal">0</div>
+					</div>
+				</div>
+				<div class="row rowCtl">
+					<div class="ctlLabel">宿舍卫生不合格<span class="rowSub">宿舍每人每次</span></div>
+					<div class="ctlRight">
+						<div class="numWrap">
+							<input class="numIn" data-k="d_dorm" type="number" min="0" max="99" step="1" value="0" inputmode="numeric">
+							<span class="unit">次</span>
+						</div>
+						<div class="rowVal" id="dDormVal">0</div>
+					</div>
+				</div>
+
+				<div class="subHead">纪律处分（按等次各计次数）</div>
+				<div class="row rowCtl">
+					<div class="ctlLabel">警告</div>
+					<div class="ctlRight">
+						<div class="numWrap">
+							<input class="numIn" data-k="d_warn" type="number" min="0" max="99" step="1" value="0" inputmode="numeric">
+							<span class="unit">次</span>
+						</div>
+						<div class="rowVal" id="dWarnVal">0</div>
+					</div>
+				</div>
+				<div class="row rowCtl">
+					<div class="ctlLabel">严重警告</div>
+					<div class="ctlRight">
+						<div class="numWrap">
+							<input class="numIn" data-k="d_serious" type="number" min="0" max="99" step="1" value="0" inputmode="numeric">
+							<span class="unit">次</span>
+						</div>
+						<div class="rowVal" id="dSeriousVal">0</div>
+					</div>
+				</div>
+				<div class="row rowCtl">
+					<div class="ctlLabel">记过</div>
+					<div class="ctlRight">
+						<div class="numWrap">
+							<input class="numIn" data-k="d_record" type="number" min="0" max="99" step="1" value="0" inputmode="numeric">
+							<span class="unit">次</span>
+						</div>
+						<div class="rowVal" id="dRecordVal">0</div>
+					</div>
+				</div>
+				<div class="row rowCtl">
+					<div class="ctlLabel">留校察看</div>
+					<div class="ctlRight">
+						<div class="numWrap">
+							<input class="numIn" data-k="d_probation" type="number" min="0" max="99" step="1" value="0" inputmode="numeric">
+							<span class="unit">次</span>
+						</div>
+						<div class="rowVal" id="dProbationVal">0</div>
+					</div>
+				</div>
+				<div class="row rowNote">
+					<span class="noteTag">红线</span>
+					<span>受到校级、院级纪律处分（含尚未解除）将<b>取消当年度奖学金参评资格</b>；必修课补考、重修视同不及格，同样取消。</span>
+				</div>
+			</div>
+		</section>
+
+		<!-- ---------- 能力拓展 ---------- -->
+		<section class="mPane" id="pane-cap" role="tabpanel" hidden>
+			<div class="mPaneIntro">
+				能力拓展满分 <b>20 分</b>：学术科研及创新创业 ≤10 + 文体竞赛 ≤6 + 学生组织社团任职 ≤4。
+			</div>
+
+			<!-- 学术科研 -->
+			<div class="blk" data-cap-key="academic">
+				<div class="blkHead">
+					<div class="blkTitle">一、学术科研及创新创业</div>
+					<div class="blkCap">满分 10</div>
+				</div>
+				<div class="capBar"><div class="capFill" data-fill="academic"></div></div>
+
+				<div class="items" id="list-academic"></div>
+				<button class="addBtn" type="button" data-add="academic">+ 添加奖项 / 成果</button>
+				<div class="row rowNote">
+					<span class="noteTag">取最高</span>
+					<span>同一项目获不同奖项<b>不累计、取最高</b>；不同项目可累计。论文、专利的第一署名单位须为西安交通大学。</span>
+				</div>
+			</div>
+
+			<!-- 文体竞赛 -->
+			<div class="blk" data-cap-key="culture">
+				<div class="blkHead">
+					<div class="blkTitle">二、文体竞赛</div>
+					<div class="blkCap">满分 6</div>
+				</div>
+				<div class="capBar"><div class="capFill" data-fill="culture"></div></div>
+
+				<div class="items" id="list-culture"></div>
+				<button class="addBtn" type="button" data-add="culture">+ 添加获奖</button>
+				<div class="row rowNote">
+					<span class="noteTag">破纪录</span>
+					<span>破省级及以上纪录额外 <b>+5</b>，破校级纪录额外 <b>+3</b>。</span>
+				</div>
+			</div>
+
+			<!-- 任职 -->
+			<div class="blk" data-cap-key="duty">
+				<div class="blkHead">
+					<div class="blkTitle">三、学生组织、社团任职</div>
+					<div class="blkCap">满分 4</div>
+				</div>
+				<div class="capBar"><div class="capFill" data-fill="duty"></div></div>
+
+				<div class="items" id="list-duty"></div>
+				<button class="addBtn" type="button" data-add="duty">+ 添加职务</button>
+				<div class="row rowNote">
+					<span class="noteTag">兼任</span>
+					<span>兼任多项职务按最高分计、<b>不累加</b>；考核不合格不加分。任期原则上满一年，不满一年按实际工作时间酌情给分，上限不超过满一年加分。</span>
+				</div>
+			</div>
+		</section>
+
+		<!-- ---------- 奖励分 ---------- -->
+		<section class="mPane" id="pane-reward" role="tabpanel" hidden>
+			<div class="mPaneIntro">
+				奖励分满分 <b>5 分</b>，累加超过 5 分按 5 分计。
+			</div>
+			<div class="blk" data-cap-key="reward">
+				<div class="blkHead">
+					<div class="blkTitle">一、精神文明与表彰</div>
+					<div class="blkCap">满分 5</div>
+				</div>
+				<div class="capBar"><div class="capFill" data-fill="reward"></div></div>
+
+				<div class="items" id="list-reward"></div>
+				<button class="addBtn" type="button" data-add="reward">+ 添加表彰 / 事迹</button>
+			</div>
+		</section>
+
+		<!-- ---------- 推演 · 提示 ---------- -->
+		<section class="mPane" id="pane-insight" role="tabpanel" hidden>
+			<div class="mPaneIntro">下面都是基于你已录数据的推演与提醒，仅作参考，最终以书院当年公示细则为准。</div>
+			<div id="insightBody"></div>
+		</section>
+	</main>
+
+	<!-- ============ 底部固定栏 ============ -->
+	<footer class="mFoot">
+		<div class="mFootInner">
+			<button class="footBtn" id="btnExport" type="button">导出</button>
+			<button class="footBtn" id="btnImport" type="button">导入</button>
+			<button class="footBtn footBtnGhost" id="btnRules" type="button">规则</button>
+			<button class="footBtn footBtnGhost" id="btnClear" type="button">清空</button>
+			<input type="file" id="fileImport" accept=".json,application/json" hidden>
+		</div>
+	</footer>
+</div>
+
+<!-- ============ 新建条目弹窗 ============ -->
+<div class="modal" id="itemModal" data-open="0" aria-hidden="true">
+	<div class="modalMask" id="itemModalMask"></div>
+	<div class="modalBox" role="dialog" aria-modal="true" aria-labelledby="itemModalTitle">
+		<div class="modalHead">
+			<span id="itemModalTitle">添加</span>
+			<button class="modalClose" id="itemModalClose" type="button" aria-label="关闭">×</button>
+		</div>
+		<div class="modalBody" id="itemModalBody"></div>
+		<div class="modalErr" id="itemModalErr"></div>
+		<div class="modalFoot">
+			<button class="btnGhost" id="itemModalCancel" type="button">取消</button>
+			<button class="btnSolid" id="itemModalSave" type="button">保存</button>
+		</div>
+	</div>
+</div>
+
+<!-- ============ 规则说明弹窗 ============ -->
+<div class="modal" id="ruleModal" data-open="0" aria-hidden="true">
+	<div class="modalMask" id="ruleModalMask"></div>
+	<div class="modalBox modalBoxWide" role="dialog" aria-modal="true" aria-labelledby="ruleModalTitle">
+		<div class="modalHead">
+			<span id="ruleModalTitle">评分规则</span>
+			<button class="modalClose" id="ruleModalClose" type="button" aria-label="关闭">×</button>
+		</div>
+		<div class="modalBody" id="ruleModalBody"></div>
+		<div class="modalFoot">
+			<button class="btnSolid" id="ruleModalOk" type="button">知道了</button>
+		</div>
+	</div>
+</div>
+
+<div id="toast"></div>
+
+<script src="merit-rules.js?v=2255"></script>
+<script src="merit-app.js?v=2255" defer></script>
+</body>
+</html>

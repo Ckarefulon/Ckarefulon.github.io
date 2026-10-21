@@ -37,11 +37,15 @@
   const settingsOf=()=>({goal:state.goal,trendMetric:state.trendMetric,resolution:state.resolution,tpsMode:state.tpsMode,training:state.training});
   let saveQueue=Promise.resolve(), saveFailed=false;
 
+  /**
+   * 落盘（只增不删）：Store.persist 内部会先水合、再与完整集合取并集，
+   * 因此这里传「此刻内存里的集合」是安全的 —— 既不会因为只是镜像子集就误删较早记录，
+   * 也不会把别处已经删掉的记录复活。
+   */
   function save(sync=true){
     try{
       const settings=settingsOf();
       const payload=payloadOf();
-      // 内存即真相：先同步更新云同步/导出用的缓存，再异步落盘
       if(!Store)return;
       saveQueue=saveQueue.then(()=>Store.persist(payload,settings)).then(result=>{
         if(!result.ok){
@@ -54,6 +58,7 @@
           console.warn('[Analyzer]',result.message);
           notify(result.message);
         }
+        updateSolveBadge();
         if(!window._siteNavApplyingCloudData&&typeof window._siteNavSetDirty==='function')window._siteNavSetDirty(true);
         if(sync&&window.CubeAnalyzerCloud)window.CubeAnalyzerCloud.scheduleUpload();
       }).catch(e=>{
@@ -112,6 +117,23 @@
     state.solves=loaded.sort((a,b)=>new Date(a.date)-new Date(b.date));
     return loaded.length;
   }
+  /* —— 顶部计数徽标：单一出口。数字永远是「内存里的全部记录」，不随筛选、不随镜像子集变动 —— */
+  function updateSolveBadge(){
+    const el=$('#totalSolveBadge');if(!el)return;
+    const n=state.solves.length;
+    const info=Store&&Store.mirrorInfo?Store.mirrorInfo():null;
+    let text=`${n} solves`;
+    let title=`共 ${n} 条记录`;
+    if(Store&&Store.isTiered&&Store.isTiered()){
+      const idbN=Store.stats().idbCount||0;
+      text=`${n} solves`;
+      title=`共 ${n} 条记录 · 较早 ${idbN} 条在本机扩展存储`;
+      if(info&&info.missing>0)title+=` · 有 ${info.missing} 条缺失（将从云端补齐）`;
+    }
+    el.textContent=text;
+    el.title=title;
+    return n;
+  }
   function applySettings(settings){
     if(settings&&typeof settings==='object')Object.assign(state,settings);
     if(settings?.training)state.training={...state.training,...settings.training};
@@ -124,6 +146,10 @@
         const sync=Store.loadSync();
         applySettings(sync.settings);
         adoptPayload(sync.payload);
+        // 镜像只装了「最近的若干把」，真实总数写在头部；先把徽标显示成真实数，
+        // 免得水合完成前一直显示成镜像条数（这就是「175 显示 105」的一半来源）
+        const badge=$('#totalSolveBadge');
+        if(badge&&sync.totalCount>state.solves.length)badge.textContent=`${sync.totalCount} solves`;
       }else{
         const settings=window.storageManager?window.storageManager.getJson(SETTINGS,{}):JSON.parse(localStorage.getItem(SETTINGS)||'{}');
         applySettings(settings);
@@ -136,23 +162,52 @@
         const raw=localStorage.getItem(STORAGE);
         if(raw&&(/"gyroSamples":\[\{/.test(raw)||raw.length>4*1024*1024))migratedData=true;
       }catch(e){}
-      if(migratedData)save(false);
+      // 注意：这里的「自愈重写」必须等水合完成后再走 save()，否则用镜像子集落盘会误删扩展存储
     }catch(e){console.warn(e)}
     if(Q)Q.ensure(state.solves); // 数据体检：只补检未标注的记录，绝不覆盖已有标记
     state.datasetName='训练数据';
   }
-  // 异步水合：把存放在 IndexedDB 的较早记录并回内存（记录数不变时不做任何事）
+  // 异步水合：把存放在扩展存储的较早记录并回内存（记录数不变时不做任何事）
   async function hydrate(){
-    if(!Store)return;
+    if(!Store)return {total:state.solves.length,missing:0};
     try{
       const full=await Store.loadAll();
-      if(!Array.isArray(full?.payload?.solves)||full.payload.solves.length<=state.solves.length)return;
-      adoptPayload(full.payload);
-      if(Q)Q.ensure(state.solves);
-      refreshFilterOptions();renderTrainerSummary();renderAll();
-      $('#totalSolveBadge').textContent=`${state.solves.length} solves`;
-      if(full.idbCount)notify(`已载入 ${full.idbCount} 条较早记录（扩展存储）`);
-    }catch(e){console.warn('[Analyzer] 扩展存储载入失败',e)}
+      const incoming=Array.isArray(full?.payload?.solves)?full.payload.solves:[];
+      const before=state.solves.length;
+      // 用「全量」重建内存：不能只在 incoming 更多时才替换，否则内存里残留的、
+      // 已经被删掉的记录会一直留着
+      if(incoming.length){
+        adoptPayload(full.payload);
+        if(Q)Q.ensure(state.solves);
+      }
+      const changed=state.solves.length!==before||incoming.length>before;
+      if(changed){
+        refreshFilterOptions();renderTrainerSummary();renderAll();
+      }
+      updateSolveBadge();
+      // 首屏的「自愈重写」放到水合之后，此时落盘的是完整集合，不会误删较早记录
+      if(migratedData){migratedData=false;save(false)}
+      if(full.missing>0){
+        console.warn('[Analyzer] 扩展存储缺少',full.missing,'条记录，等待云端补齐');
+        notify(`本机缺少 ${full.missing} 条较早记录，正在尝试从云端补齐`);
+        // 自动补齐：只并回「本机确实没有的那几条」，不整份覆盖
+        const cloud=window.CubeAnalyzerCloud;
+        if(cloud&&typeof cloud.recoverMissingFromCloud==='function'&&cloud.isReady()){
+          const rec=await cloud.recoverMissingFromCloud();
+          if(rec.success&&rec.recovered>0){
+            await reloadFromStorage();
+            notify(rec.message);
+          }
+        }
+      }else if(full.idbCount&&incoming.length>before){
+        notify(`已载入 ${full.idbCount} 条较早记录（扩展存储）`);
+      }
+      return {total:state.solves.length,missing:full.missing||0};
+    }catch(e){
+      console.warn('[Analyzer] 扩展存储载入失败',e);
+      updateSolveBadge();
+      return {total:state.solves.length,missing:0,error:e};
+    }
   }
 
   function filtered(){
@@ -744,7 +799,7 @@
     const sub=smartData?(autoAnalysis?'已保存完整轨迹 · 已自动识别解法方位并分段':(solvedNow?'已保存完整动作与时间戳 · 分段识别未命中':'已保存完整动作与时间戳 · 最终状态未复原')):'已保存手工计时记录';
     phase('done',record.flag==='dnf'?'DNF':record.flag==='plus_two'?'完成 · +2':'完成',sub);
     if(window.CubeAudio)CubeAudio.effect('click');
-    refreshFilterOptions();save(true);renderTrainerSummary();renderAll();$('#totalSolveBadge').textContent=`${state.solves.length} solves`;notify('成绩已保存');
+    refreshFilterOptions();save(true);renderTrainerSummary();renderAll();updateSolveBadge();notify('成绩已保存');
     window.setTimeout(()=>nextScramble(),450);
   }
 
@@ -770,7 +825,12 @@
   }
 
   function changePenalty(id,flag){const s=state.solves.find(x=>String(x.id)===String(id));if(!s)return;s.flag=C.normalizeFlag(s.flag)===flag?'ok':flag;save(true);renderTrainerSummary();renderAll()}
-  function deleteSolve(id){state.solves=state.solves.filter(x=>String(x.id)!==String(id));save(true);renderTrainerSummary();renderAll();$('#totalSolveBadge').textContent=`${state.solves.length} solves`}
+  function deleteSolve(id){
+    // 显式删除走 Store.remove：只有这条路径允许让记录真的消失（绝不靠「落盘时集合变小」去推断删除）
+    state.solves=state.solves.filter(x=>String(x.id)!==String(id));
+    if(Store&&Store.remove)Store.remove([id]);
+    save(true);renderTrainerSummary();renderAll();updateSolveBadge();
+  }
 
   async function toggleCube(){
     const btn=$('#connectCubeBtn');btn.disabled=true;
@@ -794,39 +854,48 @@
     if(!imported.length)throw new Error('没有识别到有效 solve');
     if(Q)Q.ensure(state.solves); // 导入合并后体检（只补检，不改既有标记）
     const key=s=>`${s.id}|${s.date}`;const map=new Map(state.solves.map(s=>[key(s),s]));imported.forEach(s=>map.set(key(s),s));state.solves=[...map.values()].sort((a,b)=>new Date(a.date)-new Date(b.date));state.datasetName='训练数据';
-    state.filters={method:'all',session:'all',device:'all',start:'',end:''};refreshFilterOptions();syncFilterUI();save(true);renderTrainerSummary();renderAll();$('#totalSolveBadge').textContent=`${state.solves.length} solves`;notify(`已导入 ${imported.length} 条记录`)
+    state.filters={method:'all',session:'all',device:'all',start:'',end:''};refreshFilterOptions();syncFilterUI();save(true);renderTrainerSummary();renderAll();updateSolveBadge();notify(`已导入 ${imported.length} 条记录`)
   }
 
-  function reloadFromStorage(){load();refreshFilterOptions();syncFilterUI();renderTrainerSummary();renderAll();$('#totalSolveBadge').textContent=`${state.solves.length} solves`;updateCloudIndicator();hydrate()}
+  /**
+   * 重载本地数据。必须先等落盘队列清空（云端恢复 / 导入覆盖刚排进来的写入），
+   * 再去读镜像 + 扩展存储，否则会读到上一次的旧值。
+   */
+  async function reloadFromStorage(){
+    try{ if(Store&&Store.flush) await Store.flush(); }catch(e){ console.warn('[Analyzer] 等待落盘失败',e) }
+    load();
+    refreshFilterOptions();syncFilterUI();renderTrainerSummary();renderAll();updateSolveBadge();updateCloudIndicator();
+    return hydrate();
+  }
 
 
   async function handleAuthState(user){
     updateCloudIndicator();
-    if(!user||cloudHydrated||state.solves.length||!window.CubeAnalyzerCloud)return;
-    // 内存为空 ≠ 磁盘为空：load() 一旦失败内存会清零，但本机备份还在，绝不能被云端覆写
+    if(!user||cloudHydrated||!window.CubeAnalyzerCloud)return;
+    // 先水合，拿到本机真实记录数（镜像 + 扩展存储），再判断要不要从云端补
+    let localCount=state.solves.length;
     try{
-      if(window.CubeAnalyzerStore){
-        const disk=window.CubeAnalyzerStore.getFullPayload()||window.CubeAnalyzerStore.loadSync().payload;
-        if(disk&&Array.isArray(disk.solves)&&disk.solves.length)return;
-      }else{
-        const disk=JSON.parse(localStorage.getItem(window.CubeAnalyzerCloud.storageKey)||'null');
-        if(disk&&Array.isArray(disk.solves)&&disk.solves.length)return;
+      if(Store&&Store.loadAll){
+        const full=await Store.loadAll();
+        localCount=Array.isArray(full?.payload?.solves)?full.payload.solves.length:localCount;
+        if(!localCount)localCount=Number(full?.claimedTotal)||0;
       }
     }catch(e){}
+    if(localCount>0)return; // 本机有数据：交给常规的冲突检测，绝不自动覆盖
     cloudHydrated=true;
     try{
       const status=await window.CubeAnalyzerCloud.getCloudStatus();
       if(!status?.success){ cloudHydrated=false; return; } // 查询失败不烧掉水合机会，下次 auth 事件重试
       const block=status?.cloudData?.data;
       const cd=block?.cubeAnalyzerData;
-      if(status.hasData&&cd&&Array.isArray(cd.solves)){
+      if(status.hasData&&cd&&Array.isArray(cd.solves)&&cd.solves.length){
         // 覆盖本地前先留快照，可从头像菜单回滚
         if(typeof window._siteNavPrepareOverwrite==='function'){
           const guard=window._siteNavPrepareOverwrite('云端数据自动载入',block);
           if(!guard.success)return;
         }
-        window.CubeAnalyzerCloud.applyDataToLocalStorage(block);
-        reloadFromStorage();
+        await window.CubeAnalyzerCloud.applyDataToLocalStorage(block);
+        await reloadFromStorage();
         notify('已载入 Supabase 训练数据');
       }
     }catch(e){ cloudHydrated=false; console.warn('Cloud hydration skipped',e) }
@@ -858,8 +927,25 @@
     document.addEventListener('keydown',e=>{if(e.code!=='Space'||e.repeat||/INPUT|TEXTAREA|SELECT|BUTTON/.test(document.activeElement?.tagName||''))return;if(state.workspaceMode!=='training')return;if(Replay&&Replay.isOpen())return;e.preventDefault();handleSpaceTimer()});
 
     $('#importBtn').onclick=()=>$('#fileInput').click();$('#fileInput').onchange=async e=>{try{await mergeImportFiles([...e.target.files])}catch(err){console.error(err);notify(`导入失败：${err.message}`)}finally{e.target.value=''}};
-    $('#exportBtn').onclick=()=>download(`cube-analyzer-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(window.CubeAnalyzerCloud?window.CubeAnalyzerCloud.buildLocalPayload():{version:2,data:{cubeAnalyzerData:{name:'训练数据',solves:state.solves.map(I.exportableSolve)}}},null,2));
-    $('#clearBtn').onclick=()=>{if(!state.solves.length)return;if(!confirm('确认清空 Analyzer 的全部训练记录？'))return;state.solves=[];state.datasetName='训练数据';if(window.CubeAnalyzerCloud){window.CubeAnalyzerCloud.allowEmptyUploadOnce=true;window.CubeAnalyzerCloud.allowCountRegressionOnce=true;}if(Store)Store.clearAll();save(true);renderTrainerSummary();renderAll();$('#totalSolveBadge').textContent='0 solves';notify('已清空训练数据')};
+    $('#exportBtn').onclick=async()=>{
+      // 导出必须是完整记录集：等扩展存储水合完成，否则会把较早的记录漏在备份之外
+      try{ if(Store&&Store.ready) await Store.ready(); }catch(e){ console.warn('[Analyzer] 导出前等待水合失败',e) }
+      const payload=window.CubeAnalyzerCloud?window.CubeAnalyzerCloud.buildLocalPayload():{version:2,data:{cubeAnalyzerData:{name:'训练数据',solves:state.solves.map(I.exportableSolve)}}};
+      const n=payload?.data?.cubeAnalyzerData?.solves?.length||0;
+      download(`cube-analyzer-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(payload,null,2));
+      notify(`已导出 ${n} 条记录`);
+    };
+    $('#clearBtn').onclick=async()=>{
+      if(!state.solves.length)return;
+      if(!confirm('确认清空 Analyzer 的全部训练记录？'))return;
+      state.solves=[];state.datasetName='训练数据';
+      if(window.CubeAnalyzerCloud){window.CubeAnalyzerCloud.allowEmptyUploadOnce=true;window.CubeAnalyzerCloud.allowCountRegressionOnce=true;}
+      // 清空是唯一允许整份覆盖的显式操作：走 replaceAll，连扩展存储一起清
+      if(Store){Store.replaceAll({name:'训练数据',solves:[]},settingsOf())}
+      renderTrainerSummary();renderAll();updateSolveBadge();
+      if(window.CubeAnalyzerCloud)window.CubeAnalyzerCloud.scheduleUpload();
+      notify('已清空训练数据');
+    };
     ['method','session','device'].forEach(k=>{$(`#${k}Filter`).onchange=e=>{state.filters[k]=e.target.value;renderAll()}});$('#startDate').onchange=e=>{state.filters.start=e.target.value;renderAll()};$('#endDate').onchange=e=>{state.filters.end=e.target.value;renderAll()};
     $('#resetFilterBtn').onclick=()=>{state.filters={method:'all',session:'all',device:'all',start:'',end:''};syncFilterUI();renderAll()};
     $('#tabs').onclick=e=>{const b=e.target.closest('.tab[data-tab]');if(!b)return;state.activeTab=b.dataset.tab;$$('.tab').forEach(x=>x.classList.toggle('active',x===b));$$('.tab-panel').forEach(x=>x.classList.toggle('active',x.dataset.panel===state.activeTab))};
@@ -872,7 +958,7 @@
     $('#trainingMethod').value=state.training?.method||'CFOP';$('#trainingSession').value=state.training?.session||'日常训练';$('#inspectionToggle').checked=!!state.training?.inspection;trainer.timingMode='pending';
     if(window.siteNav&&typeof window.siteNav.init==='function')window.siteNav.init({setTheme});
     window._siteNavReloadData=reloadFromStorage;
-    bindCube();bind();nextScramble();refreshFilterOptions();syncFilterUI();renderTrainerSummary();renderAll();switchWorkspace('training');$('#totalSolveBadge').textContent=`${state.solves.length} solves`;updateCloudIndicator();
+    bindCube();bind();nextScramble();refreshFilterOptions();syncFilterUI();renderTrainerSummary();renderAll();switchWorkspace('training');updateSolveBadge();updateCloudIndicator();
     // —— 融入启动（2026-09-29）：体验偏好同步到音频模块；AI 报告桥接站点数据（DNF/异常由 AI 模块内二次排除）——
     if(window.CubeAudio){CubeAudio.setPrefs({voiceOn:!!xp.voiceOn,soundOn:!!xp.soundOn});CubeAudio.preload();}
     if(window.CubeAnalyzerAI)CubeAnalyzerAI.init({getFiltered:()=>filtered(),getBaseline:baselineStats});

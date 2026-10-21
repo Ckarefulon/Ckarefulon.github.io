@@ -33,25 +33,24 @@
 	user-select: none;
 }
 
-/* 连线 */
+/* 连线：底色极淡（表示「这些都连得上」的范围），只让路径与悬停亮起来 */
 .gpLink {
 	stroke: var(--dsk-purple-400);
-	stroke-width: 2;
+	stroke-width: 1;
 	fill: none;
-	opacity: 0.5;
+	opacity: 0.11;
+	transition: opacity .12s ease, stroke-width .12s ease;
+}
+.gpLink.hover {
+	stroke: var(--dsk-purple-200);
+	stroke-width: 1.6;
+	opacity: 0.85;
 }
 .gpLink.active {
 	stroke: var(--dsk-accent);
 	opacity: 1;
 	stroke-width: 3;
 	filter: drop-shadow(0 0 6px rgba(36, 240, 234, 0.55));
-}
-.gpLinkHit {
-	stroke: transparent;
-	stroke-width: 16;
-	fill: none;
-	cursor: pointer;
-	pointer-events: stroke;
 }
 .gpLinkGhost {
 	stroke: var(--dsk-accent);

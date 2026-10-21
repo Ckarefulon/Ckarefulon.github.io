@@ -15,14 +15,23 @@
     try {
       // 训练记录可能被分层存放在 IndexedDB，Store 持有完整记录集缓存；
       // 云同步/导出必须拿到「全部记录」，否则云端备份会缺掉较早的那部分。
+      // 未水合完成时 getFullPayload() 返回 null ⇒ 退到同步镜像（不是全量），
+      // 调用方必须用 isFullyHydrated() 判一下再决定能不能上传。
       if (key === STORAGE_KEY && window.CubeAnalyzerStore) {
         const full = window.CubeAnalyzerStore.getFullPayload();
         if (full) return full;
+        const sync = window.CubeAnalyzerStore.loadSync();
+        return { name: sync.payload.name, solves: sync.payload.solves };
       }
       if (window.storageManager && typeof window.storageManager.getJson === 'function') return window.storageManager.getJson(key, fallback);
       const raw = localStorage.getItem(key);
       return raw ? JSON.parse(raw) : fallback;
     } catch (e) { return fallback; }
+  }
+  /** 本地记录集是否为「完整集合」（镜像 + 扩展存储都已合并） */
+  function isFullyHydrated() {
+    if (!window.CubeAnalyzerStore) return true;
+    return !!window.CubeAnalyzerStore.getFullPayload();
   }
   function setLocal(key, value) {
     // 训练记录统一由 CubeAnalyzerStore 分层落盘，这里不再直接覆盖，避免绕过分层把完整数据挤爆
@@ -151,10 +160,45 @@
       const d = cloudData && cloudData.data && cloudData.data.cubeAnalyzerData;
       return !!(d && Array.isArray(d.solves) && d.solves.length > 0);
     },
+    /**
+     * 本机记录缺失时的补齐：扩展存储被浏览器回收、或换设备后只带回来一部分时，
+     * 只把「本机确实没有的那几条」从云端并回来，绝不整份覆盖本机。
+     * 返回 {success, recovered, message}
+     */
+    async recoverMissingFromCloud() {
+      if (!manager.isReady()) return { success:false, recovered:0, message:'请先登录' };
+      if (!window.CubeAnalyzerStore) return { success:false, recovered:0, message:'本机存储模块不可用' };
+      try {
+        await window.CubeAnalyzerStore.ready();
+        const localPayload = window.CubeAnalyzerStore.getFullPayload();
+        if (!localPayload) return { success:false, recovered:0, message:'本机数据尚未加载完成' };
+        const have = new Set(localPayload.solves.map(s => String(s && s.id)));
+        const status = await manager.getCloudStatus();
+        if (!status.success || !status.hasData) return { success:false, recovered:0, message:'云端暂无可补齐的数据' };
+        const cd = status.cloudData && status.cloudData.data && status.cloudData.data.cubeAnalyzerData;
+        const cloudSolves = Array.isArray(cd && cd.solves) ? cd.solves : [];
+        const missing = cloudSolves.filter(s => s && s.id != null && !have.has(String(s.id)));
+        if (!missing.length) return { success:true, recovered:0, message:'' };
+        // 只 upsert 缺的那几条（persist 不删任何已有记录）
+        await window.CubeAnalyzerStore.persist({ name: localPayload.name || '训练数据', solves: missing }, {});
+        await window.CubeAnalyzerStore.flush();
+        console.warn('[AnalyzerCloud] 已从云端补齐', missing.length, '条本机缺失记录');
+        return { success:true, recovered:missing.length, message:`已从云端补齐 ${missing.length} 条本机缺失记录` };
+      } catch (e) {
+        console.error('[AnalyzerCloud] 补齐失败', e);
+        return { success:false, recovered:0, message:'从云端补齐失败' };
+      }
+    },
     async uploadLocalToCloud() {
       if (!manager.isReady()) return { success:false, message:'请先登录' };
       try {
         const user = window.authManager.getUser();
+        // 没有完整本地记录集就绝不上传：镜像只是「最近的若干把」，
+        // 拿它覆盖云端等于把较早的记录从备份里删掉（这正是计数变少的一半来源）。
+        if (window.CubeAnalyzerStore && !isFullyHydrated()) {
+          try { await window.CubeAnalyzerStore.ready(); } catch (e) { /* 下面还会再判一次 */ }
+          if (!isFullyHydrated()) return { success:false, message:'本机数据尚未加载完成，已暂缓上传' };
+        }
         // 覆盖闸门（唯一咽喉，scheduleUpload 与 nav 手动/卸载上传都从这里过）：
         // 本地记录数少于云端 ⇒ 拒绝上传（过期/损坏的本地状态不得覆盖云端备份）。
         // 显式场景（清空按钮）用 allowCountRegressionOnce 放行一次。
@@ -201,16 +245,24 @@
         return { success:false, message:'上传失败，请稍后重试' };
       }
     },
-    applyDataToLocalStorage(dataBlock) {
+    /**
+     * 把云端 data 块写回本机。
+     * 走 Store.replaceAll：这是一次「整份覆盖」（云端恢复 / 本地备份导入 / 回滚），
+     * 允许连同扩展存储一起重置；完成后必须 await，调用方才能立刻重载到新数据。
+     */
+    async applyDataToLocalStorage(dataBlock) {
       if (!dataBlock || typeof dataBlock !== 'object') return {};
       window._siteNavApplyingCloudData = true;
       const applied = {};
       try {
         if (dataBlock.cubeAnalyzerData !== undefined) {
           const cd = dataBlock.cubeAnalyzerData || {};
+          const solves = Array.isArray(cd.solves) ? cd.solves : [];
           if (window.CubeAnalyzerStore && Array.isArray(cd.solves)) {
-            // 走分层落盘：云端恢复的整份记录同样按容量分流，localStorage 的同步写入立即生效
-            window.CubeAnalyzerStore.persist({ name: cd.name || '训练数据', solves: cd.solves }, dataBlock.cubeAnalyzerSettings || {});
+            await window.CubeAnalyzerStore.replaceAll(
+              { name: cd.name || '训练数据', solves },
+              dataBlock.cubeAnalyzerSettings || {}
+            );
           } else {
             setLocal(STORAGE_KEY, dataBlock.cubeAnalyzerData);
           }
@@ -235,7 +287,9 @@
           const guard = window._siteNavPrepareOverwrite('云端数据恢复', dataBlock);
           if (!guard.success) return { success:false, message:guard.message, data:null };
         }
-        manager.applyDataToLocalStorage(dataBlock);
+        await manager.applyDataToLocalStorage(dataBlock);
+        // 恢复后必须让 Store 的完整集合缓存被重建，否则紧接着的导出/上传仍拿旧缓存
+        if (window.CubeAnalyzerStore && window.CubeAnalyzerStore.flush) { try { await window.CubeAnalyzerStore.flush(); } catch (e) {} }
         return { success:true, message:'恢复成功', data:dataBlock };
       } catch (e) {
         console.error('[AnalyzerCloud] download failed', e);

@@ -24,49 +24,68 @@
 	var W = 940, H = 520;
 	var R = 26;
 
-	/* 关键边：只画「常见推进方向」的连线，作为导航辅助，不限制选择。
-	 * 方向不表示「必须这样走」，只是把常见推进画出来当导航；反向和任意跳步都能连。
+	/* 连线 = 所有「不回退」的两点组合（按规则自动生成，不再手写白名单）。
 	 *
-	 * 关于连线密度（重要）：用户**可以**连任意两点，但图上不可能把 272 种组合全画出来
-	 * —— 顶层四个子节点两两互连会在那一小块堆成一团，反而看不清节点。
-	 * 所以这里的取法是：
-	 *   · 只画「读者一眼能看出流向」的边：主流推进 + 少量典型跳步；
-	 *   · 顶层四个正交目标（OLL 棱/OLL 角/PLL 棱/PLL 角）互相之间只画成环，
-	 *     表达「这四个没有固定先后、任意交错都行」，而不是画满六条两两连线；
-	 *   · 拖动的自由连边不受这里限制，选中的路会用高亮描出来。
+	 * 口径（用户定）：只要不破坏已经还原好的部分，任意两点都能连。
+	 * 「回退」只有一类：必须先把已完成的拆掉才能到对面。
+	 *   · F2L 4 → F2L 1：要拆掉做好的槽 → 不回。
+	 *   · 复原 → 任何点：已经全好了，只能倒着拧 → 不回。
+	 * 而 **OLL ↔ PLL 之间不是回退**：翻棱／翻角／定向完成／控棱位／控角位这五件事
+	 * 彼此正交，谁先谁后都行，所以顶层这五点两两双向连通。
 	 *
-	 * 另补「跳过中间的组」的快捷边，例如 CB 式在 F4 过程中顺便控棱，
-	 * 等价于从 F3 直接到 OLL 棱。 */
-	var EDGES = (function () {
-		var list = [
-			/* 十字 / F2L 主轴 */
-			["scramble", "cross"], ["cross", "f2l1"], ["f2l1", "f2l2"], ["f2l2", "f2l3"], ["f2l3", "f2l4"],
-			/* F2L → 顶层：F4 直接进顶层；CB 式从 F3/F2 就控棱 */
-			["f2l4", "oll"], ["f2l4", "pll"],
-			["f2l3", "ollEdge"], ["f2l2", "ollEdge"],
-			/* 顶层：方向 → 位置的主干，以及两个聚合节点 */
-			["ollEdge", "oll"], ["ollCorner", "oll"],
-			["pllEdge", "pll"], ["pllCorner", "pll"],
-			["oll", "pll"], ["oll", "solved"], ["pll", "solved"],
-			/* 顶层四个正交目标：画成一个「任意交错」的环 + 两条对角线。
-			 * 对角线（棱↔角交叉）正是「先 PLL 棱、再 OLL 角」这类交错顺序用到的边，
-			 * 必须画出来；但不再补满六条，否则那一小块会糊成一团。 */
-			["f2l4", "ollEdge"], ["f2l4", "ollCorner"],
-			["ollEdge", "ollCorner"], ["ollCorner", "pllCorner"],
-			["pllCorner", "pllEdge"], ["pllEdge", "ollEdge"],
-			["ollEdge", "pllCorner"], ["ollCorner", "pllEdge"],
-			/* Roux */
-			["scramble", "fb"], ["fb", "sb"], ["sb", "cmll"], ["cmll", "lse"], ["lse", "solved"],
-			["sb", "f2l4"], ["f2l4", "sb"], ["fb", "cross"], ["cross", "sb"],
-			["cmll", "pll"], ["cmll", "solved"]
-		];
-		return list;
-	})();
+	 * 另外 CFOP 与 Roux 两条泳道的中间产物互相排斥（搭桥要动十字、做十字要拆桥），
+	 * 所以中间不互通；但两条泳道共享起点（打乱）与终点（复原）。
+	 */
+	var LANES = {
+		cfop: ["cross", "f2l1", "f2l2", "f2l3", "f2l4"],
+		top:  ["ollEdge", "ollCorner", "oll", "pllEdge", "pllCorner"],
+		roux: ["fb", "sb", "cmll"]
+	};
+	var TERMINAL = ["pll", "solved", "lse"];
 
-	/* 每侧的边集合（用于「这条边两侧的点」快捷选择） */
+	function buildEdges() {
+		var out = [], seen = {};
+		function add(a, b) {
+			if (!a || !b || a === b) { return; }
+			var k = a < b ? a + "|" + b : b + "|" + a;
+			if (seen[k]) { return; }
+			seen[k] = 1;
+			out.push([a, b]);
+		}
+		/* 1. 打乱 → 所有节点 */
+		CS.NODES.forEach(function (n) {
+			if (n.id !== "scramble") { add("scramble", n.id); }
+		});
+		/* 2. 泳道内部只许往后（index 递增），所以包含所有跳步：
+		 *    cross→f2l1..f2l4、f2l1→f2l2..f2l4、… 全覆盖 */
+		["cfop", "roux"].forEach(function (lane) {
+			var l = LANES[lane];
+			for (var i = 0; i < l.length; i++) {
+				for (var j = i + 1; j < l.length; j++) { add(l[i], l[j]); }
+			}
+		});
+		/* 3. CFOP 泳道任意节点 → 顶层任意节点（含 F3 直接进顶层翻棱这种跳步） */
+		LANES.cfop.forEach(function (a) {
+			LANES.top.forEach(function (b) { add(a, b); });
+		});
+		/* 4. 顶层五点互相自由（OLL↔PLL 双向、棱↔角交叉都算） */
+		var top = LANES.top;
+		for (var i = 0; i < top.length; i++) {
+			for (var j = i + 1; j < top.length; j++) { add(top[i], top[j]); }
+		}
+		/* 5. 任意泳道节点 → 终点（提前收尾也是合法的练法） */
+		LANES.cfop.concat(LANES.top, LANES.roux).forEach(function (a) {
+			TERMINAL.forEach(function (b) { add(a, b); });
+		});
+		return out;
+	}
+	var EDGES = buildEdges();
+
+	/* 每侧的边集合（用于外部问「这两点画了线没」） */
 	function edgeKey(a, b) { return a < b ? a + "|" + b : b + "|" + a; }
 	var EDGE_SET = {};
 	EDGES.forEach(function (e) { EDGE_SET[edgeKey(e[0], e[1])] = true; });
+	function hasEdge(a, b) { return !!EDGE_SET[edgeKey(a, b)]; }
 
 	/* ---------- 默认坐标 ---------- */
 	var DEFAULT_POS = {
@@ -179,7 +198,10 @@
 			var centers = {};
 			CS.NODES.forEach(function (n, i) { centers[n.id] = nodeCenter(n.id, loadPos(), i); });
 
-			/* 连线 */
+			/* 连线：全部「不回退」的组合都画出来，但底色极淡（当作可选范围的底纹），
+			 * 只有①选中路径上的边 ②鼠标悬停节点时该节点的边 才亮起来。
+			 * 这样既如实表达「这些都能连」，又不会糊成一团看不清节点。 */
+			var linesByNode = {};
 			EDGES.forEach(function (e) {
 				var a = centers[e[0]], b = centers[e[1]];
 				if (!a || !b) { return; }
@@ -189,19 +211,11 @@
 					x1: t.x1, y1: t.y1, x2: t.x2, y2: t.y2,
 					"class": "gpLink" + (isActive ? " active" : "")
 				});
+				line.setAttribute("data-a", e[0]);
+				line.setAttribute("data-b", e[1]);
 				linkLayer.appendChild(line);
-				/* 命中区：点边 = 一键选中两端 */
-				var hit = svgEl("line", {
-					x1: t.x1, y1: t.y1, x2: t.x2, y2: t.y2, "class": "gpLinkHit"
-				});
-				hit.addEventListener("click", function (ev) {
-					ev.stopPropagation();
-					selected = [e[0], e[1]];
-					emit();
-				});
-				hit.appendChild(svgEl("title")).textContent = "";
-				hit.querySelector("title").textContent = "点此选中这条边的两端：" + label(e[0]) + " → " + label(e[1]);
-				linkLayer.appendChild(hit);
+				(linesByNode[e[0]] = linesByNode[e[0]] || []).push(line);
+				(linesByNode[e[1]] = linesByNode[e[1]] || []).push(line);
 			});
 
 			/* 节点 */
@@ -239,6 +253,15 @@
 				g.appendChild(title);
 
 				g.addEventListener("click", function (ev) { ev.stopPropagation(); toggle(n.id); });
+
+				/* 悬停：把该节点能连的所有边点亮，让人一眼看到「从这里能去哪」 */
+				var mine = linesByNode[n.id] || [];
+				g.addEventListener("pointerenter", function () {
+					mine.forEach(function (ln) { ln.classList.add("hover"); });
+				});
+				g.addEventListener("pointerleave", function () {
+					mine.forEach(function (ln) { ln.classList.remove("hover"); });
+				});
 
 				/* 拖动改位置（记进 localStorage） */
 				enableDrag(g, n.id, c, centers);
@@ -313,13 +336,16 @@
 			clear: function () { selected = []; emit(); },
 			resetLayout: function () { try { localStorage.removeItem(POS_KEY); } catch (e) {} render(); },
 			render: render,
-			EDGES: EDGES
+			EDGES: EDGES,
+			hasEdge: hasEdge
 		};
 	}
 
 	root.CubeStageGraph = {
 		create: create,
 		EDGES: EDGES,
+		hasEdge: hasEdge,
+		LANES: LANES,
 		POS_KEY: POS_KEY,
 		W: W, H: H, R: R
 	};

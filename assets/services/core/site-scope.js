@@ -33,6 +33,7 @@
 		"cube/music":           { scope: "Cube-Music",     path: "/Cube/Music" },
 		"cube/trainer":         { scope: "Cube-Trainer",   path: "/Cube/Trainer" },
 		"study/focus":          { scope: "Study-Focus",    path: "/Study/Focus" },
+		"study/merit":          { scope: "Study-Merit",    path: "/Study/Merit" },
 		"study/question":       { scope: "Study-Question", path: "/Study/Question" },
 		"study/timer":          { scope: "Study-Timer",    path: "/Study/Timer" },
 		"tools/kgenesis":       { scope: "Tools-KGenesis", path: "/Tools/KGenesis" },
