@@ -146,19 +146,71 @@
 		return expandLogical(ast, false, []);
 	}
 
+	/* 单个转动记号解析：面字母 + 撇 / 次数后缀（两者顺序任意）。
+	 * 支持 `U` `U2` `U'` `U'2` `U2'` `U3` `U'3`，次数 1–999；含宽体（urfdlb）与 x/y/z。
+	 * 返回 { face, prime, count, pow }：pow 为带符号份量（U'2 → -2），供 mod 4 账本使用；
+	 * 无法识别时返回 null（调用方自行决定丢弃或保留）。 */
+	function parseMoveToken(token) {
+		var text = String(token == null ? "" : token).replace(/[’‘`´]/g, "'").replace(/\s+/g, "");
+		if (!text) return null;
+		var face = text.charAt(0);
+		if (!MOVE_RE.test(face)) return null;
+		var prime = false;
+		var count = null;
+		var index = 1;
+		while (index < text.length) {
+			var ch = text.charAt(index);
+			if (PRIME_RE.test(ch)) {
+				if (prime) return null;
+				prime = true;
+				index++;
+				continue;
+			}
+			if (ch === "*") {
+				index++;
+				continue;
+			}
+			if (/\d/.test(ch)) {
+				if (count !== null) return null;
+				var start = index;
+				while (index < text.length && /\d/.test(text.charAt(index))) index++;
+				count = Number(text.slice(start, index));
+				if (!Number.isFinite(count) || count < 1 || count > 999) return null;
+				continue;
+			}
+			return null;
+		}
+		var moveCount = count === null ? 1 : count;
+		return {
+			face: canonicalFace(face),
+			prime: prime,
+			count: moveCount,
+			pow: prime ? -moveCount : moveCount
+		};
+	}
+
+	/* 记号格式化：与既有显示口径逐字一致（U / U2 / U' / U'2），不改用户可见文本。 */
+	function formatToken(face, pow) {
+		var prime = pow < 0;
+		var count = Math.abs(pow);
+		return String(face) + (prime ? "'" : "") + (count === 1 ? "" : String(count));
+	}
+
 	function reduceMoves(tokens) {
 		var stack = [];
 		(tokens || []).forEach(function(raw) {
-			var match = /^([URFDLBMES]|[xyz])([2'3]?)$/i.exec(String(raw || "").replace(/[’‘`´]/g, "'"));
-			if (!match) return;
-			var face = canonicalFace(match[1]);
-			var delta = match[2] === "2" ? 2 : match[2] === "3" ? 3 : match[2] === "'" ? -1 : 1;
+			var parsed = parseMoveToken(raw);
+			if (!parsed) return;
+			var face = parsed.face;
+			var delta = parsed.pow;
 			var last = stack[stack.length - 1];
 			if (last && last.face === face) {
-				last.pow = (last.pow + delta + 8) % 4;
+				last.pow = ((last.pow + delta) % 4 + 4) % 4;
 				if (last.pow === 0) stack.pop();
 			} else {
-				stack.push({ face: face, pow: (delta + 4) % 4 });
+				var pow = ((delta % 4) + 4) % 4;
+				if (pow === 0) return; // 整圈（U4 一类）不产生净变化
+				stack.push({ face: face, pow: pow });
 			}
 		});
 		return stack.map(function(item) {
@@ -247,6 +299,8 @@
 		formatNodes: formatNodes,
 		toExecutionMoves: toExecutionMoves,
 		expandLogical: expandLogical,
+		parseMoveToken: parseMoveToken,
+		formatToken: formatToken,
 		reduceMoves: reduceMoves,
 		sameProcess: sameProcess,
 		parseDefinitions: parseDefinitions,

@@ -28,7 +28,7 @@
 	<link rel="stylesheet" href="../assets/cube-net/cube-net.css?v=1877">
 	<link rel="stylesheet" href="../assets/scramble/scramble.css?v=1892">
 	<link rel="stylesheet" href="../assets/state-reset/state-reset.css?v=1949">
-	<link rel="stylesheet" href="cross.css?v=2143" data-page-node-id="cGMKbHBoFi4OXcPWKCl2dg">
+	<link rel="stylesheet" href="cross.css?v=2317" data-page-node-id="cGMKbHBoFi4OXcPWKCl2dg">
 
 	<script src="/assets/services/core/site-scope.js?v=2255" defer></script>
 	<!-- 云同步（Supabase，登录态与 Formula 共享） -->
@@ -148,7 +148,11 @@
 				<button class="btn btnGhost btnSm" id="recModalToggle" type="button">显示全部</button>
 				<button class="btn btnGhost btnSm" id="recModalClose" type="button">关闭</button>
 			</div>
+			<!-- 收藏备注：只在有备注时出现（由 cross-app.js 填充） -->
+			<div class="recModalNote" id="recModalNote" hidden></div>
 			<div class="recModalStage" id="recModalStage"></div>
+			<!-- 解法回放条：打开预览后由 cross-app.js 懒加载 cross-replay.js 填进来 -->
+			<div class="recReplay" id="recReplay" hidden></div>
 			<div class="recModalHint">连接魔方后，转动会同步到这里的虚拟魔方</div>
 		</div>
 	</div>
@@ -162,7 +166,7 @@
 <script src="../assets/scramble/scramble.js?v=1892" defer></script>
 <!-- 判定链（难度徽章 / Optimal+N）：必须排在 cross-app.js 之前，理由同 cube-net.js -->
 <script src="cross-judge.js?v=2143" defer></script>
-<script src="cross-app.js?v=2143" defer></script>
+<script src="cross-app.js?v=2317" defer></script>
 	<!-- 智能魔方蓝牙栈（Cube 公用：依赖链 jquery 同步在前 → /Cube/compat.js → /Cube/lib/{lzstring,sha256,isaac,mathlib} → /Cube/hardware/） -->
 	<script src="../assets/base/jquery-4.0.0.min.js"></script>
 	<script src="../assets/base/compat.js?v=1877" defer></script>

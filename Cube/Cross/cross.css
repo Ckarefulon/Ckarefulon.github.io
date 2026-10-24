@@ -379,6 +379,12 @@ body {
 .recSol.isDone .recSolText::after { content: " ✓"; }
 .recSol.isHinted .recSolText { color: var(--dsk-primary-hover); }
 .recSol.isHinted .recSolText::after { content: " ✓"; }
+/* 记录行里顺带显示的收藏备注（只读，编辑在「星标」那一格） */
+.recSolNote {
+	flex: 1; min-width: 0;
+	font-size: 0.625rem; line-height: 1.4; color: var(--dsk-foreground-subtle);
+	white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 /* 星标金是「星标」这一内容色，设计令牌表里没有对应项（--dsk-warning 是警示色，语义不同、
    以后调警示色不该连累星标）⇒ 这里保持写死，和下面 .swatch 的贴纸色同理 */
 .recStarBtn {
@@ -397,6 +403,11 @@ body {
 	display: grid; grid-template-columns: 1fr 1fr; gap: 0.375rem;
 	align-content: start;
 }
+/* 一格 = 解法按钮 + 备注行 */
+.recStarCell { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
+.recStarCell.isFull { grid-column: 1 / -1; }
+/* 编辑备注时整格占满两栏：不然编辑器里的按钮会溢到隔壁那格底下，点不到 */
+.recStarCell.isEditing { grid-column: 1 / -1; }
 .recStarItem {
 	font: inherit; font-family: var(--dsk-font-mono); font-size: 0.6875rem;
 	text-align: left; min-width: 0;
@@ -408,6 +419,30 @@ body {
 }
 .recStarItem:hover { background: var(--dsk-primary-soft); border-color: var(--dsk-primary); }
 .recStarItem.isFull { grid-column: 1 / -1; }
+/* 收藏备注：没有备注时是一行淡淡的「＋ 备注」，有备注就显示正文（最多两行） */
+.recStarNote {
+	font: inherit; font-family: var(--dsk-font-sans); font-size: 0.625rem; line-height: 1.5;
+	text-align: left; min-width: 0;
+	background: none; border: 0; padding: 0 0.1875rem; margin: 0;
+	color: var(--dsk-foreground-subtle);
+	cursor: pointer; transition: color .15s;
+	display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+	overflow: hidden; word-break: break-word;
+}
+.recStarNote:hover { color: var(--dsk-accent); }
+.recStarNote.hasNote { color: var(--dsk-foreground-muted); }
+.recNoteEdit { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.25rem; }
+.recNoteInput {
+	font: inherit; font-family: var(--dsk-font-sans); font-size: 0.6875rem; line-height: 1.5;
+	width: 100%; box-sizing: border-box; min-height: 2.5rem; resize: vertical;
+	padding: 0.3125rem 0.4375rem;
+	color: var(--dsk-foreground); background: var(--dsk-background);
+	border: 1px solid var(--dsk-primary); border-radius: var(--dsk-radius-sm);
+	outline: none;
+}
+.recNoteBar { display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; }
+.recNoteTip { font-size: 0.625rem; color: var(--dsk-foreground-subtle); margin-right: auto; min-width: 0; }
+.recNoteBtn { flex: none; }
 
 /* ---------- 记录 3D 预览弹窗 ---------- */
 .recModal { position: fixed; inset: 0; z-index: 2100; display: none; }
@@ -428,11 +463,20 @@ body {
 	font-family: var(--dsk-font-mono); font-size: 0.75rem; color: var(--dsk-accent);
 	flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* 收藏备注：弹窗头下面一行，只在有备注时出现 */
+.recModalNote {
+	flex: none; margin: -0.25rem 0 0.625rem;
+	font-size: 0.6875rem; line-height: 1.55; color: var(--dsk-foreground-muted);
+	background: var(--dsk-primary-soft); border-radius: var(--dsk-radius-sm);
+	padding: 0.3125rem 0.5rem; word-break: break-word;
+}
 .recModalStage {
 	flex: 1; min-height: 0; position: relative;
 	background: var(--dsk-background-elevated); border: 1px solid var(--dsk-border);
 	border-radius: var(--dsk-radius-md); overflow: hidden;
+	cursor: grab; user-select: none; -webkit-user-select: none; touch-action: none;
 }
+.recModalStage.isDragging { cursor: grabbing; }
 .recModalHint { flex: none; font-size: 0.6875rem; color: var(--dsk-foreground-subtle); margin-top: 0.5rem; }
 
 /* ---------- moves ---------- */

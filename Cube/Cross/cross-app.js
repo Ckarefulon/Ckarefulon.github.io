@@ -796,7 +796,8 @@
 			solutions: p.solutionTexts.slice(),
 			done: [],
 			hinted: [],
-			starred: []
+			starred: [],
+			notes: {}          // 收藏（星标）解法的备注：{ '解法文本': '备注' }
 		};
 		recState.list.push(rec);
 		recState.currentId = rec.id;
@@ -834,6 +835,100 @@
 		rec.mut = Date.now();
 		saveRecords(true);
 		renderRecords();
+	}
+
+	/* ---------------- 收藏备注 ----------------
+	   备注按「解法文本」挂在记录上（rec.notes），和 starred 分开存，老记录没有这个字段就当作空。
+	   取消星标不清备注：手滑取消再标回来，笔记还在。 */
+	function recNoteOf(rec, text) {
+		if (!rec || !rec.notes || typeof rec.notes !== 'object') { return ''; }
+		var v = rec.notes[text];
+		return typeof v === 'string' ? v : '';
+	}
+
+	function setRecNote(recId, text, note) {
+		var rec = findRecord(recId);
+		if (!rec) { return; }
+		note = String(note == null ? '' : note).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+		if (!rec.notes || typeof rec.notes !== 'object') { rec.notes = {}; }
+		if (recNoteOf(rec, text) === note) { return; }
+		if (note) { rec.notes[text] = note; } else { delete rec.notes[text]; }
+		rec.mut = Date.now();
+		saveRecords(true);
+		renderRecords();
+	}
+
+	/* 行内备注编辑器：同时只开一个，开新的先把旧的收掉 */
+	var noteEditor = { box: null, cell: null };
+
+	function closeNoteEditor() {
+		if (noteEditor.box && noteEditor.box.parentNode) { noteEditor.box.parentNode.removeChild(noteEditor.box); }
+		if (noteEditor.cell) { noteEditor.cell.classList.remove('isEditing'); }
+		noteEditor.box = null;
+		noteEditor.cell = null;
+	}
+
+	function openNoteEditor(cell, rec, text) {
+		if (!cell || !rec) { return; }
+		closeNoteEditor();
+		cell.classList.add('isEditing');
+
+		var box = document.createElement('div');
+		box.className = 'recNoteEdit';
+		var input = document.createElement('textarea');
+		input.className = 'recNoteInput';
+		input.rows = 2;
+		input.value = recNoteOf(rec, text);
+		input.placeholder = '这条收藏的备注，例如「蓝底时更好做」';
+		input.spellcheck = false;
+		var bar = document.createElement('div');
+		bar.className = 'recNoteBar';
+		var tip = document.createElement('span');
+		tip.className = 'recNoteTip';
+		tip.textContent = 'Enter 保存 · Esc 取消';
+		var save = document.createElement('button');
+		save.type = 'button';
+		save.className = 'btn btnGhost btnSm recNoteBtn';
+		save.textContent = '保存';
+		var cancel = document.createElement('button');
+		cancel.type = 'button';
+		cancel.className = 'btn btnGhost btnSm recNoteBtn';
+		cancel.textContent = '取消';
+		bar.appendChild(tip);
+		bar.appendChild(save);
+		bar.appendChild(cancel);
+		box.appendChild(input);
+		box.appendChild(bar);
+		cell.appendChild(box);
+		noteEditor.box = box;
+		noteEditor.cell = cell;
+
+		var finished = false;
+		function finish(commit) {
+			if (finished) { return; }
+			finished = true;
+			var value = input.value;
+			closeNoteEditor();
+			if (commit) { setRecNote(rec.id, text, value); }
+			layoutRecStars();
+		}
+		/* 按钮用 pointerdown + preventDefault：不然点下去输入框先失焦（blur 已保存），
+		   「取消」就变成了「保存」，还抢不到这次点击 */
+		save.addEventListener('pointerdown', function (ev) { ev.preventDefault(); finish(true); });
+		cancel.addEventListener('pointerdown', function (ev) { ev.preventDefault(); finish(false); });
+		input.addEventListener('blur', function () { finish(true); });
+		input.addEventListener('keydown', function (ev) {
+			if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) {
+				ev.preventDefault();
+				finish(true);
+			} else if (ev.key === 'Escape') {
+				ev.preventDefault();
+				finish(false);
+			}
+		});
+		input.focus();
+		try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) { /* ignore */ }
+		layoutRecStars();
 	}
 
 	function fmtRecTime(ts) {
@@ -967,6 +1062,15 @@
 					toggleRecordStar(rec.id, text);
 				});
 				row.appendChild(txt);
+				/* 收藏备注：这一行在「星标」里加了备注就在这儿顺带显出来 */
+				var rowNote = recNoteOf(rec, text);
+				if (rowNote) {
+					var nt = document.createElement('span');
+					nt.className = 'recSolNote';
+					nt.textContent = rowNote;
+					nt.title = rowNote;
+					row.appendChild(nt);
+				}
 				row.appendChild(star);
 				sols.appendChild(row);
 			})(rec.solutions[i]);
@@ -978,6 +1082,9 @@
 	function renderRecStars() {
 		var box = el.recStars;
 		box.innerHTML = '';
+		/* 重绘会拆掉编辑器所在的那一格，状态跟着清掉（保存/取消前不会重绘） */
+		noteEditor.box = null;
+		noteEditor.cell = null;
 		var list = filteredRecords();
 		var items = [];
 		for (var i = 0; i < list.length; i++) {
@@ -988,25 +1095,42 @@
 		el.recStarsCount.textContent = items.length ? '（' + items.length + '）' : '';
 		for (var k = 0; k < items.length; k++) {
 			(function (it) {
+				/* 一格 = 解法按钮 + 备注行（备注点开是行内编辑器） */
+				var cell = document.createElement('div');
+				cell.className = 'recStarCell';
 				var b = document.createElement('button');
 				b.type = 'button';
 				b.className = 'recStarItem';
 				b.textContent = '★ ' + it.text;
 				b.title = '查看 3D 状态';
 				b.addEventListener('click', function () { openRecordCube(it.rec, it.text); });
-				box.appendChild(b);
+				cell.appendChild(b);
+
+				var note = recNoteOf(it.rec, it.text);
+				var nb = document.createElement('button');
+				nb.type = 'button';
+				nb.className = 'recStarNote' + (note ? ' hasNote' : '');
+				nb.textContent = note || '＋ 备注';
+				nb.title = note ? '点击编辑备注' : '给这条收藏加个备注';
+				nb.addEventListener('click', function (ev) {
+					ev.stopPropagation();
+					openNoteEditor(cell, it.rec, it.text);
+				});
+				cell.appendChild(nb);
+				box.appendChild(cell);
 			})(items[k]);
 		}
 		if (window.requestAnimationFrame) { window.requestAnimationFrame(layoutRecStars); }
 	}
 
-	/* 星标两栏：某条在一栏里放不下，就独占一整行 */
+	/* 星标两栏：某格的解法在一栏里放不下，就整格独占一行 */
 	function layoutRecStars() {
-		var items = el.recStars.querySelectorAll('.recStarItem');
-		for (var i = 0; i < items.length; i++) {
-			items[i].classList.remove('isFull');
-			if (items[i].scrollWidth > items[i].clientWidth + 1) {
-				items[i].classList.add('isFull');
+		var cells = el.recStars.querySelectorAll('.recStarCell');
+		for (var i = 0; i < cells.length; i++) {
+			cells[i].classList.remove('isFull');
+			var item = cells[i].querySelector('.recStarItem');
+			if (item && item.scrollWidth > item.clientWidth + 1) {
+				cells[i].classList.add('isFull');
 			}
 		}
 	}
@@ -1098,7 +1222,7 @@
 	}
 
 	/* ---------------- 记录 3D 预览（复用 Formula 的 twisty） ---------------- */
-	var recCube = { open: false, scene: null, showAll: false, color: 0 };
+	var recCube = { open: false, scene: null, showAll: false, color: 0, view: { yaw: 0, pitch: 0 } };
 
 	function twistyMove(m) {
 		var face = E.FACES[(m / 3) | 0];                    // 'U''R''F''D''L''B'
@@ -1223,6 +1347,11 @@
 		el.recModal.dataset.open = '1';
 		el.recModal.setAttribute('aria-hidden', 'false');
 		el.recModalMoves.textContent = text;
+		if (el.recModalNote) {
+			var modalNote = recNoteOf(rec, text);
+			el.recModalNote.textContent = modalNote;
+			el.recModalNote.hidden = !modalNote;
+		}
 		el.recModalToggle.textContent = '显示全部';
 		el.recModalToggle.classList.remove('isActive');
 
@@ -1245,14 +1374,147 @@
 		if (moves.length) { scene.applyMoves(moves); }
 		applyHiddenMask(scene, crossPiecesMask(rec.color, scene));
 		resizeSceneToStage(scene, el.recModalStage);
+		/* 视角：关掉 twisty 的 ±45° 限幅（见 bindRecordCubeDrag），并接上次看的角度 */
+		if (scene.setViewDragClamped) { scene.setViewDragClamped(false); }
+		if (recCube.view.yaw || recCube.view.pitch) {
+			scene.setViewDrag(recCube.view.yaw, recCube.view.pitch);
+		}
+		mountReplay(scene, text);
+	}
+
+	/* ---------------- 解法回放（模块懒加载，见 cross-replay.js） ----------------
+	   预览里当前显示的是「复原态 + 解法逆」= 该解法的起点，所以从第 0 步往后转就是这条解法本身。
+	   回放不按真实用时，就是一步一步把解法转出来。 */
+	var REPLAY_SRC = 'cross-replay.js?v=2317';
+	var replayLoading = null;
+
+	function ensureReplayModule() {
+		if (window.CrossReplay) { return Promise.resolve(window.CrossReplay); }
+		if (replayLoading) { return replayLoading; }
+		replayLoading = new Promise(function (resolve, reject) {
+			var tag = document.createElement('script');
+			tag.src = REPLAY_SRC;
+			tag.async = true;
+			tag.onload = function () {
+				if (window.CrossReplay) { resolve(window.CrossReplay); } else { replayLoading = null; reject(new Error('no CrossReplay')); }
+			};
+			tag.onerror = function () {
+				replayLoading = null;
+				reject(new Error('replay script failed'));
+			};
+			document.head.appendChild(tag);
+		});
+		return replayLoading;
+	}
+
+	/* 一步 = 解法里的一转。回放条只负责「想停在第几步」，真正的转动顺序全由下面这个
+	   makeReplayDriver 串起来：它记着「已经排进场景的是第几步」，所以连点、乱点、跨步
+	   都不会把自己的账算错。 */
+	function buildReplayTokens(text) {
+		var list = E.textToMoves(text);
+		var tokens = [];
+		for (var i = 0; i < list.length; i++) { tokens.push(E.movesToText([list[i]])); }
+		return tokens;
+	}
+
+	var nextFrame = window.requestAnimationFrame
+		? function (fn) { window.requestAnimationFrame(fn); }
+		: function (fn) { window.setTimeout(fn, 16); };
+
+	/* ⚠️ twisty 的 applyMoves（瞬间赋值）与 addMoves（带动画）共用同一组内部队列：
+	   动画还在跑的时候调 applyMoves，队列会被拨到不一致的状态，下一帧 stepAnimation
+	   就能在 cachedFireMoves[0] 上取到 undefined 直接抛错（twisty.js:732）。
+	   ⇒ 一次只走一步时用 addMoves 排队；跨步只在「场景已转完」时才 applyMoves 瞬间到位。
+
+	   applied = 已经排进场景（队列末尾）的步数，desired = 想停的步数：
+	   · desired-applied = ±1 → 排一步动画，applied 立刻跟上（队列末尾已经到了）；
+	   · 差更多 / 场景还在转 → 等它转完，再一次性瞬间拨到最新的 desired。 */
+	function makeReplayDriver(scene, list) {
+		var applied = 0;
+		var desired = 0;
+		var waiting = false;
+		var dead = false;
+
+		function batchBetween(from, to) {
+			var path = [];
+			var i;
+			if (to > from) {
+				for (i = from; i < to; i++) { path.push(list[i]); }
+			} else {
+				for (i = from - 1; i >= to; i--) { path.push(E.invertMoves([list[i]])[0]); }
+			}
+			var batch = [];
+			for (i = 0; i < path.length; i++) { batch.push(twistyMove(path[i])); }
+			return batch;
+		}
+
+		function pump() {
+			if (dead || waiting) { return; }
+			if (!scene || recCube.scene !== scene) { dead = true; return; }
+			if (applied === desired) { return; }
+			var idle = !scene.isMoveFinished || scene.isMoveFinished();
+			if (!idle) {
+				waiting = true;
+				nextFrame(function () { waiting = false; pump(); });
+				return;
+			}
+			if (Math.abs(desired - applied) === 1) {
+				scene.addMoves(batchBetween(applied, desired));
+				applied = desired;
+				return;
+			}
+			scene.applyMoves(batchBetween(applied, desired));
+			applied = desired;
+			pump();
+		}
+
+		return {
+			request: function (step) {
+				if (dead) { return; }
+				desired = Math.max(0, Math.min(list.length, step | 0));
+				pump();
+			}
+		};
+	}
+
+	function unmountReplay() {
+		if (window.CrossReplay && window.CrossReplay.unmount) { window.CrossReplay.unmount(); }
+		if (el.recReplay) {
+			el.recReplay.innerHTML = '';
+			el.recReplay.hidden = true;
+		}
+	}
+
+	function mountReplay(scene, text) {
+		var host = el.recReplay;
+		if (!host) { return; }
+		unmountReplay();
+		var tokens = buildReplayTokens(text);
+		if (!tokens.length) { return; }
+		var driver = makeReplayDriver(scene, E.textToMoves(text));
+		ensureReplayModule().then(function (mod) {
+			/* 等脚本的这段时间里弹窗可能已经关了或换了别的解法 */
+			if (!mod || !recCube.open || recCube.scene !== scene) { return; }
+			mod.mount({ host: host, tokens: tokens, request: driver.request });
+		})['catch'](function () { /* 加载失败就当没有回放，不影响预览 */ });
+	}
+
+	/* 记住当前视角：切换收藏看下一条、关掉再打开，角度不跳回正面 */
+	function rememberRecordCubeView() {
+		if (!recCube.scene || !recCube.scene.getViewState) { return; }
+		var vs = recCube.scene.getViewState();
+		recCube.view = { yaw: vs.dragTheta || 0, pitch: vs.dragPhi || 0 };
 	}
 
 	function closeRecordCube() {
+		rememberRecordCubeView();
+		unmountReplay();
 		recCube.open = false;
 		recCube.scene = null;
 		el.recModal.dataset.open = '';
 		el.recModal.setAttribute('aria-hidden', 'true');
 		el.recModalStage.innerHTML = '';
+		el.recModalStage.classList.remove('isDragging');
 	}
 
 	function toggleRecordCubeAll() {
@@ -1268,45 +1530,68 @@
 	function syncRecordCubeMove(m) {
 		if (!recCube.open || !recCube.scene) { return; }
 		recCube.scene.addMoves([twistyMove(m)]);
+		/* 现场又转了一下 ⇒ 魔方已经不在「第 n 步」上了，回放的步数账不再成立，把回放条收掉 */
+		if (window.CrossReplay && el.recReplay && !el.recReplay.hidden) { unmountReplay(); }
 	}
 
-	/* 拖动旋转视角（参考 Formula 的 customCube 拖动实现） */
+	/* 拖动旋转视角（参考 Formula 的 customCube 拖动实现）
+	   ⚠️ twisty 自带的 setViewDrag 默认把旋转总量限在 ±45°，那是给主魔方「微调视角」用的；
+	   预览弹窗里这么拖两下就顶死、还只能看一个角度，所以这里关掉它的限幅（setViewDragClamped(false)），
+	   自己管范围：绕竖轴可以一直转下去（360°），俯仰限在 ±85°（到极点 up 向量会退化，画面会翻）。 */
+	var PITCH_LIMIT = Math.PI / 2 - 0.0873;   // ≈85°
+
+	function wrapAngle(a) {
+		var turn = Math.PI * 2;
+		a = a % turn;
+		if (a > Math.PI) { a -= turn; } else if (a < -Math.PI) { a += turn; }
+		return a;
+	}
+
 	function bindRecordCubeDrag() {
 		var stage = el.recModalStage;
-		var drag = { active: false, x: 0, y: 0, yaw: 0, pitch: 0 };
+		var drag = { active: false, x: 0, y: 0, yaw: 0, pitch: 0, span: 190 };
+
 		stage.addEventListener('pointerdown', function (event) {
 			if (event.button !== 0 || !recCube.scene || !recCube.scene.setViewDrag) { return; }
 			drag.active = true;
 			drag.x = event.clientX;
 			drag.y = event.clientY;
+			/* 从当前视角接着转，第二次拖不会跳回 0 */
 			var vs = recCube.scene.getViewState ? recCube.scene.getViewState() : { dragTheta: 0, dragPhi: 0 };
-			drag.yaw = vs.dragTheta;
-			drag.pitch = vs.dragPhi;
+			drag.yaw = vs.dragTheta || 0;
+			drag.pitch = vs.dragPhi || 0;
+			var rect = stage.getBoundingClientRect();
+			/* 灵敏度按舞台短边算：拖过约 0.45 个短边 = 转 90°（按下时取一次，不在 move 里反复读布局） */
+			drag.span = Math.max(120, Math.min(rect.width, rect.height) * 0.45);
+			stage.classList.add('isDragging');
 			if (stage.setPointerCapture) {
 				try { stage.setPointerCapture(event.pointerId); } catch (e) { /* ignore */ }
 			}
 			event.preventDefault();
 		});
+
 		stage.addEventListener('pointermove', function (event) {
 			if (!drag.active || !recCube.scene || !recCube.scene.setViewDrag) { return; }
-			var dx = event.clientX - drag.x;
-			var dy = event.clientY - drag.y;
-			var rect = stage.getBoundingClientRect();
-			var scale = (Math.PI / 4) / Math.max(140, Math.min(rect.width, rect.height) * 0.45);
-			var yaw = drag.yaw - dx * scale;
-			var pitch = drag.pitch + dy * scale;
-			var length = Math.sqrt(yaw * yaw + pitch * pitch);
-			var limit = Math.PI / 4;
-			if (length > limit) {
-				yaw = yaw / length * limit;
-				pitch = pitch / length * limit;
-			}
+			var scale = (Math.PI / 2) / drag.span;
+			var yaw = wrapAngle(drag.yaw - (event.clientX - drag.x) * scale);
+			var pitch = drag.pitch + (event.clientY - drag.y) * scale;
+			if (pitch > PITCH_LIMIT) { pitch = PITCH_LIMIT; } else if (pitch < -PITCH_LIMIT) { pitch = -PITCH_LIMIT; }
 			recCube.scene.setViewDrag(yaw, pitch);
 			event.preventDefault();
 		});
-		var finish = function () { drag.active = false; };
+
+		var finish = function (event) {
+			if (!drag.active) { return; }
+			drag.active = false;
+			stage.classList.remove('isDragging');
+			rememberRecordCubeView();
+			if (event && event.pointerId !== undefined && stage.releasePointerCapture) {
+				try { stage.releasePointerCapture(event.pointerId); } catch (e) { /* ignore */ }
+			}
+		};
 		stage.addEventListener('pointerup', finish);
 		stage.addEventListener('pointercancel', finish);
+		stage.addEventListener('lostpointercapture', finish);
 	}
 
 	/* ---------------- 主题（与全站共享 smartCubeTheme） ---------------- */
@@ -1328,7 +1613,7 @@
 			'undoMoves', 'copyUndo', 'moveInput', 'applyMoves', 'resetMoves',
 			'phaseChip', 'matchInfo', 'connectBtn', 'btStatus', 'btDot',
 			'recCount', 'recScore', 'recFilters', 'recCloud', 'recList', 'recStars', 'recStarsCount',
-			'recModal', 'recModalMask', 'recModalStage', 'recModalMoves', 'recModalToggle', 'recModalClose'].forEach(function (id) {
+			'recModal', 'recModalMask', 'recModalStage', 'recModalMoves', 'recModalNote', 'recModalToggle', 'recModalClose', 'recReplay'].forEach(function (id) {
 				el[id] = $(id);
 			});
 
@@ -1460,7 +1745,7 @@
 		initBluetooth: initBluetooth, state: state, newPuzzle: newPuzzle, applyInputText: applyInputText, E: E,
 		onCubeCallback: onCubeCallback, syncRealFacelets: syncRealFacelets, adoptRealAsScrambled: adoptRealAsScrambled,
 		recState: recState, recCube: recCube, openRecordCube: openRecordCube, closeRecordCube: closeRecordCube,
-		toggleRecordStar: toggleRecordStar, renderRecords: renderRecords
+		toggleRecordStar: toggleRecordStar, recNoteOf: recNoteOf, setRecNote: setRecNote, renderRecords: renderRecords
 	};
 
 	if (document.readyState === 'loading') {

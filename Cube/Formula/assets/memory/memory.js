@@ -8,7 +8,10 @@
 
 	var STORAGE_KEY = "cube_memory_progress";
 	var SCHEMA_VERSION = 2;
-	var FSRS_URL = "https://cdn.jsdelivr.net/npm/ts-fsrs/+esm";
+	// 调度器（ts-fsrs 的 ESM 构建）：优先用仓库内置副本（离线/被墙也能评分），
+	// 本地文件缺失时再尝试远端 CDN；两条路都失败才降级到下方内置离线调度。
+	var FSRS_LOCAL_URL = "assets/vendor/ts-fsrs/ts-fsrs.js?v=2317";
+	var FSRS_CDN_URL = "https://cdn.jsdelivr.net/npm/ts-fsrs/+esm";
 	var RATING_COLORS = ["#24F0EA", "#35D68A", "#E6B84A", "#E85D6A"];
 	var RATING_NAMES = ["清晰", "犹豫", "模糊", "遗忘"];
 	var memory = {
@@ -16,6 +19,7 @@
 		fsrsModule: null,
 		scheduler: null,
 		fsrsPromise: null,
+		fsrsOffline: false,
 		state: "idle",
 		currentItem: null,
 		currentFormula: null,
@@ -64,6 +68,7 @@
 			hiddenStickerMask: {},
 			syncEnabled: true,
 			trainingSelectedFormulaIds: {},
+			trainingSelectionInitialized: false,
 			planSeenFormulaKeys: {}
 		};
 	}
@@ -128,6 +133,7 @@
 			migrated.hiddenStickerMask = {};
 			migrated.syncEnabled = value.syncEnabled !== false;
 			migrated.trainingSelectedFormulaIds = (value.trainingSelectedFormulaIds && typeof value.trainingSelectedFormulaIds === "object") ? value.trainingSelectedFormulaIds : {};
+			migrated.trainingSelectionInitialized = false;
 			migrated.planSeenFormulaKeys = null;
 			base.libraries["lib_default"] = migrated;
 			base.activeLibraryId = "lib_default";
@@ -162,6 +168,8 @@
 			dest.hiddenStickerMask = (src.hiddenStickerMask && typeof src.hiddenStickerMask === "object" && !Array.isArray(src.hiddenStickerMask)) ? src.hiddenStickerMask : {};
 			dest.syncEnabled = src.syncEnabled !== false;
 			dest.trainingSelectedFormulaIds = (src.trainingSelectedFormulaIds && typeof src.trainingSelectedFormulaIds === "object" && !Array.isArray(src.trainingSelectedFormulaIds)) ? src.trainingSelectedFormulaIds : {};
+			// 训练列表是否已被用户显式决定过（必须进白名单，否则每次加载都会被丢弃 ⇒ 清空后回退全量）
+			dest.trainingSelectionInitialized = src.trainingSelectionInitialized === true;
 			// 老数据无该字段时写回 null（未初始化），由界面首次打开「规划学习」时一次性迁移
 			dest.planSeenFormulaKeys = (src.planSeenFormulaKeys && typeof src.planSeenFormulaKeys === "object" && !Array.isArray(src.planSeenFormulaKeys)) ? src.planSeenFormulaKeys : null;
 			base.libraries[lid] = dest;
@@ -203,6 +211,7 @@
 		}
 		var hadDayChange = ensureStudyDay();
 		var needsCleanup = false;
+		var migratedSelection = false;
 		var memLibs = memory.data && memory.data.libraries;
 		if (memLibs) {
 			Object.keys(memLibs).forEach(function(lid) {
@@ -213,6 +222,13 @@
 					}
 					if (Array.isArray(l.queue) && l.queue.some(function(item) { return item && item.reinforcement; })) {
 						needsCleanup = true;
+					}
+					// 旧数据一次性迁移：同步开着、训练列表为空、全量列表有内容 ⇒ 初始化为全量。
+					// 之后用户主动清空（initialized=true）就不会再被回退成全部公式。
+					if (l.trainingSelectionInitialized !== true && l.syncEnabled !== false && (!l.formulas || !l.formulas.length) && Array.isArray(l.allFormulas) && l.allFormulas.length) {
+						l.formulas = l.allFormulas.slice();
+						l.trainingSelectionInitialized = true;
+						migratedSelection = true;
 					}
 				}
 			});
@@ -225,7 +241,7 @@
 			});
 		}
 		loadLibraryMask();
-		if (hadDayChange || needsCleanup) {
+		if (hadDayChange || needsCleanup || migratedSelection) {
 			window._siteNavApplyingCloudData = true;
 			try {
 				saveData();
@@ -277,18 +293,117 @@
 		return false;
 	}
 
+	/* ---------- FSRS 调度（远端优先，离线降级） ---------- */
+
+	/* 内置降级调度器：远端 ts-fsrs 拿不到时用它顶上，保证「评分一定存得下来」。
+	 * 刻意简单：清晰/犹豫/模糊/遗忘 → 14 / 7 / 3 / 1 天回顾间隔（1/3/7/14 天）。
+	 * card 结构保留 ts-fsrs 的兼容字段（due/last_review/stability/difficulty/reps/lapses…），
+	 * 已存在的 ts-fsrs card 仍可读入（只用到 last_review/reps/lapses 等数值）。 */
+	var OFFLINE_INTERVAL_DAYS = { 1: 1, 2: 3, 3: 7, 4: 14 };
+
+	function createOfflineCard(now) {
+		var time = now instanceof Date ? now : new Date(now || Date.now());
+		return {
+			due: new Date(time.getTime()),
+			last_review: time,
+			stability: 0,
+			difficulty: 0,
+			elapsed_days: 0,
+			scheduled_days: 0,
+			reps: 0,
+			lapses: 0,
+			state: 0,
+			learning_steps: 0,
+			offline: true
+		};
+	}
+
+	function offlineSchedule(card, now, rating) {
+		var time = now instanceof Date ? now : new Date(now || Date.now());
+		var previous = (card && typeof card === "object") ? card : createOfflineCard(time);
+		var level = Math.max(1, Math.min(4, Math.round(Number(rating) || 3)));
+		var days = OFFLINE_INTERVAL_DAYS[level] || 7;
+		var nowMs = time.getTime();
+		var lastReview = previous.last_review instanceof Date ? previous.last_review : (previous.last_review ? new Date(previous.last_review) : null);
+		var elapsed = lastReview && !isNaN(lastReview.getTime()) ? Math.max(0, Math.round((nowMs - lastReview.getTime()) / 86400000)) : 0;
+		var next = {
+			due: new Date(nowMs + days * 86400000),
+			last_review: time,
+			stability: days,
+			difficulty: Math.max(1, Math.min(10, 5 + level)),
+			elapsed_days: elapsed,
+			scheduled_days: days,
+			reps: (Number(previous.reps) || 0) + 1,
+			lapses: (Number(previous.lapses) || 0) + (level === 1 ? 1 : 0),
+			state: 2,
+			learning_steps: 0,
+			offline: true
+		};
+		return {
+			card: next,
+			log: {
+				rating: level,
+				state: next.state,
+				due: next.due,
+				stability: next.stability,
+				difficulty: next.difficulty,
+				elapsed_days: next.elapsed_days,
+				last_elapsed_days: next.elapsed_days,
+				scheduled_days: next.scheduled_days,
+				review: next.due,
+				offline: true
+			}
+		};
+	}
+
+	function offlineFsrsModule() {
+		var Rating = { Manual: 0, Again: 1, Hard: 2, Good: 3, Easy: 4 };
+		return {
+			offline: true,
+			Rating: Rating,
+			createEmptyCard: createOfflineCard,
+			fsrs: function() {
+				return {
+					next: function(card, now, rating) {
+						return offlineSchedule(card, now, rating);
+					},
+					repeat: function(card, now) {
+						var out = {};
+						[Rating.Again, Rating.Hard, Rating.Good, Rating.Easy].forEach(function(rating) {
+							out[rating] = offlineSchedule(card, now, rating);
+						});
+						return out;
+					}
+				};
+			}
+		};
+	}
+
 	function ensureFsrs() {
 		if (memory.fsrsPromise) {
 			return memory.fsrsPromise;
 		}
-		memory.fsrsPromise = import(FSRS_URL).then(function(module) {
+		function useModule(module) {
 			memory.fsrsModule = module;
 			memory.scheduler = module.fsrs();
+			memory.fsrsOffline = false;
 			return module;
-		}).catch(function(error) {
-			memory.fsrsPromise = null;
-			throw error;
-		});
+		}
+		function useOfflineFallback() {
+			// 本地副本与远端 CDN 都不可用：降级为内置离线调度，评分照常保存
+			var fallback = offlineFsrsModule();
+			memory.fsrsModule = fallback;
+			memory.scheduler = fallback.fsrs();
+			memory.fsrsOffline = true;
+			if (memory.state === "answer") {
+				renderAnswerMemory();
+			}
+			return fallback;
+		}
+		memory.fsrsPromise = import(FSRS_LOCAL_URL).then(useModule).catch(function() {
+			// 内置副本缺失（部署遗漏/缓存异常）时才走远端，仍失败再离线
+			return import(FSRS_CDN_URL).then(useModule);
+		}).catch(useOfflineFallback);
 		return memory.fsrsPromise;
 	}
 
@@ -583,6 +698,32 @@
 		memory.stateShownTime = performance.now();
 	}
 
+	/* 重置视图（记忆模式）＝回到本题起点：清作答记录与计时，按当前公式重摆初始状态。
+	 * 由 app.resetView 调用（P0-5）。 */
+	app.rebuildMemoryQuestionState = function() {
+		if (!memory.currentFormula) {
+			return;
+		}
+		memory.attemptMoves = [];
+		memory.answerMoves = [];
+		memory.retried = false;
+		memory.repeatedMove = false;
+		memory.firstMoveTime = null;
+		memory.attemptStartTime = null;
+		memory.accumulatedSolveTime = 0;
+		memory.accumulatedReactionTime = 0;
+		memory.solveTime = null;
+		memory.reactionTime = null;
+		memory.lastAnswerMove = null;
+		if (memory.state === "solving" || memory.state === "answer") {
+			memory.state = "hidden";
+			memory.answerReason = "";
+			renderHiddenMemory(false);
+			renderMemoryHistory();
+		}
+		applyMemoryFormula();
+	};
+
 	function renderIdleMemory() {
 		var current = document.getElementById("memoryCurrent");
 		if (!current) {
@@ -831,7 +972,7 @@
 		}).join("");
 		current.innerHTML = '<button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><div class="memoryAnswer"><strong class="memoryAnswerName">' + app.escapeHtml(memory.currentFormula.name) + '</strong><div class="memoryAnswerFormula">' + app.escapeHtml(memory.currentFormula.alg || memory.currentFormula.formula || "") + '</div><div class="memorySameDayProgress">今日进度 ' + Math.round(Number(sameDay.progress) || 0) + '%</div></div>' +
 			'<div class="memoryTimes"><div class="memoryTime"><span>反应</span><strong>' + formatDuration(memory.reactionTime) + '</strong></div><div class="memoryTime"><span>AO5</span><strong>' + stats[0] + '</strong></div><div class="memoryTime"><span>AO10</span><strong>' + stats[1] + '</strong></div><div class="memoryTime"><span>AO50</span><strong>' + stats[2] + '</strong></div></div>' +
-			'<p class="memoryControlHint">(R R\') 确认；D 右移；D\' 左移。</p><div class="memoryOptions">' + options + '</div>';
+			'<p class="memoryControlHint">(R R\') 确认；D 右移；D\' 左移。点击评分即提交。' + (memory.fsrsOffline ? '（离线调度）' : '') + '</p><div class="memoryOptions">' + options + '</div>';
 	}
 
 	function renderMemoryHistory() {
@@ -1129,7 +1270,12 @@
 			var ratings = [module.Rating.Easy, module.Rating.Good, module.Rating.Hard, module.Rating.Again];
 			var scheduled = null;
 			if (isFirstRatingToday) {
-				scheduled = scheduleResult(module, progress, ratings[memory.selectedRating]);
+				try {
+					scheduled = scheduleResult(module, progress, ratings[memory.selectedRating]);
+				} catch (scheduleError) {
+					// 调度器异常绝不能连带把这次评分整笔丢掉：照常记录，只是不排下一张卡
+					scheduled = null;
+				}
 			}
 			var undoEntry = { formulaId: formula.id, checkpoint: makeCheckpoint() };
 			l.undoStack.push(undoEntry);

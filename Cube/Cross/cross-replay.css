@@ -1,0 +1,50 @@
+/* Cube/Cross · 解法回放条
+   由 cross-replay.js 懒加载时插入（不参与页面首屏），只用设计令牌，深浅色自动跟随。 */
+
+.recReplay { flex: none; margin-top: 0.5rem; }
+.recReplay[hidden] { display: none; }
+
+.rplBar {
+	display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+}
+
+.rplLeft { display: flex; align-items: center; gap: 0.25rem; flex: none; }
+
+.rplBtn {
+	font: inherit; font-size: 0.6875rem; line-height: 1;
+	padding: 0.375rem 0.5rem; border-radius: var(--dsk-radius-sm);
+	background: var(--dsk-background-elevated);
+	border: 1px solid var(--dsk-border);
+	color: var(--dsk-foreground-muted);
+	cursor: pointer; white-space: nowrap;
+	transition: background .15s, border-color .15s, color .15s;
+}
+.rplBtn:hover:not(:disabled) { background: var(--dsk-primary-soft); border-color: var(--dsk-primary); color: var(--dsk-foreground); }
+.rplBtn:disabled { opacity: 0.4; cursor: default; }
+.rplBtn.isPlaying { background: var(--dsk-primary-soft); border-color: var(--dsk-primary); color: var(--dsk-primary-hover); }
+
+.rplMain { min-width: 4.25rem; text-align: center; color: var(--dsk-foreground); }
+
+.rplStep {
+	font-size: 0.6875rem; color: var(--dsk-foreground-muted);
+	font-variant-numeric: tabular-nums; flex: none;
+}
+.rplToken {
+	font-family: var(--dsk-font-mono); font-size: 0.75rem; color: var(--dsk-accent);
+	min-width: 2.5rem; flex: none;
+}
+.rplSpacer { flex: 1; min-width: 0; }
+
+.rplSpeeds { display: flex; align-items: center; gap: 0.1875rem; flex: none; }
+.rplSpeed {
+	font: inherit; font-size: 0.625rem; line-height: 1;
+	min-width: 1.875rem; padding: 0.3125rem 0.25rem; text-align: center;
+	background: var(--dsk-background-elevated);
+	border: 1px solid var(--dsk-border);
+	color: var(--dsk-foreground-subtle);
+	border-radius: var(--dsk-radius-sm);
+	cursor: pointer; font-variant-numeric: tabular-nums;
+	transition: background .15s, border-color .15s, color .15s;
+}
+.rplSpeed:hover { background: var(--dsk-primary-soft); color: var(--dsk-foreground); }
+.rplSpeed.isActive { background: var(--dsk-accent); border-color: transparent; color: var(--dsk-accent-foreground); font-weight: 650; }

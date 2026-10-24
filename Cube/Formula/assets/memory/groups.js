@@ -253,6 +253,34 @@ app.getFormulaGroups = function() {
 		app._notifyActiveGroupChanged();
 	};
 
+	/* 训练列表是否已被用户显式决定过（保存过选择 / 清空过）。
+	 * false = 旧数据或新组从未初始化；true = 用户的选择（含「清空」）必须被尊重。 */
+	app.getTrainingSelectionInitialized = function() {
+		var l = lib();
+		return l ? (l.trainingSelectionInitialized === true) : false;
+	};
+
+	app.setTrainingSelectionInitialized = function(initialized) {
+		var l = lib();
+		if (!l) return;
+		l.trainingSelectionInitialized = !!initialized;
+		saveData();
+	};
+
+	/* 规划学习面板「取消/关闭」回滚：原样恢复打开时的文本与 formulas/allFormulas */
+	app.restoreActiveGroupPlan = function(snapshot) {
+		var l = lib();
+		if (!l || !snapshot) return false;
+		l.planText = String(snapshot.planText || "");
+		l.formulas = Array.isArray(snapshot.formulas) ? snapshot.formulas : [];
+		l.allFormulas = Array.isArray(snapshot.allFormulas) ? snapshot.allFormulas : [];
+		l.queue = [];
+		l.todayQueue = [];
+		saveData();
+		app._notifyActiveGroupChanged();
+		return true;
+	};
+
 	app.getTrainingSelectedFormulaIds = function() {
 		var l = lib();
 		if (!l) return {};
@@ -266,6 +294,8 @@ app.getFormulaGroups = function() {
 		var l = lib();
 		if (!l) return;
 		l.trainingSelectedFormulaIds = (ids && typeof ids === "object") ? ids : {};
+		// 显式保存（含全部取消勾选 = 清空）⇒ 标记已初始化，空选择不再回退全量
+		l.trainingSelectionInitialized = true;
 		saveData();
 	};
 
@@ -294,6 +324,8 @@ app.getFormulaGroups = function() {
 		if (!l) return;
 		l.formulas = selectedFormulas || [];
 		l.allFormulas = allFormulas || selectedFormulas || [];
+		// 显式保存选择（含清空到 0 个）⇒ 初始化标记置真，读取时不再回退全量
+		l.trainingSelectionInitialized = true;
 		l.queue = [];
 		l.todayQueue = [];
 		l.undoStack = [];
