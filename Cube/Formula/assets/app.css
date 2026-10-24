@@ -4474,3 +4474,37 @@ body.isFullscreen .sideNav {
 	text-overflow: ellipsis;
 }
 
+
+/* 公式组卡片：组选择条 + 组内复原状态入口（掩码按组保存，入口必须贴在组上） */
+.groupCard {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: 100%;
+}
+
+.groupCard > .sharedGroupBar {
+	margin-bottom: 0;
+}
+
+.groupCard > .groupStateBtn {
+	width: 100%;
+	justify-content: center;
+	font-size: 13px;
+	min-height: 38px;
+	margin: 0;
+}
+
+.groupCard > .groupStateBtn[aria-expanded="true"] {
+	background: var(--primaryBg, rgba(93, 78, 168, .16));
+	border-color: var(--primaryBorder, rgba(93, 78, 168, .5));
+	color: var(--primaryText, inherit);
+}
+
+.groupCard > .inlineBox {
+	grid-column: 1 / -1;
+}
+
+.customStateInline .inlineCard {
+	padding: 12px;
+}

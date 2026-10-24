@@ -1840,6 +1840,11 @@
 				loadLibraryMask();
 				saveData();
 				startMemoryMode();
+				// 整份数据被替换后，训练侧的公式文本 / 卡片 / 规划学习面板也要跟着重建，
+				// 否则要等用户展开「规划学习」点一次保存才显示。
+				if (typeof app._notifyActiveGroupChanged === "function") {
+					app._notifyActiveGroupChanged();
+				}
 				showToast("数据已导入");
 			});
 		}).catch(function(error) {

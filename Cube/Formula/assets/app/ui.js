@@ -55,7 +55,7 @@
 		var importBox = view.querySelector("#formulaImport, #stateImport");
 		if (importBox) {
 			Array.from(importBox.children).forEach(function (child) {
-				if (child.matches("#sharedGroupBar, #planBox, #planExpandBtn, #planPanel, #planFileInput, .memoryDataControls")) {
+				if (child.matches("#groupCard, #sharedGroupBar, #planBox, #planExpandBtn, #planPanel, #planFileInput, .memoryDataControls")) {
 					append("data", child);
 				} else if (child.matches(".strictDetectionControls")) {
 					/* 「判定口径」只对练习模式有意义（记忆/制作/公式库没有解题判定），
