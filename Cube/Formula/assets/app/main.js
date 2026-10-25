@@ -60,7 +60,15 @@
 				seenUnsolvedFaceletSinceState: false,
 				seenUnsolvedVirtualSinceState: false,
 				lastFaceletSolved: false,
+				// 判定口径运行态：1 严格（逐转动比对）／2 状态（逐格比对）。
+				// 结构口径（3）已在 19.4.2335 移除；旧数据在读入时归一化为 2。
+				// 落库位置按模式分开：训练 → practiceStats.solveDetectionMode，
+				// 记忆 → lib.settings.solveDetectionMode，两者互不覆盖。
 				solveDetectionMode: 2,
+				// 制作模式是否把 x/y/z 转体也录进公式（偏好，随 practiceStats 持久化）
+				recordOrientation: true,
+				// 训练场景快照：离开训练模式时留一份，回来时原样重建（记忆模式不再吞掉训练进度）
+				practiceSceneSnapshot: null,
 				// 四向训练：公式前 / 公式后各挂一段随机 U 层旋转（0°/U/U2/U'）。
 				aufPreEnabled: false,
 				aufPostEnabled: false,
@@ -161,7 +169,21 @@
 				elements: {},
 				modeOrder: ["practice", "memory", "formula", "library"],
 				modeDefs: {
-					practice: { meta: { label: "训练模式", icon: "trainIcon", title: "训练模式" } },
+					practice: {
+						meta: { label: "训练模式", icon: "trainIcon", title: "训练模式" },
+						// 离开训练时留场景快照、回来时原样重建：训练 ↔ 记忆来回切不再丢进度与计时
+						leave: function() {
+							this.flushPracticeDetectionPrefs();
+							this.capturePracticeSceneSnapshot();
+						},
+						enter: function() {
+							this.solveDetectionMode = this.normalizeSolveDetectionMode(this.practiceStats && this.practiceStats.solveDetectionMode);
+							this.renderDetectOpts();
+							if (!this.restorePracticeSceneSnapshot()) {
+								this.resetPracticeSceneAfterForeignMode();
+							}
+						}
+					},
 					formula: { meta: { label: "公式制作", icon: "formulaModeIcon", title: "公式制作" } },
 					library: { meta: { label: "公式库", icon: "libraryIcon", title: "公式库" } }
 				},
@@ -253,6 +275,8 @@
 						this.importedFormulas = [];
 						this.formulaImported = false;
 						if (this.elements.practiceGrid) this.elements.practiceGrid.innerHTML = "";
+						// 公式清空后不能还留着上一批缩略图场景
+						this.clearThumbnailScenes();
 						// 公式清空后主魔方不能还停在上一题的打乱态
 						if (this.isPracticeMode) {
 							this.initTwisty();
@@ -271,6 +295,7 @@
 							this.importedFormulas = [];
 							this.formulaImported = false;
 							if (this.elements.practiceGrid) this.elements.practiceGrid.innerHTML = "";
+							this.clearThumbnailScenes();
 							if (this.isPracticeMode) {
 								this.initTwisty();
 								this.renderMoves();
@@ -347,6 +372,7 @@
 						planSyncBtn: document.getElementById("planSyncBtn"),
 						showFormulaThumbs: document.getElementById("showFormulaThumbs"),
 						showPracticeFormula: document.getElementById("showPracticeFormula"),
+						recordOrientation: document.getElementById("recordOrientation"),
 						practiceFormulaText: document.getElementById("practiceFormulaText"),
 						practiceFormulaToggle: document.getElementById("practiceFormulaToggle"),
 						practiceAoTimes: document.getElementById("practiceAoTimes"),
@@ -358,8 +384,74 @@
 					};
 				},
 
+				/* 场景销毁：twistyjs 的 TwistyScene 没有 dispose 方法，这里手工收尾
+				 * —— 摘掉 canvas 与容器、把画布尺寸归零释放绘制缓冲、断开 3D 对象引用。
+				 * 反复重建（重置视图 / 切模式 / 缩略图重渲染）时不让旧场景留在内存里。 */
+				disposeScene: function(scene) {
+					if (!scene) return;
+					try {
+						var canvas = typeof scene.getCanvas === "function" ? scene.getCanvas() : null;
+						if (canvas) {
+							canvas.width = 0;
+							canvas.height = 0;
+							if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+						}
+					} catch (error) {}
+					try {
+						var dom = typeof scene.getDomElement === "function" ? scene.getDomElement() : null;
+						if (dom && dom.parentNode) dom.parentNode.removeChild(dom);
+					} catch (error) {}
+					try {
+						var twisty = typeof scene.getTwisty === "function" ? scene.getTwisty() : null;
+						if (twisty) {
+							if (Array.isArray(twisty.cubePieces)) twisty.cubePieces.length = 0;
+							twisty._3d = null;
+						}
+					} catch (error) {}
+				},
+
+				// 缩略图场景整体回收（卡片重渲染 / 公式清空时调用）
+				clearThumbnailScenes: function() {
+					var scenes = this.thumbnailScenes || [];
+					for (var i = 0; i < scenes.length; i++) {
+						this.disposeScene(scenes[i]);
+					}
+					this.thumbnailScenes = [];
+					if (this._thumbObserver) {
+						try { this._thumbObserver.disconnect(); } catch (error) {}
+						this._thumbObserver = null;
+					}
+				},
+
+				// 缩略图懒渲染：卡片进入视口（含提前 160px）才建场景
+				ensureThumbObserver: function() {
+					if (this._thumbObserver) return this._thumbObserver;
+					if (typeof window.IntersectionObserver !== "function") return null;
+					var self = this;
+					this._thumbObserver = new IntersectionObserver(function(entries) {
+						for (var i = 0; i < entries.length; i++) {
+							var entry = entries[i];
+							if (!entry.isIntersecting) continue;
+							var node = entry.target;
+							if (self._thumbObserver) {
+								try { self._thumbObserver.unobserve(node); } catch (error) {}
+							}
+							var pending = node._thumbPending;
+							node._thumbPending = null;
+							// 卡片可能已被重渲染/清空：脱离文档的容器不再建场景，免得留下悬空 canvas
+							if (!pending || !node.isConnected) continue;
+							self.renderFormulaPreview(node, pending.state);
+							if (self.seamlessMode) self.syncHiddenLook();
+						}
+					}, { threshold: 0.01, rootMargin: "160px 0px" });
+					return this._thumbObserver;
+				},
+
 				initTwisty: function() {
 					this.clearPendingCubeMove(false);
+					// 重建前先销毁旧场景（canvas / 3D 引用），否则重置视图、切模式会一路堆内存
+					this.disposeScene(this.twistyScene);
+					this.twistyScene = null;
 					this.elements.cubeStage.innerHTML = "";
 					this.elements.cubeStage.dataset.roll = "0";
 					this.orientationMatrix = this.identityMatrix();
@@ -668,7 +760,8 @@
 							z: "z"
 						};
 						var move = keyMap[event.key && event.key.toLowerCase()];
-						if (move && !self.isPracticeMode && self.currentMode !== "library" && !event.altKey && !event.ctrlKey && !event.metaKey) {
+						// 训练模式同样支持键盘转（输入框内已在上方提前返回，撤销逻辑不受影响）
+						if (move && self.currentMode !== "library" && !event.altKey && !event.ctrlKey && !event.metaKey) {
 							self.playMove(self.wideMode || event.shiftKey ? move.toLowerCase() : move, "keyboard", Date.now());
 						}
 						if (event.key === "Backspace" && !event.altKey && !event.ctrlKey && !event.metaKey) {
@@ -1178,7 +1271,7 @@
 					// 公式组卡片：组选择条 + 「自定义本组复原状态」。
 					// 复原状态（隐藏贴纸掩码）是按组存的，所以这个入口必须挂在组上，
 					// 不能再放到操作面板顶部的全局区（那里看着像全局设置）。
-					return '<div class="groupCard" id="groupCard"><div class="memoryLibraryBar sharedGroupBar" id="sharedGroupBar"><button id="planSyncBtn" class="planSyncBtn memoryLibraryIconBtn" type="button" title="同步选择状态"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7L21 16"/><path d="M21 21v-5h-5"/></svg></button><div id="sharedGroupSelector" class="memoryLibrarySelector" style="flex:1 1 auto"><button id="sharedGroupCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="sharedGroupCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="sharedGroupMenu" class="memoryLibraryMenu" role="menu"></div></div><input id="sharedGroupNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="sharedGroupAddBtn" class="memoryLibraryIconBtn" type="button" title="新建组"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名组"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除组"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><button id="customFinalStateBtn" class="button secondary groupStateBtn" type="button" aria-expanded="false" title="勾选本组已经复原的贴纸：被隐藏的贴纸不参与该组的解题判定，逐组独立保存">自定义本组复原状态</button></div><div id="planBox" class="planBox"><button id="planExpandBtn" class="planExpandBtn" type="button" aria-expanded="false"><span class="planExpandLabel">规划学习</span></button><div id="planPanel" class="planPanel"><div class="planPanelContent"><div class="planViewToggle"><button id="planViewToggleBtn" class="planViewBtn" type="button" data-view="list"><svg class="planViewIconList" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><svg class="planViewIconText" style="display:none" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span class="planViewToggleText">文本编辑</span></button><button id="planImportBtn" class="planViewBtn planImportBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>导入公式</button></div><div id="planContentArea" class="planContentArea"><div id="planFormulaListWrap" class="planFormulaListWrap"><div id="planFormulaList" class="planFormulaList"></div></div><div id="planTextEditWrap" class="planTextEditWrap"><textarea id="planTextarea" class="planTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea></div></div><div class="planDailyRow"><label class="planDailyLabel">每日公式数 <input id="planDailyCount" class="planDailyInput" type="number" min="1" max="999" value="10"></label><span id="planCount" class="planCount">[0]/[10]</span></div><div class="memoryDialogActions planPanelActions"><button id="planCancelBtn" class="button secondary" type="button">取消</button><button id="planSaveBtn" class="button" type="button">保存</button></div></div><button id="planCollapseBtn" class="planCollapseBtn" type="button"><span class="collapseChevrons"><span></span><span></span></span>收起</button></div></div><input id="planFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain">';
+					return '<div class="groupCard" id="groupCard"><div class="memoryLibraryBar sharedGroupBar" id="sharedGroupBar"><button id="planSyncBtn" class="planSyncBtn memoryLibraryIconBtn" type="button" title="同步选择状态"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7L21 16"/><path d="M21 21v-5h-5"/></svg></button><div id="sharedGroupSelector" class="memoryLibrarySelector" style="flex:1 1 auto"><button id="sharedGroupCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="sharedGroupCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="sharedGroupMenu" class="memoryLibraryMenu" role="menu"></div></div><input id="sharedGroupNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="sharedGroupAddBtn" class="memoryLibraryIconBtn" type="button" title="新建组"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名组"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除组"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><button id="customFinalStateBtn" class="button secondary groupStateBtn" type="button" aria-expanded="false" title="勾选本组已经复原的贴纸：被隐藏的贴纸不参与该组的解题判定，逐组独立保存">自定义本组复原状态</button></div><div id="planBox" class="planBox"><button id="planExpandBtn" class="planExpandBtn" type="button" aria-expanded="false"><span class="planExpandLabel">规划学习</span></button><div id="planPanel" class="planPanel"><div class="planPanelContent"><div class="planViewToggle"><button id="planViewToggleBtn" class="planViewBtn" type="button" data-view="list"><svg class="planViewIconList" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><svg class="planViewIconText" style="display:none" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span class="planViewToggleText">文本编辑</span></button><button id="planImportBtn" class="planViewBtn planImportBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>导入公式</button></div><div id="planContentArea" class="planContentArea"><div id="planFormulaListWrap" class="planFormulaListWrap"><div id="planFormulaList" class="planFormulaList"></div></div><div id="planTextEditWrap" class="planTextEditWrap"><textarea id="planTextarea" class="planTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea></div></div><div class="planDailyRow"><label class="planDailyLabel">每日公式数 <input id="planDailyCount" class="planDailyInput" type="number" min="1" max="999" value="10"></label><span id="planCount" class="planCount">[0]/[10]</span></div><div id="planImportErrors" class="planImportErrors" hidden></div><div class="memoryDialogActions planPanelActions"><button id="planCancelBtn" class="button secondary" type="button">取消</button><button id="planSaveBtn" class="button" type="button">保存</button></div></div><button id="planCollapseBtn" class="planCollapseBtn" type="button"><span class="collapseChevrons"><span></span><span></span></span>收起</button></div></div><input id="planFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain">';
 				},
 
 				getFormulaImportHtml: function(showThumbOption, practiceCards, includeGroupControls) {
@@ -1219,7 +1312,12 @@
 				},
 
 				getMakerHtml: function() {
-					return '<aside class="modeView makerView">' + this.getViewHead("公式制作") + '<section class="viewSec"><div class="controls formulaControls"><button id="exportFormulaBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + '<section class="viewSec"><div id="draftList" class="draftList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="modeView makerView">' + this.getViewHead("公式制作") + '<section class="viewSec"><div class="controls formulaControls"><button id="exportFormulaBtn" class="button secondary" type="button">导出公式</button>' + this.getRecordOrientationToggleHtml() + '</div></section>' + this.getMacHelpHtml() + '<section class="viewSec"><div id="draftList" class="draftList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+				},
+
+				// 制作模式「录制转体」偏好：默认开；关掉时整体转体不进公式
+				getRecordOrientationToggleHtml: function() {
+					return '<label id="recordOrientationToggle" class="smartCheck recordOrientationToggle" title="打开后整体转体（x/y/z）也录进公式：真机上转双层会落成「外层 + 转体」两步"><input id="recordOrientation" type="checkbox"' + (this.recordOrientation !== false ? ' checked' : '') + '><span class="checkVisual"></span><span>录制转体</span></label>';
 				},
 
 				bindOnce: function(element, key, handler) {
@@ -1277,6 +1375,13 @@
 					this.bindOnce(this.elements.exportFormulaBtn, "smartBound", function(element) {
 						element.addEventListener("click", function() {
 							self.openFormulaExport({ anchor: element });
+						});
+					});
+					this.bindOnce(this.elements.recordOrientation, "smartBound", function(element) {
+						element.checked = self.recordOrientation !== false;
+						element.addEventListener("change", function() {
+							self.recordOrientation = !!element.checked;
+							self.savePracticeStats();
 						});
 					});
 					this.bindOnce(this.elements.confirmLibraryImportBtn, "smartBound", function(element) {
@@ -1866,6 +1971,8 @@
 
 				loadPracticeStats: function() {
 					var saved = storageManager.getJson(PRACTICE_STATS_KEY, null);
+					// 旧数据里的 3（结构口径）读入即归一化为 2：先记住库里的原值，读完再决定要不要回写
+					var rawMode = saved && saved.solveDetectionMode;
 					if (!saved) {
 						this.practiceStats = { schemaVersion: 3, groups: {}, solveDetectionMode: 2 };
 					} else if (saved.schemaVersion === 3 && saved.groups) {
@@ -1885,6 +1992,15 @@
 					this.solveDetectionMode = this.normalizeSolveDetectionMode(this.practiceStats.solveDetectionMode);
 					this.aufPreEnabled = !!this.practiceStats.aufPre;
 					this.aufPostEnabled = !!this.practiceStats.aufPost;
+					// 偏好持久化：显示公式 / 显示缩略图 / 录制转体（老数据无字段时取默认值）
+					this.showPracticeFormula = this.practiceStats.showPracticeFormula === true;
+					this.showFormulaThumbs = this.practiceStats.showFormulaThumbs === true;
+					this.recordOrientation = this.practiceStats.recordOrientation !== false;
+					// 旧值归一化后回写一次（必须放在上面读完偏好之后：savePracticeStats 会把当前运行态刷进库）
+					if (rawMode !== undefined && rawMode !== null && this.solveDetectionMode !== Number(rawMode)) {
+						this.practiceStats.solveDetectionMode = this.solveDetectionMode;
+						this.savePracticeStats();
+					}
 					var groupData = this.getPracticeData();
 					this.formulaSolveTimes = groupData.solveTimes;
 				},
@@ -1893,6 +2009,10 @@
 					this.practiceStats.schemaVersion = 3;
 					this.practiceStats.aufPre = !!this.aufPreEnabled;
 					this.practiceStats.aufPost = !!this.aufPostEnabled;
+					// 偏好：三个开关都随练习统计一起存，刷新后照旧
+					this.practiceStats.showPracticeFormula = !!this.showPracticeFormula;
+					this.practiceStats.showFormulaThumbs = !!this.showFormulaThumbs;
+					this.practiceStats.recordOrientation = this.recordOrientation !== false;
 					storageManager.setJson(PRACTICE_STATS_KEY, this.practiceStats);
 					if (this.markDataDirty) {
 						this.markDataDirty();
@@ -2638,6 +2758,12 @@
 					if (move.type === "slice") {
 						return move.text || "";
 					}
+					if (move.type === "orientation") {
+						// 整体转体：公式里的标准写法就是 x / y / z（含 2 / '）
+						if (move.text) return move.text;
+						var axisFace = { R: "x", U: "y", F: "z" }[move.axis] || "";
+						return axisFace ? axisFace + (move.pow === 2 ? "2" : (move.pow === -1 ? "'" : "")) : "";
+					}
 					if (move.type !== "face") {
 						return "";
 					}
@@ -2856,6 +2982,8 @@
 					this.isRecordingFormula = false;
 					this.saveFormulaEntries();
 					this.renderFormulaList();
+					// 坏行不能再被静默吞掉：条数与明细一起交回给用户
+					this.reportImportResult(parsed, { verb: "已保存" });
 				},
 
 				openFormulaExport: function(options) {
@@ -3203,6 +3331,7 @@
 						this.elements.showFormulaThumbs.checked = this.showFormulaThumbs;
 						this.elements.showFormulaThumbs.addEventListener("change", function(event) {
 							self.showFormulaThumbs = event.target.checked;
+							self.savePracticeStats();
 							self.renderFormulaCards();
 						});
 					}
@@ -3210,6 +3339,7 @@
 						this.elements.showPracticeFormula.checked = this.showPracticeFormula;
 						this.elements.showPracticeFormula.addEventListener("change", function(event) {
 							self.showPracticeFormula = event.target.checked;
+							self.savePracticeStats();
 							self.syncPracticeToggle();
 						});
 					}
@@ -3220,6 +3350,18 @@
 							if (button) {
 								self.applyImportedFormula(Number(button.getAttribute("data-state-index")));
 							}
+						});
+						// 键盘可达：卡片聚焦后 Enter / 空格 等同于点这张卡片（应用该公式）
+						this.elements.practiceGrid.addEventListener("keydown", function(event) {
+							if (event.key !== "Enter" && event.key !== " " && event.key !== "Spacebar") {
+								return;
+							}
+							var card = event.target.closest("[data-state-index]");
+							if (!card) return;
+							var index = Number(card.getAttribute("data-state-index"));
+							if (!(index >= 0)) return;
+							event.preventDefault();
+							self.applyImportedFormula(index);
 						});
 						this.bindThumbnailDrag();
 					}
@@ -3334,6 +3476,7 @@
 					this.renderPlanFormulaList();
 					this.syncPlanTextarea();
 					this.updateSyncButton();
+					this.renderImportErrors();
 					if (this.elements.planDailyCount) {
 						var dailyVal = 10;
 						if (typeof this.getActiveGroupSettings === 'function') {
@@ -3579,10 +3722,19 @@
 					if (!list) return;
 					var row = event.target.closest(".planFormulaRow");
 					var zone = event.target.closest(".planFormulaCheckZone");
+					if (!row || !zone) {
+						// 点在行外：这一下不会有配套的 click，别把「抑制」标志留给下一次左键
+						this._planSuppressRowClick = false;
+						return;
+					}
+					// 非左键（右键/中键）不进入滑动勾选：抑制标志必须在它之后才置位，
+					// 否则右键会把下一次真正的左键点击一起吞掉。
+					if (event.pointerType === "mouse" && event.button !== 0) {
+						this._planSuppressRowClick = false;
+						return;
+					}
 					// 点在这块热区里就由 pointerdown 结算，随后的 click 不能再来一次
-					this._planSuppressRowClick = !!(row && zone);
-					if (!row || !zone) return;
-					if (event.pointerType === "mouse" && event.button !== 0) return;
+					this._planSuppressRowClick = true;
 					var fid = row.getAttribute("data-formula-id");
 					if (!fid) return;
 					event.preventDefault();
@@ -3731,6 +3883,15 @@
 					var text = this.elements.planTextarea ? this.elements.planTextarea.value : this.formulaInputText;
 					var nextText = String(text == null ? "" : text);
 					if (nextText !== String(this.formulaInputText == null ? "" : this.formulaInputText) || this._planTextView) {
+						var trimmedText = nextText.trim();
+						var parsedText = trimmedText ? this.parseFormulaDefs(trimmedText) : null;
+						var parseErrors = parsedText ? (parsedText.errors || []) : [];
+						// 格式坏但文本不空：一条都没解析出来时绝不能提示「已保存」，把明细摆出来让用户改
+						if (parsedText && !parsedText.formulas.length && parseErrors.length) {
+							this.reportImportResult(parsedText, { quiet: true });
+							this.showToast("公式格式有误，没有任何一条能解析，未保存", 3600);
+							return;
+						}
 						this.formulaInputText = nextText;
 						if (typeof this.setActiveGroupPlanText === 'function') {
 							// 文本分支：整份重解析写库（非静默），随后走完整刷新链
@@ -3741,7 +3902,14 @@
 						this._planSnapshot = null;
 						this.switchPlanView(false);
 						this.refreshTrainingFormulas();
-						this.showToast(nextText.trim() ? "公式已保存" : "训练公式已清空");
+						if (parseErrors.length) {
+							this.reportImportResult(parsedText, { source: "", verb: "已保存", quiet: true });
+							this.showToast("已保存 " + parsedText.formulas.length + " 条，跳过 " + parseErrors.length + " 条", 3600);
+						} else {
+							this.lastImportErrors = [];
+							this.renderImportErrors();
+							this.showToast(trimmedText ? "公式已保存" : "训练公式已清空");
+						}
 						return;
 					}
 				var selected = allFormulas.filter(function(f) {
@@ -4222,24 +4390,78 @@
 					currentGroupData.solveTimes = newSolveTimes;
 					this.formulaImported = result.formulas.length > 0;
 					var isUserImport = source !== "restore" && source !== "library";
-					if (isUserImport && this.setActiveLibraryFormulas) {
-						this.setActiveLibraryFormulas(result.formulas);
-					}
+					// 先把文本缓冲落到本次导入内容，再写公式组：写组会触发一次整链刷新，
+					// 那一链必须看见新文本，否则会用旧（空）文本把刚导入的公式冲掉。
 					if (isUserImport) {
 						this.formulaInputText = text || "";
 						this.saveFormulaInputText();
+					}
+					if (isUserImport && this.setActiveLibraryFormulas) {
+						this.setActiveLibraryFormulas(result.formulas);
 					}
 					this.renderFormulaCards();
 
 					this.syncPracticeToggle();
 					this.updatePracticeAoTimes();
 					this.log("state", "import " + result.formulas.length + " from " + (source || "text"));
+					var isInternalSource = !source || source === "restore" || source === "library" || source === "formula";
+					this.reportImportResult(result, {
+						source: isInternalSource ? "" : source,
+						quiet: isInternalSource
+					});
 					if (this.isPracticeMode && result.formulas.length > 0 && source !== "restore" && source !== "library") {
 						this.applyImportedFormula(0);
 					}
 					if (isUserImport) {
 						this.savePracticeStats();
 					}
+				},
+
+				/* 导入结果统一汇报：成功条数 + 跳过条数（带文件名前缀）与错误明细。
+				 * options.source = 文件名（会出现在提示里）；options.quiet = 只记日志不弹提示。 */
+				reportImportResult: function(result, options) {
+					options = options || {};
+					var formulas = (result && result.formulas) || [];
+					var errors = (result && result.errors) || [];
+					this.lastImportErrors = errors.slice();
+					var verb = options.verb || "已导入";
+					var label = options.source ? String(options.source) + "：" : "";
+					for (var i = 0; i < errors.length; i++) {
+						var item = errors[i] || {};
+						var fragment = String(item.fragment == null ? "" : item.fragment).replace(/\s+/g, " ").trim();
+						if (fragment.length > 60) fragment = fragment.slice(0, 60) + "…";
+						this.log("error", "跳过第 " + (Number(item.index) + 1) + " 条：" + (item.message || "无法解析") + (fragment ? " · " + fragment : ""));
+					}
+					if (!options.quiet) {
+						if (errors.length) {
+							this.showToast(label + verb + " " + formulas.length + " 条，跳过 " + errors.length + " 条", 3600);
+						} else if (formulas.length) {
+							this.showToast(label + verb + " " + formulas.length + " 条");
+						}
+					}
+					this.renderImportErrors();
+					return result;
+				},
+
+				// 计划面板内的导入错误明细（可折叠）：有跳过才显示，全部解析成功就收起
+				renderImportErrors: function() {
+					var host = document.getElementById("planImportErrors");
+					if (!host) return;
+					var errors = this.lastImportErrors || [];
+					if (!errors.length) {
+						host.innerHTML = "";
+						host.hidden = true;
+						return;
+					}
+					var escapeHtml = this.escapeHtml;
+					var rows = errors.map(function(item) {
+						var fragment = String(item && item.fragment == null ? "" : (item && item.fragment) || "").replace(/\s+/g, " ").trim();
+						if (fragment.length > 80) fragment = fragment.slice(0, 80) + "…";
+						return '<li><span class="planImportErrorIndex">第 ' + (Number(item && item.index) + 1) + ' 条</span>' +
+							escapeHtml(fragment || "（空白）") + ' — ' + escapeHtml(String(item && item.message || "无法解析")) + '</li>';
+					});
+					host.hidden = false;
+					host.innerHTML = '<details class="planImportErrorDetails"><summary>跳过 ' + errors.length + ' 条公式（点开看明细）</summary><ul class="planImportErrorList">' + rows.join("") + '</ul></details>';
 				},
 
 				parseFormulaDefs: function(text) {
@@ -4387,7 +4609,7 @@
 						return;
 					}
 					var self = this;
-					this.thumbnailScenes = [];
+					this.clearThumbnailScenes();
 					this.elements.practiceGrid.innerHTML = "";
 					var frag = document.createDocumentFragment();
 					var pendingPreviews = [];
@@ -4443,8 +4665,15 @@
 				// Defer preview rendering until the containers are attached to the
 				// live DOM so that TwistyScene.resize() can compute a non-zero size
 				// from the styled container.
+				// 缩略图改为按需渲染：卡片进入视口才建场景，导入几十条公式时不会一次建满 canvas。
+				var thumbObserver = this.ensureThumbObserver();
 				pendingPreviews.forEach(function(entry) {
-					self.renderFormulaPreview(entry.container, entry.state);
+					if (thumbObserver) {
+						entry.container._thumbPending = entry;
+						thumbObserver.observe(entry.container);
+					} else {
+						self.renderFormulaPreview(entry.container, entry.state);
+					}
 				});
 			// 新渲染的缩略图仅应用了无缝贴片缩放，隐藏贴片材质需要在此同步，
 			// 否则切换模式后缩略图要重开无缝模式才会刷新隐藏贴片外观。
@@ -4534,6 +4763,16 @@
 				},
 
 				renderFormulaPreview: function(container, state) {
+					if (!container) return;
+					// 防重入兜底：同一容器已经挂过场景时先回收，避免 observer 二次触发叠两个 canvas
+					if (container._thumbScene) {
+						var previous = container._thumbScene;
+						var previousIdx = this.thumbnailScenes.indexOf(previous);
+						if (previousIdx >= 0) this.thumbnailScenes.splice(previousIdx, 1);
+						this.disposeScene(previous);
+						container._thumbScene = null;
+					}
+					container.innerHTML = "";
 					var previewScene = new twistyjs.TwistyScene();
 					container.appendChild(previewScene.getDomElement());
 				previewScene.initializeTwisty({
@@ -4631,16 +4870,58 @@
 					var card = btn && btn.closest ? btn.closest(".stateCard") : null;
 					var preview = card && card.querySelector(".statePreview");
 					if (!preview) return;
+					// 懒渲染竞态：主动渲染前取消 observer 对这张卡的挂起任务，
+					// 否则回调晚一帧还会再建一次场景，叠出两个 canvas。
+					if (preview._thumbPending) {
+						preview._thumbPending = null;
+						if (this._thumbObserver) {
+							try { this._thumbObserver.unobserve(preview); } catch (error) {}
+						}
+					}
+					// 优先复用这张卡已有的场景：清回复原再按当前题目重放，省一次全套重建
+					if (this.resetThumbScene(preview._thumbScene, state)) {
+						if (this.seamlessMode) {
+							this.syncHiddenLook();
+						}
+						return;
+					}
 					var old = preview._thumbScene;
 					if (old) {
 						var sceneIdx = this.thumbnailScenes.indexOf(old);
 						if (sceneIdx >= 0) this.thumbnailScenes.splice(sceneIdx, 1);
+						this.disposeScene(old);
+						preview._thumbScene = null;
 					}
 					preview.innerHTML = "";
 					this.renderFormulaPreview(preview, state);
 					if (this.seamlessMode) {
 						this.syncHiddenLook();
 					}
+				},
+
+				// 复用缩略图场景：贴纸先摆回复原态，再按当前题目（含四向序列）重放初始状态
+				resetThumbScene: function(scene, state) {
+					if (!scene || !state) return false;
+					var twisty = typeof scene.getTwisty === "function" ? scene.getTwisty() : null;
+					if (!twisty || typeof twisty.setFacelet !== "function") return false;
+					var solved = (window.mathlib && mathlib.SOLVED_FACELET) || "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB";
+					try {
+						if (!twisty.setFacelet(twisty, solved)) return false;
+					} catch (error) {
+						return false;
+					}
+					var isActivePractice = this.isPracticeMode && this.importedFormulas[this.currentFormulaIndex] === state && this.currentPracticeSequence;
+					var moves = this.buildTwistyMoves(this.getInitialStateMoves(state, isActivePractice ? this.currentPracticeSequence : undefined), false);
+					if (moves.length) {
+						scene.applyMoves(moves);
+					} else if (scene.render) {
+						scene.render();
+					}
+					this.applyHiddenMask(scene, this.hiddenStickerMask);
+					if (this.seamlessMode) {
+						this.applySeamlessMode(scene, true);
+					}
+					return true;
 				},
 
 				setActiveFormulaCard: function(index) {
@@ -4716,7 +4997,8 @@
 
 					this.showSolvedMark();
 					var self = this;
-					// 打勾仅作为视觉反馈，不阻塞流程：检测到完成立即切换到下一个训练状态。
+					// 打勾先亮一小会儿再切题：反馈看得见，但仍然是「非阻塞」的
+					// （solvedAdvancePending / cancelSolvedAdvance 语义不变，中途取消照旧生效）。
 					this.solvedCheckFeedbackActive = true;
 					this.solveSwitchTimer = setTimeout(function() {
 						self.solveSwitchTimer = null;
@@ -4726,7 +5008,7 @@
 						} else {
 							self.nextPracticeFormula();
 						}
-					}, 0);
+					}, 350);
 			// 反馈窗口结束后再隐藏打勾图标（独立于状态切换，不阻塞切换）。
 				if (this.solvedCheckHideTimer) {
 					clearTimeout(this.solvedCheckHideTimer);
@@ -4818,18 +5100,8 @@
 							// 目标归约后为空（如 R R' 一类自抵消公式）：要求实际步序逐条同文本
 							completed = actualStripped.join(" ") === targetStripped.join(" ");
 						}
-					} else if (this.solveDetectionMode === 3) {
-						/* 结构口径：只认「每行纯色」（容忍 AUF 未收尾）。
-						 * 优先用 virtualCubie 影子态（任何场景都有判定源，
-						 * 蓝牙断开时也照常判定）；影子态不可用才退回屏幕 facelet。 */
-						var shadow = null;
-						try {
-							if (this.virtualCubie && this.virtualCubie.toFaceCube) {
-								shadow = this.virtualCubie.toFaceCube();
-							}
-						} catch (e) { shadow = null; }
-						completed = this.structureMatches(shadow || facelet);
 					} else if (this.virtualCubie) {
+						// 状态口径（2）：优先用虚拟态影子判定，蓝牙断开时也照常判
 						completed = this.virtualMatches(this.activeRestorationTarget);
 					} else {
 						completed = this.faceletMatches(facelet, this.activeRestorationTarget);
@@ -5014,24 +5286,167 @@
 					return true;
 				},
 
-				/* 判定口径三选一：
-				 *   1 严格 —— 逐转动比对目标公式序列（最严，要求做法完全一致）
-				 *   2 状态 —— 逐格比对具体目标态（默认；默认要求 AUF 收尾到位）
-				 *   3 结构 —— 只认每行纯色，容忍 AUF 未收尾（吸收自速训口径，最宽松可用） */
+				/* 训练场景快照：离开训练模式（去记忆/制作/公式库）前留一份完整状态，
+				 * 回来时按快照原样重建场景与判定上下文 —— 主魔方、训练卡片、进度与计时都不丢。 */
+				capturePracticeSceneSnapshot: function() {
+					if (!this.isPracticeMode || this.currentFormulaIndex < 0 || !this.importedFormulas.length) {
+						this.practiceSceneSnapshot = null;
+						return null;
+					}
+					var virtualFacelet = "";
+					try {
+						if (this.virtualCubie && typeof this.virtualCubie.toFaceCube === "function") {
+							virtualFacelet = String(this.virtualCubie.toFaceCube() || "");
+						}
+					} catch (error) {
+						virtualFacelet = "";
+					}
+					var snapshot = {
+						facelet: this.getDisplayFacelet(),
+						virtualFacelet: virtualFacelet,
+						moveHistory: (this.moveHistory || []).slice(),
+						manualMoveHistory: (this.manualMoveHistory || []).slice(),
+						performed: (this.performedProcessMoves || []).slice(),
+						practiceSolveStartTime: this.practiceSolveStartTime,
+						moveCount: this.moveCount,
+						currentFormulaIndex: this.currentFormulaIndex,
+						currentPracticeSequence: this.currentPracticeSequence || "",
+						currentInitialMoves: (this.currentInitialMoves || []).slice(),
+						currentAufPre: this.currentAufPre || "",
+						currentAufPost: this.currentAufPost || "",
+						orientationMatrix: this.orientationMatrix
+							? this.orientationMatrix.map(function(row) { return row.slice(); })
+							: null,
+						orientationMoves: (this.orientationMoves || []).slice(),
+						viewYaw: this.viewYaw || 0,
+						viewPitch: this.viewPitch || 0
+					};
+					this.practiceSceneSnapshot = snapshot;
+					return snapshot;
+				},
+
+				restorePracticeSceneSnapshot: function() {
+					var snapshot = this.practiceSceneSnapshot;
+					if (!snapshot || !snapshot.facelet || snapshot.facelet.length !== 54) return false;
+					var index = Number(snapshot.currentFormulaIndex);
+					if (!this.importedFormulas.length || !(index >= 0) || index >= this.importedFormulas.length) return false;
+					var state = this.importedFormulas[index];
+					this.cancelSolvedAdvance();
+					this.moveHistory = [];
+					this.manualMoveHistory = [];
+					this.moveCount = 0;
+					this.initTwisty();
+					var twisty = this.twistyScene && this.twistyScene.getTwisty ? this.twistyScene.getTwisty() : null;
+					var applied = false;
+					if (twisty && typeof twisty.setFacelet === "function") {
+						try {
+							applied = !!twisty.setFacelet(twisty, snapshot.facelet);
+						} catch (error) {
+							applied = false;
+						}
+					}
+					if (applied) {
+						if (this.twistyScene.render) this.twistyScene.render();
+					} else {
+						// 快照无法还原（场景不支持 / 状态非法）：退回「按公式重摆本题」，并如实说明
+						this.applyImportedFormula(index);
+						this.showToast("训练场景未能还原，已按本题重新摆好");
+						return false;
+					}
+					// 朝向账目：快照里的整体朝向矩阵与转体记录原样放回（贴纸状态已含朝向，不再重复施加）
+					this.orientationMatrix = snapshot.orientationMatrix
+						? snapshot.orientationMatrix.map(function(row) { return row.slice(); })
+						: this.identityMatrix();
+					this.orientationMoves = (snapshot.orientationMoves || []).slice();
+					this.setViewDrag(snapshot.viewYaw || 0, snapshot.viewPitch || 0);
+					// 判定源：虚拟态按快照里的影子面位恢复（失败则退回复原态，仍然可判）
+					this.virtualCubie = null;
+					if (snapshot.virtualFacelet && snapshot.virtualFacelet.length === 54 && window.mathlib && mathlib.CubieCube) {
+						try {
+							var virtualCube = new mathlib.CubieCube();
+							if (virtualCube.fromFacelet(snapshot.virtualFacelet) !== -1) {
+								this.virtualCubie = virtualCube;
+							}
+						} catch (error) {
+							this.virtualCubie = null;
+						}
+					}
+					if (!this.virtualCubie) this.resetVirtualState();
+					this.currentFormulaIndex = index;
+					this.currentPracticeSequence = snapshot.currentPracticeSequence || "";
+					this.currentInitialMoves = (snapshot.currentInitialMoves || []).slice();
+					this.currentAufPre = snapshot.currentAufPre || "";
+					this.currentAufPost = snapshot.currentAufPost || "";
+					this.resetDetectCtx(state, this.currentPracticeSequence);
+					this.performedProcessMoves = (snapshot.performed || []).slice();
+					this.practiceSolveStartTime = snapshot.practiceSolveStartTime;
+					this.movesSinceState = 0;
+					this.moveHistory = (snapshot.moveHistory || []).slice();
+					this.manualMoveHistory = (snapshot.manualMoveHistory || []).slice();
+					this.moveCount = Number(snapshot.moveCount) || 0;
+					this.seenUnsolvedVirtualSinceState = !this.isVirtualStateSolved();
+					this.seenUnsolvedSinceState = this.seenUnsolvedVirtualSinceState;
+					this.seenUnsolvedFaceletSinceState = false;
+					this.lastFaceletSolved = false;
+					this.renderMoves();
+					if (this.elements.moveCount) this.elements.moveCount.textContent = String(this.moveCount);
+					this.setActiveFormulaCard(index);
+					this.syncPracticeToggle();
+					this.updatePracticeAoTimes();
+					this.refreshActivePracticeThumb();
+					return true;
+				},
+
+				// 没有可用快照（例如刚进页面就切走）时，避免训练模式停留在别的模式的魔方状态上
+				resetPracticeSceneAfterForeignMode: function() {
+					if (!this.isPracticeMode || this.currentMode !== "practice") return;
+					if (!this.importedFormulas.length) {
+						this.initTwisty();
+						this.renderMoves();
+						return;
+					}
+					this.applyImportedFormula(this.currentFormulaIndex >= 0 ? this.currentFormulaIndex : 0);
+				},
+
+				/* 判定口径二选一：
+				 *   1 严格 —— 逐转动比对目标公式序列（要求做法完全一致；x/y/z 整体转体不参与比对）
+				 *   2 状态 —— 逐格比对具体目标态（默认口径）
+				 * 旧的结构口径（mode 3）已整体移除：只需「严格」一个开关即可覆盖两种练法。 */
 				normalizeSolveDetectionMode: function(mode) {
 					var n = Number(mode);
-					return (n === 1 || n === 3) ? n : 2;
+					// 旧数据里的 3（结构）一并落到 2（状态）；1/2 原样保留，非法值归 2
+					return n === 1 ? 1 : 2;
 				},
 
 				setSolveDetectionMode: function(mode) {
 					this.solveDetectionMode = this.normalizeSolveDetectionMode(mode);
-					if (this.practiceStats && this.isPracticeMode) {
-						this.practiceStats.solveDetectionMode = this.solveDetectionMode;
-						this.savePracticeStats();
+					// 训练与记忆各存各的：在哪个模式就写回哪个模式自己的设置，运行态不互相覆盖
+					if (this.currentMode === "memory") {
+						this.flushMemoryDetectionPrefs();
+					} else {
+						this.flushPracticeDetectionPrefs();
 					}
 					this.updateSolveDetection(this.currentFacelet, false);
 					this.renderDetectOpts();
 					this.emit("detectMode", this.solveDetectionMode);
+				},
+
+				// 训练口径 → practiceStats.solveDetectionMode（没变化就不落库，避免多余同步）
+				flushPracticeDetectionPrefs: function() {
+					if (!this.practiceStats) return;
+					var mode = this.normalizeSolveDetectionMode(this.solveDetectionMode);
+					if (this.normalizeSolveDetectionMode(this.practiceStats.solveDetectionMode) === mode) return;
+					this.practiceStats.solveDetectionMode = mode;
+					this.savePracticeStats();
+				},
+
+				// 记忆口径 → 当前记忆库的 settings.solveDetectionMode（绝不碰练习统计）
+				flushMemoryDetectionPrefs: function() {
+					if (typeof this.getActiveGroupSettings !== "function" || typeof this.setActiveGroupSettings !== "function") return;
+					var mode = this.normalizeSolveDetectionMode(this.solveDetectionMode);
+					var settings = this.getActiveGroupSettings() || {};
+					if (this.normalizeSolveDetectionMode(settings.solveDetectionMode) === mode) return;
+					this.setActiveGroupSettings({ solveDetectionMode: mode });
 				},
 
 				ensureDetectOpts: function(root) {
@@ -5042,14 +5457,14 @@
 					controls.className = "controls strictDetectionControls";
 					controls.setAttribute("data-solve-detection-controls", "1");
 					controls.setAttribute("aria-label", "判定口径");
+					// 只有一个开关：勾选＝严格（逐转动），不勾＝状态（逐格）
 					controls.innerHTML = '<span class="detectTitle">判定</span>' +
-						'<label class="smartCheck strictDetectionToggle" title="逐转动比对目标公式序列：做法必须与目标公式完全一致才算完成"><input type="radio" name="solveDetection" value="1" data-strict-detection><span class="checkVisual"></span><span>严格</span></label>' +
-						'<label class="smartCheck strictDetectionToggle" title="逐格比对具体目标态：默认口径，按标准公式打完即判定完成"><input type="radio" name="solveDetection" value="2" data-strict-detection><span class="checkVisual"></span><span>状态</span></label>' +
-						'<label class="smartCheck strictDetectionToggle" title="只认每行纯色，容忍收尾 AUF 没做：适合练「拧完就停」，不必补最后的 U"><input type="radio" name="solveDetection" value="3" data-strict-detection><span class="checkVisual"></span><span>结构</span></label>';
+						'<label class="smartCheck strictDetectionToggle" title="勾选＝逐转动比对目标公式，做法必须与公式一致；不勾＝逐格比对最终状态（默认）"><input type="checkbox" data-strict-detection><span class="checkVisual"></span><span>严格判定</span></label>';
 					var self = this;
 					controls.addEventListener("change", function(event) {
 						var input = event.target.closest("[data-strict-detection]");
-						if (input) self.setSolveDetectionMode(Number(input.value));
+						if (!input) return;
+						self.setSolveDetectionMode(input.checked ? 1 : 2);
 					});
 					host.appendChild(controls);
 					this.renderDetectOpts();
@@ -5058,7 +5473,7 @@
 				renderDetectOpts: function() {
 					var inputs = document.querySelectorAll("[data-strict-detection]");
 					for (var i = 0; i < inputs.length; i++) {
-						inputs[i].checked = Number(inputs[i].value) === this.solveDetectionMode;
+						inputs[i].checked = this.solveDetectionMode === 1;
 					}
 				},
 
@@ -5170,42 +5585,6 @@
 					if (current.length !== 54 || target.length !== 54) return false;
 					for (var i = 0; i < 54; i++) {
 						if (!(this.hiddenStickerMask || {})[i] && current.charAt(i) !== target.charAt(i)) return false;
-					}
-					return true;
-				},
-
-				/* 结构性复原判定（吸收自 Quick Reaction 速训）：
-				 * U 面全 U + D 面全 D + 四侧 12 行各自单色。不看「转到哪一面」，
-				 * 只看「每行是不是纯色」⇒ 容忍整层 AUF 未收尾，也容忍 U 层循环置换。
-				 * 与上面两路的差别：virtualMatches/faceletMatches 要求逐格对齐具体目标态，
-				 * 这一路只要求结构成立，适合「拧完最后一层但懒得收 AUF」的练习口径。
-				 * 隐藏贴纸开启时该口径无意义（行内混入被屏蔽格）⇒ 直接退回逐格判定。 */
-				STRUCT_ROWS: [
-					[9, 10, 11], [18, 19, 20], [36, 37, 38], [45, 46, 47],
-					[12, 13, 14], [21, 22, 23], [39, 40, 41], [48, 49, 50],
-					[15, 16, 17], [24, 25, 26], [42, 43, 44], [51, 52, 53]
-				],
-
-				structureMatches: function(facelet) {
-					var current = String(facelet || "").toUpperCase().replace(/[^URFDLB]/g, "");
-					if (current.length !== 54) return false;
-					if (Object.keys(this.hiddenStickerMask || {}).length) {
-						return this.faceletMatches(current, this.activeRestorationTarget);
-					}
-					var i;
-					for (i = 0; i < 9; i++) {
-						if (current.charAt(i) !== "U") return false;
-					}
-					for (i = 27; i < 36; i++) {
-						if (current.charAt(i) !== "D") return false;
-					}
-					var rows = this.STRUCT_ROWS;
-					for (var r = 0; r < rows.length; r++) {
-						var idx = rows[r];
-						var c0 = current.charAt(idx[0]);
-						for (var k = 1; k < idx.length; k++) {
-							if (current.charAt(idx[k]) !== c0) return false;
-						}
 					}
 					return true;
 				},
@@ -7097,11 +7476,58 @@
 					this.ensureWideMerge().reset();
 					this.clearPendingCubeMove(false);
 					this.hideMacHelp();
+					// 屏幕状态已整体跳变：判定源必须跟着重建，否则对齐后照公式做也判不出完成
+					this.rebuildDetectionAfterAlign(target);
 					this.renderMoves();
 					this.elements.moveCount.textContent = "0";
 					this.elements.lastTs.textContent = "--:--";
 					this.updateSolveDetection(target, false);
 					this.log("state", "已对齐智能魔方当前状态（历史已清空）");
+				},
+
+				/* 对齐状态后的判定重建：屏幕状态整体跳变后，旧的虚拟态 / 已做步序 / 计时都不再对应。
+				 * 训练：虚拟态按 target 重建 + resetDetectCtx + 清计时与 performed（照公式做即可判完成）；
+				 * 记忆：交回记忆模块清空本次作答并重摆判定源，保证屏幕与判定一致。 */
+				rebuildDetectionAfterAlign: function(target) {
+					if (this.currentMode === "memory") {
+						if (typeof this.resetMemoryAttemptAfterAlign === "function") {
+							this.resetMemoryAttemptAfterAlign(target);
+						} else {
+							this.rebuildVirtualFromFacelet(target);
+						}
+						return;
+					}
+					if (!this.isPracticeMode) {
+						this.rebuildVirtualFromFacelet(target);
+						return;
+					}
+					var state = this.importedFormulas[this.currentFormulaIndex];
+					this.rebuildVirtualFromFacelet(target);
+					this.resetDetectCtx(state, this.currentPracticeSequence);
+					this.performedProcessMoves = [];
+					this.practiceSolveStartTime = null;
+					this.movesSinceState = 0;
+					this.cancelSolvedAdvance();
+					this.seenUnsolvedVirtualSinceState = !this.isVirtualStateSolved();
+					this.seenUnsolvedSinceState = this.seenUnsolvedVirtualSinceState;
+					this.seenUnsolvedFaceletSinceState = false;
+					this.lastFaceletSolved = false;
+				},
+
+				// 以一张面位串重建虚拟态（判定源）；建不出来就退回"复原态"，宁可漏判也不误判成已完成
+				rebuildVirtualFromFacelet: function(facelet) {
+					this.virtualCubie = null;
+					var target = String(facelet || "").toUpperCase().replace(/[^URFDLB]/g, "");
+					if (target.length === 54 && window.mathlib && mathlib.CubieCube) {
+						try {
+							var cube = new mathlib.CubieCube();
+							if (cube.fromFacelet(target) !== -1) this.virtualCubie = cube;
+						} catch (error) {
+							this.virtualCubie = null;
+						}
+					}
+					if (!this.virtualCubie) this.resetVirtualState();
+					return this.virtualCubie;
 				},
 
 				onCubeCallback: function(facelet, prevMoves, lastTs, hardware) {
@@ -7483,6 +7909,11 @@
 						if (!options.noHistory && !options.silent) {
 							this.pushHistory(move.text, source, timestamp);
 							this.log("view", move.text + (source ? " · " + source : ""));
+						}
+						// 制作模式录制转体：真机双层会落成「外层 + 转体」，这里把转体也录进公式
+						// （「录制转体」偏好关掉时不录，只保留手法步）
+						if (!options.noFormula && this.recordOrientation !== false) {
+							this.recordFormulaMove(move);
 						}
 						return move;
 					}

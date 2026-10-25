@@ -1203,6 +1203,14 @@
 			background: #fff;
 		}
 
+		/* 制作模式「录制转体」开关：与导出按钮并排，不撑满整行 */
+		.formulaControls .recordOrientationToggle {
+			width: auto;
+			min-height: 32px;
+			justify-content: flex-start;
+			font-size: 13px;
+		}
+
 		.importStatus {
 			margin-top: 10px;
 			color: var(--muted);
@@ -4362,7 +4370,7 @@ body.isFullscreen .sideNav {
 	flex: 0 0 auto;
 }
 
-/* ---- 判定口径：三选一并排，不再各自 100% 宽 ---- */
+/* ---- 判定口径：只剩一个「严格判定」开关 ---- */
 .panelDrawer .strictDetectionControls {
 	display: flex;
 	align-items: center;

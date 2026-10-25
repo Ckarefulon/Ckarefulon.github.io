@@ -10,7 +10,7 @@
 	var SCHEMA_VERSION = 2;
 	// 调度器（ts-fsrs 的 ESM 构建）：优先用仓库内置副本（离线/被墙也能评分），
 	// 本地文件缺失时再尝试远端 CDN；两条路都失败才降级到下方内置离线调度。
-	var FSRS_LOCAL_URL = "assets/vendor/ts-fsrs/ts-fsrs.js?v=2317";
+	var FSRS_LOCAL_URL = "assets/vendor/ts-fsrs/ts-fsrs.js?v=2335";
 	var FSRS_CDN_URL = "https://cdn.jsdelivr.net/npm/ts-fsrs/+esm";
 	var RATING_COLORS = ["#24F0EA", "#35D68A", "#E6B84A", "#E85D6A"];
 	var RATING_NAMES = ["清晰", "犹豫", "模糊", "遗忘"];
@@ -50,6 +50,17 @@
 	};
 
 	/* ---------- Data structure ---------- */
+
+	/* 判定口径迁移：结构判定（旧 mode 3）已移除，旧数据统一落到 2（逐格状态）；
+	 * 1（严格逐转动）原样保留，其它非法值同样归 2。 */
+	function normalizeDetectionMode(value) {
+		return Number(value) === 1 ? 1 : 2;
+	}
+
+	function normalizeSettings(settings) {
+		settings.solveDetectionMode = normalizeDetectionMode(settings.solveDetectionMode);
+		return settings;
+	}
 
 	function freshLibrary(name) {
 		return {
@@ -122,7 +133,7 @@
 			migrated.formulas = Array.isArray(value.formulas) ? value.formulas : [];
 			migrated.allFormulas = Array.isArray(value.allFormulas) ? value.allFormulas : [];
 			migrated.progress = value.progress || {};
-			migrated.settings = Object.assign({ dailyCount: 10, solveDetectionMode: 2 }, value.settings || {});
+			migrated.settings = normalizeSettings(Object.assign({ dailyCount: 10, solveDetectionMode: 2 }, value.settings || {}));
 			migrated.day = Object.assign({ studyDate: "", learnedIds: [] }, value.day || {});
 			migrated.day.learnedIds = Array.isArray(migrated.day.learnedIds) ? migrated.day.learnedIds : [];
 			migrated.queue = Array.isArray(value.queue) ? value.queue : [];
@@ -157,7 +168,7 @@
 			dest.formulas = Array.isArray(src.formulas) ? src.formulas : [];
 			dest.allFormulas = Array.isArray(src.allFormulas) ? src.allFormulas : [];
 			dest.progress = src.progress || {};
-			dest.settings = Object.assign({ dailyCount: 10, solveDetectionMode: 2 }, src.settings || {});
+			dest.settings = normalizeSettings(Object.assign({ dailyCount: 10, solveDetectionMode: 2 }, src.settings || {}));
 			dest.day = Object.assign({ studyDate: "", learnedIds: [] }, src.day || {});
 			dest.day.learnedIds = Array.isArray(dest.day.learnedIds) ? dest.day.learnedIds : [];
 			dest.queue = Array.isArray(src.queue) ? src.queue : [];
@@ -204,14 +215,18 @@
 	}
 
 	function loadData() {
+		var rawSaved = null;
 		try {
-			memory.data = mergeLoadedData(storageManager.getJson(STORAGE_KEY, null));
+			rawSaved = storageManager.getJson(STORAGE_KEY, null);
+			memory.data = mergeLoadedData(rawSaved);
 		} catch (error) {
 			memory.data = freshData();
+			rawSaved = null;
 		}
 		var hadDayChange = ensureStudyDay();
 		var needsCleanup = false;
 		var migratedSelection = false;
+		var migratedDetectionMode = false;
 		var memLibs = memory.data && memory.data.libraries;
 		if (memLibs) {
 			Object.keys(memLibs).forEach(function(lid) {
@@ -222,6 +237,12 @@
 					}
 					if (Array.isArray(l.queue) && l.queue.some(function(item) { return item && item.reinforcement; })) {
 						needsCleanup = true;
+					}
+					// 结构判定（旧 mode 3）已移除：读完按 2 归一化，库里还是旧值就顺手回写
+					var rawLib = rawSaved && rawSaved.libraries ? rawSaved.libraries[lid] : null;
+					var rawMode = rawLib && rawLib.settings ? rawLib.settings.solveDetectionMode : undefined;
+					if (rawMode !== undefined && rawMode !== null && Number(rawMode) !== normalizeDetectionMode(rawMode)) {
+						migratedDetectionMode = true;
 					}
 					// 旧数据一次性迁移：同步开着、训练列表为空、全量列表有内容 ⇒ 初始化为全量。
 					// 之后用户主动清空（initialized=true）就不会再被回退成全部公式。
@@ -241,7 +262,7 @@
 			});
 		}
 		loadLibraryMask();
-		if (hadDayChange || needsCleanup || migratedSelection) {
+		if (hadDayChange || needsCleanup || migratedSelection || migratedDetectionMode) {
 			window._siteNavApplyingCloudData = true;
 			try {
 				saveData();
@@ -599,7 +620,7 @@
 	function getMemoryHtml() {
 		var groupBarHtml = (typeof app.getGroupSelectorHtml === 'function') ? app.getGroupSelectorHtml() : '';
 		return '<aside class="modeView memoryView"><header class="viewHead"><h1>记忆模式</h1></header>' +
-			'<section class="viewSec stateImport memoryManageSection" id="formulaImport">' + groupBarHtml + '<div class="memoryDataControls"><button id="memoryImportBtn" class="button secondary" type="button">导入记忆数据</button><button id="memoryExportBtn" class="button secondary" type="button">导出记忆数据</button></div><input id="memoryImportFile" class="hiddenFileInput" type="file" accept=".json,application/json"></section>' +
+			'<section class="viewSec stateImport memoryManageSection" id="formulaImport">' + groupBarHtml + '<div class="memoryDataControls"><button id="memoryPlanBtn" class="button secondary" type="button" aria-expanded="false">规划记忆</button><button id="memoryImportBtn" class="button secondary" type="button">导入记忆数据</button><button id="memoryExportBtn" class="button secondary" type="button">导出记忆数据</button></div><input id="memoryImportFile" class="hiddenFileInput" type="file" accept=".json,application/json"></section>' +
 			'<section class="reviewArea"><div id="memoryCurrent" class="memoryCurrent"><button id="memoryBackBtn" class="memoryBack" type="button" aria-label="返回上一公式" title="返回上一公式"><span class="memoryBackChevron" aria-hidden="true"></span></button><button id="memoryFullscreenBtn" class="memoryFullscreen" type="button" aria-label="全屏" title="全屏"><span class="memoryFullscreenIcon" aria-hidden="true"></span></button><button id="memoryPrompt" class="memoryPrompt" type="button">请开始还原…<br>点击此处显示答案。</button></div><div id="reviewHistory" class="reviewHistory"></div></section>' +
 			app.getDiagnosticsHtml(true) + '</aside>';
 	}
@@ -620,7 +641,7 @@
 	function startMemoryMode() {
 		ensureStudyDay();
 		loadLibraryMask();
-		app.solveDetectionMode = Number((lib() && lib().settings.solveDetectionMode)) === 1 ? 1 : 2;
+		app.solveDetectionMode = normalizeDetectionMode(lib() && lib().settings.solveDetectionMode);
 		app.renderDetectOpts();
 		memory.promptedContinue = false;
 		updatePlanCounter();
@@ -722,6 +743,40 @@
 			renderMemoryHistory();
 		}
 		applyMemoryFormula();
+	};
+
+	/* 对齐状态后的记忆侧判定重建（P1-6）：屏幕已按设备真实状态重摆，本次作答记录与计时作废，
+	 * 判定源同时换成对齐后的状态 —— 接着照公式做就能判完成，屏幕与判定保持一致。 */
+	app.resetMemoryAttemptAfterAlign = function(target) {
+		if (typeof app.rebuildVirtualFromFacelet === "function") {
+			app.rebuildVirtualFromFacelet(target);
+		}
+		if (!memory.currentFormula) {
+			return false;
+		}
+		memory.attemptMoves = [];
+		memory.answerMoves = [];
+		memory.retried = false;
+		memory.repeatedMove = false;
+		memory.firstMoveTime = null;
+		memory.attemptStartTime = null;
+		memory.accumulatedSolveTime = 0;
+		memory.accumulatedReactionTime = 0;
+		memory.solveTime = null;
+		memory.reactionTime = null;
+		memory.lastAnswerMove = null;
+		memory.skipNextDetection = false;
+		memory.sawUnsolvedVirtual = !app.isVirtualStateSolved();
+		memory.sawUnsolvedFacelet = false;
+		memory.stateShownTime = performance.now();
+		stopTimer();
+		if (memory.state === "answer") {
+			memory.state = "solving";
+			memory.answerReason = "";
+			renderHiddenMemory(false);
+			renderMemoryHistory();
+		}
+		return true;
 	};
 
 	function renderIdleMemory() {
@@ -2055,6 +2110,13 @@
 			app.bindPlanPanel();
 		}
 		document.querySelector("#memoryExportBtn").addEventListener("click", exportData);
+		var planButton = document.querySelector("#memoryPlanBtn");
+		if (planButton) {
+			// 记忆模式的规划入口：与「规划学习」面板共用同一份公式数据，但保存走 applyMemoryPlan
+			planButton.addEventListener("click", function() {
+				openPlanDialog();
+			});
+		}
 		var importButton = document.querySelector("#memoryImportBtn");
 		var importInput = document.querySelector("#memoryImportFile");
 		importButton.addEventListener("click", function() { importInput.click(); });
@@ -2104,6 +2166,10 @@
 		leave: function() {
 			this.isMemoryMode = false;
 			stopTimer();
+			// 离开记忆模式：把记忆口径写回当前库的 settings（不碰训练口径）
+			if (typeof this.flushMemoryDetectionPrefs === "function") {
+				this.flushMemoryDetectionPrefs();
+			}
 		}
 	});
 
@@ -2111,10 +2177,11 @@
 		handleMemoryMove(text, move);
 	});
 
+	/* 判定口径的落库由主模块统一处理（在哪个模式就写回哪个模式自己的设置），
+	 * 这里只保留离开记忆模式时的一次写回兜底，避免两边互相覆盖。 */
 	app.on("detectMode", function() {
-		if (this.currentMode === "memory" && lib()) {
-			lib().settings.solveDetectionMode = this.solveDetectionMode;
-			saveData();
+		if (this.currentMode === "memory" && typeof this.flushMemoryDetectionPrefs === "function") {
+			this.flushMemoryDetectionPrefs();
 		}
 	});
 

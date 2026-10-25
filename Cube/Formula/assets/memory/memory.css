@@ -1377,6 +1377,44 @@
 	font-weight: 600;
 }
 
+/* 导入错误明细：只在有跳过条目时出现，点开才展开（默认收起） */
+.planImportErrors {
+	margin: 4px 0 8px;
+}
+
+.planImportErrors[hidden] {
+	display: none;
+}
+
+.planImportErrorDetails {
+	border: 1px solid var(--line, rgba(255, 255, 255, 0.14));
+	border-radius: 10px;
+	padding: 8px 10px;
+	font-size: 12px;
+	color: var(--muted);
+}
+
+.planImportErrorDetails summary {
+	cursor: pointer;
+	font-weight: 600;
+	color: var(--text, inherit);
+}
+
+.planImportErrorList {
+	margin: 8px 0 0;
+	padding-left: 16px;
+	display: grid;
+	gap: 4px;
+	line-height: 1.5;
+	word-break: break-word;
+}
+
+.planImportErrorIndex {
+	margin-right: 6px;
+	font-weight: 600;
+	opacity: 0.8;
+}
+
 .memoryManageSection .importDropZone,
 .memoryManageSection .textImport,
 .memoryManageSection #chooseFormulaFileBtn,

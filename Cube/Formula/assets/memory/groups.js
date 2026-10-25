@@ -63,10 +63,22 @@ app.getFormulaGroups = function() {
 	app.deleteFormulaGroup = function(id) {
 		if (!memory.data || !memory.data.libraries || !memory.data.libraries[id]) return false;
 		if (Object.keys(memory.data.libraries).length <= 1) return false;
+		var wasActive = memory.data.activeLibraryId === id;
 		delete memory.data.libraries[id];
-		if (memory.data.activeLibraryId === id) {
+		if (wasActive) {
+			// 删的就是当前组：先切到剩下的第一个组，避免后续读写落在已删除的组上
 			memory.data.activeLibraryId = Object.keys(memory.data.libraries)[0];
 			loadLibraryMask();
+		}
+		// 删组一并清掉该组的练习成绩（否则同名重建的组会捡到上一份成绩）
+		var stats = app.practiceStats;
+		if (stats && stats.groups && Object.prototype.hasOwnProperty.call(stats.groups, id)) {
+			delete stats.groups[id];
+			if (typeof app.savePracticeStats === "function") {
+				app.savePracticeStats();
+			} else if (typeof app.markDataDirty === "function") {
+				app.markDataDirty();
+			}
 		}
 		saveData();
 		app._notifyGroupListChanged();
