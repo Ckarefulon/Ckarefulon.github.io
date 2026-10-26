@@ -1256,7 +1256,8 @@
 			border-top: 1px solid var(--line);
 			padding-top: 8px;
 			cursor: grab;
-			touch-action: none;
+			/* 纵向仍交给页面滚动；横向留给缩略图旋转（长按/横滑才真正接管） */
+			touch-action: pan-y;
 			-webkit-user-select: none;
 			user-select: none;
 		}
@@ -4513,6 +4514,41 @@ body.isFullscreen .sideNav {
 	grid-column: 1 / -1;
 }
 
+/* 自定义复原状态浮层：高度封顶（min(70dvh, 内容高)）+ 内部滚动，
+   保存/取消固定在浮层底部，窄屏不再一路把组栏和训练卡片顶下去。 */
 .customStateInline .inlineCard {
+	display: flex;
+	flex-direction: column;
 	padding: 12px;
+	max-height: min(70dvh, 620px);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
+}
+
+.customStateInline .customCubeStage {
+	flex: 0 0 auto;
+	height: min(38dvh, 320px);
+	min-height: 180px;
+	max-height: 320px;
+}
+
+.customStateInline .customStateHint {
+	padding: 8px 2px;
+	border-top: 0;
+}
+
+.customStateInline .customStateActions {
+	position: sticky;
+	bottom: -12px;
+	z-index: 2;
+	margin: 6px -12px -12px;
+	padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+	background: color-mix(in srgb, var(--surfaceSolid) 96%, var(--accent) 4%);
+	border-top: 1px solid var(--line);
+}
+
+@media (max-width: 640px) {
+	.customStateInline .inlineCard { max-height: min(66dvh, 520px); }
+	.customStateInline .customCubeStage { height: min(34dvh, 260px); min-height: 160px; }
 }

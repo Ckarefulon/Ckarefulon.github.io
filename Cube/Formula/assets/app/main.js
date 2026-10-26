@@ -33,6 +33,9 @@
 				thumbnailScenes: [],
 				thumbnailYaw: 0,
 				thumbnailPitch: 0,
+				_thumbDragRaf: 0,
+				// 编辑公式时的起点快照（Esc 退回用）
+				_editingOrigin: null,
 				moveCount: 0,
 				movesSinceState: 0,
 				practiceSolveStartTime: null,
@@ -264,7 +267,8 @@
 					this.formulaSolveTimes = this.getPracticeData().solveTimes;
 					this.syncFormulaState();
 					this.applyGroupMaskToCube();
-					if (readGroup && this.isPracticeMode) this.resetPracticeFormula();
+					// 切换「选择同步」时 setSyncEnabled 也会走这里：那种情况下不能重置当前题目
+					if (readGroup && this.isPracticeMode && !this._suppressPracticeReset) this.resetPracticeFormula();
 					this.updatePracticeAoTimes();
 				},
 
@@ -335,6 +339,7 @@
 						seamlessToggleBtn: document.getElementById("seamlessToggleBtn"),
 						exportFormulaBtn: document.getElementById("exportFormulaBtn"),
 						confirmLibraryImportBtn: document.getElementById("confirmLibraryImportBtn"),
+						copyLibTextBtn: document.getElementById("copyLibTextBtn"),
 						libraryList: document.getElementById("libraryList"),
 						libraryStatus: document.getElementById("libraryStatus"),
 						practiceModeSelect: document.getElementById("practiceModeSelect"),
@@ -386,9 +391,18 @@
 
 				/* 场景销毁：twistyjs 的 TwistyScene 没有 dispose 方法，这里手工收尾
 				 * —— 摘掉 canvas 与容器、把画布尺寸归零释放绘制缓冲、断开 3D 对象引用。
-				 * 反复重建（重置视图 / 切模式 / 缩略图重渲染）时不让旧场景留在内存里。 */
+				 * 反复重建（重置视图 / 切模式 / 缩略图重渲染）时不让旧场景留在内存里。
+				 * 关于 GPU：twisty.js 用的是 THREE.CanvasRenderer（2D 画布软件渲染），
+				 * 没有 WebGL 上下文 / 纹理 / FBO 需要释放；每份场景独占一个 canvas，
+				 * 把 width/height 归零并脱离 DOM 就是它全部的可回收资源。
+				 * 两个 rAF 动画循环（视图缓动 / 转动动画）在结束时自行置空，不会流失。 */
 				disposeScene: function(scene) {
 					if (!scene) return;
+					try {
+						if (scene._thumbContainer && this._thumbVisObserver) {
+							this._thumbVisObserver.unobserve(scene._thumbContainer);
+						}
+					} catch (error) {}
 					try {
 						var canvas = typeof scene.getCanvas === "function" ? scene.getCanvas() : null;
 						if (canvas) {
@@ -421,6 +435,34 @@
 						try { this._thumbObserver.disconnect(); } catch (error) {}
 						this._thumbObserver = null;
 					}
+					if (this._thumbVisObserver) {
+						try { this._thumbVisObserver.disconnect(); } catch (error) {}
+						this._thumbVisObserver = null;
+					}
+					if (this._thumbDragRaf) {
+						try { window.cancelAnimationFrame(this._thumbDragRaf); } catch (error) {}
+						this._thumbDragRaf = 0;
+					}
+				},
+
+				// 缩略图「是否在视口内」标记：拖动旋转只重画在视口里的那些（长列表拖动不再整页刷）
+				ensureThumbVisibilityObserver: function() {
+					if (this._thumbVisObserver) return this._thumbVisObserver;
+					if (typeof window.IntersectionObserver !== "function") return null;
+					var self = this;
+					this._thumbVisObserver = new IntersectionObserver(function(entries) {
+						for (var i = 0; i < entries.length; i++) {
+							var entry = entries[i];
+							var scene = entry.target && entry.target._thumbScene;
+							if (!scene) continue;
+							scene._thumbVisible = !!entry.isIntersecting;
+							// 重新进入视口时补上当前视角，避免滚动回来后角度还停在旧位置
+							if (scene._thumbVisible && scene.setViewDrag) {
+								scene.setViewDrag(self.thumbnailYaw, self.thumbnailPitch);
+							}
+						}
+					}, { threshold: 0, rootMargin: "48px 0px" });
+					return this._thumbVisObserver;
 				},
 
 				// 缩略图懒渲染：卡片进入视口（含提前 160px）才建场景
@@ -1221,6 +1263,7 @@
 					view.outerHTML = this.getModeHtml(mode);
 					this.refreshElements();
 					this.bindModeUI();
+					this.updateSyncButton();
 					this.syncConnectionUi();
 					this.fillFormulaInputText(this.formulaInputText, false, false);
 					this.renderFormulaCards();
@@ -1271,7 +1314,7 @@
 					// 公式组卡片：组选择条 + 「自定义本组复原状态」。
 					// 复原状态（隐藏贴纸掩码）是按组存的，所以这个入口必须挂在组上，
 					// 不能再放到操作面板顶部的全局区（那里看着像全局设置）。
-					return '<div class="groupCard" id="groupCard"><div class="memoryLibraryBar sharedGroupBar" id="sharedGroupBar"><button id="planSyncBtn" class="planSyncBtn memoryLibraryIconBtn" type="button" title="同步选择状态"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7L21 16"/><path d="M21 21v-5h-5"/></svg></button><div id="sharedGroupSelector" class="memoryLibrarySelector" style="flex:1 1 auto"><button id="sharedGroupCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="sharedGroupCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="sharedGroupMenu" class="memoryLibraryMenu" role="menu"></div></div><input id="sharedGroupNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="sharedGroupAddBtn" class="memoryLibraryIconBtn" type="button" title="新建组"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名组"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除组"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><button id="customFinalStateBtn" class="button secondary groupStateBtn" type="button" aria-expanded="false" title="勾选本组已经复原的贴纸：被隐藏的贴纸不参与该组的解题判定，逐组独立保存">自定义本组复原状态</button></div><div id="planBox" class="planBox"><button id="planExpandBtn" class="planExpandBtn" type="button" aria-expanded="false"><span class="planExpandLabel">规划学习</span></button><div id="planPanel" class="planPanel"><div class="planPanelContent"><div class="planViewToggle"><button id="planViewToggleBtn" class="planViewBtn" type="button" data-view="list"><svg class="planViewIconList" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><svg class="planViewIconText" style="display:none" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span class="planViewToggleText">文本编辑</span></button><button id="planImportBtn" class="planViewBtn planImportBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>导入公式</button></div><div id="planContentArea" class="planContentArea"><div id="planFormulaListWrap" class="planFormulaListWrap"><div id="planFormulaList" class="planFormulaList"></div></div><div id="planTextEditWrap" class="planTextEditWrap"><textarea id="planTextarea" class="planTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea></div></div><div class="planDailyRow"><label class="planDailyLabel">每日公式数 <input id="planDailyCount" class="planDailyInput" type="number" min="1" max="999" value="10"></label><span id="planCount" class="planCount">[0]/[10]</span></div><div id="planImportErrors" class="planImportErrors" hidden></div><div class="memoryDialogActions planPanelActions"><button id="planCancelBtn" class="button secondary" type="button">取消</button><button id="planSaveBtn" class="button" type="button">保存</button></div></div><button id="planCollapseBtn" class="planCollapseBtn" type="button"><span class="collapseChevrons"><span></span><span></span></span>收起</button></div></div><input id="planFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain">';
+					return '<div class="groupCard" id="groupCard"><div class="memoryLibraryBar sharedGroupBar" id="sharedGroupBar"><button id="planSyncBtn" class="planSyncBtn memoryLibraryIconBtn" type="button" title="选择同步：训练列表跟随「规划记忆」的勾选（点亮＝同步，熄灭＝各自保存）" aria-label="选择同步：训练列表与规划记忆的勾选是否联动" aria-pressed="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7L21 16"/><path d="M21 21v-5h-5"/></svg></button><div id="sharedGroupSelector" class="memoryLibrarySelector" style="flex:1 1 auto"><button id="sharedGroupCurrent" class="memoryLibraryCurrent" type="button" aria-haspopup="true" aria-expanded="false"><span id="sharedGroupCurrentText" class="memoryLibraryCurrentText"></span><span class="memoryLibraryChevron"></span></button><div id="sharedGroupMenu" class="memoryLibraryMenu" role="menu"></div></div><input id="sharedGroupNameInput" class="memoryLibraryNameInput" type="text" maxlength="30"><button id="sharedGroupAddBtn" class="memoryLibraryIconBtn" type="button" title="新建组"><svg class="memoryIconPlus" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="memoryIconAddCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupRenameBtn" class="memoryLibraryIconBtn" type="button" title="重命名组"><svg class="memoryIconPencil" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5L13.5 4.5L5 13L2 14L3 11L11.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.5 4.5L11.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="memoryIconCheck" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 8L6.5 11.5L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="sharedGroupDeleteBtn" class="memoryLibraryIconBtn" type="button" title="删除组"><svg class="memoryIconTrash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><svg class="memoryIconClose" width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div><button id="customFinalStateBtn" class="button secondary groupStateBtn" type="button" aria-expanded="false" title="勾选本组已经复原的贴纸：被隐藏的贴纸不参与该组的解题判定，逐组独立保存">自定义本组复原状态</button></div><div id="planBox" class="planBox"><button id="planExpandBtn" class="planExpandBtn" type="button" aria-expanded="false"><span class="planExpandLabel">规划学习</span></button><div id="planPanel" class="planPanel"><div class="planPanelContent"><div class="planViewToggle"><button id="planViewToggleBtn" class="planViewBtn" type="button" data-view="list"><svg class="planViewIconList" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><svg class="planViewIconText" style="display:none" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span class="planViewToggleText">文本编辑</span></button><button id="planImportBtn" class="planViewBtn planImportBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>导入公式</button></div><div id="planContentArea" class="planContentArea"><div id="planFormulaListWrap" class="planFormulaListWrap"><div id="planFormulaList" class="planFormulaList"></div></div><div id="planTextEditWrap" class="planTextEditWrap"><textarea id="planTextarea" class="planTextarea" spellcheck="false" placeholder="输入公式，每行一个，格式：名称:公式 如 PLL-T:R U R..."></textarea></div></div><div class="planDailyRow"><label class="planDailyLabel">每日公式数 <input id="planDailyCount" class="planDailyInput" type="number" min="1" max="999" value="10"></label><span id="planCount" class="planCount">[0]/[10]</span></div><div id="planImportErrors" class="planImportErrors" hidden></div><div class="memoryDialogActions planPanelActions"><button id="planCancelBtn" class="button secondary" type="button">取消</button><button id="planSaveBtn" class="button" type="button">保存</button></div></div><button id="planCollapseBtn" class="planCollapseBtn" type="button"><span class="collapseChevrons"><span></span><span></span></span>收起</button></div></div><input id="planFileInput" class="hiddenFileInput" type="file" accept=".txt,text/plain">';
 				},
 
 				getFormulaImportHtml: function(showThumbOption, practiceCards, includeGroupControls) {
@@ -1308,11 +1351,12 @@
 				},
 
 				getLibraryHtml: function() {
-					return '<aside class="modeView libraryView">' + this.getViewHead("公式库") + '<section class="viewSec"><div class="controls libraryControls"><button id="confirmLibraryImportBtn" class="button secondary" type="button">导出公式</button></div></section>' + this.getMacHelpHtml() + '<section class="viewSec"><div id="libraryStatus" class="importStatus">正在读取公式库</div><div id="libraryList" class="libraryList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+					// 两个动作各管一件事：勾选的公式「进训练」还是「取文本」，按钮文案直接说清楚。
+					return '<aside class="modeView libraryView">' + this.getViewHead("公式库") + '<section class="viewSec"><div class="controls libraryControls"><button id="confirmLibraryImportBtn" class="button" type="button" title="把勾选的公式追加到当前公式组，并切换到训练模式">导入到训练</button><button id="copyLibTextBtn" class="button secondary" type="button" title="复制勾选公式的文本；剪贴板不可用时会打开文本框，可手动复制或下载">复制文本</button></div></section>' + this.getMacHelpHtml() + '<section class="viewSec"><div id="libraryStatus" class="importStatus">正在读取公式库</div><div id="libraryList" class="libraryList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				getMakerHtml: function() {
-					return '<aside class="modeView makerView">' + this.getViewHead("公式制作") + '<section class="viewSec"><div class="controls formulaControls"><button id="exportFormulaBtn" class="button secondary" type="button">导出公式</button>' + this.getRecordOrientationToggleHtml() + '</div></section>' + this.getMacHelpHtml() + '<section class="viewSec"><div id="draftList" class="draftList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
+					return '<aside class="modeView makerView">' + this.getViewHead("公式制作") + '<section class="viewSec"><div class="controls formulaControls"><button id="exportFormulaBtn" class="button secondary" type="button" title="查看 / 编辑公式文本，可复制、下载，或保存回制作列表">公式文本</button>' + this.getRecordOrientationToggleHtml() + '</div></section>' + this.getMacHelpHtml() + '<section class="viewSec"><div id="draftList" class="draftList"></div></section>' + this.getDiagnosticsHtml(true) + '</aside>';
 				},
 
 				// 制作模式「录制转体」偏好：默认开；关掉时整体转体不进公式
@@ -1374,7 +1418,13 @@
 					});
 					this.bindOnce(this.elements.exportFormulaBtn, "smartBound", function(element) {
 						element.addEventListener("click", function() {
-							self.openFormulaExport({ anchor: element });
+							// 制作模式的文本框：编辑后「保存到草稿」写回列表，别和「导出」混为一谈
+							self.openFormulaExport({
+								anchor: element,
+								title: "公式文本",
+								saveLabel: "保存到草稿",
+								hint: "改完点「保存到草稿」写回制作列表；只取文本请用「复制文本」或「下载 TXT」。"
+							});
 						});
 					});
 					this.bindOnce(this.elements.recordOrientation, "smartBound", function(element) {
@@ -1386,6 +1436,13 @@
 					});
 					this.bindOnce(this.elements.confirmLibraryImportBtn, "smartBound", function(element) {
 						element.addEventListener("click", function() {
+							// 「导入到训练」：追加到当前组 + 切训练（保存后刷新链路不动）
+							self.importPickedLibs();
+						});
+					});
+					this.bindOnce(this.elements.copyLibTextBtn, "smartBound", function(element) {
+						element.addEventListener("click", function() {
+							// 「复制文本」：只导出文本，不再偷偷导入
 							self.openLibExport(element);
 						});
 					});
@@ -1473,9 +1530,17 @@
 							var renameBtn = e.target.closest('#sharedGroupRenameBtn');
 							var deleteBtn = e.target.closest('#sharedGroupDeleteBtn');
 							var customBtn = e.target.closest('#sharedCustomStateBtn');
+							var syncBtn = e.target.closest('#planSyncBtn');
 							var bar = document.getElementById('sharedGroupBar');
 							var selector = document.getElementById('sharedGroupSelector');
 
+							// 「选择同步」按钮：training 列表要不要跟着「规划记忆」的勾选走
+							if (syncBtn) {
+								if (typeof self.togglePlanSync === 'function') {
+									self.togglePlanSync();
+								}
+								return;
+							}
 							if (current) {
 								if (selector) selector.classList.toggle('isOpen');
 								return;
@@ -1528,6 +1593,12 @@
 									exitGroupEdit();
 									return;
 								}
+								// 只剩一个组时没有「删完还能用」的状态：直接说明，不弹确认框
+								var groupsNow = typeof self.getFormulaGroups === 'function' ? (self.getFormulaGroups() || []) : [];
+								if (groupsNow.length <= 1) {
+									self.showToast("至少保留一个公式组");
+									return;
+								}
 								if (typeof self.deleteFormulaGroup === 'function') {
 									var gname = typeof self.getActiveGroupName === 'function' ? self.getActiveGroupName() : '';
 									self.openNoticePrompt({
@@ -1536,7 +1607,11 @@
 										confirmText: "删除",
 										warning: true,
 										onConfirm: function() {
-											self.deleteFormulaGroup(typeof self.getActiveGroupId === 'function' ? self.getActiveGroupId() : null);
+											var deleted = self.deleteFormulaGroup(typeof self.getActiveGroupId === 'function' ? self.getActiveGroupId() : null);
+											if (deleted === false) {
+												// 兜底：真正被下面的数据层挡回来时也要有反应
+												self.showToast("至少保留一个公式组");
+											}
 										}
 									});
 								}
@@ -2172,6 +2247,18 @@
 					return null;
 				},
 
+				findFormulaLibraryIdOf: function(formulaId) {
+					for (var i = 0; i < this.formulaLibraries.length; i++) {
+						var formulas = this.formulaLibraries[i].formulas || [];
+						for (var j = 0; j < formulas.length; j++) {
+							if (formulas[j].id === formulaId) {
+								return this.formulaLibraries[i].id;
+							}
+						}
+					}
+					return null;
+				},
+
 				setLibrarySelection: function(libraryId, checked) {
 					var library = this.findFormulaLibrary(libraryId);
 					if (!library) {
@@ -2184,7 +2271,8 @@
 							delete this.formulaLibrarySelections[formula.id];
 						}
 					}, this);
-					this.renderLibs();
+					// 局部刷新：只动这一个库的勾选/计数/按钮态，列表不重排、滚动与焦点原地保留
+					this.updateLibrarySelectionDom(libraryId);
 				},
 
 				setFormulaSelection: function(formulaId, checked) {
@@ -2196,7 +2284,42 @@
 					} else {
 						delete this.formulaLibrarySelections[formulaId];
 					}
-					this.renderLibs();
+					var libraryId = this.findFormulaLibraryIdOf(formulaId);
+					this.updateLibrarySelectionDom(libraryId);
+				},
+
+				/* 公式库勾选的局部刷新（不重建 innerHTML）：
+				 * 单条 → 更新该库表头的勾选态、indeterminate 与「已选/总数」，以及全部按钮禁用态。 */
+				updateLibrarySelectionDom: function(libraryId) {
+					var list = this.elements.libraryList;
+					if (!list) {
+						this.syncLibStatus();
+						return;
+					}
+					if (libraryId) {
+						var library = this.findFormulaLibrary(libraryId);
+						var item = list.querySelector('[data-library-id="' + libraryId + '"]');
+						if (library && item) {
+							var state = this.getLibPickState(library);
+							var headInput = item.querySelector("[data-library-check]");
+							if (headInput) {
+								headInput.checked = state.checked;
+								headInput.indeterminate = state.indeterminate;
+								headInput.disabled = state.total === 0;
+								headInput.setAttribute("aria-checked", state.indeterminate ? "mixed" : state.checked ? "true" : "false");
+							}
+							var countNode = item.querySelector("[data-library-count]");
+							if (countNode) {
+								countNode.textContent = this.getLibCountText(library, state);
+							}
+							item.querySelectorAll("[data-formula-check]").forEach(function(input) {
+								input.checked = !!this.formulaLibrarySelections[input.getAttribute("data-formula-check")];
+							}, this);
+						}
+					} else {
+						this.syncLibChecks();
+					}
+					this.syncLibStatus();
 				},
 
 				toggleFormulaPick: function(formulaId) {
@@ -2256,14 +2379,20 @@
 					this.elements.libraryList.innerHTML = this.formulaLibraries.map(function(library) {
 						var expanded = !!self.expandedFormulaLibraries[library.id];
 						var state = self.getLibPickState(library);
-						var countText = state.selected + "/" + state.total;
+						var countText = self.getLibCountText(library, state);
 						var skippedText = library.skipped ? "，跳过 " + library.skipped + " 条" : "";
 						var formulasHtml = (library.formulas || []).map(function(formula) {
 							return '<div class="libraryFormulaRow" data-formula-row="' + self.escapeAttr(formula.id) + '"><div><span class="libraryFormulaName">' + self.escapeHtml(formula.name) + '</span><span class="libraryFormulaAlg">' + self.escapeHtml(formula.alg) + '</span></div><label class="smartCheck" aria-label="选择公式"><input type="checkbox" data-formula-check="' + self.escapeAttr(formula.id) + '"><span class="checkVisual"></span></label></div>';
 						}).join("") || '<div class="libraryEmpty">此库没有可导入公式' + self.escapeHtml(skippedText) + '</div>';
-						return '<div class="libraryItem' + (expanded ? " isExpanded" : "") + '" data-library-id="' + self.escapeAttr(library.id) + '"><div class="libraryHeader" data-library-toggle="' + self.escapeAttr(library.id) + '" aria-expanded="' + (expanded ? "true" : "false") + '"><span class="libraryToggle" aria-hidden="true"></span><div class="libraryTitle"><strong>' + self.escapeHtml(library.name) + '</strong><small>' + self.escapeHtml(countText + " 个已选" + skippedText) + '</small></div><label class="smartCheck" aria-label="选择公式库"><input type="checkbox" data-library-check="' + self.escapeAttr(library.id) + '"><span class="checkVisual"></span></label></div><div class="libraryFormulas">' + formulasHtml + '</div></div>';
+						return '<div class="libraryItem' + (expanded ? " isExpanded" : "") + '" data-library-id="' + self.escapeAttr(library.id) + '"><div class="libraryHeader" data-library-toggle="' + self.escapeAttr(library.id) + '" aria-expanded="' + (expanded ? "true" : "false") + '"><span class="libraryToggle" aria-hidden="true"></span><div class="libraryTitle"><strong>' + self.escapeHtml(library.name) + '</strong><small data-library-count="' + self.escapeAttr(library.id) + '">' + self.escapeHtml(countText) + '</small></div><label class="smartCheck" aria-label="选择公式库"><input type="checkbox" data-library-check="' + self.escapeAttr(library.id) + '"><span class="checkVisual"></span></label></div><div class="libraryFormulas">' + formulasHtml + '</div></div>';
 					}).join("");
 					this.syncLibChecks();
+				},
+
+				getLibCountText: function(library, state) {
+					state = state || this.getLibPickState(library);
+					var skippedText = library && library.skipped ? "，跳过 " + library.skipped + " 条" : "";
+					return state.selected + "/" + state.total + " 个已选" + skippedText;
 				},
 
 				syncLibStatus: function() {
@@ -2275,6 +2404,9 @@
 					if (this.elements.confirmLibraryImportBtn) {
 						this.elements.confirmLibraryImportBtn.disabled = selected === 0;
 					}
+					if (this.elements.copyLibTextBtn) {
+						this.elements.copyLibTextBtn.disabled = selected === 0;
+					}
 					if (!this.elements.libraryStatus) {
 						return;
 					}
@@ -2285,7 +2417,7 @@
 					} else if (total === 0) {
 						this.elements.libraryStatus.textContent = "未读取到可导入公式";
 					} else {
-						this.elements.libraryStatus.textContent = "已读取 " + this.formulaLibraries.length + " 个库，已选 " + selected + " / " + total + " 个公式";
+						this.elements.libraryStatus.textContent = "已读取 " + this.formulaLibraries.length + " 个库，已选 " + selected + " / " + total + " 个公式" + (selected ? "" : "（勾选后可导入到训练或复制文本）");
 					}
 				},
 
@@ -2304,15 +2436,20 @@
 					});
 				},
 
+				getLibSelectedCount: function() {
+					var selections = this.formulaLibrarySelections || {};
+					return Object.keys(selections).filter(function(key) {
+						return !!selections[key];
+					}).length;
+				},
+
 				importPickedLibs: function() {
 					var text = this.buildLibExport();
 					if (!text) {
-						if (this.elements.libraryStatus) {
-							this.elements.libraryStatus.textContent = "请先选择要导入的公式";
-						}
+						this.notifyLibNothingSelected("导入");
 						return;
 					}
-					var selectedCount = Object.keys(this.formulaLibrarySelections || {}).filter(function(k) { return this.formulaLibrarySelections[k]; }.bind(this)).length;
+					var selectedCount = this.getLibSelectedCount();
 					this.suppressLibraryTransferOnce = true;
 					this.switchMode("practice");
 					this.addInputText(text);
@@ -2323,39 +2460,43 @@
 					}
 					this.refreshTrainingFormulas();
 					if (selectedCount > 0) {
-						this.showToast("已添加 " + selectedCount + " 个公式到状态列表");
+						this.showToast("已把 " + selectedCount + " 个公式导入当前组，训练卡片已刷新");
 					}
+				},
+
+				// 空选择时的统一提示：状态行 + toast 都给，别让按钮看起来「点了没反应」
+				notifyLibNothingSelected: function(verb) {
+					var message = "请先在下面勾选要" + verb + "的公式";
+					if (this.elements.libraryStatus) {
+						this.elements.libraryStatus.textContent = message;
+					}
+					this.showToast(message);
 				},
 
 				openLibExport: function(anchor) {
 					var text = this.buildLibExport();
 					if (!text) {
-						if (this.elements.libraryStatus) {
-							this.elements.libraryStatus.textContent = "请先选择要导出的公式";
-						}
+						this.notifyLibNothingSelected("复制");
 						return;
 					}
-					this.openFormulaExport({
-						text: text,
-						title: "导出公式",
-						anchor: anchor,
-						onSave: function(editedText) {
-							// 保存即进训练模式：suppress 只压掉「库 → 训练」的二次转存弹窗，一次性消费
-							this.suppressLibraryTransferOnce = true;
-							this.switchMode("practice");
-							this.addInputText(editedText);
-							this.fillFormulaInputText(this.formulaInputText, false, false);
-							if (typeof this.setActiveGroupPlanText === 'function') {
-								// 复用规划学习「文本保存」的完整刷新链：保存后训练卡片立即出现
-								this.setActiveGroupPlanText(this.formulaInputText, false);
-							}
-							this.refreshTrainingFormulas();
-							var selectedCount = Object.keys(this.formulaLibrarySelections || {}).filter(function(k) { return this.formulaLibrarySelections[k]; }.bind(this)).length;
-							if (selectedCount > 0) {
-								this.showToast("已添加 " + selectedCount + " 个公式到状态列表");
-							}
-						}.bind(this)
-					});
+					var formulaCount = text.split("\n").filter(function(line) { return !!line.trim(); }).length;
+					// 优先直接复制：用户点的是「复制文本」，不该先弹一堆界面
+					var fallback = function() {
+						this.openFormulaExport({
+							text: text,
+							title: "选中公式文本（共 " + formulaCount + " 条）",
+							anchor: anchor,
+							hideSave: true,
+							hint: "当前浏览器不允许直接写剪贴板：可在此手动复制，或下载为 TXT。"
+						});
+					}.bind(this);
+					if (navigator.clipboard && window.isSecureContext) {
+						navigator.clipboard.writeText(text).then(function() {
+							this.showToast("已复制 " + formulaCount + " 条公式文本");
+						}.bind(this)).catch(fallback);
+					} else {
+						fallback();
+					}
 				},
 
 				bindFormulaList: function() {
@@ -2465,6 +2606,13 @@
 						}
 					});
 					this.elements.draftList.addEventListener("keydown", function(event) {
+						var escapeInput = event.target.closest ? event.target.closest("[data-formula-moves]") : null;
+						if (escapeInput && event.key === "Escape") {
+							// Esc 取消这次编辑：回到进入编辑时的值
+							event.preventDefault();
+							self.cancelEditingMoves(escapeInput);
+							return;
+						}
 						if (event.key !== "Enter") {
 							return;
 						}
@@ -2480,28 +2628,126 @@
 						var movesInput = event.target.closest("[data-formula-moves]");
 						if (movesInput) {
 							event.preventDefault();
-							var entry = self.getFormulaEntry(movesInput.getAttribute("data-formula-moves"));
-							if (entry) {
-								self.formulaExportTextOverride = "";
-								var parsedMoves = self.readMovesInput(movesInput);
-								if (parsedMoves.valid === false) {
-									movesInput.setCustomValidity(parsedMoves.error);
-									movesInput.reportValidity();
-									return;
-								}
-								entry.alg = parsedMoves.alg;
-								entry.moves = parsedMoves.moves;
-								entry.editingMoves = false;
-								if (self.activeFormulaId === entry.id) {
-									self.activeFormulaId = null;
-									self.isRecordingFormula = false;
-								}
-								self.saveFormulaEntries();
-								self.renderFormulaList();
+							var parsedMoves = self.readMovesInput(movesInput);
+							if (parsedMoves.valid === false) {
+								movesInput.setCustomValidity(parsedMoves.error);
+								movesInput.reportValidity();
+								return;
 							}
+							self.commitEditingMoves(movesInput);
 						}
 					});
+					// 失焦即保存：改完直接点别处（或切到其它行）不再丢改动
+					this.elements.draftList.addEventListener("focusout", function(event) {
+						var input = event.target.closest ? event.target.closest("[data-formula-moves]") : null;
+						if (!input) {
+							return;
+						}
+						self.commitEditingMoves(input, { quiet: true });
+					});
 					this.renderFormulaList();
+				},
+
+				/* 编辑公式收尾：合法就写回；非法提示并保留原值（不静默吞掉）。 */
+				commitEditingMoves: function(input, options) {
+					options = options || {};
+					if (!input) {
+						return false;
+					}
+					// 行被重渲染后旧输入框会再冒一次 focusout：它已不在文档里，绝不能拿旧值回写
+					if (input.isConnected === false) {
+						return false;
+					}
+					var entry = this.getFormulaEntry(input.getAttribute("data-formula-moves"));
+					if (!entry) {
+						return false;
+					}
+					var parsedMoves = this.readMovesInput(input);
+					if (parsedMoves.valid === false) {
+						input.setCustomValidity(parsedMoves.error);
+						entry.editingMoves = false;
+						this._editingOrigin = null;
+						this.releaseFormulaEditLock(entry);
+						this.showToast("公式格式无效：" + parsedMoves.error + "，已保留原值");
+						this.saveFormulaEntries();
+						this.scheduleFormulaRowRefresh(entry.id);
+						return false;
+					}
+					input.setCustomValidity("");
+					entry.alg = parsedMoves.alg;
+					entry.moves = parsedMoves.moves;
+					entry.editingMoves = false;
+					this.formulaExportTextOverride = "";
+					this._editingOrigin = null;
+					this.releaseFormulaEditLock(entry);
+					this.saveFormulaEntries();
+					this.scheduleFormulaRowRefresh(entry.id);
+					return true;
+				},
+
+				// 退出编辑：把「录制/编辑」锁一并解开，否则这一行会一直显示成「录制中」
+				releaseFormulaEditLock: function(entry) {
+					if (!entry) {
+						return;
+					}
+					entry.editingMoves = false;
+					if (this.activeFormulaId === entry.id) {
+						this.activeFormulaId = null;
+						this.isRecordingFormula = false;
+					}
+				},
+
+				// Esc：撤回到进入编辑那一刻的值，退出编辑态
+				cancelEditingMoves: function(input) {
+					var entry = this.getFormulaEntry(input.getAttribute("data-formula-moves"));
+					if (!entry) {
+						return;
+					}
+					input.setCustomValidity("");
+					var origin = this._editingOrigin;
+					if (origin && origin.id === entry.id) {
+						entry.alg = origin.alg;
+						entry.moves = (origin.moves || []).slice();
+					}
+					// 输入框本身也退回原值：万一又被冒一次事件，写回去的也是原值
+					var restoreText = this.getFormulaDisplayText(entry);
+					if (input.value !== restoreText) {
+						input.value = restoreText;
+					}
+					this._editingOrigin = null;
+					this.releaseFormulaEditLock(entry);
+					this.saveFormulaEntries();
+					this.scheduleFormulaRowRefresh(entry.id);
+				},
+
+				// 只换这一行的 DOM：整表重绘会吃掉「点别处」的这次点击
+				scheduleFormulaRowRefresh: function(id) {
+					var self = this;
+					setTimeout(function() {
+						if (!self.elements.draftList) {
+							return;
+						}
+						var entry = self.getFormulaEntry(id);
+						if (!entry || entry.editingMoves) {
+							return;
+						}
+						var row = self.elements.draftList.querySelector('[data-formula-row="' + id + '"]');
+						if (!row) {
+							return;
+						}
+						// 用户正在这一行操作（比如刚点了同一行的按钮）就先不换，免得吃掉点击；
+						// 但「正在被替换的那个公式输入框」本身可以换（回车/失焦后它就该变回文本）。
+						var active = document.activeElement;
+						if (active && row.contains(active) && !active.hasAttribute("data-formula-moves")) {
+							return;
+						}
+						var holder = document.createElement("div");
+						holder.innerHTML = self.getFormulaRowHtml(entry);
+						var next = holder.firstElementChild;
+						if (next) {
+							row.replaceWith(next);
+						}
+					}, 0);
 				},
 
 				addFormulaEntry: function() {
@@ -2594,6 +2840,7 @@
 					this.formulaOrganizeMode = !this.formulaOrganizeMode;
 					this.dragFormulaId = null;
 					if (this.formulaOrganizeMode) {
+						this._editingOrigin = null;
 						this.formulaEntries.forEach(function(entry) {
 							entry.editingMoves = false;
 						});
@@ -2704,6 +2951,8 @@
 					this.activeFormulaId = id;
 					this.isRecordingFormula = true;
 					entry.editingMoves = true;
+					// 记下进入编辑时的值：Esc 要能原样退回
+					this._editingOrigin = { id: entry.id, alg: entry.alg || "", moves: (entry.moves || []).slice() };
 					this.saveFormulaEntries();
 					this.renderFormulaList();
 					var input = this.elements.draftList.querySelector('[data-formula-moves="' + id + '"]');
@@ -3001,7 +3250,10 @@
 					var expansion = document.createElement("section");
 					expansion.id = "formulaExportInline";
 					expansion.className = "inlineBox formulaExportInline";
-					expansion.innerHTML = '<div class="inlineCard"><div class="formulaExportHeader"><strong>' + this.escapeHtml(options.title || "导出公式") + '</strong><button id="closeFormulaExportBtn" class="button secondary small" type="button">收起</button></div><textarea id="formulaExportText" class="formulaExportText" spellcheck="false"></textarea><div class="formulaExportActions"><button id="saveFormulaTextBtn" class="button" type="button">保存</button><div class="formulaExportActionsRight"><button id="copyFormulaTextBtn" class="button secondary" type="button">复制文本</button><button id="downloadFormulaTxtBtn" class="button" type="button">下载 TXT</button></div></div></div>';
+					// hideSave：只做「取文本」，不提供写回动作（公式库的「复制文本」走这条）
+					var saveHtml = options.hideSave ? "" : '<button id="saveFormulaTextBtn" class="button" type="button">' + this.escapeHtml(options.saveLabel || "保存") + '</button>';
+					var hintHtml = options.hint ? '<p class="formulaExportHint">' + this.escapeHtml(options.hint) + '</p>' : "";
+					expansion.innerHTML = '<div class="inlineCard"><div class="formulaExportHeader"><strong>' + this.escapeHtml(options.title || "公式文本") + '</strong><button id="closeFormulaExportBtn" class="button secondary small" type="button">收起</button></div>' + hintHtml + '<textarea id="formulaExportText" class="formulaExportText" spellcheck="false"></textarea><div class="formulaExportActions">' + saveHtml + '<div class="formulaExportActionsRight"><button id="copyFormulaTextBtn" class="button secondary" type="button">复制文本</button><button id="downloadFormulaTxtBtn" class="button" type="button">下载 TXT</button></div></div></div>';
 					host.appendChild(expansion);
 					anchor.setAttribute("aria-expanded", "true");
 					var textarea = expansion.querySelector("#formulaExportText");
@@ -3010,15 +3262,17 @@
 					textarea.value = text;
 					var closeBox = function() { self.closeInlineExpansion(expansion, anchor); };
 					expansion.querySelector("#closeFormulaExportBtn").addEventListener("click", closeBox);
-					saveButton.addEventListener("click", function() {
-						var editedText = textarea.value;
-						if (typeof options.onSave === "function") {
-							options.onSave(editedText);
-						} else {
-							self.applyFormulaExport(editedText);
-						}
-						closeBox();
-					});
+					if (saveButton) {
+						saveButton.addEventListener("click", function() {
+							var editedText = textarea.value;
+							if (typeof options.onSave === "function") {
+								options.onSave(editedText);
+							} else {
+								self.applyFormulaExport(editedText);
+							}
+							closeBox();
+						});
+					}
 					copyButton.addEventListener("click", function() {
 						var originalText = copyButton.textContent;
 						var markCopied = function() {
@@ -3382,17 +3636,8 @@
 							self.closePlanPanel();
 						});
 					}
-					if (this.elements.planSyncBtn) {
-						this.elements.planSyncBtn.addEventListener("click", function() {
-							if (typeof self.setSyncEnabled === 'function') {
-								var current = self.getSyncEnabled();
-								self.setSyncEnabled(!current);
-								self.updateSyncButton();
-								self.renderPlanFormulaList();
-								self.showToast(!current ? "已开启选择同步" : "已关闭选择同步");
-							}
-						});
-					}
+					// 「选择同步」按钮已由 #sharedGroupBar 的委托处理器统一接管（见 bindModeUI），
+					// 这里不再重复绑定，避免同一按钮被切换两次。
 					if (this.elements.planViewToggleBtn) {
 						this.elements.planViewToggleBtn.addEventListener("click", function() {
 							self.switchPlanView(!self._planTextView);
@@ -3611,7 +3856,61 @@
 					if (typeof this.getSyncEnabled === 'function') {
 						enabled = this.getSyncEnabled();
 					}
-					this.elements.planSyncBtn.classList.toggle("isActive", enabled);
+					var btn = this.elements.planSyncBtn;
+					btn.classList.toggle("isActive", enabled);
+					btn.setAttribute("aria-pressed", enabled ? "true" : "false");
+					// 按钮只有图标，含义必须写在 title / aria-label 里，否则没人知道它管什么
+					var text = enabled
+						? "选择同步：开（训练列表＝「规划记忆」勾选的公式，点一下改为各自保存）"
+						: "选择同步：关（训练列表与「规划记忆」各自保存，点一下改为跟随勾选）";
+					btn.setAttribute("title", text);
+					btn.setAttribute("aria-label", text);
+				},
+
+				// 「选择同步」开关：训练列表是否跟随「规划记忆」的勾选
+				togglePlanSync: function() {
+					if (typeof this.getSyncEnabled !== 'function' || typeof this.setSyncEnabled !== 'function') {
+						return;
+					}
+					var next = !this.getSyncEnabled();
+					// setSyncEnabled 会通知组变更 → syncGroupState(true)；这里压掉其中的题目重置，
+					// 只重建列表，当前题目/计时/打乱保持不动
+					this._suppressPracticeReset = true;
+					try {
+						this.setSyncEnabled(next);
+					} finally {
+						this._suppressPracticeReset = false;
+					}
+					this.updateSyncButton();
+					// 训练列表立刻跟着变，否则这个开关看起来「点了没反应」
+					this.refreshTrainingListPreservingQuestion();
+					this.showToast(next
+						? "已开启选择同步：训练列表跟随「规划记忆」的勾选"
+						: "已关闭选择同步：训练列表与「规划记忆」各自保存");
+				},
+
+				// 只重建训练列表，不打乱当前题目（同步开关用；保存链路仍走 refreshTrainingFormulas）
+				refreshTrainingListPreservingQuestion: function() {
+					this.syncGroupFormulas();
+					this.renderFormulaCards();
+					this.syncPracticeToggle();
+					if (!this.isPracticeMode) {
+						return;
+					}
+					var total = this.formulaInputEntries.length;
+					if (!total) {
+						this.currentFormulaIndex = -1;
+						// 列表被清空时主魔方回正，不能留下上一题的打乱态
+						this.initTwisty();
+						this.renderMoves();
+						return;
+					}
+					if (this.currentFormulaIndex < 0 || this.currentFormulaIndex >= total) {
+						this.currentFormulaIndex = -1;
+						this.nextPracticeFormula();
+						return;
+					}
+					this.setActiveFormulaCard(this.currentFormulaIndex);
 				},
 
 				loadPlanSelectionState: function() {
@@ -3998,57 +4297,164 @@
 					return ids;
 				},
 
+				/* 缩略图拖拽旋转。
+				 * 桌面鼠标：按下即抓指针（原行为不变）。
+				 * 触摸：默认让页面滚动，只有「长按约 250ms」或「明显不是纵向滚动的横滑」
+				 *       才接管成旋转；接管后临时用非 passive 的 touchmove 拦住页面滚动，
+				 *       抬手/取消即解除，不会把整页锁死。 */
 				bindThumbnailDrag: function() {
 					var self = this;
+					var LONG_PRESS_MS = 250;
+					var MOVE_THRESHOLD = 10;
 					var drag = {
 						active: false,
+						pending: false,
+						touch: false,
 						preview: null,
+						pointerId: null,
+						startX: 0,
+						startY: 0,
 						x: 0,
 						y: 0,
 						yaw: 0,
-						pitch: 0
+						pitch: 0,
+						timer: 0
 					};
-					this.elements.practiceGrid.addEventListener("pointerdown", function(event) {
-						var preview = event.target.closest(".statePreview");
-						if (!preview || event.button !== 0) {
+					var preventTouchScroll = function(event) {
+						if (event.cancelable) {
+							event.preventDefault();
+						}
+					};
+					function clearPending() {
+						if (drag.timer) {
+							clearTimeout(drag.timer);
+							drag.timer = 0;
+						}
+						drag.pending = false;
+					}
+					function blockPageScroll() {
+						document.addEventListener("touchmove", preventTouchScroll, { passive: false });
+					}
+					function releasePageScroll() {
+						document.removeEventListener("touchmove", preventTouchScroll, { passive: false });
+					}
+					function applyPointerCapture() {
+						if (!drag.preview || drag.pointerId == null) {
 							return;
 						}
+						try {
+							drag.preview.setPointerCapture(drag.pointerId);
+						} catch (error) {
+						}
+					}
+					function startDrag(event) {
+						clearPending();
 						drag.active = true;
-						drag.preview = preview;
-						drag.x = event.clientX;
-						drag.y = event.clientY;
+						drag.touch = event.pointerType !== "mouse";
+						drag.pointerId = event.pointerId;
 						drag.yaw = self.thumbnailYaw;
 						drag.pitch = self.thumbnailPitch;
-						preview.classList.add("isDragging");
-						preview.setPointerCapture(event.pointerId);
-						event.preventDefault();
-					});
-					this.elements.practiceGrid.addEventListener("pointermove", function(event) {
-						if (!drag.active) {
+						if (drag.preview) {
+							drag.preview.classList.add("isDragging");
+						}
+						applyPointerCapture();
+						if (drag.touch) {
+							blockPageScroll();
+						}
+						if (event.cancelable) {
+							event.preventDefault();
+						}
+					}
+					function finishDrag(event) {
+						clearPending();
+						drag.active = false;
+						drag.touch = false;
+						drag.pointerId = null;
+						releasePageScroll();
+						if (drag.preview) {
+							drag.preview.classList.remove("isDragging");
+							try {
+								if (event && event.pointerId != null) {
+									drag.preview.releasePointerCapture(event.pointerId);
+								}
+							} catch (error) {
+							}
+						}
+						drag.preview = null;
+					}
+					this.elements.practiceGrid.addEventListener("pointerdown", function(event) {
+						if (event.button !== 0 && event.pointerType === "mouse") {
 							return;
 						}
-						var rect = drag.preview.getBoundingClientRect();
-						var limit = Math.PI / 4;
-						var dragSpan = Math.max(90, Math.min(rect.width, rect.height) * 0.85);
-						var scale = limit / dragSpan;
-						self.setThumbnailDrag(drag.yaw - (event.clientX - drag.x) * scale, drag.pitch + (event.clientY - drag.y) * scale);
-						event.preventDefault();
+						var preview = event.target.closest(".statePreview");
+						if (!preview) {
+							return;
+						}
+						drag.preview = preview;
+						drag.pointerId = event.pointerId;
+						drag.x = event.clientX;
+						drag.y = event.clientY;
+						drag.startX = event.clientX;
+						drag.startY = event.clientY;
+						if (event.pointerType === "mouse") {
+							startDrag(event);
+							return;
+						}
+						// 触摸：先什么都不抢，页面照常滚动；等长按或横滑再接管
+						clearPending();
+						drag.pending = true;
+						drag.timer = setTimeout(function() {
+							drag.timer = 0;
+							if (!drag.pending || !drag.preview) {
+								return;
+							}
+							startDrag({ pointerType: "touch", pointerId: drag.pointerId, cancelable: false, preventDefault: function() {} });
+						}, LONG_PRESS_MS);
+					});
+					this.elements.practiceGrid.addEventListener("pointermove", function(event) {
+						if (drag.active) {
+							if (!drag.preview) {
+								return;
+							}
+							var rect = drag.preview.getBoundingClientRect();
+							var limit = Math.PI / 4;
+							var dragSpan = Math.max(90, Math.min(rect.width, rect.height) * 0.85);
+							var scale = limit / dragSpan;
+							self.setThumbnailDrag(drag.yaw - (event.clientX - drag.x) * scale, drag.pitch + (event.clientY - drag.y) * scale);
+							if (event.cancelable) {
+								event.preventDefault();
+							}
+							return;
+						}
+						if (!drag.pending) {
+							return;
+						}
+						var dx = event.clientX - drag.startX;
+						var dy = event.clientY - drag.startY;
+						if (Math.abs(dx) < MOVE_THRESHOLD && Math.abs(dy) < MOVE_THRESHOLD) {
+							return;
+						}
+						// 纵向为主 = 用户在滚页面，立刻放弃接管，交给浏览器原生滚动
+						if (Math.abs(dy) >= Math.abs(dx)) {
+							clearPending();
+							drag.preview = null;
+							drag.pointerId = null;
+							return;
+						}
+						startDrag(event);
 					});
 					["pointerup", "pointercancel", "pointerleave"].forEach(function(type) {
 						self.elements.practiceGrid.addEventListener(type, function(event) {
-							if (!drag.active) {
+							if (!drag.active && !drag.pending) {
 								return;
 							}
-							drag.active = false;
-							if (drag.preview) {
-								drag.preview.classList.remove("isDragging");
-								try {
-									drag.preview.releasePointerCapture(event.pointerId);
-								} catch (error) {
-								}
-							}
-							drag.preview = null;
+							finishDrag(event);
 						});
+					});
+					window.addEventListener("blur", function() {
+						if (drag.active || drag.pending) {
+							finishDrag(null);
+						}
 					});
 				},
 
@@ -4056,10 +4462,31 @@
 				// 缩略图旋转不限制在 45° 内（主魔方 setViewDrag 保持原有限制不受影响）。
 				this.thumbnailYaw = yaw;
 				this.thumbnailPitch = pitch;
+				// 拖动过程按帧合并：一次 pointermove 不再挨个重画所有缩略图
+				if (this._thumbDragRaf) {
+					return;
+				}
+				var self = this;
+				this._thumbDragRaf = window.requestAnimationFrame(function() {
+					self._thumbDragRaf = 0;
+					self.applyThumbnailView();
+				});
+			},
+
+			/* 只给「当前在视口里」的缩略图重画：57 条列表拖动时不再整页 canvas 一起刷 */
+			applyThumbnailView: function(onlyScene) {
 				for (var i = 0; i < this.thumbnailScenes.length; i++) {
-					if (this.thumbnailScenes[i] && this.thumbnailScenes[i].setViewDrag) {
-						this.thumbnailScenes[i].setViewDrag(yaw, pitch);
+					var scene = this.thumbnailScenes[i];
+					if (!scene || !scene.setViewDrag) {
+						continue;
 					}
+					if (onlyScene && scene !== onlyScene) {
+						continue;
+					}
+					if (scene._thumbVisible === false) {
+						continue;
+					}
+					scene.setViewDrag(this.thumbnailYaw, this.thumbnailPitch);
 				}
 			},
 
@@ -4801,9 +5228,16 @@
 					}
 				previewScene.resize();
 				container._thumbScene = previewScene;
+				previewScene._thumbContainer = container;
 				this.thumbnailScenes.push(previewScene);
 					if (previewScene.setViewDrag) {
 						previewScene.setViewDrag(this.thumbnailYaw, this.thumbnailPitch);
+					}
+					var visObserver = this.ensureThumbVisibilityObserver();
+					if (visObserver) {
+						// 先按「可见」处理，交回 observer 校正（避免首帧不动）
+						previewScene._thumbVisible = true;
+						visObserver.observe(container);
 					}
 				},
 

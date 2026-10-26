@@ -997,6 +997,15 @@
 	height: 18px;
 }
 
+/* 与 Classic 共用同一份本地数据的提醒（计划与数据区底部一行小字） */
+.memoryCompatNote {
+	flex: 1 1 100%;
+	margin: 6px 0 0;
+	color: var(--muted);
+	font-size: 11px;
+	line-height: 1.5;
+}
+
 .planBox {
 	position: relative;
 	width: 100%;

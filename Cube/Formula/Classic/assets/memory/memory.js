@@ -63,7 +63,13 @@
 			idSeed: 1,
 			hiddenStickerMask: {},
 			syncEnabled: true,
-			trainingSelectedFormulaIds: {}
+			trainingSelectedFormulaIds: {},
+			// 与正式版共用同一份 cube_memory_progress：这几个字段 Classic 不用，
+			// 但必须原样留住，否则在 Classic 里存一次就把正式版的训练选择清掉。
+			trainingSelectionInitialized: false,
+			// null＝「未初始化」，正式版读到 null 会做一次性迁移；写成 {} 会被当成
+			// 「全部公式都是新的」从而把用户的取消勾选又全勾回来。
+			planSeenFormulaKeys: null
 		};
 	}
 
@@ -160,6 +166,9 @@
 			dest.hiddenStickerMask = (src.hiddenStickerMask && typeof src.hiddenStickerMask === "object" && !Array.isArray(src.hiddenStickerMask)) ? src.hiddenStickerMask : {};
 			dest.syncEnabled = src.syncEnabled !== false;
 			dest.trainingSelectedFormulaIds = (src.trainingSelectedFormulaIds && typeof src.trainingSelectedFormulaIds === "object" && !Array.isArray(src.trainingSelectedFormulaIds)) ? src.trainingSelectedFormulaIds : {};
+			// 正式版的训练选择状态 / 公式指纹：原样带上，别在 Classic 里丢掉
+			dest.trainingSelectionInitialized = src.trainingSelectionInitialized === true;
+			dest.planSeenFormulaKeys = (src.planSeenFormulaKeys && typeof src.planSeenFormulaKeys === "object" && !Array.isArray(src.planSeenFormulaKeys)) ? src.planSeenFormulaKeys : null;
 			base.libraries[lid] = dest;
 		});
 		if (!base.libraries[base.activeLibraryId]) {
