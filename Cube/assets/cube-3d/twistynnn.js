@@ -124,17 +124,16 @@
 
 					var sticker = new THREE.Object3D();
 
-					var key = i;
-					if (cubeOptions.dimension > 7) {
-						var su1 = Math.min(su, cubeOptions.dimension - 1 - su);
-						var sv1 = Math.min(sv, cubeOptions.dimension - 1 - sv);
-						key += ',' + (su1 + sv1) + ',' + (su1 * sv1);
-					}
-					materials[key] = materials[key] || new THREE.MeshBasicMaterial({
+					// 每张贴纸必须有自己的材质。
+					// 旧写法 key 直接取面号 i（只在 dimension>7 时叠加坐标），
+					// 同面 9 张贴纸因此共用同一个 material 对象 —— 任何针对单张贴纸的
+					// 操作（隐藏置灰、逐格选色）都会连带整面一起变。
+					// 颜色取「出生面颜色」：贴纸转到哪里都还是自己原来的颜色。
+					var stickerMaterial = new THREE.MeshBasicMaterial({
 						color: cubeOptions.faceColors[i],
 						opacity: cubeOptions.opacity
 					});
-					var meshes = [materials[key]];
+					var meshes = [stickerMaterial];
 					if (cubeOptions.stickerBorder) {
 						meshes.push(borderMaterial);
 					}
@@ -158,7 +157,16 @@
 				}
 			}
 		}
-
+		// 每张贴纸的「出生槽位」：初始化时各面第 si 张贴纸所在的槽位（getFacelet 编码）。
+		// setFacelet 用它来决定「同色贴纸之间怎么配」，避免把贴纸身份打乱。
+		var homeSlots = [];
+		for (var hf = 0; hf < numSides; hf++) {
+			var hrow = [];
+			for (var hs = 0; hs < cubePieces[hf].length; hs++) {
+				hrow.push(faceletIndexAt(cubePieces[hf][hs][0]));
+			}
+			homeSlots.push(hrow);
+		}
 		var handMarks = [];
 
 		function updateHandMarks(handMarks, dimension, oSl, oSr) {
@@ -514,6 +522,28 @@
 			return 0;
 		}
 
+		// 单个贴纸矩阵 → 槽位号（axis*9 + x*3 + y）。口径与 getFacelet 完全一致，
+		// 只是把「逐面写字符」拆成「按贴纸取位置」，供出生槽位表与 setFacelet 复用。
+		function faceletIndexAt(stickerMatrix) {
+			var dimension = cubeOptions.dimension;
+			var coord = [];
+			coord.push(Math.round(matrixVector3Dot(stickerMatrix, sidesNorm['U'])));
+			coord.push(Math.round(matrixVector3Dot(stickerMatrix, sidesNorm['R'])));
+			coord.push(Math.round(matrixVector3Dot(stickerMatrix, sidesNorm['F'])));
+			var idx = coord.indexOf(dimension) + coord.indexOf(-dimension) + 1;
+			if (idx < 0 || idx > 2) {
+				return -1;
+			}
+			var axis = idx + (coord[idx] > 0 ? 0 : 3);
+			coord.splice(idx, 1);
+			var xy = [1, 0, 0, 1, 0, 0][axis];
+			var xInv = [1, -1, -1, -1, -1, -1][axis];
+			var yInv = [1, -1, 1, 1, 1, -1][axis];
+			var x = (coord[xy] * xInv + dimension - 1) / 2;
+			var y = (coord[1 - xy] * yInv + dimension - 1) / 2;
+			return axis * dimension * dimension + x * dimension + y;
+		}
+
 		function getFacelet(twisty) {
 			twisty = twisty || this;
 			var ret = [];
@@ -715,6 +745,11 @@
 		// 按面位串直接重排贴纸（仅 3 阶）：facelet = 54 字符 URFDLB，与 getFacelet 同口径。
 		// 贴纸颜色由所属面分组（材质）决定，这里把每面 9 张贴纸重新摆到目标槽位，
 		// 使 getFacelet() 与 facelet 逐字一致。非法入参 / 非 3 阶返回 false（不动状态）。
+		//
+		// 同色 9 张贴纸之间怎么配，面位串看不出区别，但对「按贴纸身份」的调用方要紧：
+		// 隐藏贴纸（置灰）、逐格选色都是认「贴纸出生槽位」的，若这里按 si 顺序硬配，
+		// 复原态一摆回来身份就串了 —— 复用的缩略图场景上表现为灰块落到别的格子上。
+		// 所以优先把每张贴纸放回它自己的出生槽位，只有出生槽位被别的颜色占了才顺延。
 		function setFacelet(twisty, facelet) {
 			facelet = String(facelet || "").toUpperCase();
 			if (cubeOptions.dimension !== 3 || facelet.length !== 54 || /[^URFDLB]/.test(facelet)) {
@@ -734,12 +769,37 @@
 				}
 			}
 			// 全部校验通过后再动贴纸，避免半途失败留下中间态
+			var plan = [];
 			for (var f2 = 0; f2 < numSides; f2++) {
 				var faceSlots = slotsByColor[index_side[f2]];
-				var faceStickers = state[f2];
-				for (var si = 0; si < 9; si++) {
-					applySlotMatrix(faceStickers[si], faceSlots[si]);
+				var inTarget = {};
+				var a;
+				for (a = 0; a < faceSlots.length; a++) {
+					inTarget[faceSlots[a]] = true;
 				}
+				var placed = {};
+				var leftovers = [];
+				for (var si = 0; si < state[f2].length; si++) {
+					var home = homeSlots[f2] ? homeSlots[f2][si] : -1;
+					if (home >= 0 && inTarget[home] && !placed[home]) {
+						placed[home] = true;
+						plan.push([f2, si, home]);
+					} else {
+						leftovers.push(si);
+					}
+				}
+				var free = [];
+				for (a = 0; a < faceSlots.length; a++) {
+					if (!placed[faceSlots[a]]) {
+						free.push(faceSlots[a]);
+					}
+				}
+				for (var c = 0; c < leftovers.length; c++) {
+					plan.push([f2, leftovers[c], free[c]]);
+				}
+			}
+			for (var p = 0; p < plan.length; p++) {
+				applySlotMatrix(state[plan[p][0]][plan[p][1]], plan[p][2]);
 			}
 			return true;
 		}

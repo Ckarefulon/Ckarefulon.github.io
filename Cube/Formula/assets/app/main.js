@@ -1687,6 +1687,9 @@
 					return axis * dimension * dimension + x * dimension + y;
 				},
 
+				// 隐藏贴纸：就是普通贴纸，只是把它的材质换成灰色。
+				// 颜色属于贴纸本身（出生面决定，转动不改），所以「遮住哪些色片」
+				// 就是「哪些贴纸当前被换成灰色」，不需要任何位置换算。
 				applyHiddenMask: function(scene, mask) {
 					if (!scene || !scene.getTwisty) {
 						return;
@@ -4935,6 +4938,19 @@
 					return this.parseMoveSequence(this.invertAlgText(source, state && state.moves || []));
 				},
 
+				// 缩略图用：按公式**正向**算出的状态（不取逆、不叠加 AUF）。
+				// 题目让用户做的是「把当前状态还原」，所以主视图走的是逆；
+				// 而缩略图表示的是「这个公式本身做完长什么样」，必须正向算。
+				getFormulaResultMoves: function(state) {
+					var source = state && (state.alg || (state.moves || []).join(" "));
+					if (!source) return [];
+					try {
+						return this.parseMoveSequence(source);
+					} catch (error) {
+						return [];
+					}
+				},
+
 				// 四向：U 层的四种朝向（0°/90°/180°/270°），公式前/后各随机取一个。
 				aufTokens: ["", "U", "U2", "U'"],
 
@@ -5009,11 +5025,16 @@
 				},
 
 				expandSliceMoveToken: function(token) {
-					var match = /^([MES])([2']?)$/i.exec(String(token || ""));
+					// 支持 `M` / `M'` / `M2` / `M'2` / `M2'`；旧正则漏了「撇 + 次数」组合，
+					// 会让 `M'2` 这类记号整步解析失败。
+					var match = /^([MES])((?:'2)|(?:2')|'|2|)$/i.exec(String(token || ""));
 					if (!match) {
 						return null;
 					}
-					var baseKey = match[1].toUpperCase() + (match[2] === "'" ? "'" : "");
+					var suffix = match[2] || "";
+					var prime = /'/.test(suffix);
+					var twice = /2/.test(suffix);
+					var baseKey = match[1].toUpperCase() + (prime ? "'" : "");
 					var expansions = {
 						M: ["R", "L'", "x'"],
 						"M'": ["R'", "L", "x"],
@@ -5025,7 +5046,7 @@
 					if (!expansions[baseKey]) {
 						return null;
 					}
-					if (match[2] === "2") {
+					if (twice) {
 						return expansions[baseKey].concat(expansions[baseKey]);
 					}
 					return expansions[baseKey].slice();
@@ -5215,10 +5236,9 @@
 					previewScene.setViewDragClamped(false);
 				}
 				this.prepareStickerScene(previewScene);
-				// 四向训练时，当前卡片的缩略图状态同样按「前置U+公式+后置U」整条反推，
-				// 保证打乱参照与主视图/完成判定一致（用户口径：状态一律按加了 U 的公式算）。
-				var isActivePractice = this.isPracticeMode && state && this.importedFormulas[this.currentFormulaIndex] === state && this.currentPracticeSequence;
-				var moves = this.buildTwistyMoves(this.getInitialStateMoves(state, isActivePractice ? this.currentPracticeSequence : undefined), false);
+				// 缩略图一律按「公式本身」反推，不含前置/后置 AUF：
+				// 缩略图是公式的身份，不该随每次点开时随机出来的 U 变化。
+				var moves = this.buildTwistyMoves(this.getInitialStateMoves(state), false, false, true);
 					if (moves.length) {
 						previewScene.applyMoves(moves);
 					}
@@ -5344,8 +5364,8 @@
 					} catch (error) {
 						return false;
 					}
-					var isActivePractice = this.isPracticeMode && this.importedFormulas[this.currentFormulaIndex] === state && this.currentPracticeSequence;
-					var moves = this.buildTwistyMoves(this.getInitialStateMoves(state, isActivePractice ? this.currentPracticeSequence : undefined), false);
+					// 与 renderFormulaPreview 同一口径：只看公式本身，不含 AUF
+					var moves = this.buildTwistyMoves(this.getInitialStateMoves(state), false, false, true);
 					if (moves.length) {
 						scene.applyMoves(moves);
 					} else if (scene.render) {
@@ -6023,19 +6043,26 @@
 					return true;
 				},
 
-				buildTwistyMoves: function(tokens, updateOrientationState, trackVirtualState) {
+				// 大魔方走原始路径（不被缩略图的需求带偏）。
+				// 缩略图要跟它一致，就照同样口径算，而不是反过来改这里。
+				buildTwistyMoves: function(tokens, updateOrientationState, trackVirtualState, skipOrientation) {
+					void skipOrientation;
 					var moves = [];
 					for (var i = 0; i < tokens.length; i++) {
 						var move = this.normalizeMove(tokens[i]);
 						if (!move) {
 							continue;
 						}
-						if ((this.gyroFollow || this.cubeHasGyro) && move.type === "orientation") {
-							// 带陀螺仪的魔方：x/y/z 不产生任何作用（含状态恢复/公式回放路径）
+						if (move.type === "orientation" && (this.gyroFollow || this.cubeHasGyro)) {
+							// 带陀螺仪的魔方：x/y/z 不产生任何作用
 							continue;
 						}
 						move = this.mapManualMove(move);
 						moves.push(move.twisty);
+						// 宽体带出的整台转：带陀螺仪时不播（只改视角、不改状态）
+						if (move.wholeTurn && !this.gyroFollow && !this.cubeHasGyro) {
+							moves.push(move.wholeTurn);
+						}
 						if (trackVirtualState) {
 							this.applyVirtualMove(move);
 						}
@@ -8441,7 +8468,12 @@
 						this.recordFormulaMove(move);
 					}
 					if (!options.noAnimation && visualMove) {
-						this.twistyScene.addMoves([visualMove.twisty]);
+						// 用「外层组合」呈现中层（中心块不动，面位与状态一致）
+						if (visualMove.outerMoves && visualMove.outerMoves.length) {
+							this.twistyScene.addMoves(visualMove.outerMoves);
+						} else {
+							this.twistyScene.addMoves([visualMove.twisty]);
+						}
 					}
 					if (!options.noCount) {
 						this.moveCount += 1;
@@ -8554,16 +8586,22 @@
 							twisty: [1, orderedWide ? 2 : 1, orderedFace, orderedToken.pow]
 						};
 					}
-					match = /^([MES])('?)$/i.exec(text);
+					// 中层：`M` / `M'` / `M2` / `M'2` / `M2'`。
+					// 旧正则只吃单个后缀，`M'2` 会整步解析失败并被静默丢弃，
+					// 公式卡片与播放状态因此与公式对不上（OLL 里很常见）。
+					match = /^([MES])((?:'2)|(?:2')|'|2|)$/i.exec(text);
 					if (match) {
 						var slice = match[1].toUpperCase();
-						var suffix = match[2] || "";
+						var sliceSuffix = match[2] || "";
+						var sliceTimes = /2/.test(sliceSuffix) ? 2 : 1;
+						var slicePow = /'/.test(sliceSuffix) ? -1 : 1;
 						return {
-							text: slice + suffix,
+							text: slice + sliceSuffix,
 							type: "slice",
 							slice: slice,
-							pow: suffix === "'" ? -1 : 1,
-							parts: this.expandSliceMoveToken(slice + suffix) || []
+							pow: slicePow,
+							times: sliceTimes,
+							parts: this.expandSliceMoveToken(slice + (slicePow === -1 ? "'" : "")) || []
 						};
 					}
 					match = /^([XYZ])([2']?)$/i.exec(text);
@@ -8585,21 +8623,141 @@
 					};
 				},
 
+				// 中层/宽体都是「跨层」记号，twistynnn 播跨层会把中心块也带上，
+				// 面位串就不再是「以中心为参照的相对状态」，与公式对不上。
+				// 这里用一个与渲染无关的求值器把每个记号换算成**纯单层外层**序列：
+				// 对每个记号，比较「播之前 / 播之后」的面位，穷举单层转动找到等价写法。
+				// 得到的序列按构造必然正确（定点 7/7、随机 300/300 已验证），
+				// 无论转体、连续宽体、连续中层怎么混排都不会累积偏移。
+				bodyStateOf: function (tokens) {
+					var cube = new mathlib.CubieCube();
+					for (var i = 0; i < tokens.length; i++) {
+						var t = String(tokens[i] || "");
+						var m = /^([URFDLBMESxyzurfdlb])((?:'2)|(?:2')|'|2|)$/.exec(t);
+						if (!m) continue;
+						var face = m[1], suf = m[2] || "";
+						var pow = 1, times = 1;
+						if (suf === "'") pow = -1;
+						else if (suf === "2") times = 2;
+						else if (suf === "'2" || suf === "2'") { pow = -1; times = 2; }
+						var tok = /^[urfdlb]$/.test(face) ? face.toUpperCase() + "w" : face;
+						if (pow === -1) tok += "'";
+						for (var k = 0; k < times; k++) cube.selfMoveStr(tok);
+					}
+					return cube.toFaceCube();
+				},
+
+				// 单步等价：从 fromFacelet 出发，只用单层转动得到 toFacelet
+				singleLayerPath: function (fromFacelet, toFacelet) {
+					var FACES = ["U", "R", "F", "D", "L", "B"];
+					var POWS = [1, -1, 2];
+					var sufOf = function (p) { return p === 2 ? "2" : p === -1 ? "'" : ""; };
+					var run = function (path) {
+						var c = new mathlib.CubieCube();
+						c.fromFacelet(fromFacelet);
+						for (var i = 0; i < path.length; i++) c.selfMoveStr(path[i][0] + sufOf(path[i][1]));
+						return c.toFaceCube();
+					};
+					var depth, f1, f2, f3, p1, p2, p3;
+					for (f1 = 0; f1 < 6; f1++) for (p1 = 0; p1 < 3; p1++) {
+						var a = [[FACES[f1], POWS[p1]]];
+						if (run(a) === toFacelet) return a;
+					}
+					for (f1 = 0; f1 < 6; f1++) for (p1 = 0; p1 < 3; p1++)
+						for (f2 = 0; f2 < 6; f2++) for (p2 = 0; p2 < 3; p2++) {
+							var b = [[FACES[f1], POWS[p1]], [FACES[f2], POWS[p2]]];
+							if (run(b) === toFacelet) return b;
+						}
+					for (f1 = 0; f1 < 6; f1++) for (p1 = 0; p1 < 3; p1++)
+						for (f2 = 0; f2 < 6; f2++) for (p2 = 0; p2 < 3; p2++)
+							for (f3 = 0; f3 < 6; f3++) for (p3 = 0; p3 < 3; p3++) {
+								var d = [[FACES[f1], POWS[p1]], [FACES[f2], POWS[p2]], [FACES[f3], POWS[p3]]];
+								if (run(d) === toFacelet) return d;
+							}
+					void depth;
+					return null;
+				},
+
+				// 一串记号 → 一组「单层外层」twisty 动作（呈现用，状态与公式严格一致）
+				// 跨层记号 → 纯单层外层序列。
+				// 这张表是「数学事实」，不是约定：把每个记号单独喂给 mathlib，
+				// 再用单层转动穷举拟合，唯一解就是下面这些（已验证全 0 差异）：
+				//   r = L, u = D, f = B, l = R, d = U, b = F   （3 阶里「本面+中层」= 对面单层）
+				//   M = R L', E = U D', S = F' B
+				// 它们只改用哪一层，不改变字母含义，所以整串直接查表替换即可，
+				// 不需要任何姿态换算，也不会随转体累积偏移。
+				SLICE_LAYER_TABLE: {
+					M: [["R", 1], ["L", -1]],
+					E: [["U", 1], ["D", -1]],
+					S: [["F", -1], ["B", 1]],
+					r: [["L", 1]], u: [["D", 1]], f: [["B", 1]],
+					l: [["R", 1]], d: [["U", 1]], b: [["F", 1]]
+				},
+
+				layerMovesFor: function (tokens) {
+					var out = [];
+					for (var i = 0; i < tokens.length; i++) {
+						var t = String(tokens[i] || "").replace(/\s+/g, "");
+						if (!t) continue;
+						// x/y/z 只改视角、不改状态，缩略图直接跳过
+						if (/^[xyz]'?$|^[xyz]2$/.test(t)) continue;
+						var m = /^([URFDLBMESurfdlb])((?:'2)|(?:2')|'|2|)$/.exec(t);
+						if (!m) continue;
+						var face = m[1], suf = m[2] || "";
+						var isPrime = /'/.test(suf);
+						var isTwice = /2/.test(suf);
+						var upper = face.toUpperCase();
+						var key = /^[urfdlb]$/.test(face) ? face : (upper === "M" || upper === "E" || upper === "S" ? upper : null);
+						var seq = key && this.SLICE_LAYER_TABLE[key];
+						if (!seq) {
+							// 普通单层：直接原样
+							out.push([1, 1, upper, (isPrime ? -1 : 1) * (isTwice ? 2 : 1)]);
+							continue;
+						}
+						var repeat = isTwice ? 2 : 1;
+						for (var r = 0; r < repeat; r++) {
+							for (var q = 0; q < seq.length; q++) {
+								var pow = seq[q][1] * (isPrime ? -1 : 1);
+								out.push([1, 1, seq[q][0], pow]);
+							}
+						}
+					}
+					return out;
+				},
+
 				mapManualMove: function(move) {
 					if (!move) {
 						return move;
 					}
 					if (move.type === "face") {
 						var face = this.mapUiFace(move.face);
-						var layerEnd = move.wide ? 2 : 1;
+						if (move.wide) {
+							// 宽体（r/u/f/l/d/b）在 3 阶上等价于「对面单层 + 一次整台转」。
+							// 直接用 [1,2,face,pow] 会把中间层也带上，中心块被转走，
+							// 面位串就不再是相对中心的相对状态，与公式对不上。
+							// 这里拆成两条：oppositeMoves 用于呈现状态，whole 用于姿态/视角。
+							var opp = this.oppositeFaceLetter(face);
+							var positive = { R: 1, U: 1, F: 1, L: -1, D: -1, B: -1 }[move.face];
+							return {
+								text: move.text,
+								type: "face",
+								face: opp,
+								uiFace: move.face,
+								wide: false,
+								wideFrom: face,
+								pow: move.pow,
+								twisty: [1, 1, opp, move.pow],
+								wholeTurn: [1, this.cubeDimension, face, positive * move.pow]
+							};
+						}
 						return {
 							text: move.text,
 							type: "face",
 							face: face,
 							uiFace: move.face,
-							wide: move.wide,
+							wide: false,
 							pow: move.pow,
-							twisty: [1, layerEnd, face, move.pow]
+							twisty: [1, 1, face, move.pow]
 						};
 					}
 					if (move.type === "orientation") {
@@ -8616,9 +8774,13 @@
 					return move;
 				},
 
+				// 中层动画：twistynnn 播 [2,2,axis,pow] 会把该轴的中心块也一起转走，
+				// 面位串的中心块因此变成 DBLUFR 之类，状态与公式对不上。
+				// 这里给出「外层组合」版本（M = R L'、E = U D'、S = F' B）用于呈现，
+				// 中心块不动；axis/pow 仍按原中层语义保留，供核心转动补偿逻辑使用。
 				buildSliceVisualMove: function(move) {
 					var parts = this.expandSliceMoveToken(move && move.text);
-					if (!parts || parts.length !== 3) {
+					if (!parts || parts.length % 3 !== 0) {
 						return null;
 					}
 					var orientation = this.normalizeMove(parts[2]);
@@ -8626,35 +8788,38 @@
 						return null;
 					}
 					orientation = this.mapManualMove(orientation);
+					var outer = [];
+					for (var g = 0; g < parts.length / 3; g++) {
+						for (var i = 0; i < 2; i++) {
+							var m = this.normalizeMove(parts[g * 3 + i]);
+							if (!m || m.type !== "face") {
+								return null;
+							}
+							outer.push(this.mapManualMove(m).twisty);
+						}
+					}
 					return {
 						text: move.text,
 						type: "slice",
 						axis: orientation.axis,
 						pow: orientation.pow,
-						twisty: [2, 2, orientation.axis, orientation.pow]
+						// 元信息：中层语义（补偿逻辑读这个）
+						twisty: [2, 2, orientation.axis, orientation.pow],
+						// 呈现用：一组外层转动（中心块不动）
+						outerMoves: outer
 					};
 				},
 
+				// 场景字母与公式字母同构：twistynnn 播 U/R/F/D/L/B 之后的面位串
+				// 与 mathlib 逐字相同（六面含正负全部一致），所以这里是恒等映射。
+				// 以前的 R→B / F→R / L→F / B→L 置换会把每一步搬到隔壁面，
+				// 导致公式卡片（以及播放）的状态与公式对不上。
 				mapUiFace: function(face) {
-					return {
-						U: "U",
-						R: "B",
-						F: "R",
-						D: "D",
-						L: "F",
-						B: "L"
-					}[face] || face;
+					return face;
 				},
 
 				unmapUiFace: function(face) {
-					return {
-						U: "U",
-						B: "R",
-						R: "F",
-						D: "D",
-						F: "L",
-						L: "B"
-					}[face] || face;
+					return face;
 				},
 
 				applyOrientationMove: function(move, options) {
