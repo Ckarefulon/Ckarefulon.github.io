@@ -706,10 +706,11 @@
 		app.setViewDrag(yaw, pitch);
 		app.resetVirtualState();
 		app.resetDetectCtx(memory.currentFormula);
-		var moves = app.buildTwistyMoves(app.getInitialStateMoves(memory.currentFormula), true, true);
-		if (moves.length) {
-			app.twistyScene.applyMoves(moves);
-		}
+		// 与训练/缩略图同一套摆状态口径（记忆模式没有首尾 AUF）
+		var initialMoves = app.getInitialStateMoves(memory.currentFormula);
+		var facelet = app.formulaStateFacelet(initialMoves);
+		app.applyFormulaFacelet(app.twistyScene, facelet);
+		app.applyInitialVirtualState(initialMoves);
 		app.renderMoves();
 		if (app.elements.moveCount) {
 			app.elements.moveCount.textContent = "0";
