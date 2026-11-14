@@ -89,12 +89,16 @@ jobs:
 
           # 下发后核对：私钥若不是一份完整 PEM，这里立刻失败，
           # 而不是等到部署完、用户点反馈时才在函数里报「私钥无法识别」。
+          #
+          # ⚠️ grep 的模式以 "-----" 开头，必须加 `--` 终止选项解析，
+          #    否则 grep 会把 "-----BEGIN" 当成命令行选项，报
+          #    `grep: unrecognized option '-----BEGIN'` 并直接失败。
           if [ -n "$APP_PRIVATE_KEY" ]; then
-            if ! printf '%s' "$APP_PRIVATE_KEY" | grep -q "-----BEGIN"; then
+            if ! printf '%s' "$APP_PRIVATE_KEY" | grep -q -e "-----BEGIN"; then
               echo "::error::APP_PRIVATE_KEY 里没有 -----BEGIN----- 行（下发值异常）"
               exit 1
             fi
-            if ! printf '%s' "$APP_PRIVATE_KEY" | grep -q "-----END"; then
+            if ! printf '%s' "$APP_PRIVATE_KEY" | grep -q -e "-----END"; then
               echo "::error::APP_PRIVATE_KEY 缺少 -----END----- 行（值被截断，可能只下发了首行）"
               exit 1
             fi

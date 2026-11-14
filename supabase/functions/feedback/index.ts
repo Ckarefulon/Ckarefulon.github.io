@@ -378,12 +378,24 @@ function serviceKey(): string {
  * 从 Authorization 里取用户。
  * 未登录时前端会把 publishable key 当 Bearer 传过来，那是拿不到用户的 —— 视为游客，
  * 不报错（游客也该能提反馈）。
+ *
+ * 判断「这是不是用户 JWT」不要靠格式猜：
+ *   · 早先按 `split(".").length === 3` 判断，一旦 key 格式变化就会误判；
+ *   · Supabase 的 publishable key 以 `sb_publishable_` / `sb_secret_` 开头，
+ *     直接按前缀识别更稳，也不会把将来的新格式（如三段式 key）当成 JWT。
+ * 剩下的情况交给服务端校验：不是合法 JWT 时 /auth/v1/user 会返回非 2xx，
+ * 我们按游客处理即可。
  */
 async function resolveSubmitter(req: Request): Promise<Submitter | null> {
 	const auth = req.headers.get("Authorization") || "";
 	if (!auth.startsWith("Bearer ")) return null;
 	const token = auth.slice(7).trim();
-	if (!token || token.split(".").length !== 3) return null;  // 不是 JWT，就是 publishable key
+	if (!token) return null;
+
+	// Supabase 的 API key 不是用户身份，直接按游客处理，省一次网络往返
+	if (/^sb_(publishable|secret)_/i.test(token)) return null;
+	// 明显不是 JWT 形状的（没有点分段），也当游客
+	if (token.split(".").length !== 3) return null;
 
 	const base = supabaseBase();
 	const key = serviceKey();
@@ -526,7 +538,17 @@ async function resolveIdentity(repo: string): Promise<Identity | null> {
 	}
 
 	const created = await appApi(jwt, `/app/installations/${installationId}/access_tokens`, { method: "POST" });
-	if (!created || !created.token) throw new Error("无法获取 App installation token");
+	if (!created || typeof created.token !== "string" || !created.token) {
+		throw new Error("无法获取 App installation token");
+	}
+
+	// ⚠️ 不要对 token 做任何长度/前缀假设。
+	//    GitHub 已宣布 installation token 将改用新的无状态格式（ghs_…），
+	//    长度可能涨到约 520 字符。历史上也有过格式调整。
+	//    这里只把它当成不透明字符串：能拿到、能塞进 Authorization 头就够了。
+	//    （日志里只记长度，方便真出问题时确认收到了完整值，绝不记录内容。）
+	const tokenValue = created.token;
+	console.log(`[feedback] installation token ok (${tokenValue.length} chars)`);
 
 	// token 有效期 1 小时；GitHub 返回 ISO 时间，解析失败就按 50 分钟算
 	let expiresAt = now + 50 * 60 * 1000;
@@ -546,8 +568,8 @@ async function resolveIdentity(repo: string): Promise<Identity | null> {
 		appIdentity = { name: name || "", appId };
 	}
 
-	installationToken = { token: created.token, expiresAt, appId };
-	return { token: created.token, mode: "app", botName: appIdentity.name || null };
+	installationToken = { token: tokenValue, expiresAt, appId };
+	return { token: tokenValue, mode: "app", botName: appIdentity.name || null };
 }
 
 function matchCategory(categories: Category[], wanted: string): Category | null {

@@ -47,7 +47,10 @@ jwt_expiry = 3600
 enable_signup = true
 
 [auth.email]
-enable_signup = true
+# CLI v3 起 [auth.email] 下的 enable_signup 已弃用（v4 移除），改用 enabled。
+# 注意区分：这里的 enabled 是「邮箱这个登录方式是否开启」，
+# 而 [auth] 顶层的 enable_signup 才是「是否允许新用户注册」，那个没被弃用。
+enabled = true
 double_confirm_changes = true
 enable_confirmations = false
 secure_password_change = true
