@@ -276,19 +276,25 @@
 			if (typeof app.setTheme !== "function") {
 				siteThemeBtn.hidden = true;
 			} else {
-				var currentTheme = document.documentElement.dataset.theme || "light";
-				siteThemeBtn.textContent = currentTheme === "dark" ? "☀" : "☾";
+				// 缺 data-theme 时按**深色**算：设计令牌表 :root 本身就是深色（color-scheme: dark）。
+				// 以前这里兜底 "light"，于是没做首屏落地的页面会出现「页面是深的、图标却是待切深色的 ☾」。
+				function currentTheme() {
+					return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+				}
+				function paintIcon(theme) {
+					siteThemeBtn.textContent = theme === "dark" ? "☀" : "☾";
+				}
+				paintIcon(currentTheme());
 				siteThemeBtn.addEventListener("click", function() {
-					var now = document.documentElement.dataset.theme || "light";
-					var next = now === "dark" ? "light" : "dark";
-					app.setTheme(next);
-					// 顶栏兜底：各页自己的 setTheme 有的会写 localStorage、有的只改 attribute
-					// （比如 linkage），统一由 nav 保证「换一次主题，全站跟着变」；
-					// 图标也由 nav 收口，免得页面只改了 attribute 而按钮图标不翻。
+					var next = currentTheme() === "dark" ? "light" : "dark";
+					// ⚠️ 顺序：**nav 先落 attribute**，再交给页面的 setTheme。
+					// 各页的 setTheme 只改自己的状态（Merit 只写 ZC.state.ui.theme，不碰 documentElement），
+					// 光靠它会出现「图标翻了、页面没变」。nav 先落一次再交给页面，幂等且安全。
+					document.documentElement.dataset.theme = next;
 					try { localStorage.setItem("smartCubeTheme", next); } catch (e) {}
-					if (siteThemeBtn.textContent !== (next === "dark" ? "☀" : "☾")) {
-						siteThemeBtn.textContent = next === "dark" ? "☀" : "☾";
-					}
+					try { app.setTheme(next); } catch (e) {}
+					// 图标最后以 attribute 的真实结果收口，页面若有反悔逻辑也不会错位。
+					paintIcon(currentTheme());
 				});
 			}
 		}
@@ -323,6 +329,61 @@
 			loginStatus.className = "loginStatus" + (type ? " is" + type.charAt(0).toUpperCase() + type.slice(1) : "");
 		}
 
+		/* ============================================================
+		   Supabase Auth 按需加载（登录态轻量化）
+
+		   以前每个页面都得在 <head> 里手写四行 script（supabase.min.js 217KB +
+		   config + client + auth-manager）。没写的页面（feedback、Speed、
+		   Merit/beta-step）点「登录」只会报「Supabase 配置未完成」；写了的页面
+		   又要在首屏付 217KB 的下载解析成本 —— 哪怕用户根本不登录。
+
+		   现在统一收口到这里：**页面什么都不用写**，nav 先看有没有现成的；
+		   没有就在「用户真的要登录」时才拉那一串脚本。首页、目录页这类
+		   不需要云端数据的页面，一个字节都不下载。
+		   ============================================================ */
+		var AUTH_STACK = [
+			"/assets/vendor/supabase/supabase.min.js",
+			"/supabase/supabase-config.js",
+			"/supabase/supabase-client.js",
+			"/supabase/auth-manager.js"
+		];
+		var _authStackPromise = null;
+
+		function loadScriptOnce(src) {
+			return new Promise(function(resolve, reject) {
+				// 已经加载过（同一个 src 只会有一次）就直接过
+				var existing = document.querySelector('script[data-dsh-src="' + src + '"]');
+				if (existing) {
+					if (existing.dataset.dshDone === "1") { resolve(); return; }
+					existing.addEventListener("load", function() { resolve(); });
+					existing.addEventListener("error", reject);
+					return;
+				}
+				var el = document.createElement("script");
+				el.src = src;
+				el.async = false; // 保住数组里的先后顺序
+				el.dataset.dshSrc = src;
+				el.addEventListener("load", function() { el.dataset.dshDone = "1"; resolve(); });
+				el.addEventListener("error", function() { reject(new Error("加载失败: " + src)); });
+				document.head.appendChild(el);
+			});
+		}
+
+		/** 确保 authManager 可用；已就绪则立即 resolve，否则串行拉全部依赖 */
+		function ensureAuthStack() {
+			if (window.authManager) { return Promise.resolve(); }
+			if (_authStackPromise) { return _authStackPromise; }
+			_authStackPromise = AUTH_STACK.reduce(function(chain, src) {
+				return chain.then(function() { return loadScriptOnce(src); });
+			}, Promise.resolve()).then(function() {
+				if (!window.authManager) { throw new Error("authManager 未能初始化"); }
+			}).catch(function(err) {
+				_authStackPromise = null; // 失败后允许重试
+				throw err;
+			});
+			return _authStackPromise;
+		}
+
 		function doAuth(action) {
 			var account = (loginAccount && loginAccount.value || "").trim();
 			var password = loginPassword && loginPassword.value || "";
@@ -330,34 +391,41 @@
 				setLoginStatus(action === "signUp" ? "请输入邮箱和密码" : "请输入账号和密码", "Error");
 				return;
 			}
-			if (!window.authManager) {
-				setLoginStatus("Supabase 配置未完成", "Error");
-				return;
-			}
 			if (action === "signUp" && account.indexOf("@") < 0) {
 				setLoginStatus("注册请使用邮箱地址", "Error");
 				return;
 			}
+			var btnBusy = (action === "signUp" ? loginRegisterBtn : loginSubmitBtn);
+			if (btnBusy) { btnBusy.disabled = true; }
 			setLoginStatus("请稍候...", "");
-			if (action === "signUp") {
-				window.authManager.signUp(account, password).then(function(result) {
-					setLoginStatus(result.message, result.success ? "Success" : "Error");
-					if (result.success) {
-						setTimeout(closeLoginPanel, 1500);
-					}
-				});
-			} else {
+
+			// 首次登录才拉 Supabase（约 217KB），之后走浏览器缓存
+			ensureAuthStack().then(function() {
+				if (action === "signUp") {
+					return window.authManager.signUp(account, password).then(function(result) {
+						setLoginStatus(result.message, result.success ? "Success" : "Error");
+						if (result.success) { setTimeout(closeLoginPanel, 1500); }
+					});
+				}
 				var isEmail = account.indexOf("@") >= 0;
 				var loginPromise = isEmail
 					? window.authManager.signIn(account, password)
 					: window.authManager.signInWithUsername(account, password);
-				loginPromise.then(function(result) {
+				return loginPromise.then(function(result) {
 					setLoginStatus(result.message, result.success ? "Success" : "Error");
-					if (result.success) {
-						setTimeout(closeLoginPanel, 1000);
-					}
+					if (result.success) { setTimeout(closeLoginPanel, 1000); }
 				});
-			}
+			}).catch(function() {
+				setLoginStatus("登录服务加载失败，请检查网络后重试", "Error");
+			}).then(function() {
+				if (btnBusy) { btnBusy.disabled = false; }
+			});
+		}
+
+		if (loginPassword) {
+			loginPassword.addEventListener("keydown", function(e) {
+				if (e.key === "Enter") { doAuth("signIn"); }
+			});
 		}
 
 		if (loginSubmitBtn) {
@@ -372,11 +440,6 @@
 		if (loginOverlay) {
 			loginOverlay.addEventListener("click", function(e) {
 				if (e.target === loginOverlay) { closeLoginPanel(); }
-			});
-		}
-		if (loginPassword) {
-			loginPassword.addEventListener("keydown", function(e) {
-				if (e.key === "Enter") { doAuth("signIn"); }
 			});
 		}
 
@@ -1851,6 +1914,12 @@
 				setTimeout(restoreStateFromSession, 100);
 			});
 		})();
+		/* authManager 可能有两种来源：
+		   ① 页面自己在 head 里装了 Supabase（Formula / Timer / Focus 等要做云同步的页），
+		      此时它已经在跑，直接接管即可；
+		   ② 页面什么都没装（首页、目录页、feedback、Speed…），authManager 此刻并不存在。
+		      这种情况**不在首屏加载** Supabase —— 等用户点「登录」时由 doAuth 里的
+		      ensureAuthStack() 按需拉取。在此之前右侧就是一颗安静的「登录」按钮。 */
 		if (window.authManager) {
 			window.authManager.onAuthStateChange(function(user) {
 				updateAuthUI(user);
@@ -1870,6 +1939,47 @@
 			}
 		} else {
 			updateAuthUI(null);
+			/* 只有「本地确实存有登录会话」时才去加载 Supabase —— 目的是把头像换回来。
+			   纯游客访问首页/目录页时一个字节都不下载，右侧就是一颗「登录」按钮。
+			   用户真去点登录时，doAuth 里的 ensureAuthStack() 会再拉一次。 */
+			if (hasStoredSession()) {
+				ensureAuthStack().then(function() {
+					if (!window.authManager) { return; }
+					window.authManager.onAuthStateChange(function(user) {
+						updateAuthUI(user);
+						if (!user) { window._siteNavSyncState = null; }
+					});
+					if (!window.authManager._siteNavInitialized) {
+						window.authManager._siteNavInitialized = true;
+						window.authManager.init();
+					}
+					if (window.authManager.isLoggedIn()) {
+						updateAuthUI(window.authManager.getUser());
+						refreshRollbackAvailability(true);
+					}
+				}).catch(function() {
+					/* 拉不到就保持游客态：按钮仍在，点登录会再试一次并给出可读提示 */
+				});
+			}
+		}
+	}
+
+	/**
+	 * 本地是否存有 Supabase 会话（supabase-js 存成 sb-<ref>-auth-token）。
+	 * 只读 localStorage 的键名，不解析内容、不联网，成本可忽略。
+	 * 用来决定「要不要为了显示头像而加载 Supabase」——没登录过的人不该付这笔钱。
+	 */
+	function hasStoredSession() {
+		try {
+			for (var i = 0; i < localStorage.length; i++) {
+				var key = localStorage.key(i);
+				if (key && key.indexOf("sb-") === 0 && key.indexOf("-auth-token") > 0) {
+					return true;
+				}
+			}
+			return false;
+		} catch (e) {
+			return false; // 存储被禁用（隐私模式）= 不可能有会话
 		}
 	}
 

@@ -1,4 +1,4 @@
-﻿<#
+<#
 	目录索引生成器 —— 主逻辑
 	用法：双击同目录下的 .make-index.cmd（或 powershell -File .make-index.ps1）
 
@@ -119,12 +119,12 @@ $pageTpl = @'
 	<link rel="stylesheet" href="/nav/nav.css@@VER_NAVCSS@@">
 	<script src="/nav/nav.js@@VER_NAVJS@@" defer></script>
 
-	<!-- 站点作用域（必须先于云同步定义）+ 云同步（Supabase，登录态与 Formula 共享） -->
+	<!-- 站点作用域（必须先于云同步定义） -->
 	<script src="/assets/services/core/site-scope.js@@VER_SCOPE@@" defer></script>
-	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
-	<script src="/supabase/supabase-config.js?v=1877" defer></script>
-	<script src="/supabase/supabase-client.js?v=1877" defer></script>
-	<script src="/supabase/auth-manager.js?v=1877" defer></script>
+
+	<!-- 本页是纯目录导航，自己不用 authManager / 云同步，所以**不加载** Supabase（217KB）。
+	     顶栏的「登录」由 nav.js 按需加载：用户真去点登录时才拉那一串脚本，
+	     游客浏览目录时一个字节都不下载。 -->
 
 	<!-- @@MARKER@@ : 本页由 make-index 自动生成，手动修改会在下次运行时被覆盖 -->
 	<meta name="generator" content="make-index (@@MARKER@@)">

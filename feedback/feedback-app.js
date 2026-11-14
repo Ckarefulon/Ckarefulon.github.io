@@ -73,26 +73,37 @@
 		return h;
 	}
 
-	/** 从 supabase-js 已建立的会话里取 access_token（不额外发请求） */
+	/**
+	 * 取当前 access_token。**不依赖 window.supabaseClient**：
+	 * 本页不再首屏加载 Supabase（顶栏登录由 nav.js 按需拉），
+	 * 所以这里直接从 localStorage 里读 supabase-js 存下的会话，
+	 * 既省一次初始化，也让「游客提出来的能认得回来」这件事照旧成立。
+	 */
 	function currentAccessToken() {
 		try {
+			// 1) supabase-js 已加载并已登录：最可信
 			var auth = window.authManager;
 			if (auth && typeof auth.isLoggedIn === "function" && auth.isLoggedIn()) {
 				var client = window.supabaseClient;
 				if (!client) return null;
-				// supabase-js v2 把会话存在 localStorage，键名形如 sb-<ref>-auth-token
-				var cfg = window.CK_SUPABASE_CONFIG || {};
-				var ref = "";
-				try { ref = new URL(cfg.url).hostname.split(".")[0]; } catch (e) {}
-				var raw = localStorage.getItem("sb-" + ref + "-auth-token");
-				if (raw) {
-					var parsed = JSON.parse(raw);
-					// 结构可能是 {access_token} 或 {currentSession:{access_token}}
-					if (parsed && parsed.access_token) return parsed.access_token;
-					if (parsed && parsed.currentSession && parsed.currentSession.access_token) {
-						return parsed.currentSession.access_token;
-					}
+			}
+			// 2) 从存储里找 sb-<ref>-auth-token（有 token 就说明是登录态）
+			var raw = null;
+			var parsed = null;
+			try {
+				for (var i = 0; i < localStorage.length; i++) {
+					var key = localStorage.key(i);
+					if (!key || key.indexOf("sb-") !== 0 || key.indexOf("-auth-token") < 0) continue;
+					raw = localStorage.getItem(key);
+					if (raw) break;
 				}
+			} catch (e) { return null; }
+			if (!raw) return null;
+			try { parsed = JSON.parse(raw); } catch (e) { return null; }
+			// 结构可能是 {access_token} 或 {currentSession:{access_token}}
+			if (parsed && parsed.access_token) return parsed.access_token;
+			if (parsed && parsed.currentSession && parsed.currentSession.access_token) {
+				return parsed.currentSession.access_token;
 			}
 		} catch (e) {}
 		return null;

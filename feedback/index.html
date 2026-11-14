@@ -7,15 +7,29 @@
 
 	<meta name="description" content="Ckarefulon 的反馈广场：看看别人提了什么，也可以新建一条。">
 
+	<!-- 主题先落地，避免深浅色闪一下（与其它页面共用 smartCubeTheme） -->
+	<script>
+		(function () {
+			var saved = null;
+			try { saved = localStorage.getItem("smartCubeTheme"); } catch (e) {}
+			var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+			document.documentElement.dataset.theme = saved || (prefersDark ? "dark" : "light");
+		})();
+	</script>
+
 	<link rel="stylesheet" href="/ui/colors_and_type.css">
 	<link rel="stylesheet" href="/nav/nav.css?v=2475">
 	<link rel="stylesheet" href="/feedback/feedback.css?v=2475">
 
-	<script src="/nav/nav.js?v=2475" defer></script>
+	<script src="/nav/nav.js?v=2498" defer></script>
 	<script src="/assets/services/core/site-scope.js?v=2255" defer></script>
 
+	<!-- 只有配置（385 字节，纯静态），**不加载** supabase-js（217KB）。
+	       顶栏登录由 nav.js 按需拉取；本页自己发请求只需要 url + publishableKey。
+	       以前这里连配置都没有，于是整个广场拿不到后端地址。 -->
 	<script src="/supabase/supabase-config.js?v=1877" defer></script>
-	<script src="/feedback/feedback-app.js?v=2475" defer></script>
+
+	<script src="/feedback/feedback-app.js?v=2498" defer></script>
 
 	<title>反馈广场 — Ckarefulon</title>
 </head>
