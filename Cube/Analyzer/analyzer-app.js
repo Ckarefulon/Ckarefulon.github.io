@@ -171,6 +171,9 @@
   async function hydrate(){
     if(!Store)return {total:state.solves.length,missing:0};
     try{
+      // 先等落盘队列落地：上一个标签页/上一轮保存可能还在写，直接读会读到中间状态
+      try{ if(Store.flush) await Store.flush(); }catch(e){}
+      if(Store.syncFromTier){ try{ await Store.syncFromTier(); }catch(e){} }
       const full=await Store.loadAll();
       const incoming=Array.isArray(full?.payload?.solves)?full.payload.solves:[];
       const before=state.solves.length;
@@ -939,7 +942,13 @@
       if(!state.solves.length)return;
       if(!confirm('确认清空 Analyzer 的全部训练记录？'))return;
       state.solves=[];state.datasetName='训练数据';
-      if(window.CubeAnalyzerCloud){window.CubeAnalyzerCloud.allowEmptyUploadOnce=true;window.CubeAnalyzerCloud.allowCountRegressionOnce=true;}
+      // 清空是用户显式操作：放行这一次覆盖，同时把「已确认条数下限」清零，
+      // 之后重新开始的少量记录仍会走二次确认，不会被这次清空永久放行。
+      if(window.CubeAnalyzerCloud){
+        window.CubeAnalyzerCloud.allowEmptyUploadOnce=true;
+        window.CubeAnalyzerCloud.allowCountRegressionOnce=true;
+        if(typeof window.CubeAnalyzerCloud.confirmOverwrite==='function')window.CubeAnalyzerCloud.confirmOverwrite(0);
+      }
       // 清空是唯一允许整份覆盖的显式操作：走 replaceAll，连扩展存储一起清
       if(Store){Store.replaceAll({name:'训练数据',solves:[]},settingsOf())}
       renderTrainerSummary();renderAll();updateSolveBadge();
@@ -950,7 +959,13 @@
     $('#resetFilterBtn').onclick=()=>{state.filters={method:'all',session:'all',device:'all',start:'',end:''};syncFilterUI();renderAll()};
     $('#tabs').onclick=e=>{const b=e.target.closest('.tab[data-tab]');if(!b)return;state.activeTab=b.dataset.tab;$$('.tab').forEach(x=>x.classList.toggle('active',x===b));$$('.tab-panel').forEach(x=>x.classList.toggle('active',x.dataset.panel===state.activeTab))};
     $('#closeSolveModal').onclick=()=>$('#solveModal').hidden=true;$('#solveModal').onclick=e=>{if(e.target===$('#solveModal'))$('#solveModal').hidden=true};document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!(Replay&&Replay.isOpen()))$('#solveModal').hidden=true});
-    window.addEventListener('cube-analyzer-cloud-sync',e=>updateCloudIndicator(e.detail?.success?'已保存到 Supabase':'云保存失败'));
+    window.addEventListener('cube-analyzer-cloud-sync',e=>{
+      const r=e.detail||{};
+      // 覆盖闸门判为「需二次确认」时不是失败：本机数据一条没动，云端也没被覆盖，
+      // 状态文案要说清楚等的是用户确认，别让用户以为坏了。
+      if(r.needsConfirm)updateCloudIndicator('覆盖云端需确认');
+      else updateCloudIndicator(r.success?'已保存到 Supabase':'云保存失败');
+    });
   }
 
   function init(){

@@ -69,13 +69,46 @@
 
 | 接入点 | 说明 |
 | --- | --- |
-| `supabase/supabase-client.js` | 全站唯一创建 client 的地方，给 supabase-js 注入自定义 fetch |
-| `CK_SUPABASE_CONFIG.url` | 就地改写成 `/api/sb`，连直接拼这个变量的老代码（如 `auth-manager`）也自动走中继 |
+| `supabase/supabase-client.js` | 全站唯一创建 client 的地方，负责测速选路并注入自定义 fetch |
+| `CK_SUPABASE_CONFIG.url` | 选中中继时就地改写成 `/api/sb`，连直接拼这个变量的老代码（如 `auth-manager`）也自动走中继 |
 
 所以 Cube/*、Study/*、Tools/*、user/profile 等页面的登录、云同步、数据读写
 都会一起受益，不需要逐页改。
 
 中继不在时（本地开发、GitHub Pages）**自动回退直连**，行为与以前一致。
+
+## 选路：先测速，再决定走哪条
+
+**中继不是无条件的默认值。** 直连 Supabase 有时相当快（实测本机 792ms 起），
+而中继要多绕一跳自己的服务器，未必更快 —— 一律走中继反而可能更慢。
+
+所以 `supabase-client.js` 每次（每会话一次）对两边各测一次健康端点：
+
+| | 探测地址 | 说明 |
+| --- | --- | --- |
+| 直连 | `<ref>.supabase.co/auth/v1/health` | Supabase 最轻的公开端点 |
+| 中继 | `/api/sb/auth/v1/health` | 同一端点，经服务器转发 |
+
+判定规则（`chooseTransport()`）：
+
+| 情况 | 选择 | reason |
+| --- | --- | --- |
+| 中继不可达 | 直连 | `relay-unavailable` |
+| 直连不可达（被域名拦截） | 中继 | `direct-unavailable` |
+| 直连 ≤ 中继 | 直连 | `direct-faster` |
+| 中继更快 | 中继 | `relay-faster` |
+
+**一个必须防的坑**：中继未部署时，静态服务器会用**自己的 404 页**在 5ms 内应答，
+看起来比直连快得多。所以探测必须校验 `content-type` 是 JSON 才算通
+（中继和 Supabase 都回 JSON，静态 404 页是 HTML）。没有这道校验会稳定误选一条死路。
+
+测速结论存在 `sessionStorage`（键 `ckSupabaseRelay.v2`，10 分钟有效），
+同一次访问不会每页重测。换网络后用 `window.ckSupabaseReconnect()` 重测：
+
+```js
+await window.ckSupabaseReconnect();   // 返回 true 表示现在走中继
+window.ckSupabaseDecision;            // { transport, directMs, relayMs, reason }
+```
 
 ## 延迟优化（顺手做的）
 
@@ -104,7 +137,10 @@
 | 拒绝路径穿越 | 含 `..` / `.` 的路径（含 `%2e%2e` 编码）一律 404 |
 | 不转发敏感头 | 丢掉调用方的 `Host`、`x-forwarded-*`、`x-nf-*`、`connection` |
 
-自检：`node .tests/sb-relay.test.js`（23 项，不联网，fetch 全程打桩）。
+自检：
+
+- `node .tests/sb-relay.test.js`（23 项）：中继的白名单、方法限制、路径穿越、失败信号
+- `node .tests/supabase-client.test.js`（25 项）：测速选路的四种分支与缓存
 
 ## 其它平台
 

@@ -28,7 +28,7 @@
 	];
 
 	var els = {};
-	var currentType = "others";
+	var currentType = "bug";
 	var currentFilter = "all";
 	var allDiscussions = [];
 	var nextCursor = null;

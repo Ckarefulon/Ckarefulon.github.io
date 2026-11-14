@@ -305,12 +305,11 @@
 		(function initFeedbackLink() {
 			var link = document.getElementById("siteFeedbackBtn");
 			if (!link) { return; }
-			var path = window.location.pathname || "/";
-			// 目录页可能写成 /index.html，统一收成目录路径（与顶栏面包屑同一口径）
-			path = path.replace(/\/index\.html$/i, "/");
-			// 反馈页自己：来源就是它自己，别把 ?new=1 也带进去
-			var from = /^\/feedback\/?$/.test(path) ? "/feedback/" : path;
-			// 只记路径，不带 query/hash：query 里可能有一次性参数，没必要送进反馈表
+			// 取**浏览器地址栏里的那条路径**，大小写原样保留 —— 绝不 toLowerCase，
+			// 也不套 PATH_LABELS 的登记名（那会把 /Feedback/ 改写成 feedback）。
+			// 只做两件事：/xxx/index.html 收成 /xxx/（与 .htaccess 的 301 口径一致），
+			// 丢掉 query / hash（里面常有一次性参数，没必要送进反馈表）。
+			var from = String(window.location.pathname || "/").replace(/\/index\.html$/i, "/");
 			link.setAttribute("href", "/feedback/?new=1&from=" + encodeURIComponent(from.slice(0, 300)));
 		})();
 
@@ -1292,11 +1291,72 @@
 		return act;
 	}
 
+	// 云端同步层判定「这次是本机覆盖云端、且本机数据更少（或不足 10 条）」时，
+	// 一律不自动写，交回用户二次确认：点确认才带 force 再传一次。
+	function uploadNeedsConfirm(result, retry, openNow) {
+		var local = (result && typeof result.localSolves === "number") ? result.localSolves : null;
+		var cloud = (result && typeof result.cloudSolves === "number") ? result.cloudSolves : null;
+		var detail = "";
+		if (local !== null && cloud !== null) {
+			detail = "本机记录：" + local + " 条\n云端记录：" + cloud + " 条\n";
+		}
+		var reason = (result && result.reason) ? (result.reason + "\n\n") : "";
+		var dialog = {
+			title: "⚠ 覆盖云端备份",
+			message: reason + detail + "确认后云端备份将被本机数据整份替换，覆盖后无法撤销。\n\n确认继续上传？",
+			confirmText: "确认覆盖"
+		};
+		var onConfirm = function() {
+			if (window.cloudSyncManager && typeof window.cloudSyncManager.confirmOverwrite === "function") {
+				window.cloudSyncManager.confirmOverwrite(local);
+			}
+			setCloudStatus("正在上传...", "");
+			_menuLocked = true;
+			showAccountMenu();
+			retry(true).then(function(res) {
+				if (res && res.success) {
+					markAsSynced();
+					if (typeof window._siteNavOnUploadSuccess === "function") {
+						try { window._siteNavOnUploadSuccess(); } catch(e) {}
+					}
+					if (typeof window._siteNavReloadData === "function") {
+						try { window._siteNavReloadData(); } catch(e) {}
+					}
+					setCloudStatus("上传成功 · " + new Date().toLocaleString(), "Success");
+				} else if (res && res.needsConfirm) {
+					// 条数在确认期间又变了（比如另一台设备刚同步）：继续要求确认，不静默放行
+					uploadNeedsConfirm(res, retry, true);
+				} else {
+					setCloudStatus((res && res.message) || "上传失败", "Error");
+				}
+			});
+		};
+		setCloudStatus("覆盖云端需确认", "Warning", { key: "upload", dialog: dialog, onConfirm: onConfirm });
+		// openNow：用户刚主动点了上传 ⇒ 直接把确认框弹出来，不让他再去菜单里找
+		if (openNow) { openConfirmDialog(dialog, onConfirm); }
+	}
+
+	// 供各站点页面调用：页面自己发现「这次上传会覆盖云端」，可以让 nav 弹确认
+	window._siteNavRequestOverwriteConfirm = function(info, opts) {
+		if (!window.cloudSyncManager) { return false; }
+		uploadNeedsConfirm(info || {}, function(force) {
+			return window.cloudSyncManager.uploadLocalToCloud(force ? { force: true } : undefined);
+		}, !(opts && opts.openNow === false));
+		return true;
+	};
+
 	function doCloudUpload() {
 		setCloudStatus("正在上传...", "");
 		_menuLocked = true;
 		showAccountMenu();
-		window.cloudSyncManager.uploadLocalToCloud().then(function(result) {
+		var retry = function(force) {
+			return window.cloudSyncManager.uploadLocalToCloud(force ? { force: true } : undefined);
+		};
+		retry(false).then(function(result) {
+			if (result && result.needsConfirm) {
+				uploadNeedsConfirm(result, retry);
+				return;
+			}
 			if (result.success) {
 				markAsSynced();
 				if (typeof window._siteNavOnUploadSuccess === "function") {
@@ -1402,24 +1462,36 @@
 				pending.onConfirm();
 				return;
 			}
-			// 先检查云端是否有数据
+			// 先用同步层问一次「这次覆盖要不要二次确认」（本机条数更少 / 不足 10 条），
+			// 需要就直接弹加强确认框；否则照旧走「云端有数据就先警告一次」的流程。
 			setCloudStatus("正在检查...", "");
-			window.cloudSyncManager.getCloudStatus().then(function(status) {
-				if (status.hasData) {
-					var timeStr = status.updatedAt ? new Date(status.updatedAt).toLocaleString() : "未知";
-					setCloudStatus("再次单击 确认覆盖云端数据", "Warning", {
-						key: "upload",
-						dialog: {
-							title: "⚠ 覆盖警告",
-							message: "云端已有数据（更新时间：" + timeStr + "）。\n上传将覆盖云端数据，此操作不可撤销。\n\n确认继续？",
-							confirmText: "确认覆盖"
-						},
-						onConfirm: doCloudUpload
-					});
-				} else {
-					doCloudUpload();
+			var checkGate = (typeof window.cloudSyncManager.peekOverwriteGate === "function")
+				? window.cloudSyncManager.peekOverwriteGate()
+				: Promise.resolve({ needsConfirm: false });
+			checkGate.then(function(info) {
+				if (info && info.needsConfirm) {
+					uploadNeedsConfirm(info, function(force) {
+						return window.cloudSyncManager.uploadLocalToCloud(force ? { force: true } : undefined);
+					}, true);
+					return;
 				}
-			});
+				window.cloudSyncManager.getCloudStatus().then(function(status) {
+					if (status.hasData) {
+						var timeStr = status.updatedAt ? new Date(status.updatedAt).toLocaleString() : "未知";
+						setCloudStatus("再次单击 确认覆盖云端数据", "Warning", {
+							key: "upload",
+							dialog: {
+								title: "⚠ 覆盖警告",
+								message: "云端已有数据（更新时间：" + timeStr + "）。\n上传将覆盖云端数据，此操作不可撤销。\n\n确认继续？",
+								confirmText: "确认覆盖"
+							},
+							onConfirm: doCloudUpload
+						});
+					} else {
+						doCloudUpload();
+					}
+				});
+			}).catch(function() { doCloudUpload(); });
 		});
 	}
 
@@ -1805,7 +1877,15 @@
 				return Promise.resolve({ success: false, message: "请先登录" });
 			}
 			setCloudStatus("正在上传...", "");
-			return window.cloudSyncManager.uploadLocalToCloud().then(function(result) {
+			var retry = function(force) {
+				return window.cloudSyncManager.uploadLocalToCloud(force ? { force: true } : undefined);
+			};
+			return retry(false).then(function(result) {
+				if (result && result.needsConfirm) {
+					// 快捷上传同样不能绕过覆盖确认，只是把确认状态摆出来让用户自己点
+					uploadNeedsConfirm(result, retry);
+					return result;
+				}
 				if (result.success) {
 					markAsSynced();
 					if (typeof window._siteNavOnUploadSuccess === "function") {

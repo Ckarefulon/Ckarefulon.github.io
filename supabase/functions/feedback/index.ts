@@ -1169,7 +1169,9 @@ Deno.serve(async (req: Request) => {
 	}
 
 	/* ---------- 写之二：新建讨论 ---------- */
-	const type = TYPES.some((t) => t.type === raw?.type) ? String(raw.type) : "others";
+	// 默认 Bug（与前端弹窗的默认选中一致）：类型没传或不认识时按 bug 处理，
+	// 而不是悄悄落到 Others —— 那会让 Bug 报告漂到「其他」分类里没人看。
+	const type = TYPES.some((t) => t.type === raw?.type) ? String(raw.type) : "bug";
 	const bodyText = clip(raw?.body, 8000);
 	if (bodyText.length < 4) return json({ success: false, message: "请再多写几个字" }, 400);
 

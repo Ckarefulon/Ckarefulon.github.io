@@ -21,6 +21,17 @@
    *      不再把调用方当时手里的局部集合当成真相。
    *   3. 总数可读：镜像头部写 totalCount，首屏不等水合就能显示真实条数；
    *      水合后发现实到条数少于记录值 ⇒ 扩展存储被清掉了，据此可从云端自愈。
+   *
+   * 2026-11-14 二次加固（「仍然偶发把本机子集覆盖到云端」的残余通道）：
+   *   · 落盘顺序反了：旧代码「先写镜像 → 再写扩展存储 → 回收旧副本」，
+   *     镜像一旦先被写小（配额不足时 k 被折半），扩展存储还没拿到那批较早记录，
+   *     崩溃/被回收就变成两份都不全。现在**先让扩展存储握有全部较早记录，再改镜像**，
+   *     镜像成功写小之后才回收已确认冗余的副本。
+   *   · 回收判据太宽：旧代码按「不在本次 overflow 里」就删，一旦手里的集合是局部的
+   *     （另一个标签页刚写进来、或水合前），会把别人的记录删掉。现在只删
+   *     「确实已经在镜像里有一份副本」的和「用户显式删除的」那两条通道。
+   *   · 跨标签页：落盘前补一次 IDB 键比对，把别的标签页写进来、本进程还不认识的记录
+   *     并回完整集合，避免上传时把它们漏掉、也避免它们被回收。
    */
 
   const STORAGE_KEY = 'cubeAnalyzerDataV2';
@@ -77,6 +88,34 @@
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error || new Error('IndexedDB 写入中止'));
+    });
+  }
+
+  /** 只取键（不反序列化记录体）：跨标签页比对、回收判据都用它，代价极小 */
+  async function idbKeys() {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(RECORDS, 'readonly');
+      const rq = tx.objectStore(RECORDS).getAllKeys();
+      rq.onsuccess = () => resolve(rq.result || []);
+      rq.onerror = () => reject(rq.error);
+    });
+  }
+
+  /** 按 id 只取缺的那几条（键比对发现差异时才用，避免整库反序列化） */
+  async function idbGet(keys) {
+    if (!keys.length) return [];
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(RECORDS, 'readonly');
+      const st = tx.objectStore(RECORDS);
+      const out = [];
+      keys.forEach(k => {
+        const rq = st.get(k);
+        rq.onsuccess = () => { if (rq.result) out.push(rq.result); };
+      });
+      tx.oncomplete = () => resolve(out);
+      tx.onerror = () => reject(tx.error);
     });
   }
 
@@ -219,63 +258,129 @@
 
   /**
    * 把「完整集合」摊到两层里。返回 {ok, tiered, localCount, idbCount, message}
-   * 关键顺序：先写镜像（最新的一批，最小的风险窗口），再写扩展存储，最后才回收多余的 IDB 记录。
+   *
+   * 顺序（2026-11-14 加固）：**扩展存储先、镜像后**。
+   * 旧顺序是「先写镜像 → 再写扩展存储」，而镜像在配额不足时会被折半写小，
+   * 于是中间存在一个「镜像已经只剩一半、扩展存储还没拿到那批较早记录」的窗口，
+   * 这个窗口里发生崩溃 / 页面被回收 / 用户关标签页，两层就都不全了 ——
+   * 之后无论是上传云端还是本地渲染，拿到的都是残缺集合。
+   * 现在先把「镜像最终装不下」的批次 upsert 进扩展存储（宁多勿少），
+   * 确认写成功之后才动镜像；镜像折半时再把多出来的批次补进扩展存储。
+   * 扩展存储写不进去 ⇒ 就地放弃本次落盘，镜像保持原样，绝不让记录凭空消失。
+   *
+   * 回收判据（同样加固）：只删「镜像里确实已经有一份副本」的和「用户显式删除的」，
+   * 不再按「不在本次 overflow 里」推断 —— 那个判据在手里的集合是局部时会误删别人的记录。
    */
-  async function placeDown(name, solves) {
+  async function placeDown(name, solves, dropIds) {
     const { parts, total, keep: planned } = planMirror(name, solves);
-    let k = planned;
-    let written = null;
     const writtenAt = Date.now();
-    while (k >= 0) {
-      try {
-        const json = mirrorJson(name, parts, total, k, writtenAt);
-        localStorage.setItem(STORAGE_KEY, json);
-        written = { keep: k, bytes: json.length, writtenAt };
-        break;
-      } catch (e) {
-        if (k === 0) return { ok: false, localCount: 0, idbCount: 0, message: '浏览器本地存储不可用' };
-        k = Math.floor(k / 2);
-      }
-    }
-    if (!written) return { ok: false, localCount: 0, idbCount: 0, message: '浏览器本地存储不可用' };
+    let kept = Math.min(planned, total);
+    let written = null;
+    let inIdbPrefix = 0;   // 已确认写进扩展存储的「较早记录」条数（solves 的前缀）
 
-    const keep = written.keep;
-    const overflow = solves.slice(0, total - keep);
-    const overflowIds = new Set(overflow.map(s => String(s.id)));
-
-    if (overflow.length) {
+    // 把镜像装不下的前缀批次 upsert 进扩展存储（重复 put 是幂等的）
+    // 前缀 = 最早的 (total - keep) 条，即 solves.slice(0, need)
+    const ensureOverflow = async (keepCount) => {
+      const need = Math.max(0, total - keepCount);
+      if (need <= inIdbPrefix) return true;
+      const batch = solves.slice(inIdbPrefix, need);
       try {
-        await idbPut(overflow);
+        await idbPut(batch);
         idbBroken = false;
       } catch (e) {
         idbBroken = true;
         console.error('[AnalyzerStore] IndexedDB 写入失败', e);
-        // 旧记录没能搬进扩展存储 ⇒ 如实告知，绝不能让用户以为已经保存
-        return {
-          ok: false, localCount: keep, idbCount: 0,
-          message: `本地空间不足，且有 ${overflow.length} 条较早记录无法写入扩展存储，请先导出备份`
-        };
+        return false;
       }
-      // 只回收「曾经在 IDB、现在已经挪进镜像」的那部分；其它一律保留
-      const stale = [...idbIds].filter(id => !overflowIds.has(id));
-      if (stale.length) {
-        try { await idbDelete(stale); } catch (e) { console.warn('[AnalyzerStore] 回收旧副本失败', e); }
-      }
-    } else if (idbIds.size) {
-      // 全部记录都装进了镜像 ⇒ 扩展存储里的副本已经冗余，清掉避免两份不一致
-      try { await idbClear(); } catch (e) { console.warn('[AnalyzerStore] 清理扩展存储失败', e); }
+      inIdbPrefix = need;
+      return true;
+    };
+
+    if (!(await ensureOverflow(kept))) {
+      // 扩展存储写不进去 ⇒ 不动镜像（保留原状态），如实告知，绝不假装已保存
+      const kept0 = (() => { const m = readMirror(); return Array.isArray(m && m.solves) ? m.solves.length : 0; })();
+      return {
+        ok: false, localCount: kept0, idbCount: 0,
+        message: `有 ${total - kept} 条较早记录无法写入扩展存储，本次保存已中止（原有数据未改动），请先导出备份`
+      };
     }
-    idbIds = overflowIds;
+
+    while (!written && kept >= 0) {
+      try {
+        const json = mirrorJson(name, parts, total, kept, writtenAt);
+        localStorage.setItem(STORAGE_KEY, json);
+        written = { keep: kept, bytes: json.length, writtenAt };
+        break;
+      } catch (e) {
+        if (kept === 0) break;
+        const next = Math.floor(kept / 2);
+        // 折半会让更多记录落到扩展存储：必须先补齐，再试写更小的镜像
+        if (!(await ensureOverflow(next))) {
+          return {
+            ok: false, localCount: 0, idbCount: inIdbPrefix,
+            message: '本地空间不足，且较早记录无法写入扩展存储，本次保存已中止（原有数据未改动），请先导出备份'
+          };
+        }
+        kept = next;
+      }
+    }
+    if (!written) return { ok: false, localCount: 0, idbCount: inIdbPrefix, message: '浏览器本地存储不可用' };
+
+    const keep = written.keep;
+    // 镜像装的是「最新的 keep 条」= solves.slice(total - keep)
+    const mirrorIds = new Set(solves.slice(total - keep).map(s => String(s.id)));
+
+    // 回收：只删「镜像已有副本」与「用户显式删除」的键
+    let keysNow = [...idbIds];
+    try { keysNow = (await idbKeys()).map(String); } catch (e) { /* 用缓存里的旧键集 */ }
+    const drop = new Set((dropIds || []).map(String));
+    const stale = keysNow.filter(id => mirrorIds.has(id) || drop.has(id));
+    if (stale.length) {
+      try { await idbDelete(stale); } catch (e) { console.warn('[AnalyzerStore] 回收旧副本失败', e); }
+    }
+    const staleSet = new Set(stale);
+    idbIds = new Set(keysNow.filter(id => !staleSet.has(id)));
+    // 扩展存储里必须实打实握有「镜像装不下的那部分」= solves.slice(0, total - keep)
+    const tierSolves = solves.slice(0, total - keep);
+    tierSolves.forEach(s => { if (s && s.id != null) idbIds.add(String(s.id)); });
+
+    const idbCount = idbIds.size;
     return {
       ok: true,
-      tiered: overflow.length > 0,
+      tiered: idbCount > 0,
       localCount: keep,
-      idbCount: overflow.length,
+      idbCount,
       total,
-      message: overflow.length
-        ? `已保存：最近 ${keep} 把在本机，较早 ${overflow.length} 把存放在扩展存储`
+      message: idbCount > 0
+        ? `已保存：最近 ${keep} 把在本机，较早 ${idbCount} 把存放在扩展存储`
         : ''
     };
+  }
+
+  /**
+   * 跨标签页补齐：另一个标签页可能刚把记录写进扩展存储，本进程的 cache 里还没有。
+   * 落盘前按「键」比一次（只取 getAllKeys，代价极小），发现本进程不认识的 id 就把那几条
+   * 读回来并进完整集合 —— 既不漏传给云端，也不会在回收时把它们误删。
+   * 读失败不算错：拿现有 cache 继续，行为与旧版一致。
+   */
+  async function absorbForeignRecords() {
+    if (!hydrated || !cache) return 0;
+    let keys;
+    try { keys = (await idbKeys()).map(String); }
+    catch (e) { return 0; }
+    const known = new Set(cache.solves.map(s => String(s && s.id)));
+    const fresh = keys.filter(id => !known.has(id));
+    if (!fresh.length) return 0;
+    let records;
+    try { records = await idbGet(fresh); }
+    catch (e) { return 0; }
+    const list = records.filter(r => r && r.id != null);
+    if (!list.length) return 0;
+    const byId = new Map(cache.solves.map(s => [String(s && s.id), s]));
+    list.forEach(s => byId.set(String(s.id), s));
+    cache = { name: cache.name, solves: sortSolves([...byId.values()]) };
+    console.info('[AnalyzerStore] 已并入其它标签页写入的', list.length, '条记录');
+    return list.length;
   }
 
   /**
@@ -290,6 +395,7 @@
     queue = queue.then(async () => {
       try { await ensureHydrated(); }
       catch (e) { cache = cache || { name, solves: [] }; }
+      try { await absorbForeignRecords(); } catch (e) { /* 补不到就按现有集合落盘 */ }
       const base = (cache && Array.isArray(cache.solves)) ? cache.solves : [];
       const byId = new Map(base.map(s => [String(s && s.id), s]));
       incoming.forEach(s => { if (s && s.id != null) byId.set(String(s.id), s); });
@@ -304,7 +410,11 @@
     return queue;
   }
 
-  /** 显式删除（唯一会减记录的入口之一） */
+  /**
+   * 显式删除（唯一会减记录的入口之一）
+   * changed 只在「真的删掉了某条」时为真 —— recoverMissing 拿它决定要不要写回云端，
+   * 否则「云端有、本机已被用户删掉」的记录会被反复并回来。
+   */
   function remove(ids) {
     const list = (Array.isArray(ids) ? ids : [ids]).filter(x => x != null).map(String);
     if (!list.length) return queue;
@@ -313,12 +423,14 @@
       try { await ensureHydrated(); } catch (e) { /* 用现有 cache */ }
       const base = (cache && Array.isArray(cache.solves)) ? cache.solves : [];
       const kept = base.filter(s => !set.has(String(s && s.id)));
+      const changed = kept.length !== base.length;
       cache = { name: (cache && cache.name) || '训练数据', solves: kept };
       hydrated = true;
-      return placeDown(cache.name, kept);
+      const result = await placeDown(cache.name, kept, list);
+      return Object.assign({}, result, { changed });
     }).catch(e => {
       console.error('[AnalyzerStore] 删除异常', e);
-      return { ok: false, message: (e && e.message) || String(e) };
+      return { ok: false, changed: false, message: (e && e.message) || String(e) };
     });
     return queue;
   }
@@ -410,6 +522,19 @@
     return Object.assign(info, { hydrated, idbBroken, idbCount: idbIds.size });
   }
 
+  /**
+   * 主动把扩展存储里「本进程还不认识」的记录并进完整集合（跨标签页/换页面场景）。
+   * 上传前与补齐前各调一次，保证传给云端的、和用来对齐的，都是真正的完整集合。
+   * 返回并入的条数。
+   */
+  function syncFromTier() {
+    queue = queue.then(async () => {
+      try { await ensureHydrated(); } catch (e) { /* 用现有 cache */ }
+      try { return await absorbForeignRecords(); } catch (e) { return 0; }
+    }).catch(() => 0);
+    return queue;
+  }
+
   /** 兼容旧调用：清空全部 */
   function clearAll() { return replaceAll({ name: '训练数据', solves: [] }, {}); }
 
@@ -426,6 +551,6 @@
     STORAGE_KEY, SETTINGS_KEY,
     persist, remove, replaceAll, loadSync, loadAll, getFullPayload, clearAll,
     ready, flush, isHydrated, isTiered, idbUnavailable, stats, missingCount, mirrorInfo,
-    readSettings
+    readSettings, syncFromTier
   };
 })();

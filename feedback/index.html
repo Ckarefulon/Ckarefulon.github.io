@@ -19,9 +19,9 @@
 
 	<link rel="stylesheet" href="/ui/colors_and_type.css">
 	<link rel="stylesheet" href="/nav/nav.css?v=2475">
-	<link rel="stylesheet" href="/feedback/feedback.css?v=2548">
+	<link rel="stylesheet" href="/feedback/feedback.css?v=2579">
 
-	<script src="/nav/nav.js?v=2548" defer></script>
+	<script src="/nav/nav.js?v=2579" defer></script>
 	<script src="/assets/services/core/site-scope.js?v=2255" defer></script>
 
 	<!-- 只有配置（385 字节，纯静态），**不加载** supabase-js（217KB）。
@@ -29,7 +29,7 @@
 	       以前这里连配置都没有，于是整个广场拿不到后端地址。 -->
 	<script src="/supabase/supabase-config.js?v=1877" defer></script>
 
-	<script src="/feedback/feedback-app.js?v=2548" defer></script>
+	<script src="/feedback/feedback-app.js?v=2579" defer></script>
 
 	<title>反馈广场 — Ckarefulon</title>
 </head>
@@ -97,11 +97,11 @@
 			<div class="fbField">
 				<span class="fbLabel">类型</span>
 				<div class="fbTypes" id="fbTypes" role="tablist" aria-label="反馈类型">
-					<button class="fbType" type="button" data-type="bug" role="tab" aria-selected="false">Bug</button>
+					<button class="fbType isActive" type="button" data-type="bug" role="tab" aria-selected="true">Bug</button>
 					<button class="fbType" type="button" data-type="feature" role="tab" aria-selected="false">Feature</button>
 					<button class="fbType" type="button" data-type="question" role="tab" aria-selected="false">Question</button>
 					<button class="fbType" type="button" data-type="chat" role="tab" aria-selected="false">Chat</button>
-					<button class="fbType isActive" type="button" data-type="others" role="tab" aria-selected="true">Others</button>
+					<button class="fbType" type="button" data-type="others" role="tab" aria-selected="false">Others</button>
 				</div>
 				<div class="fbTypeHint" id="fbTypeHint"></div>
 			</div>

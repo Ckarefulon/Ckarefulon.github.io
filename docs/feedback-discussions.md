@@ -42,10 +42,13 @@ Supabase Edge Function `feedback`
 1. `nav.js` 在**每一页**把 `#siteFeedbackBtn` 的 href 就地改成
    `/feedback/?new=1&from=<encodeURIComponent(路径)>`。仍是普通链接 ——
    右键新标签、复制链接、中键打开都照旧可用（不改成 JS 跳转）。
-2. 反馈页读 `?from=`，读不到就退回 `document.referrer`（同源、且不是 `/feedback/` 才认）。
-3. 结果写进 `#fbPage` 输入框（**只填空值**，不覆盖用户改过的内容），并缓存进
+2. **口径就是浏览器地址栏里那条路径**：大小写原样保留，`/Tools/KGenesis/` 就是
+   `/Tools/KGenesis/`，绝不做任何自动小写或按登记表改名。唯一的归一化是
+   `/xxx/index.html` → `/xxx/`（与 `.htaccess` 的 301 一致）。
+3. 反馈页读 `?from=`，读不到就退回 `document.referrer`（同源、且不是 `/feedback/` 才认）。
+4. 结果写进 `#fbPage` 输入框（**只填空值**，不覆盖用户改过的内容），并缓存进
    localStorage 30 分钟 —— 刷新或换标签草稿还在时来源不丢。
-4. 提交时作为 `page` 字段上传：函数写进 `feedback_submissions.page`，
+5. 提交时作为 `page` 字段上传：函数写进 `feedback_submissions.page`，
    **不写进 GitHub 正文**（与用户名同一个口径：公开面不留内部信息）。
    只有在退回「在 GitHub 中打开」的兜底路径上，才会在正文顶部加一行 `**来源页面**：`。
 
@@ -80,6 +83,9 @@ GitHub 上的人只能看到一个 bot，站内却查得到来源。
 ## 五个分类
 
 类型固定为 `bug / feature / question / chat / others`，与 GitHub 里的分类名逐一对应。
+
+**界面上默认选中 Bug**，函数侧在 `type` 缺失或写了不认识的值时也按 `bug` 处理。
+（以前默认 Others —— 大多数人提的都是「哪里坏了」，落到 Others 里就没人看了。）
 
 函数按「分类 slug 或名字」不区分大小写匹配，所以你 GitHub 里建的是
 `Bug` / `Feature` / `Question` / `Chat` / `Others` 就能直接对上，**不用额外配置**。
@@ -211,8 +217,9 @@ Edge Function 现场去 `api.github.com/graphql` 往返。
 ## 自检
 
 ```bash
-# 函数逻辑（58 项，不联网，GitHub/Supabase 都是桩）：
-#   含「标题优先用用户填的 / 留空退回首行」「来源页面只进站内表、不进 GitHub 正文」
+# 函数逻辑（61 项，不联网，GitHub/Supabase 都是桩）：
+#   含「标题优先用用户填的 / 留空退回首行」「type 缺省为 bug」
+#       「来源页面只进站内表、不进 GitHub 正文」
 node .tests/feedback-function.test.js
 
 # 同源中继（23 项，不联网，fetch 打桩）：白名单、方法限制、路径穿越、失败回退信号
@@ -222,7 +229,7 @@ node .tests/sb-relay.test.js
 # 专抓「路径写错 → 404」「预检失败」这类只有真网络才暴露的问题。
 TEST_CDP_PORT=9337 node .tests/feedback-http.test.js
 
-# 广场交互（28 项：图标→自动新建→标题→来源页→列表→详情→回复→JWT）
+# 广场交互（30 项：图标→自动新建→标题→来源页大小写→默认 Bug→列表→详情→回复→JWT）
 #   先起调试浏览器：
 #   msedge --headless=new --remote-debugging-port=9337 --user-data-dir=%TEMP%\edge-fb about:blank
 TEST_CDP_PORT=9337 node .tests/feedback-page.test.js
