@@ -60,21 +60,51 @@ jobs:
           APP_INSTALLATION_ID: ${{ vars.APP_INSTALLATION_ID }}
         run: |
           set -euo pipefail
-          # 逐个下发：GitHub Actions 里未设置的 secret 会展开成空串，
-          # 直接传空值会把已有的值覆盖掉，所以只传非空的。
-          # v3：改动托管项目的命令必须带 --yes，否则 CI 里会卡在确认。
-          while IFS='=' read -r key value; do
-            if [ -n "$key" ] && [ -n "$value" ]; then
-              supabase secrets set --yes "$key=$value"
+
+          # ⚠️ 千万不要用 `while read ... <<EOF` 批量喂多行值。
+          #    APP_PRIVATE_KEY 是多行 PEM，按行读会把主体全部丢掉，
+          #    最后只下发 "-----BEGIN PRIVATE KEY-----" 这一行 ——
+          #    表现为函数里报「私钥为空或无法识别」，而 Secret 本身完全正确。
+          #    所以这里每个键单独一次调用，值用引号原样传递。
+          #
+          # 另一个坑：GitHub Actions 里未设置的 secret 会展开成空串，
+          # 直接下发会把线上已有的值覆盖掉，因此逐个判断非空再下发。
+
+          set_secret() {
+            local name="$1" value="$2"
+            if [ -z "$value" ]; then
+              echo "::notice::$name 未设置，跳过（不会覆盖线上已有值）"
+              return 0
             fi
-          done <<EOF
-          DISCUSSIONS_TOKEN=$DISCUSSIONS_TOKEN
-          FEEDBACK_REPO=$FEEDBACK_REPO
-          DISCUSSIONS_CATEGORIES=$DISCUSSIONS_CATEGORIES
-          APP_ID=$APP_ID
-          APP_PRIVATE_KEY=$APP_PRIVATE_KEY
-          APP_INSTALLATION_ID=$APP_INSTALLATION_ID
-          EOF
+            echo "::notice::setting $name (${#value} bytes)"
+            supabase secrets set --yes "$name=$value"
+          }
+
+          set_secret DISCUSSIONS_TOKEN   "$DISCUSSIONS_TOKEN"
+          set_secret FEEDBACK_REPO       "$FEEDBACK_REPO"
+          set_secret DISCUSSIONS_CATEGORIES "$DISCUSSIONS_CATEGORIES"
+          set_secret APP_ID              "$APP_ID"
+          set_secret APP_PRIVATE_KEY     "$APP_PRIVATE_KEY"
+          set_secret APP_INSTALLATION_ID "$APP_INSTALLATION_ID"
+
+          # 下发后核对：私钥若不是一份完整 PEM，这里立刻失败，
+          # 而不是等到部署完、用户点反馈时才在函数里报「私钥无法识别」。
+          if [ -n "$APP_PRIVATE_KEY" ]; then
+            if ! printf '%s' "$APP_PRIVATE_KEY" | grep -q "-----BEGIN"; then
+              echo "::error::APP_PRIVATE_KEY 里没有 -----BEGIN----- 行（下发值异常）"
+              exit 1
+            fi
+            if ! printf '%s' "$APP_PRIVATE_KEY" | grep -q "-----END"; then
+              echo "::error::APP_PRIVATE_KEY 缺少 -----END----- 行（值被截断，可能只下发了首行）"
+              exit 1
+            fi
+            lines=$(printf '%s' "$APP_PRIVATE_KEY" | wc -l)
+            if [ "$lines" -lt 2 ]; then
+              echo "::error::APP_PRIVATE_KEY 只有 $lines 行，正常 PEM 至少 3 行（疑似换行被吞）"
+              exit 1
+            fi
+            echo "::notice::APP_PRIVATE_KEY 看起来完整（$lines 行，${#APP_PRIVATE_KEY} 字节）"
+          fi
 
       - name: Deploy Edge Functions
         # feedback：站点反馈广场（列表 / 详情 / 回复 / 新建）

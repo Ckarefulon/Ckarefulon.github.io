@@ -190,3 +190,30 @@ TEST_CDP_PORT=9337 node .tests/feedback-sitewide.test.js
 
 **Secret / Variable 名不能以 `GITHUB_` 开头。** 那是 GitHub 保留前缀，
 在仓库 Settings 里根本建不出这种名字。
+
+**多行私钥千万别用 `while read <<EOF` 批量下发。**
+这是最难发现的一个坑：按行读 heredoc 时，`APP_PRIVATE_KEY` 这种多行 PEM 会被拆散 ——
+
+```bash
+# ❌ 错的：只会下发第一行 "-----BEGIN PRIVATE KEY-----"，主体全丢
+while IFS='=' read -r key value; do
+  supabase secrets set --yes "$key=$value"
+done <<EOF
+APP_PRIVATE_KEY=$APP_PRIVATE_KEY
+EOF
+
+# ✓ 对的：每个键单独调用，值用引号原样传
+supabase secrets set --yes "APP_PRIVATE_KEY=$APP_PRIVATE_KEY"
+```
+
+症状是：Secret 在仓库里明明填得完全正确，函数却报「私钥为空或无法识别」。
+workflow 现在改成逐键单独下发，并在下发后**校验私钥是否含 BEGIN/END 两行**，
+不完整就直接让这一步失败，不必等到用户点反馈才发现。
+
+已经下发过坏值的话，删掉再走一次：
+
+```bash
+supabase secrets unset --yes APP_PRIVATE_KEY
+# 然后重新跑 workflow，或手动
+supabase secrets set --yes "APP_PRIVATE_KEY=$(cat your-app.private-key.pem)"
+```
