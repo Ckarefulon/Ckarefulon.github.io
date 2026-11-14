@@ -14,7 +14,7 @@
   │  GET  ?action=detail 详情 + 回复
   │  POST               新建 / 回复（action=comment）
   ▼
-Supabase Edge Function `feedback-submit`
+Supabase Edge Function `feedback`
   │
   ├─→ GitHub GraphQL（Discussion 读写）
   └─→ Supabase REST（feedback_submissions，记「谁提的」）
@@ -136,7 +136,11 @@ GitHub 上的人只能看到一个 bot，站内却查得到来源。
 
 ```bash
 # 函数逻辑（43 项，不联网，GitHub/Supabase 都是桩）
-node .tests/feedback-submit.test.js
+node .tests/feedback-function.test.js
+
+# 真实 HTTP 端到端（5 项）：起一个真服务当 Edge Function，让浏览器真的发请求。
+# 专抓「路径写错 → 404」「预检失败」这类只有真网络才暴露的问题。
+TEST_CDP_PORT=9337 node .tests/feedback-http.test.js
 
 # 广场交互（25 项：图标→自动新建→列表→详情→回复→JWT）
 #   先起调试浏览器：
@@ -148,3 +152,18 @@ TEST_CDP_PORT=9337 node .tests/feedback-sitewide.test.js
 ```
 
 截图与结果在 `.tests/feedback-shots/`。
+
+## 踩过的坑
+
+**函数名必须和前端请求路径一致。** 函数目录名就是 URL 里的函数名：
+`supabase/functions/feedback/` → `/functions/v1/feedback`。
+曾经目录叫 `feedback-submit` 而前端请求 `/functions/v1/feedback`，结果 OPTIONS 直接 404，
+真实请求根本没发出去。`feedback-http.test.js` 就是为了守住这一点。
+
+**`if:` 里不能引用 `secrets`。** GitHub Actions 不允许
+（见 [官方说明](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions)），
+写成 `if: ${{ secrets.X != '' }}` 会导致 workflow 校验失败或该步骤永远跳过。
+正确做法是在 job 级 `env` 里先求值成布尔字符串，`if` 只读那个 env。
+
+**Secret / Variable 名不能以 `GITHUB_` 开头。** 那是 GitHub 保留前缀，
+在仓库 Settings 里根本建不出这种名字。

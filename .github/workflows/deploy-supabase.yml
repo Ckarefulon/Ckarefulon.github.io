@@ -18,6 +18,10 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
       PULSE_ENCRYPTION_KEY: ${{ secrets.PULSE_ENCRYPTION_KEY }}
+      # ⚠️ if: 里**不能**直接引用 secrets 上下文（GitHub 不允许，会校验失败或被判空）。
+      #    所以这里先求值成一个布尔字符串，step 的 if 只读这个 env 标记。
+      #    名字一律不带 GITHUB_ 前缀 —— 那是 GitHub 保留前缀。
+      FEEDBACK_CONFIGURED: ${{ secrets.DISCUSSIONS_TOKEN != '' || secrets.APP_ID != '' }}
 
     steps:
       - name: Checkout repository
@@ -38,9 +42,8 @@ jobs:
         # 只要配了 PAT 或 GitHub App 任一种身份就下发；都没有时函数照常部署，
         # 前端会收到 configure:true 并引导用户改用「在 GitHub 中打开」。
         #
-        # ⚠️ 这里的名字都不带 GITHUB_ 前缀 —— 那是 GitHub 保留前缀，
-        #    Secret / Variable 一律起不了这种名。
-        if: ${{ secrets.DISCUSSIONS_TOKEN != '' || secrets.APP_ID != '' }}
+        # 这里读的是 job 级 env 标记，不是 secrets —— 见上方注释。
+        if: ${{ env.FEEDBACK_CONFIGURED == 'true' }}
         env:
           DISCUSSIONS_TOKEN: ${{ secrets.DISCUSSIONS_TOKEN }}
           FEEDBACK_REPO: ${{ vars.FEEDBACK_REPO }}
@@ -66,4 +69,5 @@ jobs:
           EOF
 
       - name: Deploy Edge Functions
-        run: supabase functions deploy pulse-upsert-target pulse-run-now pulse-scheduler pulse-delete-target pulse-get-services feedback-submit
+        # feedback：站点反馈广场（列表 / 详情 / 回复 / 新建）
+        run: supabase functions deploy pulse-upsert-target pulse-run-now pulse-scheduler pulse-delete-target pulse-get-services feedback

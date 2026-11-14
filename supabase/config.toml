@@ -57,9 +57,9 @@ inspector_port = 8083
 [functions.pulse-scheduler]
 verify_jwt = false
 
-# 反馈提交：站点顶栏「反馈」面板调用。
+# 反馈广场：站点 /feedback/ 页面调用。
 # 走 apikey 而非 JWT（publishable key 不是 JWT），函数内部自己做限流/去重，所以不校验 JWT。
-[functions.feedback-submit]
+[functions.feedback]
 verify_jwt = false
 
 [analytics]
