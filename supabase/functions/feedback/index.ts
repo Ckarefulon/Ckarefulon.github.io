@@ -194,8 +194,97 @@ interface Identity {
 let installationToken: { token: string; expiresAt: number; appId: string } | null = null;
 let appIdentity: { name: string; appId: string } | null = null;
 
-function pemToKey(pem: string): string {
-	return pem.includes("\\n") ? pem.replace(/\\n/g, "\n") : pem;
+/**
+ * 把 Secret 里存的私钥文本还原成标准 PEM。
+ *
+ * 真实世界里这串东西会长成各种样子：
+ *   · GitHub Secret 里粘贴的原文（换行是真实 \n，Windows 下常是 \r\n）
+ *   · 被转义成字面量 "\\n" 的一行（CI / dotenv 常见）
+ *   · 有的工具会在末尾补一个换行，或被编辑器加了空格
+ *   · 偶尔外层还带引号
+ * 所以这里统一清洗，而不是只处理一种情况。
+ */
+function normalizePem(raw: string): string {
+	let s = String(raw || "").trim();
+
+	// 去掉最外层的引号（有人会把整个 PEM 用引号包起来存）
+	if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+		s = s.slice(1, -1).trim();
+	}
+	// 去 BOM
+	s = s.replace(/^\uFEFF/, "");
+
+	// 字面量 \n / \r\n → 真实换行（GitHub Secret 里粘贴单行版时就是这样）
+	if (s.includes("\\n")) s = s.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
+	// 字面量 \r 残留
+	s = s.replace(/\\r/g, "\r");
+
+	return s;
+}
+
+/**
+ * 从 PEM 里取出 Base64 主体。
+ * 只保留 A-Za-z0-9+/=，其余（换行、空格、\r）全部丢掉 ——
+ * 少一个字符和残留一个 \r 都会让 atob 产出错的 DER，最后报成 ASN.1 语法错误，
+ * 那种错误对排查毫无帮助。
+ */
+function pemBody(pem: string): string {
+	return normalizePem(pem)
+		.replace(/-----BEGIN [^-]+-----/g, "")
+		.replace(/-----END [^-]+-----/g, "")
+		.replace(/[^A-Za-z0-9+/=]/g, "");
+}
+
+/** 把 PEM（PKCS#8）转成 WebCrypto 可用的 KeyObject */
+async function importPrivateKey(pem: string): Promise<CryptoKey> {
+	const body = pemBody(pem);
+
+	// 空密钥是最常见的配置失误（Secret 没填 / 名字写错 / 值为空）。
+	// 提前拦下来，给出能直接照做的提示，而不是把 atob/DER 的底层错误抛给用户。
+	if (!body) {
+		throw new Error(
+			"APP_PRIVATE_KEY 为空或无法识别。" +
+			"请把 GitHub App 下载的 .pem 文件**全文**（含 -----BEGIN PRIVATE KEY----- 与 -----END PRIVATE KEY-----）" +
+			"粘进 Secret，不要只填文件名或路径。",
+		);
+	}
+
+	let der: Uint8Array;
+	try {
+		der = Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
+	} catch {
+		throw new Error("APP_PRIVATE_KEY 的 Base64 部分无法解码，请确认粘贴的是完整 .pem 全文。");
+	}
+
+	if (der.length === 0) {
+		throw new Error("APP_PRIVATE_KEY 解码后为空，请重新粘贴 .pem 全文。");
+	}
+
+	// GitHub App 的私钥是 PKCS#8（BEGIN PRIVATE KEY）。
+	// 若拿到的是 PKCS#1（BEGIN RSA PRIVATE KEY），importKey("pkcs8") 必然失败，
+	// 这里提前识别并说清楚，避免又变成一条看不懂的 ASN.1 报错。
+	if (/-----BEGIN RSA PRIVATE KEY-----/.test(pem)) {
+		throw new Error(
+			"APP_PRIVATE_KEY 是 PKCS#1（BEGIN RSA PRIVATE KEY），当前只支持 PKCS#8。" +
+			"请用 GitHub App 页面下载的原版 .pem（应为 BEGIN PRIVATE KEY）。",
+		);
+	}
+
+	try {
+		return await crypto.subtle.importKey(
+			"pkcs8",
+			der.buffer as ArrayBuffer,
+			{ name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+			false,
+			["sign"],
+		);
+	} catch (err) {
+		const detail = err instanceof Error ? err.message : String(err);
+		throw new Error(
+			`APP_PRIVATE_KEY 无法作为 PKCS#8 私钥导入（${detail}）。` +
+			"常见原因：粘贴时缺了行、混入了多余字符，或用的不是 GitHub App 的私钥。",
+		);
+	}
 }
 
 /** 极简 base64url 编码（Deno 自带 btoa，字符串都是 ASCII） */
@@ -207,22 +296,6 @@ function b64urlBytes(bytes: Uint8Array): string {
 	let binary = "";
 	for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
 	return b64url(binary);
-}
-
-/** 把 PEM（PKCS#8）转成 WebCrypto 可用的 KeyObject */
-async function importPrivateKey(pem: string): Promise<CryptoKey> {
-	const body = pem
-		.replace(/-----BEGIN [^-]+-----/g, "")
-		.replace(/-----END [^-]+-----/g, "")
-		.replace(/\s+/g, "");
-	const der = Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
-	return await crypto.subtle.importKey(
-		"pkcs8",
-		der.buffer as ArrayBuffer,
-		{ name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-		false,
-		["sign"],
-	);
 }
 
 /** App JWT：GitHub 要求 RS256、iat 提前 60s、exp ≤ 10 分钟 */
@@ -414,16 +487,25 @@ async function lookupSubmissions(numbers: number[]): Promise<Record<string, { us
 /** 解析当前该用哪个身份；配了 App 就先换 installation token */
 async function resolveIdentity(repo: string): Promise<Identity | null> {
 	const appId = (Deno.env.get("APP_ID") || "").trim();
-	const privateKey = pemToKey((Deno.env.get("APP_PRIVATE_KEY") || "").trim());
+	const rawKey = Deno.env.get("APP_PRIVATE_KEY") || "";
+	const privateKey = normalizePem(rawKey);
 	const pat = (Deno.env.get("DISCUSSIONS_TOKEN") || "").trim();
 
-	// 只配了一半 = 配错了。直接报错，不静默退回 PAT：
-	// 否则内容会挂到维护者名下，正是要避免的事。
-	if ((appId && !privateKey) || (!appId && privateKey)) {
-		throw new Error("GitHub App 配置不完整（APP_ID 与 APP_PRIVATE_KEY 需同时提供）");
+	// 「配了 APP_ID 但私钥为空/全是空白」最容易踩：不能当成「没配 App」而静默退回 PAT
+	// （那会把内容挂到维护者名下），也不能只说「配置不完整」（会让人以为自己是漏填，
+	// 其实是填了但内容无效）。
+	if (appId && !privateKey) {
+		throw new Error(
+			rawKey.trim()
+				? "APP_PRIVATE_KEY 去空白后为空，请确认粘贴的是 .pem 全文而不是文件路径或文件名。"
+				: "APP_ID 已配置，但 APP_PRIVATE_KEY 为空。请粘贴 GitHub App 下载的 .pem 全文。",
+		);
+	}
+	if (!appId && privateKey) {
+		throw new Error("APP_PRIVATE_KEY 已配置，但缺少 APP_ID。两者需同时提供。");
 	}
 
-	if (!appId || !privateKey) {
+	if (!appId) {
 		return pat ? { token: pat, mode: "pat", botName: null } : null;
 	}
 

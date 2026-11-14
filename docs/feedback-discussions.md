@@ -101,6 +101,29 @@ GitHub 上的人只能看到一个 bot，站内却查得到来源。
    - Secret `APP_PRIVATE_KEY` = `.pem` 全文
    - （可选）Secret `DISCUSSIONS_TOKEN` = PAT，作为兜底
 
+### APP_PRIVATE_KEY 怎么填
+
+把 GitHub 下载的 `.pem` 用文本编辑器打开，**整份内容**（含
+`-----BEGIN PRIVATE KEY-----` 与 `-----END PRIVATE KEY-----` 两行）粘贴进去。
+
+函数对格式做了容错，以下都能正确识别：
+
+- 标准多行 PEM
+- Windows 换行（CRLF）
+- 被转义成单行的 `\n` / `\r\n`（CI、dotenv 常见）
+- 首尾带引号、带 BOM、带多余空格
+- 主体里混入非 Base64 字符（会被自动清洗）
+
+不支持的只有两种，都会给出明确提示：
+
+| 情况 | 提示 |
+| --- | --- |
+| 只填了文件名 / 路径 | `无法作为 PKCS#8 私钥导入`，请粘贴全文 |
+| 是 `BEGIN RSA PRIVATE KEY`（PKCS#1） | 请改用 App 页面下载的原版 `.pem`（应为 `BEGIN PRIVATE KEY`） |
+
+> 以前这几种情况会抛 `ASN.1 DER message is incomplete: expected 1, actual 0 at DER byte 0`
+> 这类底层报错，看不出该改什么。现在都会翻成上面这种能直接照做的中文提示。
+
 配好后 push 到 main，`.github/workflows/deploy-supabase.yml` 会自动下发密钥并部署。
 
 > 私钥是多行 PEM，粘进 GitHub Secret 时**原样粘贴**即可（换行会保留）。
