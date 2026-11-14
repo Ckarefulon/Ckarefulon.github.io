@@ -67,13 +67,26 @@ interface RepoCache {
 
 let cache: RepoCache | null = null;
 
+/**
+ * 列表结果的短缓存（同一隔离实例内共享）。
+ *
+ * 为什么需要：每次 `?action=list` 都要现场去 `api.github.com/graphql` 往返一次，
+ * 实测 TTFB 830–1190ms 几乎全是这一步，响应体本身只要 0–1ms。
+ * 广场是「进来就看」的页面，而这几十秒内内容基本不会变 —— 缓存 30 秒能把反复进出
+ * 页面的等待直接压掉，同时不至于让新提交太久看不见。
+ */
+const LIST_TTL_MS = 30 * 1000;
+let listCache: { key: string; at: number; payload: any } | null = null;
+
 /* ---------------- 小工具 ---------------- */
 
-function json(data: unknown, status = 200): Response {
-	return new Response(JSON.stringify(data), {
-		status,
-		headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=utf-8" },
-	});
+function json(data: unknown, status = 200, extraHeaders?: Record<string, string>): Response {
+	const headers: Record<string, string> = {
+		...CORS_HEADERS,
+		"Content-Type": "application/json; charset=utf-8",
+	};
+	if (extraHeaders) Object.assign(headers, extraHeaders);
+	return new Response(JSON.stringify(data), { status, headers });
 }
 
 function clip(value: unknown, max: number): string {
@@ -984,10 +997,25 @@ Deno.serve(async (req: Request) => {
 				const firstRaw = Number(url.searchParams.get("first") || 30);
 				const first = Math.min(Math.max(Number.isFinite(firstRaw) ? firstRaw : 30, 1), 50);
 				const after = url.searchParams.get("after");
+
+				// 只有「游客看第一页」才吃缓存：
+				// 登录用户要看「我提的」标记，翻页要看后面的内容，都不能拿旧结果糊弄。
+				const viewer0 = await resolveSubmitter(req);
+				const cacheKey = `${repo}|${first}|${after || ""}`;
+				const cacheable = !viewer0 && !after;
+				if (cacheable && listCache && listCache.key === cacheKey
+					&& Date.now() - listCache.at < LIST_TTL_MS) {
+					return json(listCache.payload, 200, {
+						// 浏览器也存 10 秒：连点两次页面不必再打一趟
+						"Cache-Control": "public, max-age=10, stale-while-revalidate=30",
+						"X-Feedback-Cache": "hit",
+					});
+				}
+
 				const page = await fetchDiscussions(token, repo, first, after);
 
 				// 站内关联：只有已登录用户才查，且只回「是不是你提的」，不回别人的身份
-				const viewer = await resolveSubmitter(req);
+				const viewer = viewer0;
 				let mine: Record<string, true> = {};
 				if (viewer) {
 					const numbers = page.discussions.map((d: any) => d.number);
@@ -1010,7 +1038,7 @@ Deno.serve(async (req: Request) => {
 					}
 				}
 
-				return json({
+				const payload = {
 					success: true,
 					repo,
 					identity: who,
@@ -1021,7 +1049,15 @@ Deno.serve(async (req: Request) => {
 					)),
 					pageInfo: page.pageInfo,
 					viewer: viewer ? { loggedIn: true, username: viewer.username } : { loggedIn: false, username: null },
-				});
+				};
+
+				if (cacheable) {
+					listCache = { key: cacheKey, at: Date.now(), payload };
+				}
+
+				return json(payload, 200, cacheable
+					? { "Cache-Control": "public, max-age=10, stale-while-revalidate=30", "X-Feedback-Cache": "miss" }
+					: { "Cache-Control": "no-store" });
 			}
 
 			// 单条详情（含回复列表）
@@ -1033,7 +1069,10 @@ Deno.serve(async (req: Request) => {
 				const firstRaw = Number(url.searchParams.get("first") || 40);
 				const first = Math.min(Math.max(Number.isFinite(firstRaw) ? firstRaw : 40, 1), 60);
 				const detail = await fetchDiscussion(token, repo, number, first, url.searchParams.get("after"));
-				return json({ success: true, repo, identity: who, types: describeTypes(rc), ...detail });
+				return json({ success: true, repo, identity: who, types: describeTypes(rc), ...detail }, 200, {
+					// 详情相对稳定，让浏览器存 15 秒，来回点不重复拉
+					"Cache-Control": "public, max-age=15, stale-while-revalidate=45",
+				});
 			}
 
 			return json({

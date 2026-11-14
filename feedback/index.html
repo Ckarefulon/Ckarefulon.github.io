@@ -19,21 +19,17 @@
 
 	<link rel="stylesheet" href="/ui/colors_and_type.css">
 	<link rel="stylesheet" href="/nav/nav.css?v=2475">
-	<link rel="stylesheet" href="/feedback/feedback.css?v=2523">
+	<link rel="stylesheet" href="/feedback/feedback.css?v=2534">
 
 	<script src="/nav/nav.js?v=2498" defer></script>
 	<script src="/assets/services/core/site-scope.js?v=2255" defer></script>
-
-	<!-- GitHub 线路：直连 / 多个镜像自动择优，全挂时退回复制链接。
-	     公共镜像会集体失效，所以线路表可在运行时替换（window.CK_GITHUB_MIRRORS）。 -->
-	<script src="/assets/services/core/github-mirror.js?v=2523" defer></script>
 
 	<!-- 只有配置（385 字节，纯静态），**不加载** supabase-js（217KB）。
 	       顶栏登录由 nav.js 按需拉取；本页自己发请求只需要 url + publishableKey。
 	       以前这里连配置都没有，于是整个广场拿不到后端地址。 -->
 	<script src="/supabase/supabase-config.js?v=1877" defer></script>
 
-	<script src="/feedback/feedback-app.js?v=2523" defer></script>
+	<script src="/feedback/feedback-app.js?v=2534" defer></script>
 
 	<title>反馈广场 — Ckarefulon</title>
 </head>
@@ -71,31 +67,6 @@
 			<div class="fbLoadMoreWrap">
 				<button class="fbLoadMore" id="fbLoadMore" type="button" hidden>加载更多</button>
 			</div>
-
-			<!-- GitHub 线路：说明「打不开 GitHub 不耽误用」，并允许手动换线路 -->
-			<details class="fbRoute" id="fbRouteBox">
-				<summary class="fbRouteSummary">
-					<span>GitHub 打不开？</span>
-					<span class="fbRouteBadge" id="fbRouteBadge">自动</span>
-				</summary>
-				<div class="fbRouteBody">
-					<p class="fbRouteText">
-						浏览、提交、回复都在本页完成，不用去 GitHub。只有想去看原讨论时才需要跳过去，
-						默认先试直连，直连慢就换一条镜像；都打不开时用「复制链接」也不耽误事。
-						镜像站只适合看，登录和新建只能在直连上做。
-					</p>
-					<div class="fbRouteRow">
-						<label class="fbRouteLabel" for="fbRouteSelect">线路</label>
-						<select class="fbRouteSelect" id="fbRouteSelect" aria-label="GitHub 线路"></select>
-						<button class="fbRouteBtn" id="fbRouteTestBtn" type="button">测速</button>
-						<button class="fbRouteBtn" id="fbRouteCopyBtn" type="button">复制链接</button>
-					</div>
-					<div class="fbRouteRow fbRouteRowLast">
-						<button class="fbRouteBtn fbRouteBtnWide" id="fbRouteNextBtn" type="button">刚才那条打不开，换一条</button>
-					</div>
-					<div class="fbRouteStatus" id="fbRouteStatus" role="status"></div>
-				</div>
-			</details>
 		</div>
 
 		<!-- ========== 详情视图 ========== -->

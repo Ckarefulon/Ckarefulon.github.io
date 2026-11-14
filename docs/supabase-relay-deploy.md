@@ -63,6 +63,35 @@
 如果这条一直是 404、而紧接着出现一条 `https://<ref>.supabase.co/...` 的请求，
 说明中继没被识别（Functions 没启用，或 `netlify.toml` 没生效），前端正在走回退。
 
+## 全站生效范围
+
+不是只有反馈页 —— **全站所有 Supabase 请求**都走同一条中继：
+
+| 接入点 | 说明 |
+| --- | --- |
+| `supabase/supabase-client.js` | 全站唯一创建 client 的地方，给 supabase-js 注入自定义 fetch |
+| `CK_SUPABASE_CONFIG.url` | 就地改写成 `/api/sb`，连直接拼这个变量的老代码（如 `auth-manager`）也自动走中继 |
+
+所以 Cube/*、Study/*、Tools/*、user/profile 等页面的登录、云同步、数据读写
+都会一起受益，不需要逐页改。
+
+中继不在时（本地开发、GitHub Pages）**自动回退直连**，行为与以前一致。
+
+## 延迟优化（顺手做的）
+
+排查时实测：列表请求 TTFB 830–1190ms，而**响应体只有 0–1ms** ——
+时间几乎全花在 Edge Function 现场去 `api.github.com/graphql` 往返。
+
+因此加了两层缓存：
+
+| 位置 | 策略 |
+| --- | --- |
+| 函数内（游客看第一页） | 30 秒内存缓存，命中直接返回，不再打 GitHub |
+| 响应头 | 列表 `max-age=10, stale-while-revalidate=30`；详情 `max-age=15` |
+
+不缓存的情况：已登录用户（要看「我提的」标记）、翻页（`after` 不同）、
+以及所有写操作（POST 一律 `no-store`）。
+
 ## 安全边界（写在中继里）
 
 中继本质是个代理，写松了等于给全站开公共出口。当前限制：
@@ -85,6 +114,7 @@
 
 ## 顺带说明：上一轮的 GitHub 镜像
 
-`assets/services/core/github-mirror.js` 解决的是**另一件事**：用户主动点
-「在 GitHub 中打开/回复」时的跳转，跟本页加载、提交无关。
-两者互不依赖，可以各自独立启用或移除。
+`assets/services/core/github-mirror.js` 已按要求**整块删除**（连同反馈页的
+「GitHub 打不开？」面板）。它当时解决的是「跳去 GitHub 看原讨论」，
+与页面加载/提交无关，属于方向判断错误，已回退。
+现在反馈页的「在 GitHub 中打开 / 回复」就是普通的直连新标签打开。

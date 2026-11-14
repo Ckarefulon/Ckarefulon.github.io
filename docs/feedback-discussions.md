@@ -158,53 +158,19 @@ PKCS#1 在函数里会自动包一层 PKCS#8 头再签名（DER 包装是逐字�
 
 ## 加速设计
 
+实测瓶颈：列表请求 TTFB 830–1190ms，**响应体只有 0–1ms** —— 时间几乎全花在
+Edge Function 现场去 `api.github.com/graphql` 往返。
+
 | 手段 | 效果 |
 | --- | --- |
 | 进页立刻预热（`GET` 无 action） | 冷启动 + 分类解析挪到用户浏览时 |
-| 首次聚焦输入框再补一次 | 命中浏览器缓存 |
+| 列表 30 秒内存缓存（仅游客第一页） | 反复进出页面不再打 GitHub |
+| 列表/详情 `Cache-Control` | 浏览器再省一趟（回退/前进不用重新拉） |
 | 函数内缓存 repositoryId / categoryId（10 分钟） | 提交只发一条 `createDiscussion` |
 | `Access-Control-Max-Age: 7200` | 预检缓存 2 小时 |
 | 函数零外部依赖（不用 esm.sh / supabase-js） | 冷启动更短；Supabase 走 REST 直连 |
 
-## GitHub 线路（`assets/services/core/github-mirror.js`）
-
-浏览、提交、回复都在站内完成，**不需要能打开 GitHub**。只有「去看原讨论」
-「在 GitHub 中新建」才需要跳出去，那一步交给线路模块。
-
-### 三条硬约束
-
-1. **不绑死镜像站。** 公共镜像会集体失效，而且失效方式很杂（实测同一时刻：
-   `kkgithub.com` 证书过期、`bgithub.xyz`/`hub.nuaa.cf` 连接超时、
-   `githubfast.com` 回 403「只允许 git/CLI」、`github.ur1.fun` 回 402「部署暂停」）。
-   所以线路是**一张可在运行时替换的表**：页面在模块之前设 `window.CK_GITHUB_MIRRORS`
-   即可整表换掉，不用改代码。
-2. **`github.com` 的 HTML 页面不能用前缀代理。** `gh-proxy.com/https://github.com/…/discussions`
-   回 404 并落到代理站自己的首页 —— 前缀代理只做文件，不做页面。
-   页面加速必须用「整域名替换」的镜像站；前缀代理只留给 `raw` / `releases` / `archive`。
-3. **镜像站只能看，不能登录、不能新建。** 在镜像域名上建 Discussion 会落到镜像的身份体系里，
-   必然失败。所以 `kind: "compose"` 的链接**永远只走直连**，即使手选了镜像也不改写。
-
-### 探测的局限（不要被它骗）
-
-`fetch(url, { mode: "no-cors" })` 只回一个 opaque 响应，**拿不到状态码**：
-403、402、404 看起来和 200 一样。所以探测结果只代表「够不够得着 / 多快」，
-不代表「打开好不好用」。也试过用 `favicon.ico` + `<img>` 判真活，
-但多数镜像站没有这个文件，误报更多，已放弃。
-
-真正的兜底不靠探测，靠**用户一句话**：「刚才那条打不开，换一条」按钮会把该线路标坏并换下一条。
-
-### 用户可见的四个出口
-
-| 出口 | 位置 | 行为 |
-| --- | --- | --- |
-| 自动 | 线路下拉（默认） | 先试直连，明显更慢才让镜像上 |
-| 手动指定 | 线路下拉 | 记住选择（`ckGithubRoute.v1`），下次直接用 |
-| 换一条 | 「打不开？」面板 | 把当前线路标坏，换下一条并打开 |
-| 复制链接 | 「打不开？」面板 | 复制原始 GitHub 地址，粘到任意设备打开 |
-
-弹窗被浏览器拦下时也会退到「手动打开」链接，不把人扔在空白页上。
-
-自检：`node .tests/github-mirror.test.js`（30 项，不联网，用最小 DOM 桩加载模块）。
+缓存不套用的情形：已登录用户（要看「我提的」标记）、翻页、所有写操作。
 
 ## 防滥用（函数内置）
 
@@ -216,14 +182,11 @@ PKCS#1 在函数里会自动包一层 PKCS#8 头再签名（DER 包装是逐字�
 ## 自检
 
 ```bash
-# 函数逻辑（43 项，不联网，GitHub/Supabase 都是桩）
+# 函数逻辑（51 项，不联网，GitHub/Supabase 都是桩）
 node .tests/feedback-function.test.js
 
 # 同源中继（23 项，不联网，fetch 打桩）：白名单、方法限制、路径穿越、失败回退信号
 node .tests/sb-relay.test.js
-
-# GitHub 线路选路（30 项，不联网，最小 DOM 桩加载模块）
-node .tests/github-mirror.test.js
 
 # 真实 HTTP 端到端（5 项）：起一个真服务当 Edge Function，让浏览器真的发请求。
 # 专抓「路径写错 → 404」「预检失败」这类只有真网络才暴露的问题。
