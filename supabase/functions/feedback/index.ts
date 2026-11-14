@@ -235,7 +235,7 @@ function pemBody(pem: string): string {
 		.replace(/[^A-Za-z0-9+/=]/g, "");
 }
 
-/** 把 PEM（PKCS#8）转成 WebCrypto 可用的 KeyObject */
+/** 把 PEM（PKCS#8 或 PKCS#1）转成 WebCrypto 可用的 CryptoKey */
 async function importPrivateKey(pem: string): Promise<CryptoKey> {
 	const body = pemBody(pem);
 
@@ -260,20 +260,18 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
 		throw new Error("APP_PRIVATE_KEY 解码后为空，请重新粘贴 .pem 全文。");
 	}
 
-	// GitHub App 的私钥是 PKCS#8（BEGIN PRIVATE KEY）。
-	// 若拿到的是 PKCS#1（BEGIN RSA PRIVATE KEY），importKey("pkcs8") 必然失败，
-	// 这里提前识别并说清楚，避免又变成一条看不懂的 ASN.1 报错。
-	if (/-----BEGIN RSA PRIVATE KEY-----/.test(pem)) {
-		throw new Error(
-			"APP_PRIVATE_KEY 是 PKCS#1（BEGIN RSA PRIVATE KEY），当前只支持 PKCS#8。" +
-			"请用 GitHub App 页面下载的原版 .pem（应为 BEGIN PRIVATE KEY）。",
-		);
-	}
+	// 两种私钥都是合法的，都要能签：
+	//   PKCS#8  -----BEGIN PRIVATE KEY-----       （WebCrypto 直接认）
+	//   PKCS#1  -----BEGIN RSA PRIVATE KEY-----   （需要在外面包一层 PKCS#8 头）
+	// 以前只认 PKCS#8、把 PKCS#1 直接拒掉，是拿实现限制当规则了 ——
+	// GitHub App 页面下载到的 .pem 完全可能是 PKCS#1。
+	const isPkcs1 = /-----BEGIN RSA PRIVATE KEY-----/.test(pem);
+	const pkcs8Der = isPkcs1 ? wrapPkcs1InPkcs8(der) : der;
 
 	try {
 		return await crypto.subtle.importKey(
 			"pkcs8",
-			der.buffer as ArrayBuffer,
+			pkcs8Der.buffer as ArrayBuffer,
 			{ name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
 			false,
 			["sign"],
@@ -281,10 +279,66 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
 	} catch (err) {
 		const detail = err instanceof Error ? err.message : String(err);
 		throw new Error(
-			`APP_PRIVATE_KEY 无法作为 PKCS#8 私钥导入（${detail}）。` +
+			`APP_PRIVATE_KEY 无法作为 RSA 私钥导入（${detail}）。` +
 			"常见原因：粘贴时缺了行、混入了多余字符，或用的不是 GitHub App 的私钥。",
 		);
 	}
+}
+
+/**
+ * 把 PKCS#1 的 RSAPrivateKey DER 包成 PKCS#8 的 PrivateKeyInfo。
+ *
+ * PKCS#8 只是在 PKCS#1 外面套了固定的算法标识：
+ *
+ *   SEQUENCE {
+ *     INTEGER 0                                     -- version
+ *     SEQUENCE { OID rsaEncryption, NULL }          -- algorithmIdentifier
+ *     OCTET STRING { <PKCS#1 的 DER 原样塞进来> }
+ *   }
+ *
+ * 所以不需要引第三方 ASN.1 库，按长度自己拼就行。
+ * 唯一要小心的是长度编码：DER 的长形式（0x81/0x82…）。
+ */
+function wrapPkcs1InPkcs8(pkcs1: Uint8Array): Uint8Array {
+	// 算法标识固定 15 字节：OID 1.2.840.113549.1.1.1 + NULL
+	const ALG_ID = new Uint8Array([
+		0x30, 0x0d,                               // SEQUENCE, 13 字节
+		0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01,  // rsaEncryption
+		0x05, 0x00,                               // NULL
+	]);
+	const VERSION = new Uint8Array([0x02, 0x01, 0x00]);   // INTEGER 0
+
+	// OCTET STRING 包住 PKCS#1
+	const inner = derWrap(0x04, pkcs1);
+
+	// 拼 body = version + algId + octetString，再整体包一层 SEQUENCE
+	const bodyParts = [VERSION, ALG_ID, inner];
+	const bodyLen = bodyParts.reduce((n, p) => n + p.length, 0);
+	const outer = derLength(0x30, bodyLen);
+
+	const out = new Uint8Array(outer.length + bodyLen);
+	let o = 0;
+	out.set(outer, o); o += outer.length;
+	for (const p of bodyParts) { out.set(p, o); o += p.length; }
+	return out;
+}
+
+/** DER 长度编码（短形式 / 0x81 / 0x82） */
+function derLength(tag: number, len: number): Uint8Array {
+	if (len < 0x80) return new Uint8Array([tag, len]);
+	if (len <= 0xff) return new Uint8Array([tag, 0x81, len]);
+	if (len <= 0xffff) return new Uint8Array([tag, 0x82, (len >> 8) & 0xff, len & 0xff]);
+	// RSA 私钥不可能这么长；真到了说明数据异常
+	throw new Error("私钥长度异常（DER 长度超过 0xFFFF）");
+}
+
+/** 用指定 tag 包一段 DER（长度自动编码） */
+function derWrap(tag: number, content: Uint8Array): Uint8Array {
+	const head = derLength(tag, content.length);
+	const out = new Uint8Array(head.length + content.length);
+	out.set(head, 0);
+	out.set(content, head.length);
+	return out;
 }
 
 /** 极简 base64url 编码（Deno 自带 btoa，字符串都是 ASCII） */

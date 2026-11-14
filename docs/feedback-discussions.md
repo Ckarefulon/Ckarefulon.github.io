@@ -103,10 +103,21 @@ GitHub 上的人只能看到一个 bot，站内却查得到来源。
 
 ### APP_PRIVATE_KEY 怎么填
 
-把 GitHub 下载的 `.pem` 用文本编辑器打开，**整份内容**（含
-`-----BEGIN PRIVATE KEY-----` 与 `-----END PRIVATE KEY-----` 两行）粘贴进去。
+把 GitHub 下载的 `.pem` 用文本编辑器打开，**整份内容**粘贴进去即可，包含首尾
+`-----BEGIN …-----` / `-----END …-----` 两行。
 
-函数对格式做了容错，以下都能正确识别：
+**两种私钥格式都支持**，不用手动转换：
+
+| 格式 | 首行 | 说明 |
+| --- | --- | --- |
+| PKCS#8 | `-----BEGIN PRIVATE KEY-----` | 常见 |
+| PKCS#1 | `-----BEGIN RSA PRIVATE KEY-----` | 同样可用 |
+
+PKCS#1 在函数里会自动包一层 PKCS#8 头再签名（DER 包装是逐字节等价的，
+有测试用公钥验签并比对包装结果与原生 PKCS#8 完全一致）。
+2048 / 3072 / 4096 位都验证过。
+
+其他格式容错也都做了：
 
 - 标准多行 PEM
 - Windows 换行（CRLF）
@@ -114,15 +125,15 @@ GitHub 上的人只能看到一个 bot，站内却查得到来源。
 - 首尾带引号、带 BOM、带多余空格
 - 主体里混入非 Base64 字符（会被自动清洗）
 
-不支持的只有两种，都会给出明确提示：
+只有这两种会给出提示：
 
 | 情况 | 提示 |
 | --- | --- |
-| 只填了文件名 / 路径 | `无法作为 PKCS#8 私钥导入`，请粘贴全文 |
-| 是 `BEGIN RSA PRIVATE KEY`（PKCS#1） | 请改用 App 页面下载的原版 `.pem`（应为 `BEGIN PRIVATE KEY`） |
+| 只填了文件名 / 路径 | `无法作为 RSA 私钥导入`，请粘贴全文 |
+| 内容被截断 | `Base64 部分无法解码`，请确认是完整 `.pem` |
 
-> 以前这几种情况会抛 `ASN.1 DER message is incomplete: expected 1, actual 0 at DER byte 0`
-> 这类底层报错，看不出该改什么。现在都会翻成上面这种能直接照做的中文提示。
+> 以前这些情况会抛 `ASN.1 DER message is incomplete: expected 1, actual 0 at DER byte 0`
+> 这类底层报错，看不出该改什么。现在都会翻成能直接照做的中文提示。
 
 配好后 push 到 main，`.github/workflows/deploy-supabase.yml` 会自动下发密钥并部署。
 
