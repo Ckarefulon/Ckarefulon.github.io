@@ -1,0 +1,26 @@
+[build]
+  # 纯静态站点，不需要构建命令；Functions 由 Netlify 自动发现 netlify/functions
+  publish = "."
+
+[build.environment]
+  # 本地 / CI 不用 Netlify 的构建镜像，交给它自己判断
+  NETLIFY_USE_YARN = "false"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# 所有到 Supabase 的请求改走同源中继：浏览器只跟自己的域名说话。
+# 背景：`*.supabase.co` 在部分网络被按域名拦截（TLS 带正确 SNI 立刻 RST），
+# 直接连只能转圈到超时；由服务器去连就绕开了这一层。
+[[redirects]]
+  from = "/api/sb/*"
+  to = "/.netlify/functions/sb-relay"
+  status = 200
+  force = true
+
+# 其余交给静态文件
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"

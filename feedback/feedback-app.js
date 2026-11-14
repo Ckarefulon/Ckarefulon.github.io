@@ -46,10 +46,74 @@
 
 	/* ---------------- 后端地址 ---------------- */
 
-	function endpoint() {
+	/**
+	 * 后端地址。
+	 *
+	 * **首选同源中继 `/api/sb/…`**，而不是直连 `<ref>.supabase.co`：
+	 * 部分网络会按域名拦掉 supabase.co（TCP 通、TLS 带正确 SNI 立刻被 RST），
+	 * 那种网络里直连只会转圈到超时。站点的静态文件却能打开 ——
+	 * 所以只要让请求变成同源，由服务器去连 Supabase，这条路就能用。
+	 *
+	 * 中继不可用时（本地开发、非 Netlify 部署）自动退回直连，两者路由一致。
+	 */
+	function relayBase() {
+		// 同源相对路径；末尾的 /api/sb 由 Netlify 重写到函数
+		return "/api/sb";
+	}
+
+	/** 直连地址（中继不可用时的退路） */
+	function directBase() {
 		var cfg = window.CK_SUPABASE_CONFIG;
 		if (!cfg || !cfg.url) return "";
-		return String(cfg.url).replace(/\/+$/, "") + FN_PATH;
+		return String(cfg.url).replace(/\/+$/, "");
+	}
+
+	/** 当前用哪条链路：先中继，失败后置为 direct，后续请求不再白等一次 */
+	var transport = "relay";
+
+	function endpoint() {
+		var base = transport === "relay" ? relayBase() : directBase();
+		return base ? base + FN_PATH : "";
+	}
+
+	/**
+	 * 直连是否值得一试。
+	 * 没配 url 就没得退；本地开发（localhost）一般中继不存在，也可以省掉那一跳。
+	 */
+	function canFallback() {
+		return !!directBase();
+	}
+
+	/**
+	 * 判定一次失败该不该换直连重试。
+	 *
+	 * 只对「网络层没通」的情况切换：中继函数没部署 / 上游超时 / 连接被拒。
+	 * 业务错误（400 正文太短、429 太频繁）绝不切换 —— 那换条路也一样，白跑一趟。
+	 *
+	 * **判据是这条 URL 本身走没走中继**，不是全局 transport 状态：
+	 * 预热和列表是并发发出的，两个请求都可能带着中继地址出发；
+	 * 先失败的那个把 transport 切成 direct 之后，后到的那个如果还看全局状态，
+	 * 就会以为「已经切过了」而放弃重试，然后拿中继的 404 当业务错误报出来。
+	 */
+	function shouldFallbackToDirect(url, err, status) {
+		if (!canFallback()) return false;
+		if (!isRelayUrl(url)) return false;          // 本来就是直连，没得退
+		if (err) return true;                        // fetch 本身失败：网络层问题
+		if (status === 502 || status === 504 || status === 404) return true;
+		return false;
+	}
+
+	/** 这条 URL 是不是中继地址 */
+	function isRelayUrl(url) {
+		return String(url || "").indexOf(relayBase() + "/") === 0;
+	}
+
+	function switchToDirect() {
+		if (transport === "relay") {
+			transport = "direct";
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -109,16 +173,82 @@
 		return null;
 	}
 
-	function getJson(url, timeoutMs) {
+	/**
+	 * GET 一条并解析 JSON。
+	 *
+	 * 中继链路失败（函数没部署 / 上游不通）时**自动换直连重试一次**，
+	 * 这样本地开发和换平台部署都不会因为少一个 Functions 就直接报错。
+	 * 业务错误不重试，原样把响应对象交回调用方判断。
+	 */
+	function getJson(url, timeoutMs, retried) {
 		var controller = typeof AbortController === "function" ? new AbortController() : null;
 		var timer = controller && timeoutMs ? setTimeout(function () { controller.abort(); }, timeoutMs) : null;
 		var options = { method: "GET", headers: headers(), cache: "no-store" };
 		if (controller) options.signal = controller.signal;
+
 		return fetch(url, options).then(function (res) {
 			if (timer) clearTimeout(timer);
+			// 中继没到位：换直连再试一次（同一份请求，换主机而已）
+			if (shouldFallbackToDirect(url, null, res.status) && !retried) {
+				switchToDirect();
+				return getJson(rewriteToDirect(url), timeoutMs, true);
+			}
 			return res.json().catch(function () { return { success: false, message: "响应解析失败（HTTP " + res.status + "）" }; });
 		}, function (err) {
 			if (timer) clearTimeout(timer);
+			// 网络层失败：换直连再试一次
+			if (shouldFallbackToDirect(url, err) && !retried) {
+				switchToDirect();
+				return getJson(rewriteToDirect(url), timeoutMs, true);
+			}
+			throw err;
+		});
+	}
+
+	/** 把 `/api/sb/functions/v1/...` 换成直连前缀 */
+	function rewriteToDirect(url) {
+		var direct = directBase();
+		if (!direct) return url;
+		var marker = relayBase();
+		var s = String(url || "");
+		if (s.indexOf(marker) === 0) return direct + s.slice(marker.length);
+		return s;
+	}
+
+	/**
+	 * POST 一条并解析 JSON，失败时同样换直连重试一次。
+	 *
+	 * 写操作重试要小心：只在「请求根本没到服务器」时才重试。
+	 * 中继返回 502/504 说明它自己没连上上游，重复提交不会造成两条；
+	 * 而 4xx（正文太短、限流）一律不重试。
+	 */
+	function postJson(url, options, timeoutMs, retried) {
+		var target = url;
+		var opts = {
+			method: options.method || "POST",
+			headers: options.headers,
+			body: options.body,
+			cache: "no-store"
+		};
+		var controller = typeof AbortController === "function" ? new AbortController() : null;
+		var timer = controller && timeoutMs ? setTimeout(function () { controller.abort(); }, timeoutMs) : null;
+		if (controller) opts.signal = controller.signal;
+
+		return fetch(target, opts).then(function (res) {
+			if (timer) clearTimeout(timer);
+			if (shouldFallbackToDirect(target, null, res.status) && !retried) {
+				switchToDirect();
+				return postJson(rewriteToDirect(target), options, timeoutMs, true);
+			}
+			return res.json().catch(function () {
+				return { success: false, message: "反馈服务返回异常（HTTP " + res.status + "）" };
+			});
+		}, function (err) {
+			if (timer) clearTimeout(timer);
+			if (shouldFallbackToDirect(target, err) && !retried) {
+				switchToDirect();
+				return postJson(rewriteToDirect(target), options, timeoutMs, true);
+			}
 			throw err;
 		});
 	}
@@ -460,9 +590,7 @@
 		};
 		if (controller) options.signal = controller.signal;
 
-		fetch(url, options).then(function (res) {
-			return res.json().catch(function () { return { success: false, message: "返回异常" }; });
-		}).then(function (data) {
+		postJson(url, options, SUBMIT_TIMEOUT).then(function (data) {
 			if (timer) clearTimeout(timer);
 			done();
 			if (data && data.success) {
@@ -486,7 +614,7 @@
 			if (timer) clearTimeout(timer);
 			done();
 			var aborted = err && err.name === "AbortError";
-			setStatus(aborted ? "发布超时，可稍后重试" : "网络异常，可稍后重试", "Error");
+			setStatus(aborted ? "发布超时，可稍后重试" : "网络异常：连不上反馈服务，可稍后重试", "Error");
 		});
 
 		function done() {
@@ -677,9 +805,20 @@
 				els.loadMore.disabled = false;
 			}
 		}).catch(function () {
-			setListStatus("网络异常，加载失败；可直接到 GitHub Discussions 查看", "Error");
+			// 中继和直连都没通：说清楚是网络问题，并给重试
+			setListStatus("连不上反馈服务（网络异常）。可以点「重试」，或直接到 GitHub Discussions 查看。", "Error");
 			renderList();
+			showRetryButton();
 		});
+	}
+
+	/** 列表加载失败时给一个「重试」按钮，别让用户只能刷新整页 */
+	function showRetryButton() {
+		if (!els.loadMore) return;
+		els.loadMore.hidden = false;
+		els.loadMore.disabled = false;
+		els.loadMore.textContent = "重试";
+		els.loadMore.setAttribute("data-retry", "1");
 	}
 
 	/* ---------------- GitHub 线路面板 ---------------- */
@@ -898,26 +1037,23 @@
 
 		var controller = typeof AbortController === "function" ? new AbortController() : null;
 		var timer = controller ? setTimeout(function () { controller.abort(); }, SUBMIT_TIMEOUT) : null;
+		var postBody = JSON.stringify({
+			type: p.type,
+			body: p.body,
+			contact: p.contact,
+			hp: (els.hp && els.hp.value || "").trim(),
+			meta: metaLines(),
+			page: window.location.pathname || "/feedback/"
+		});
 		var options = {
 			method: "POST",
 			headers: headers(),
-			body: JSON.stringify({
-				type: p.type,
-				body: p.body,
-				contact: p.contact,
-				hp: (els.hp && els.hp.value || "").trim(),
-				meta: metaLines(),
-				page: window.location.pathname || "/feedback/"
-			}),
+			body: postBody,
 			cache: "no-store"
 		};
 		if (controller) options.signal = controller.signal;
 
-		fetch(url, options).then(function (res) {
-			return res.json().catch(function () {
-				return { success: false, message: "反馈服务返回异常（HTTP " + res.status + "）" };
-			});
-		}).then(function (data) {
+		postJson(url, options, SUBMIT_TIMEOUT).then(function (data) {
 			if (timer) clearTimeout(timer);
 			finish();
 
@@ -964,8 +1100,10 @@
 			if (timer) clearTimeout(timer);
 			finish();
 			var aborted = err && err.name === "AbortError";
-			setStatus(aborted ? "提交超时，可稍后重试或改用 GitHub 打开"
-				: "网络异常，可稍后重试或改用 GitHub 打开", "Error");
+			// 草稿一直在本机，重试不会丢字
+			setStatus(aborted
+				? "提交超时：反馈服务没响应。内容已保存为草稿，可稍后重试。"
+				: "网络异常：连不上反馈服务。内容已保存为草稿，可稍后重试。", "Error");
 		});
 
 		function finish() {
@@ -1089,7 +1227,18 @@
 		}
 
 		if (els.loadMore) {
-			els.loadMore.addEventListener("click", function () { loadList(false); });
+			els.loadMore.addEventListener("click", function () {
+				// 失败后这个按钮是「重试」：重置链路（中继可能刚部署好）并从头拉
+				if (els.loadMore.getAttribute("data-retry") === "1") {
+					els.loadMore.removeAttribute("data-retry");
+					els.loadMore.textContent = "加载更多";
+					transport = "relay";
+					loadList(true);
+					return;
+				}
+				loadList(false);
+			});
+
 		}
 
 		// 新建

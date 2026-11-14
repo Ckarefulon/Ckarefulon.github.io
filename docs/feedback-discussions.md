@@ -10,15 +10,22 @@
   │
   ▼
 /feedback/  广场（列表 / 详情 / 新建弹窗）
-  │  GET  ?action=list   列表
-  │  GET  ?action=detail 详情 + 回复
-  │  POST               新建 / 回复（action=comment）
+  │  GET  /api/sb/functions/v1/feedback?action=list    列表
+  │  GET  /api/sb/functions/v1/feedback?action=detail  详情 + 回复
+  │  POST /api/sb/functions/v1/feedback                新建 / 回复
+  ▼
+同源中继（Netlify Function，见 docs/supabase-relay-deploy.md）
+  │  浏览器只跟自己的域名说话；中继不可用时前端自动回退直连
   ▼
 Supabase Edge Function `feedback`
   │
   ├─→ GitHub GraphQL（Discussion 读写）
   └─→ Supabase REST（feedback_submissions，记「谁提的」）
 ```
+
+> **为什么要有中继**：部分网络按域名拦 `*.supabase.co`（TCP 通、TLS 带正确 SNI
+> 立刻被 RST），浏览器直连只会转圈到超时。把请求改成同源、由服务器去连就绕开了。
+> 实测 Supabase 本身不慢（539–1607ms），所以这不是性能问题。
 
 GitHub 的 REST **没有**创建 Discussion 的接口，只有 GraphQL 的 `createDiscussion`，
 而 GraphQL 只接受 PAT / installation token，不能放前端。所以必须服务端中转。
@@ -211,6 +218,9 @@ PKCS#1 在函数里会自动包一层 PKCS#8 头再签名（DER 包装是逐字�
 ```bash
 # 函数逻辑（43 项，不联网，GitHub/Supabase 都是桩）
 node .tests/feedback-function.test.js
+
+# 同源中继（23 项，不联网，fetch 打桩）：白名单、方法限制、路径穿越、失败回退信号
+node .tests/sb-relay.test.js
 
 # GitHub 线路选路（30 项，不联网，最小 DOM 桩加载模块）
 node .tests/github-mirror.test.js
