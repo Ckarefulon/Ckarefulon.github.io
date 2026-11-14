@@ -729,7 +729,19 @@ function buildBody(input: { body: string; contact: string; meta: string }): stri
 	return parts.join("\n\n");
 }
 
-function defaultTitle(type: string, body: string): string {
+/**
+ * 讨论标题。
+ *
+ * GitHub Discussions **必须有标题**（GraphQL 的 createDiscussion 不接受空 title，
+ * 少于 4 个字符也会被拒），所以标题不能靠「可选」：
+ *   · 用户填了 → 用用户的，补上「[类型] 」前缀（自己已经写了 [xxx] 的不重复加）
+ *   · 没填     → 退回「[类型] 内容首行」—— 以前只有这条，正文第一行是什么标题就是什么，
+ *              长句子会被硬截，看着像没标题
+ *
+ * 前端 feedback-app.js 的 buildTitle 与这里逐字同口径，列表里立刻插入的那条不会跳字。
+ */
+function buildTitle(type: string, rawTitle: unknown, body: string): string {
+	const def = typeDef(type);
 	const labels: Record<string, string> = {
 		bug: "Bug",
 		feature: "Feature",
@@ -737,9 +749,18 @@ function defaultTitle(type: string, body: string): string {
 		chat: "Chat",
 		others: "Other",
 	};
+	const prefix = `[${labels[def.type] || "Feedback"}]`;
+	const typed = clip(rawTitle, 120);
+	if (typed) return typed.startsWith("[") ? typed : `${prefix} ${typed}`;
+
 	const firstLine = body.split("\n").map((s) => s.trim()).find((s) => s.length > 0) || "站点反馈";
 	const head = firstLine.length > 60 ? firstLine.slice(0, 60) + "…" : firstLine;
-	return `[${labels[type] || "Feedback"}] ${head}`;
+	return `${prefix} ${head}`;
+}
+
+/** 兼容旧入口：只给类型与正文时的标题 */
+function defaultTitle(type: string, body: string): string {
+	return buildTitle(type, "", body);
 }
 
 /** 列表摘要：去掉我们附加的环境信息块，压掉多余空白 */
@@ -1152,9 +1173,11 @@ Deno.serve(async (req: Request) => {
 	const bodyText = clip(raw?.body, 8000);
 	if (bodyText.length < 4) return json({ success: false, message: "请再多写几个字" }, 400);
 
-	const title = clip(raw?.title, 120) || defaultTitle(type, bodyText);
+	const title = buildTitle(type, raw?.title, bodyText);
 	const contact = clip(raw?.contact, 140);
 	const meta = clip(raw?.meta, 1200);
+	// 来源页面：前端从 ?from= 自动带上（从哪一页点的顶栏反馈），也允许用户自己改
+	const page = clip(raw?.page, 300);
 
 	if (duplicated(`${type}\u0000${title}\u0000${bodyText}`, now)) {
 		return json({ success: false, message: "同样的内容刚提交过了" }, 409);
@@ -1189,7 +1212,7 @@ Deno.serve(async (req: Request) => {
 			submitter,
 			kind: type,
 			title,
-			page: clip(raw?.page, 300) || "",
+			page: page || "/feedback/",
 		});
 
 		return json({
@@ -1197,6 +1220,7 @@ Deno.serve(async (req: Request) => {
 			url: discussion.url,
 			number: discussion.number,
 			type,
+			title,
 			category: discussion.category ? discussion.category.name : category.name,
 			// 说明是否因为缺分类而降级
 			degraded: !rc.byType[type],

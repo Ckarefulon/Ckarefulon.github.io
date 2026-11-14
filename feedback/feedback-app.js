@@ -297,15 +297,17 @@
 	function payloadDraft() {
 		return {
 			type: currentType,
+			title: (els.title && els.title.value || "").trim(),
 			body: (els.body && els.body.value || "").trim(),
-			contact: (els.contact && els.contact.value || "").trim()
+			contact: (els.contact && els.contact.value || "").trim(),
+			page: (els.page && els.page.value || "").trim()
 		};
 	}
 
 	function saveDraft() {
 		try {
 			var d = payloadDraft();
-			if (!d.body && !d.contact) { localStorage.removeItem(DRAFT_KEY); return; }
+			if (!d.body && !d.contact && !d.title) { localStorage.removeItem(DRAFT_KEY); return; }
 			d.at = Date.now();
 			localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
 		} catch (e) {}
@@ -320,23 +322,110 @@
 		if (!d || typeof d !== "object") return false;
 		if (d.at && Date.now() - d.at > 7 * 24 * 3600 * 1000) { clearDraft(); return false; }
 		if (d.type) setType(d.type);
+		if (d.title && els.title) els.title.value = d.title;
 		if (d.body && els.body) els.body.value = d.body;
 		if (d.contact && els.contact) els.contact.value = d.contact;
-		return !!(d.body || d.contact);
+		if (d.page && els.page) els.page.value = d.page;
+		return !!(d.body || d.contact || d.title);
 	}
 
 	function clearDraft() {
 		try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
 	}
 
+	/* ---------------- 来源页面（从哪一页点进来的） ---------------- */
+
+	var FROM_KEY = "__feedbackFrom_v1";
+	var FROM_TTL = 30 * 60 * 1000;
+
+	/** 只接受站内路径：外部地址、伪协议一律丢掉 */
+	function isSitePath(value) {
+		var s = String(value || "").trim();
+		if (!s) return false;
+		// 允许 "/xxx"、"xxx/yyy"；拒绝 "//host"、"http://…"、"javascript:…"
+		if (s.indexOf("//") === 0) return false;
+		if (/^[a-z][a-z0-9+.-]*:/i.test(s)) return false;
+		return true;
+	}
+
+	/** 规范化：补前导斜杠，去掉零宽/控制字符，只留路径（丢 query / hash），最长 300 */
+	function normalizeFrom(value) {
+		if (!isSitePath(value)) return "";
+		var s = String(value).replace(/[\u0000-\u001F\u007F]/g, "").trim();
+		// 去掉 query 与 hash：?from= 里只会是路径，留着反而把一次性参数带进反馈表
+		s = s.split("#")[0].split("?")[0];
+		if (!s) return "";
+		if (s.charAt(0) !== "/") s = "/" + s;
+		return s.slice(0, 300);
+	}
+
+	/** 反馈页自己的路径不算「来源」 */
+	function isFeedbackPath(pathname) {
+		return /^\/feedback\/?$/.test(String(pathname || ""));
+	}
+
+	/**
+	 * 记录来源页面。两个来源：
+	 *   ① URL 上的 ?from=（nav 图标在每一页就地拼好，最准）
+	 *   ② document.referrer（直接粘链接、或旧页面进来的兜底）
+	 * 拿到就存进 localStorage：草稿还没写完时刷新/换标签也不会丢。
+	 */
+	function captureFrom() {
+		var from = "";
+		try {
+			from = normalizeFrom(new URLSearchParams(window.location.search).get("from"));
+		} catch (e) {}
+		if (!from) {
+			var ref = document.referrer || "";
+			if (ref) {
+				try {
+					var u = new URL(ref);
+					if (u.origin === window.location.origin && !isFeedbackPath(u.pathname)) {
+						from = normalizeFrom(u.pathname);
+					}
+				} catch (e) {}
+			}
+		}
+		if (!from) return "";
+		try { localStorage.setItem(FROM_KEY, JSON.stringify({ from: from, at: Date.now() })); } catch (e) {}
+		return from;
+	}
+
+	/** 取已记录的来源：先看本页刚捕获的，再看 localStorage（30 分钟内有效） */
+	function storedFrom() {
+		try {
+			var raw = localStorage.getItem(FROM_KEY);
+			if (!raw) return "";
+			var d = JSON.parse(raw);
+			if (!d || !d.from) return "";
+			if (d.at && Date.now() - d.at > FROM_TTL) { localStorage.removeItem(FROM_KEY); return ""; }
+			return normalizeFrom(d.from);
+		} catch (e) { return ""; }
+	}
+
+	/**
+	 * 把来源写进「来源页面」输入框。只填空值 —— 用户自己改过的、或草稿里存着的，
+	 * 一律不覆盖（否则他填完又被自动值盖掉，等于白填）。
+	 */
+	function applyFrom(value) {
+		var from = normalizeFrom(value) || storedFrom();
+		if (!from || !els.page) return "";
+		if (!els.page.value.trim()) els.page.value = from;
+		var hint = $("fbPageHint");
+		if (hint) hint.textContent = "已自动填入进入反馈页前所在的页面，可改。「/feedback/」表示浏览广场时点的反馈。";
+		return from;
+	}
+
 	/* ---------------- 环境信息 ---------------- */
 
 	function metaLines() {
 		var nav = window.navigator || {};
+		var from = (els.page && els.page.value || "").trim();
 		var screenSize = (window.screen && window.screen.width && window.screen.height)
 			? window.screen.width + "x" + window.screen.height : "?";
 		return [
 			"页面: " + (window.location.href || ""),
+			"来源页面: " + (from || "（未记录）"),
 			"来源: " + (document.referrer || "（直接打开）"),
 			"视口: " + (window.innerWidth || 0) + "x" + (window.innerHeight || 0)
 				+ " @dpr " + (window.devicePixelRatio || 1) + "（屏幕 " + screenSize + "）",
@@ -781,7 +870,10 @@
 		updateTypeHint();
 		if (focusBody !== false) {
 			setTimeout(function () {
-				try { (els.body || {}).focus({ preventScroll: true }); } catch (e) {}
+				// 标题是第一个字段：空着就先落在标题上（写标题的顺序也在前），
+				// 已经有标题（草稿恢复）才落正文
+				var target = (els.title && !els.title.value.trim()) ? els.title : (els.body || null);
+				try { if (target) target.focus({ preventScroll: true }); } catch (e) {}
 			}, 80);
 		}
 	}
@@ -806,13 +898,27 @@
 		els.status.className = "fbStatus" + (kind ? " is" + kind.charAt(0).toUpperCase() + kind.slice(1) : "");
 	}
 
+	/**
+	 * 讨论标题。与函数端 defaultTitle / buildTitle 严格同口径，列表里立刻显示不跳字：
+	 *   · 用户填了标题 → 补上「[类型] 」前缀（已经自己写了 [xxx] 的不重复加）
+	 *   · 没填 → 退回「[类型] 内容首行」（超 60 字截断）
+	 */
+	function buildTitle(payload) {
+		var def = typeDef(payload.type);
+		var typed = String(payload.title || "").trim().slice(0, 120);
+		if (typed) return typed.charAt(0) === "[" ? typed : "[" + def.github + "] " + typed;
+		var line = firstLine(payload.body);
+		if (line.length > 60) line = line.slice(0, 60) + "…";
+		return "[" + def.github + "] " + line;
+	}
+
 	function githubUrl(payload) {
 		var def = typeDef(payload.type);
 		var base = "https://github.com/" + REPO + "/discussions/new";
 		var params = ["category=" + encodeURIComponent(typeMap[payload.type] || def.github)];
-		var title = "[" + def.github + "] " + firstLine(payload.body).slice(0, 60);
-		params.push("title=" + encodeURIComponent(title));
+		params.push("title=" + encodeURIComponent(buildTitle(payload)));
 		var body = payload.body;
+		if (payload.page) body = "**来源页面**：" + payload.page + "\n\n" + body;
 		if (payload.contact) body += "\n\n**联系方式**：" + payload.contact;
 		body += "\n\n<details><summary>环境信息</summary>\n\n```\n" + metaLines() + "\n```\n\n</details>";
 		params.push("body=" + encodeURIComponent(body));
@@ -858,11 +964,12 @@
 		var timer = controller ? setTimeout(function () { controller.abort(); }, SUBMIT_TIMEOUT) : null;
 		var postBody = JSON.stringify({
 			type: p.type,
+			title: p.title,
 			body: p.body,
 			contact: p.contact,
 			hp: (els.hp && els.hp.value || "").trim(),
 			meta: metaLines(),
-			page: window.location.pathname || "/feedback/"
+			page: p.page || window.location.pathname || "/feedback/"
 		});
 		var options = {
 			method: "POST",
@@ -878,8 +985,10 @@
 
 			if (data && data.success) {
 				clearDraft();
+				if (els.title) els.title.value = "";
 				if (els.body) els.body.value = "";
 				if (els.contact) els.contact.value = "";
+				if (els.page) els.page.value = "";
 				setStatus("已提交，谢谢！", "Success");
 				if (data.url) {
 					var a = document.createElement("a");
@@ -894,7 +1003,7 @@
 				if (data.number) {
 					allDiscussions.unshift({
 						number: data.number,
-						title: "[" + typeDef(p.type).github + "] " + firstLine(p.body).slice(0, 60),
+						title: data.title || buildTitle(p),
 						url: data.url,
 						createdAt: new Date().toISOString(),
 						updatedAt: new Date().toISOString(),
@@ -969,8 +1078,10 @@
 			modalClose: $("fbComposeClose"),
 			types: $("fbTypes"),
 			typeHint: $("fbTypeHint"),
+			title: $("fbTitle"),
 			body: $("fbBody"),
 			contact: $("fbContact"),
+			page: $("fbPage"),
 			hp: $("fbHp"),
 			status: $("fbStatus"),
 			submit: $("fbSubmitBtn"),
@@ -1053,7 +1164,13 @@
 		}
 
 		// 新建
-		if (els.newBtn) els.newBtn.addEventListener("click", function () { openModal(true); });
+		if (els.newBtn) {
+			els.newBtn.addEventListener("click", function () {
+				// 在广场上点「新建」：来源页面就是广场本身（浏览器返回也回到这儿）
+				if (els.page && !els.page.value.trim()) els.page.value = "/feedback/";
+				openModal(true);
+			});
+		}
 		if (els.modalClose) els.modalClose.addEventListener("click", closeModal);
 		if (els.overlay) {
 			els.overlay.addEventListener("click", function (e) {
@@ -1070,11 +1187,16 @@
 		}
 
 		// 草稿
+		if (els.title) {
+			els.title.addEventListener("input", saveDraft);
+			els.title.addEventListener("focus", prewarm, { once: true });
+		}
 		if (els.body) {
 			els.body.addEventListener("input", saveDraft);
 			els.body.addEventListener("focus", prewarm, { once: true });
 		}
 		if (els.contact) els.contact.addEventListener("input", saveDraft);
+		if (els.page) els.page.addEventListener("input", saveDraft);
 
 		if (els.submit) els.submit.addEventListener("click", submit);
 		if (els.github) els.github.addEventListener("click", openGithub);
@@ -1088,6 +1210,10 @@
 		// 恢复草稿 + 初始类型
 		restoreDraft();
 		setType(currentType);
+
+		// 来源页面：先就地捕获（?from= / referrer），再补进输入框（只填空值）
+		var captured = captureFrom();
+		applyFrom(captured);
 
 		// 进页即预热（列表请求同时也把分类映射带回来）
 		prewarm();

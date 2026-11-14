@@ -6,13 +6,13 @@
 ## 数据流
 
 ```
-顶栏 <a href="/feedback/?new=1">  （纯图标，与主题键同尺寸）
-  │
+顶栏 <a href="/feedback/?new=1&from=%2F当前页%2F">  （纯图标，与主题键同尺寸）
+  │   href 由 nav.js 就地拼好：把「从哪一页点进来的」写进 ?from=
   ▼
 /feedback/  广场（列表 / 详情 / 新建弹窗）
   │  GET  /api/sb/functions/v1/feedback?action=list    列表
   │  GET  /api/sb/functions/v1/feedback?action=detail  详情 + 回复
-  │  POST /api/sb/functions/v1/feedback                新建 / 回复
+  │  POST /api/sb/functions/v1/feedback                新建（title / body / page）/ 回复
   ▼
 同源中继（Netlify Function，见 docs/supabase-relay-deploy.md）
   │  浏览器只跟自己的域名说话；中继不可用时前端自动回退直连
@@ -20,8 +20,37 @@
 Supabase Edge Function `feedback`
   │
   ├─→ GitHub GraphQL（Discussion 读写）
-  └─→ Supabase REST（feedback_submissions，记「谁提的」）
+  └─→ Supabase REST（feedback_submissions，记「谁提的」+「从哪一页提的」）
 ```
+
+## 标题
+
+讨论必须有标题（GitHub 的 `createDiscussion` 不接受空标题）。两档来源：
+
+| 情形 | 最终标题 |
+| --- | --- |
+| 用户填了标题 | `[Bug] 用户写的标题`（自己已写 `[xxx]` 前缀则不重复加） |
+| 留空 | `[Bug] 正文第一行`（超 60 字截断加 `…`） |
+
+`buildTitle()` 在函数端与前端 `feedback-app.js` 里逐字同口径，所以提交成功后
+列表里立刻插入的那条不会「跳字」。响应里的 `title` 就是最终标题。
+
+## 来源页面（from）
+
+从哪一页点顶栏反馈图标进来，那一页的路径会自动填进「来源页面」：
+
+1. `nav.js` 在**每一页**把 `#siteFeedbackBtn` 的 href 就地改成
+   `/feedback/?new=1&from=<encodeURIComponent(路径)>`。仍是普通链接 ——
+   右键新标签、复制链接、中键打开都照旧可用（不改成 JS 跳转）。
+2. 反馈页读 `?from=`，读不到就退回 `document.referrer`（同源、且不是 `/feedback/` 才认）。
+3. 结果写进 `#fbPage` 输入框（**只填空值**，不覆盖用户改过的内容），并缓存进
+   localStorage 30 分钟 —— 刷新或换标签草稿还在时来源不丢。
+4. 提交时作为 `page` 字段上传：函数写进 `feedback_submissions.page`，
+   **不写进 GitHub 正文**（与用户名同一个口径：公开面不留内部信息）。
+   只有在退回「在 GitHub 中打开」的兜底路径上，才会在正文顶部加一行 `**来源页面**：`。
+
+在广场上点「新建」，来源就是 `/feedback/`。只记路径，`?query` / `#hash` 会被丢掉。
+
 
 > **为什么要有中继**：部分网络按域名拦 `*.supabase.co`（TCP 通、TLS 带正确 SNI
 > 立刻被 RST），浏览器直连只会转圈到超时。把请求改成同源、由服务器去连就绕开了。
@@ -40,7 +69,7 @@ GitHub 的 REST **没有**创建 Discussion 的接口，只有 GraphQL 的 `crea
 | GitHub 上其他人的作者 | 真实 GitHub 账号（别人自己发的） |
 | 站内列表 / 详情 | bot 内容标「站点代发」；真人显示 `@login` |
 | 站内（登录用户） | 自己提过的会标「我提的」 |
-| 数据库 `feedback_submissions` | `discussion_number ↔ user_id ↔ username` |
+| 数据库 `feedback_submissions` | `discussion_number ↔ user_id ↔ username ↔ page` |
 
 **用户名绝不写进 GitHub 正文**。提交时函数用用户自己的 JWT 调
 `/auth/v1/user` 确认是谁，再写一行 `feedback_submissions`。
@@ -182,7 +211,8 @@ Edge Function 现场去 `api.github.com/graphql` 往返。
 ## 自检
 
 ```bash
-# 函数逻辑（51 项，不联网，GitHub/Supabase 都是桩）
+# 函数逻辑（58 项，不联网，GitHub/Supabase 都是桩）：
+#   含「标题优先用用户填的 / 留空退回首行」「来源页面只进站内表、不进 GitHub 正文」
 node .tests/feedback-function.test.js
 
 # 同源中继（23 项，不联网，fetch 打桩）：白名单、方法限制、路径穿越、失败回退信号
@@ -192,7 +222,7 @@ node .tests/sb-relay.test.js
 # 专抓「路径写错 → 404」「预检失败」这类只有真网络才暴露的问题。
 TEST_CDP_PORT=9337 node .tests/feedback-http.test.js
 
-# 广场交互（25 项：图标→自动新建→列表→详情→回复→JWT）
+# 广场交互（28 项：图标→自动新建→标题→来源页→列表→详情→回复→JWT）
 #   先起调试浏览器：
 #   msedge --headless=new --remote-debugging-port=9337 --user-data-dir=%TEMP%\edge-fb about:blank
 TEST_CDP_PORT=9337 node .tests/feedback-page.test.js

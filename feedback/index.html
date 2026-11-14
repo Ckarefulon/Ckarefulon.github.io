@@ -19,9 +19,9 @@
 
 	<link rel="stylesheet" href="/ui/colors_and_type.css">
 	<link rel="stylesheet" href="/nav/nav.css?v=2475">
-	<link rel="stylesheet" href="/feedback/feedback.css?v=2534">
+	<link rel="stylesheet" href="/feedback/feedback.css?v=2548">
 
-	<script src="/nav/nav.js?v=2498" defer></script>
+	<script src="/nav/nav.js?v=2548" defer></script>
 	<script src="/assets/services/core/site-scope.js?v=2255" defer></script>
 
 	<!-- 只有配置（385 字节，纯静态），**不加载** supabase-js（217KB）。
@@ -29,7 +29,7 @@
 	       以前这里连配置都没有，于是整个广场拿不到后端地址。 -->
 	<script src="/supabase/supabase-config.js?v=1877" defer></script>
 
-	<script src="/feedback/feedback-app.js?v=2534" defer></script>
+	<script src="/feedback/feedback-app.js?v=2548" defer></script>
 
 	<title>反馈广场 — Ckarefulon</title>
 </head>
@@ -88,6 +88,13 @@
 			</div>
 
 			<div class="fbField">
+				<label class="fbLabel" for="fbTitle">标题</label>
+				<input class="fbContact fbTitleInput" id="fbTitle" type="text" maxlength="120"
+					placeholder="一句话概括，例如「窄屏下顶栏图标会错位」" autocomplete="off">
+				<div class="fbFieldHint">留空则自动取内容第一行。</div>
+			</div>
+
+			<div class="fbField">
 				<span class="fbLabel">类型</span>
 				<div class="fbTypes" id="fbTypes" role="tablist" aria-label="反馈类型">
 					<button class="fbType" type="button" data-type="bug" role="tab" aria-selected="false">Bug</button>
@@ -109,6 +116,13 @@
 				<label class="fbLabel" for="fbContact">联系方式<span class="fbOptional">选填</span></label>
 				<input class="fbContact" id="fbContact" type="text" maxlength="140"
 					placeholder="邮箱 / GitHub 用户名，方便回访" autocomplete="off">
+			</div>
+
+			<div class="fbField">
+				<label class="fbLabel" for="fbPage">来源页面<span class="fbOptional">自动填写</span></label>
+				<input class="fbContact fbPageInput" id="fbPage" type="text" maxlength="300"
+					placeholder="例如 /Cube/Formula/" autocomplete="off">
+				<div class="fbFieldHint" id="fbPageHint">从顶栏反馈图标进来时会自动填上你所在的那一页。</div>
 			</div>
 
 			<input class="fbHp" id="fbHp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">

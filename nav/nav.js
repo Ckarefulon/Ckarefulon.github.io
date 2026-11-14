@@ -299,8 +299,21 @@
 			}
 		}
 
-		// 顶栏「反馈」是普通链接（<a href="/feedback/">），不需要 JS 绑定：
-		// 独立页可以收藏、可分享，右键「新标签打开」也是正常的浏览器行为。
+		// 顶栏「反馈」仍是普通链接（可收藏、可右键新标签打开），只是 href 在绑定时就地算好：
+		// 把「从哪一页点进来的」写进 ?from=，反馈页会把它自动填进「来源页面」字段。
+		// （不改成 JS 跳转 —— 那样右键、复制链接、中键打开就都失效了。）
+		(function initFeedbackLink() {
+			var link = document.getElementById("siteFeedbackBtn");
+			if (!link) { return; }
+			var path = window.location.pathname || "/";
+			// 目录页可能写成 /index.html，统一收成目录路径（与顶栏面包屑同一口径）
+			path = path.replace(/\/index\.html$/i, "/");
+			// 反馈页自己：来源就是它自己，别把 ?new=1 也带进去
+			var from = /^\/feedback\/?$/.test(path) ? "/feedback/" : path;
+			// 只记路径，不带 query/hash：query 里可能有一次性参数，没必要送进反馈表
+			link.setAttribute("href", "/feedback/?new=1&from=" + encodeURIComponent(from.slice(0, 300)));
+		})();
+
 		// 反馈页自己的表单逻辑在 /feedback/feedback-app.js。
 
 		var loginOverlay = document.getElementById("loginOverlay");

@@ -424,6 +424,24 @@
 	transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+/* 标题 / 来源页面：单行输入，观感与「联系方式」一致 */
+.fbTitleInput,
+.fbPageInput {
+	font-variant-numeric: tabular-nums;
+}
+
+.fbPageInput {
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-sm);
+}
+
+.fbFieldHint {
+	margin-top: 6px;
+	font-size: var(--dsk-text-xs);
+	line-height: 1.5;
+	color: var(--dsk-foreground-subtle);
+}
+
 .fbBody {
 	min-height: 150px;
 	max-height: 46vh;
