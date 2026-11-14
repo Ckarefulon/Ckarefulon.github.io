@@ -497,7 +497,63 @@
 
 	function openGithubForReply(body) {
 		var target = currentDetail && currentDetail.discussion ? currentDetail.discussion.url : ("https://github.com/" + REPO + "/discussions");
-		window.open(target, "_blank", "noopener,noreferrer");
+		openGithubUrl(target);
+	}
+
+	/**
+	 * 统一出口：所有「跳去 GitHub」都走这里。
+	 *
+	 * 交给 githubMirror 选线路（直连 / 镜像择优），它会在全都不通时仍给出直连地址，
+	 * 我们再把「复制链接」作为最后一级台阶 —— 绝不把用户扔到一个空白页上。
+	 */
+	function openGithubUrl(url, statusEl) {
+		var setInfo = function (text, kind) {
+			var el = statusEl || els.routeStatus;
+			if (!el) return;
+			el.textContent = text || "";
+			el.className = "fbRouteStatus" + (kind ? " is" + kind.charAt(0).toUpperCase() + kind.slice(1) : "");
+		};
+
+		var mirror = window.githubMirror;
+		if (!mirror) {
+			// 模块没加载（极端情况）：老路照旧
+			window.open(url, "_blank", "noopener,noreferrer");
+			return;
+		}
+
+		if (statusEl) setInfo("正在选择线路…", "");
+
+		mirror.open(url, {
+			onStatus: function (s) {
+				if (s.phase !== "opened") return;
+				var label = s.route ? s.route.label : "直连";
+				if (s.route && s.route.kind !== "direct") {
+					setInfo("已用「" + label + "」打开" + (s.ms ? "（" + s.ms + "ms）" : "") + "，打不开就换一条线路", "Success");
+				} else {
+					setInfo("已用直连打开" + (s.ms ? "（" + s.ms + "ms）" : ""), "Success");
+				}
+				updateRouteBadge();
+			}
+		}).then(function (res) {
+			if (res && res.opened) return;
+			// 弹窗被拦：不发愁，给出可复制的链接 + 站内提示
+			setInfo("新标签被浏览器拦下了，可以手动复制链接", "Warning");
+			showFallbackLink(res ? res.url : url);
+		});
+	}
+
+	/** 兜底卡片：一条能点的直链 + 一键复制 */
+	function showFallbackLink(url) {
+		if (!els.status) return;
+		var old = els.status.querySelector(".fbOpenLink");
+		if (old) old.parentNode.removeChild(old);
+		var a = document.createElement("a");
+		a.className = "fbOpenLink";
+		a.href = url;
+		a.target = "_blank";
+		a.rel = "noopener noreferrer";
+		a.textContent = " 手动打开 ↗";
+		els.status.appendChild(a);
 	}
 
 	/** 极简 Markdown：够用即可（代码块、行内代码、粗体、链接、换行） */
@@ -626,6 +682,138 @@
 		});
 	}
 
+	/* ---------------- GitHub 线路面板 ---------------- */
+
+	function updateRouteBadge() {
+		if (!els.routeBadge) return;
+		var mirror = window.githubMirror;
+		var pref = mirror ? mirror.getPreference() : "auto";
+		var text = "自动";
+		if (mirror && pref !== "auto") {
+			if (pref === "direct") text = "直连";
+			else {
+				var route = mirror.routes().filter(function (r) { return r.id === pref; })[0];
+				text = route ? route.label : "自动";
+			}
+		}
+		els.routeBadge.textContent = text;
+	}
+
+	function buildRouteSelect() {
+		if (!els.routeSelect) return;
+		var mirror = window.githubMirror;
+		if (!mirror) {
+			els.routeSelect.innerHTML = '<option value="auto">自动</option>';
+			return;
+		}
+		var list = mirror.routes();
+		var html = "";
+		for (var i = 0; i < list.length; i++) {
+			html += '<option value="' + escapeHtml(list[i].id) + '">' + escapeHtml(list[i].label) + "</option>";
+		}
+		els.routeSelect.innerHTML = html;
+		els.routeSelect.value = mirror.getPreference();
+		updateRouteBadge();
+	}
+
+	function setRouteStatus(text, kind) {
+		if (!els.routeStatus) return;
+		els.routeStatus.textContent = text || "";
+		els.routeStatus.className = "fbRouteStatus" + (kind ? " is" + kind.charAt(0).toUpperCase() + kind.slice(1) : "");
+	}
+
+	/** 测速：把每条线路探一遍，按到达时间重排下拉并报出最快的那条 */
+	function testRoutes() {
+		var mirror = window.githubMirror;
+		if (!mirror) { setRouteStatus("线路模块未加载", "Error"); return; }
+		if (els.routeTest) { els.routeTest.disabled = true; els.routeTest.textContent = "测速中…"; }
+		setRouteStatus("正在测各条线路的到达时间…", "");
+
+		mirror.probeAll({ timeout: 4000 }).then(function (res) {
+			if (els.routeTest) { els.routeTest.disabled = false; els.routeTest.textContent = "测速"; }
+			var ok = (res.list || []).filter(function (x) { return x.ok; });
+			if (!ok.length) {
+				setRouteStatus("所有线路都没响应，可以手动复制链接到能上网的设备打开", "Warning");
+				return;
+			}
+			var fastest = ok[0];
+			var label = fastest.route.kind === "direct" ? "直连 github.com" : fastest.route.label;
+			var total = (res.list || []).length;
+			// 措辞要守规矩：这个数字只代表「到达时间」，不代表页面一定能打开
+			setRouteStatus(fastest.ms + "ms 内到达：" + label + "（" + ok.length + "/" + total
+				+ " 条可达）。打不开就换一条试试。", "Success");
+			if (els.routeSelect) {
+				var current = els.routeSelect.value;
+				var seen = {};
+				var html = "";
+				for (var i = 0; i < ok.length; i++) {
+					var id = ok[i].route.kind === "direct" ? "direct" : ok[i].route.id;
+					if (seen[id]) continue;
+					seen[id] = true;
+					var text = (ok[i].route.kind === "direct" ? "直连 github.com" : ok[i].route.label) + " · " + ok[i].ms + "ms";
+					html += '<option value="' + escapeHtml(id) + '">' + escapeHtml(text) + "</option>";
+				}
+				var prefs = mirror.routes();
+				for (var j = 0; j < prefs.length; j++) {
+					if (seen[prefs[j].id]) continue;
+					seen[prefs[j].id] = true;
+					html += '<option value="' + escapeHtml(prefs[j].id) + '">' + escapeHtml(prefs[j].label) + "</option>";
+				}
+				els.routeSelect.innerHTML = html;
+				els.routeSelect.value = current;
+			}
+		}, function () {
+			if (els.routeTest) { els.routeTest.disabled = false; els.routeTest.textContent = "测速"; }
+			setRouteStatus("测速失败，可稍后再试", "Error");
+		});
+	}
+
+	/** 复制当前讨论（或广场）的 GitHub 原始链接 */
+	function copyGithubLink() {
+		var mirror = window.githubMirror;
+		var target = currentDetail && currentDetail.discussion && currentDetail.discussion.url
+			? currentDetail.discussion.url
+			: ("https://github.com/" + REPO + "/discussions");
+		if (!mirror) { setRouteStatus("线路模块未加载", "Error"); return; }
+		mirror.copyText(target).then(function (ok) {
+			setRouteStatus(ok ? "链接已复制，可粘贴到任意浏览器打开" : "复制失败，请手动选中链接", ok ? "Success" : "Warning");
+		});
+	}
+
+	/**
+	 * 「刚才那条打不开，换一条」。
+	 * 机器判断不了镜像站是不是真能打开（跨域看不到状态码），
+	 * 所以把这条反馈权交给用户：说一次坏，就记下来排到最后，并立刻换下一条打开。
+	 */
+	function nextRouteAndOpen() {
+		var mirror = window.githubMirror;
+		if (!mirror) { setRouteStatus("线路模块未加载", "Error"); return; }
+		var target = currentDetail && currentDetail.discussion && currentDetail.discussion.url
+			? currentDetail.discussion.url
+			: ("https://github.com/" + REPO + "/discussions");
+
+		if (els.routeNext) { els.routeNext.disabled = true; els.routeNext.textContent = "正在换线路…"; }
+		setRouteStatus("换一条试试…", "");
+
+		mirror.nextRoute(target).then(function (res) {
+			if (els.routeNext) { els.routeNext.disabled = false; els.routeNext.textContent = "刚才那条打不开，换一条"; }
+			if (!res || !res.url) {
+				setRouteStatus("没有别的线路了，用「复制链接」手动打开吧", "Warning");
+				return;
+			}
+			var label = res.route
+				? (res.route.kind === "direct" ? "直连 github.com" : res.route.label)
+				: "直连";
+			setRouteStatus("已换到「" + label + "」并打开", "Success");
+			updateRouteBadge();
+			if (window.githubMirror) window.githubMirror.openAnchor(res.url);
+		}, function () {
+			if (els.routeNext) { els.routeNext.disabled = false; els.routeNext.textContent = "刚才那条打不开，换一条"; }
+			setRouteStatus("换线路失败，可用「复制链接」手动打开", "Error");
+		});
+	}
+
+
 	/* ---------------- 新建弹窗 ---------------- */
 
 	function openModal(focusBody) {
@@ -682,7 +870,9 @@
 	function openGithub() {
 		var p = payloadDraft();
 		if (p.body.length < 4) { setStatus("请再多写几个字", "Error"); return; }
-		window.open(githubUrl(p), "_blank", "noopener,noreferrer");
+		// 「新建」只能在真 GitHub 上做（镜像站登录不了），所以这条路只走直连；
+		// 直连也不通时，草稿还在本机，用户可换线路或稍后再试。
+		openGithubUrl(githubUrl(p));
 	}
 
 	function submit() {
@@ -827,7 +1017,15 @@
 			hp: $("fbHp"),
 			status: $("fbStatus"),
 			submit: $("fbSubmitBtn"),
-			github: $("fbGithubBtn")
+			github: $("fbGithubBtn"),
+			discussionsLink: $("fbDiscussionsLink"),
+			routeBox: $("fbRouteBox"),
+			routeBadge: $("fbRouteBadge"),
+			routeSelect: $("fbRouteSelect"),
+			routeTest: $("fbRouteTestBtn"),
+			routeCopy: $("fbRouteCopyBtn"),
+			routeNext: $("fbRouteNextBtn"),
+			routeStatus: $("fbRouteStatus")
 		};
 
 		// 列表项：站内打开详情（新标签打开则是真链接，方便分享）
@@ -856,7 +1054,7 @@
 					var target = currentDetail && currentDetail.discussion
 						? currentDetail.discussion.url
 						: ("https://github.com/" + REPO + "/discussions");
-					window.open(target, "_blank", "noopener,noreferrer");
+					openGithubUrl(target, $("fbReplyStatus"));
 				}
 			});
 		}
@@ -920,6 +1118,42 @@
 
 		if (els.submit) els.submit.addEventListener("click", submit);
 		if (els.github) els.github.addEventListener("click", openGithub);
+
+		// —— GitHub 线路面板 ——
+		buildRouteSelect();
+		if (els.routeSelect) {
+			els.routeSelect.addEventListener("change", function () {
+				var mirror = window.githubMirror;
+				if (!mirror) return;
+				mirror.setPreference(els.routeSelect.value);
+				updateRouteBadge();
+				var pref = mirror.getPreference();
+				if (pref === "auto") setRouteStatus("已改为自动：点开时会先挑一条能通的线路", "");
+				else if (pref === "direct") setRouteStatus("已固定为直连 github.com", "");
+				else {
+					var route = mirror.routes().filter(function (r) { return r.id === pref; })[0];
+					setRouteStatus("已固定为「" + (route ? route.label : pref) + "」；镜像站登录不了，只能看。", "");
+				}
+			});
+		}
+		if (els.routeTest) els.routeTest.addEventListener("click", testRoutes);
+		if (els.routeCopy) els.routeCopy.addEventListener("click", copyGithubLink);
+		if (els.routeNext) els.routeNext.addEventListener("click", nextRouteAndOpen);
+
+		// 页头那句「同步到 GitHub Discussions」也走线路，别再直连跳一次
+		if (els.discussionsLink) {
+			els.discussionsLink.addEventListener("click", function (e) {
+				if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;   // 让浏览器自己开新标签
+				if (!window.githubMirror) return;
+				e.preventDefault();
+				openGithubUrl(els.discussionsLink.href);
+			});
+		}
+
+		// 有空闲就先把线路探一遍，第一次点「在 GitHub 打开」时就不用等
+		if (window.githubMirror && window.requestIdleCallback) {
+			window.requestIdleCallback(function () { window.githubMirror.prewarm({ timeout: 3000 }); }, { timeout: 6000 });
+		}
 
 		document.addEventListener("keydown", function (e) {
 			if (!modalOpen) return;

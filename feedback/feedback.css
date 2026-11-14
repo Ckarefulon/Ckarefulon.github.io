@@ -231,6 +231,162 @@
 	color: var(--dsk-foreground-muted);
 }
 
+/* ---------- GitHub 线路面板 ---------- */
+
+.fbRoute {
+	margin-top: 26px;
+	border: 1px solid var(--dsk-card-border);
+	border-radius: var(--dsk-radius-lg);
+	background: var(--dsk-card);
+	box-shadow: var(--dsk-shadow-sm);
+	overflow: hidden;
+}
+
+.fbRouteSummary {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 16px;
+	font-size: var(--dsk-text-sm);
+	font-weight: 500;
+	color: var(--dsk-foreground-muted);
+	cursor: pointer;
+	list-style: none;
+	user-select: none;
+}
+
+.fbRouteSummary::-webkit-details-marker {
+	display: none;
+}
+
+/* 自己画一个箭头，免得各浏览器 marker 位置不一 */
+.fbRouteSummary::before {
+	content: "";
+	flex: none;
+	width: 0;
+	height: 0;
+	border-left: 5px solid currentColor;
+	border-top: 4px solid transparent;
+	border-bottom: 4px solid transparent;
+	transition: transform 0.16s ease;
+}
+
+.fbRoute[open] .fbRouteSummary::before {
+	transform: rotate(90deg);
+}
+
+.fbRouteSummary:hover {
+	color: var(--dsk-foreground);
+}
+
+.fbRouteBadge {
+	margin-left: auto;
+	padding: 1px 9px;
+	border-radius: var(--dsk-radius-full);
+	border: 1px solid var(--dsk-border);
+	background: var(--dsk-muted);
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--dsk-foreground-muted);
+	white-space: nowrap;
+}
+
+.fbRouteBody {
+	padding: 0 16px 16px;
+	border-top: 1px solid var(--dsk-border-subtle);
+}
+
+.fbRouteText {
+	margin: 12px 0 14px;
+	font-size: var(--dsk-text-xs);
+	line-height: 1.6;
+	color: var(--dsk-foreground-muted);
+}
+
+.fbRouteRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.fbRouteRowLast {
+	margin-top: 8px;
+}
+
+.fbRouteBtnWide {
+	flex: 1;
+}
+
+.fbRouteLabel {
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-muted);
+}
+
+.fbRouteSelect {
+	flex: 1 1 180px;
+	min-width: 0;
+	height: 34px;
+	padding: 0 10px;
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-md);
+	background: var(--dsk-input);
+	color: var(--dsk-input-foreground);
+	font-family: inherit;
+	font-size: var(--dsk-text-sm);
+	outline: none;
+	cursor: pointer;
+}
+
+.fbRouteSelect:focus {
+	border-color: var(--dsk-primary);
+	box-shadow: 0 0 0 3px var(--dsk-primary-ring);
+}
+
+.fbRouteBtn {
+	flex: none;
+	height: 34px;
+	padding: 0 14px;
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-md);
+	background: transparent;
+	color: var(--dsk-foreground-muted);
+	font-family: inherit;
+	font-size: var(--dsk-text-sm);
+	cursor: pointer;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.fbRouteBtn:hover {
+	background: var(--dsk-muted);
+	color: var(--dsk-foreground);
+}
+
+.fbRouteBtn:disabled {
+	opacity: 0.55;
+	cursor: progress;
+}
+
+.fbRouteStatus {
+	margin-top: 10px;
+	min-height: 16px;
+	font-size: var(--dsk-text-xs);
+	line-height: 1.6;
+	color: var(--dsk-foreground-subtle);
+}
+
+.fbRouteStatus.isSuccess {
+	color: var(--dsk-success);
+}
+
+.fbRouteStatus.isWarning {
+	color: var(--dsk-warning);
+}
+
+.fbRouteStatus.isError {
+	color: var(--dsk-danger);
+}
+
 /* ---------- 空态 ---------- */
 
 .fbEmpty {
@@ -826,5 +982,14 @@
 	}
 	.fbItemBadge {
 		display: none;
+	}
+	.fbRouteRow {
+		gap: 6px;
+	}
+	.fbRouteSelect {
+		flex: 1 1 100%;
+	}
+	.fbRouteBtn {
+		flex: 1;
 	}
 }
