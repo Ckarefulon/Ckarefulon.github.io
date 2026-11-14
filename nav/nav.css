@@ -166,19 +166,40 @@
 	background: var(--nvc-ctl-hover);
 }
 
-/* 主题键：安静样式（无边框、无底色），照 Cube/Formula 的顶栏
-   —— 它现在归 nav.css 统一管，别的页面不再各自写一遍 */
+/* ========== 顶栏图标按钮（反馈等） ==========
+   与主题切换键同一套观感：安静样式（无边框、无底色），
+   让右侧只有「登录 / 捐赠」两个有框按钮是视觉重点。
+   <a> 也要能正常显示（默认有下划线、非 inline-flex），这里一并兜住。 */
+.siteHeaderBtnIcon,
 .siteHeaderBtnTheme {
 	width: 30px;
 	padding: 0;
-	font-size: 15px;
-	line-height: 1;
 	border-color: transparent;
 	background: transparent;
 	box-shadow: none;
+	text-decoration: none;
+	line-height: 1;
 }
 
-.siteHeaderBtnTheme:hover {
+.siteHeaderBtnIcon {
+	font-size: 15px;
+	color: var(--nvc-ctl-text);
+}
+
+.siteHeaderBtnIcon:hover {
+	background: var(--nvc-ctl-hover);
+	color: var(--dsk-primary, var(--accent, currentColor));
+}
+
+.siteHeaderBtnIcon:focus-visible,
+.siteHeaderBtnTheme:focus-visible {
+	outline: 2px solid var(--dsk-ring, var(--nvc-primary));
+	outline-offset: 2px;
+}
+
+/* 当前就在反馈页时，图标保持高亮 */
+.siteHeaderBtnIcon[aria-current="page"] {
+	color: var(--dsk-primary, var(--accent, currentColor));
 	background: var(--nvc-ctl-hover);
 }
 

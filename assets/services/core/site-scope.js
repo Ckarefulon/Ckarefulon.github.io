@@ -42,6 +42,7 @@
 		"music/chord/diatonic": { scope: "Music-Chord",    path: "/Music/Chord/Diatonic" },
 		"jump/onedrive":        { scope: "Jump-OneDrive",  path: "/Jump/OneDrive" },
 		"linkage":              { scope: "linkage",        path: "/linkage" },
+		"feedback":             { scope: "feedback",       path: "/feedback" },
 		"user/profile":         { scope: "user-profile",   path: "/user/profile" }
 	};
 

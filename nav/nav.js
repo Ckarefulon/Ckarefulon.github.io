@@ -57,9 +57,9 @@
 		"tools/kgenesis": "Tools/KGenesis",
 		"tools/pulse": "Tools/Pulse",
 		"tools/relay": "Tools/Relay",
-		"jump/onedrive": "jump/OneDrive"
+		"jump/onedrive": "jump/OneDrive",
+		"feedback": "feedback"
 	};
-
 	/** 切出路径中的目录段：丢掉空段与 index.html，遇到带扩展名的文件段即停 */
 	function pathSegments(pathname) {
 		var raw = String(pathname || "").replace(/\/+$/, "").split("/");
@@ -105,6 +105,9 @@
 		'	</div>',
 		'	<div class="siteHeaderRight">',
 		'		<button id="siteThemeToggle" class="siteHeaderBtn siteHeaderBtnTheme" type="button" title="切换主题">☀</button>',
+		'		<a id="siteFeedbackBtn" class="siteHeaderBtn siteHeaderBtnIcon" href="/feedback/?new=1" title="反馈" aria-label="反馈">',
+		'			<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.9 9.9 0 0 1-2.9-.4L3 21l1.5-4.2A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="13.5" x2="13" y2="13.5"/></svg>',
+		'		</a>',
 		'		<div class="donateEntry" id="donateEntry">',
 		'			<button id="siteDonateBtn" class="siteHeaderBtn siteDonateBtn" type="button" title="捐赠">',
 		'				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
@@ -289,6 +292,10 @@
 				});
 			}
 		}
+
+		// 顶栏「反馈」是普通链接（<a href="/feedback/">），不需要 JS 绑定：
+		// 独立页可以收藏、可分享，右键「新标签打开」也是正常的浏览器行为。
+		// 反馈页自己的表单逻辑在 /feedback/feedback-app.js。
 
 		var loginOverlay = document.getElementById("loginOverlay");
 		var loginAccount = document.getElementById("loginAccount");

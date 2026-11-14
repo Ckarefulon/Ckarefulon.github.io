@@ -34,5 +34,36 @@ jobs:
       - name: Push database migrations
         run: supabase db push
 
+      - name: Push feedback function secrets
+        # 只要配了 PAT 或 GitHub App 任一种身份就下发；都没有时函数照常部署，
+        # 前端会收到 configure:true 并引导用户改用「在 GitHub 中打开」。
+        #
+        # ⚠️ 这里的名字都不带 GITHUB_ 前缀 —— 那是 GitHub 保留前缀，
+        #    Secret / Variable 一律起不了这种名。
+        if: ${{ secrets.DISCUSSIONS_TOKEN != '' || secrets.APP_ID != '' }}
+        env:
+          DISCUSSIONS_TOKEN: ${{ secrets.DISCUSSIONS_TOKEN }}
+          FEEDBACK_REPO: ${{ vars.FEEDBACK_REPO }}
+          DISCUSSIONS_CATEGORIES: ${{ vars.DISCUSSIONS_CATEGORIES }}
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+          APP_INSTALLATION_ID: ${{ vars.APP_INSTALLATION_ID }}
+        run: |
+          set -euo pipefail
+          # 逐个下发：GitHub Actions 里未设置的 secret 会展开成空串，
+          # 直接传空值会把已有的值覆盖掉，所以只传非空的。
+          while IFS='=' read -r key value; do
+            if [ -n "$key" ] && [ -n "$value" ]; then
+              supabase secrets set "$key=$value"
+            fi
+          done <<EOF
+          DISCUSSIONS_TOKEN=$DISCUSSIONS_TOKEN
+          FEEDBACK_REPO=$FEEDBACK_REPO
+          DISCUSSIONS_CATEGORIES=$DISCUSSIONS_CATEGORIES
+          APP_ID=$APP_ID
+          APP_PRIVATE_KEY=$APP_PRIVATE_KEY
+          APP_INSTALLATION_ID=$APP_INSTALLATION_ID
+          EOF
+
       - name: Deploy Edge Functions
-        run: supabase functions deploy pulse-upsert-target pulse-run-now pulse-scheduler pulse-delete-target pulse-get-services
+        run: supabase functions deploy pulse-upsert-target pulse-run-now pulse-scheduler pulse-delete-target pulse-get-services feedback-submit

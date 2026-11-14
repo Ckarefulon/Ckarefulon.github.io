@@ -750,4 +750,13 @@ if (window.siteNav && typeof window.siteNav.init === 'function') {
 }
 initCloud();
 setInterval(tick, 500);
+
+/* ================= 交给 SyncCore 接入层（focus-sync.js） =================
+ * 这里只暴露「内存真相源」和「重绘入口」，不再承担云同步职责：
+ * 以前本文件的 pushFocus/pullFocus 直接 upsert 整份数据，是跨设备互相覆盖的源头。
+ * focus-sync.js 会用 SyncCore 的 CAS + 并集合并取代它们。 */
+window.__focusData = data;
+window.__focusRerender = function(){
+  try{ syncActionButtons(); renderAll(); }catch(e){}
+};
 })();

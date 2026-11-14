@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<link rel="icon" href="/favicon.svg?v=1877" type="image/svg+xml">
+
+	<meta name="description" content="Ckarefulon 的反馈广场：看看别人提了什么，也可以新建一条。">
+
+	<link rel="stylesheet" href="/ui/colors_and_type.css">
+	<link rel="stylesheet" href="/nav/nav.css?v=2472">
+	<link rel="stylesheet" href="/feedback/feedback.css?v=2472">
+
+	<script src="/nav/nav.js?v=2472" defer></script>
+	<script src="/assets/services/core/site-scope.js?v=2255" defer></script>
+
+	<script src="/supabase/supabase-config.js?v=1877" defer></script>
+	<script src="/feedback/feedback-app.js?v=2472" defer></script>
+
+	<title>反馈广场 — Ckarefulon</title>
+</head>
+<body>
+	<main class="fbPage">
+		<!-- ========== 广场（列表视图） ========== -->
+		<div id="fbPageMain">
+			<header class="fbHeader">
+				<div class="fbHeaderText">
+					<h1 class="fbTitle">反馈广场</h1>
+					<p class="fbLead">
+						别人提过的问题与想法都在这里。翻一翻再决定要不要新建，
+						提交的内容会同步到
+						<a href="https://github.com/Ckarefulon/Ckarefulon.github.io/discussions" target="_blank" rel="noopener noreferrer">GitHub Discussions</a>。
+					</p>
+				</div>
+				<button class="fbNewBtn" id="fbNewBtn" type="button">
+					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+					<span>新建</span>
+				</button>
+			</header>
+
+			<div class="fbFilters" id="fbFilters" role="tablist" aria-label="按类型筛选">
+				<button class="fbFilter isActive" type="button" data-filter="all" role="tab" aria-selected="true">全部</button>
+				<button class="fbFilter" type="button" data-filter="bug" role="tab" aria-selected="false">Bug</button>
+				<button class="fbFilter" type="button" data-filter="feature" role="tab" aria-selected="false">Feature</button>
+				<button class="fbFilter" type="button" data-filter="question" role="tab" aria-selected="false">Question</button>
+				<button class="fbFilter" type="button" data-filter="chat" role="tab" aria-selected="false">Chat</button>
+				<button class="fbFilter" type="button" data-filter="others" role="tab" aria-selected="false">Others</button>
+			</div>
+
+			<div class="fbListStatus" id="fbListStatus">正在加载…</div>
+			<div class="fbList" id="fbList"></div>
+
+			<div class="fbLoadMoreWrap">
+				<button class="fbLoadMore" id="fbLoadMore" type="button" hidden>加载更多</button>
+			</div>
+		</div>
+
+		<!-- ========== 详情视图 ========== -->
+		<div id="fbPageDetail" hidden>
+			<button class="fbBackBtn" id="fbBackBtn" type="button">
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+				<span>返回广场</span>
+			</button>
+			<div id="fbDetailBody"></div>
+		</div>
+	</main>
+
+	<!-- ========== 新建弹窗 ========== -->
+	<div class="fbOverlay" id="fbOverlay" role="dialog" aria-modal="true" aria-labelledby="fbComposeTitle">
+		<div class="fbModal">
+			<div class="fbModalHead">
+				<span class="fbModalTitle" id="fbComposeTitle">新建反馈</span>
+				<button class="fbModalClose" id="fbComposeClose" type="button" title="关闭" aria-label="关闭">&times;</button>
+			</div>
+
+			<div class="fbField">
+				<span class="fbLabel">类型</span>
+				<div class="fbTypes" id="fbTypes" role="tablist" aria-label="反馈类型">
+					<button class="fbType" type="button" data-type="bug" role="tab" aria-selected="false">Bug</button>
+					<button class="fbType" type="button" data-type="feature" role="tab" aria-selected="false">Feature</button>
+					<button class="fbType" type="button" data-type="question" role="tab" aria-selected="false">Question</button>
+					<button class="fbType" type="button" data-type="chat" role="tab" aria-selected="false">Chat</button>
+					<button class="fbType isActive" type="button" data-type="others" role="tab" aria-selected="true">Others</button>
+				</div>
+				<div class="fbTypeHint" id="fbTypeHint"></div>
+			</div>
+
+			<div class="fbField">
+				<label class="fbLabel" for="fbBody">内容</label>
+				<textarea class="fbBody" id="fbBody" rows="7" maxlength="8000"
+					placeholder="想说什么都可以。如果是 Bug，尽量写下你在哪一页、点了什么、看到了什么。"></textarea>
+			</div>
+
+			<div class="fbField">
+				<label class="fbLabel" for="fbContact">联系方式<span class="fbOptional">选填</span></label>
+				<input class="fbContact" id="fbContact" type="text" maxlength="140"
+					placeholder="邮箱 / GitHub 用户名，方便回访" autocomplete="off">
+			</div>
+
+			<input class="fbHp" id="fbHp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+			<div class="fbStatus" id="fbStatus"></div>
+
+			<div class="fbModalActions">
+				<button class="siteHeaderBtn" id="fbGithubBtn" type="button">在 GitHub 中打开</button>
+				<button class="siteHeaderBtn loginBtnPrimary fbSubmit" id="fbSubmitBtn" type="button">提交</button>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		/* nav.js 只注册 window.siteNav，顶栏要由页面自己 init（与全站其它页一致） */
+		(function () {
+			function applyTheme(theme) {
+				theme = theme === "dark" ? "dark" : "light";
+				document.documentElement.dataset.theme = theme;
+				var btn = document.getElementById("siteThemeToggle");
+				if (btn) { btn.textContent = theme === "dark" ? "\u2600" : "\u263E"; }
+				try { localStorage.setItem("smartCubeTheme", theme); } catch (e) {}
+			}
+			function boot() {
+				if (window.siteNav && typeof window.siteNav.init === "function") {
+					window.siteNav.init({ setTheme: applyTheme });
+				}
+			}
+			if (document.readyState === "loading") {
+				document.addEventListener("DOMContentLoaded", boot);
+			} else {
+				boot();
+			}
+		})();
+	</script>
+</body>
+</html>

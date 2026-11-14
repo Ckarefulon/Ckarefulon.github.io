@@ -1,0 +1,830 @@
+/*
+ * 反馈广场 /feedback/ 样式
+ *
+ * 颜色一律走 dsk-* 设计令牌（/ui/colors_and_type.css），随 data-theme 切换。
+ * 顶栏图标按钮的样式在 nav.css（与主题切换键同一套）。
+ */
+
+.fbPage {
+	max-width: 780px;
+	margin: 0 auto;
+	padding: 36px 24px 88px;
+	box-sizing: border-box;
+}
+
+/* ---------- 页头 ---------- */
+
+.fbHeader {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 20px;
+}
+
+.fbHeaderText {
+	min-width: 0;
+}
+
+.fbTitle {
+	margin: 0;
+	font-size: var(--dsk-text-3xl);
+	font-weight: 650;
+	line-height: var(--dsk-leading-tight);
+	letter-spacing: -0.02em;
+	color: var(--dsk-foreground);
+}
+
+.fbLead {
+	margin: 8px 0 0;
+	font-size: var(--dsk-text-sm);
+	line-height: var(--dsk-leading-relaxed);
+	color: var(--dsk-foreground-muted);
+}
+
+.fbLead a {
+	color: var(--dsk-primary);
+	text-decoration: none;
+	border-bottom: 1px solid color-mix(in srgb, var(--dsk-primary) 40%, transparent);
+}
+
+.fbLead a:hover {
+	border-bottom-color: var(--dsk-primary);
+}
+
+.fbNewBtn {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 34px;
+	padding: 0 16px;
+	border: 1px solid var(--dsk-primary);
+	border-radius: var(--dsk-radius-md);
+	background: var(--dsk-primary);
+	color: var(--dsk-primary-foreground);
+	font-family: inherit;
+	font-size: var(--dsk-text-sm);
+	font-weight: 500;
+	cursor: pointer;
+	transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.fbNewBtn:hover {
+	background: var(--dsk-primary-hover);
+	border-color: var(--dsk-primary-hover);
+}
+
+.fbNewBtn:active {
+	transform: translateY(1px);
+}
+
+/* ---------- 筛选条 ---------- */
+
+.fbFilters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 22px 0 4px;
+}
+
+.fbFilter {
+	padding: 5px 13px;
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-full);
+	background: transparent;
+	color: var(--dsk-foreground-muted);
+	font-family: inherit;
+	font-size: var(--dsk-text-xs);
+	font-weight: 500;
+	cursor: pointer;
+	transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.fbFilter:hover {
+	color: var(--dsk-foreground);
+	border-color: var(--dsk-foreground-subtle);
+}
+
+.fbFilter.isActive {
+	background: var(--dsk-primary);
+	border-color: var(--dsk-primary);
+	color: var(--dsk-primary-foreground);
+}
+
+/* ---------- 列表 ---------- */
+
+.fbListStatus {
+	margin: 14px 0 0;
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+	min-height: 16px;
+}
+
+.fbListStatus.isError {
+	color: var(--dsk-danger);
+}
+
+.fbListStatus.isWarning {
+	color: var(--dsk-warning);
+}
+
+.fbList {
+	margin-top: 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.fbItem {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	padding: 14px 16px;
+	border: 1px solid var(--dsk-card-border);
+	border-radius: var(--dsk-radius-lg);
+	background: var(--dsk-card);
+	color: inherit;
+	text-decoration: none;
+	box-shadow: var(--dsk-shadow-sm);
+	transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.fbItem:hover {
+	transform: translateY(-1px);
+	border-color: color-mix(in srgb, var(--dsk-primary) 40%, var(--dsk-card-border));
+	box-shadow: var(--dsk-shadow-md);
+}
+
+.fbItemMain {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.fbItemTitle {
+	font-size: var(--dsk-text-base);
+	font-weight: 550;
+	line-height: 1.45;
+	color: var(--dsk-foreground);
+	word-break: break-word;
+}
+
+.fbItemExcerpt {
+	font-size: var(--dsk-text-sm);
+	line-height: 1.6;
+	color: var(--dsk-foreground-muted);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	word-break: break-word;
+}
+
+.fbItemMeta {
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+	font-family: var(--dsk-font-mono);
+}
+
+/* 分类徽标：五个类型各一色（都用令牌，深浅色都能看清） */
+.fbItemBadge {
+	flex: none;
+	margin-top: 2px;
+	padding: 3px 9px;
+	border-radius: var(--dsk-radius-full);
+	border: 1px solid transparent;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+}
+
+.fbBadge-bug {
+	background: color-mix(in srgb, var(--dsk-danger) 16%, transparent);
+	border-color: color-mix(in srgb, var(--dsk-danger) 38%, transparent);
+	color: var(--dsk-danger);
+}
+
+.fbBadge-feature {
+	background: color-mix(in srgb, var(--dsk-primary) 16%, transparent);
+	border-color: color-mix(in srgb, var(--dsk-primary) 38%, transparent);
+	color: var(--dsk-primary);
+}
+
+.fbBadge-question {
+	background: color-mix(in srgb, var(--dsk-info) 16%, transparent);
+	border-color: color-mix(in srgb, var(--dsk-info) 38%, transparent);
+	color: var(--dsk-info);
+}
+
+.fbBadge-chat {
+	background: color-mix(in srgb, var(--dsk-accent) 16%, transparent);
+	border-color: color-mix(in srgb, var(--dsk-accent) 38%, transparent);
+	color: var(--dsk-accent);
+}
+
+.fbBadge-others {
+	background: color-mix(in srgb, var(--dsk-foreground-muted) 14%, transparent);
+	border-color: color-mix(in srgb, var(--dsk-foreground-muted) 32%, transparent);
+	color: var(--dsk-foreground-muted);
+}
+
+/* ---------- 空态 ---------- */
+
+.fbEmpty {
+	padding: 44px 24px;
+	border: 1px dashed var(--dsk-border);
+	border-radius: var(--dsk-radius-lg);
+	background: var(--dsk-muted);
+	text-align: center;
+}
+
+.fbEmptyTitle {
+	font-size: var(--dsk-text-base);
+	font-weight: 550;
+	color: var(--dsk-foreground);
+}
+
+.fbEmptyText {
+	margin-top: 6px;
+	font-size: var(--dsk-text-sm);
+	color: var(--dsk-foreground-muted);
+}
+
+/* ---------- 加载更多 ---------- */
+
+.fbLoadMoreWrap {
+	margin-top: 16px;
+	text-align: center;
+}
+
+.fbLoadMore {
+	padding: 8px 20px;
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-md);
+	background: var(--dsk-card);
+	color: var(--dsk-foreground-muted);
+	font-family: inherit;
+	font-size: var(--dsk-text-sm);
+	cursor: pointer;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.fbLoadMore:hover {
+	background: var(--dsk-muted);
+	color: var(--dsk-foreground);
+}
+
+.fbLoadMore:disabled {
+	opacity: 0.55;
+	cursor: progress;
+}
+
+/* ==========================================================================
+   新建弹窗
+   ========================================================================== */
+
+.fbOverlay {
+	position: fixed;
+	inset: 0;
+	z-index: 2000;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
+	background: rgba(0, 0, 0, 0.45);
+}
+
+.fbOverlay.isVisible {
+	display: flex;
+}
+
+.fbModal {
+	width: 520px;
+	max-width: 100%;
+	max-height: calc(100vh - 40px);
+	overflow-y: auto;
+	box-sizing: border-box;
+	padding: 22px 24px 20px;
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-lg);
+	background: var(--dsk-card);
+	box-shadow: var(--dsk-shadow-lg);
+}
+
+.fbModalHead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 16px;
+}
+
+.fbModalTitle {
+	font-size: var(--dsk-text-lg);
+	font-weight: 600;
+	color: var(--dsk-foreground);
+}
+
+.fbModalClose {
+	width: 28px;
+	height: 28px;
+	border: none;
+	border-radius: 6px;
+	background: none;
+	color: var(--dsk-foreground-muted);
+	font-size: 20px;
+	line-height: 1;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.fbModalClose:hover {
+	background: var(--dsk-muted);
+}
+
+.fbField {
+	margin-bottom: 16px;
+}
+
+.fbLabel {
+	display: block;
+	margin-bottom: 7px;
+	font-size: var(--dsk-text-sm);
+	font-weight: 500;
+	color: var(--dsk-foreground-muted);
+}
+
+.fbOptional {
+	margin-left: 6px;
+	font-weight: 400;
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+}
+
+/* ---------- 类型胶囊 ---------- */
+
+.fbTypes {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding: 3px;
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-md);
+	background: var(--dsk-input);
+}
+
+.fbType {
+	padding: 6px 14px;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--dsk-foreground-muted);
+	font-family: inherit;
+	font-size: var(--dsk-text-sm);
+	font-weight: 500;
+	cursor: pointer;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.fbType:hover {
+	color: var(--dsk-foreground);
+}
+
+.fbType.isActive {
+	background: var(--dsk-primary);
+	color: var(--dsk-primary-foreground);
+}
+
+.fbTypeHint {
+	margin-top: 7px;
+	font-size: var(--dsk-text-xs);
+	line-height: 1.5;
+	color: var(--dsk-foreground-subtle);
+}
+
+/* ---------- 控件 ---------- */
+
+.fbBody,
+.fbContact {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 10px 12px;
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-md);
+	background: var(--dsk-input);
+	color: var(--dsk-input-foreground);
+	font-family: var(--dsk-font-sans);
+	font-size: var(--dsk-text-base);
+	line-height: var(--dsk-leading-relaxed);
+	outline: none;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fbBody {
+	min-height: 150px;
+	max-height: 46vh;
+	resize: vertical;
+}
+
+.fbContact {
+	height: 38px;
+}
+
+.fbBody:focus,
+.fbContact:focus {
+	border-color: var(--dsk-primary);
+	box-shadow: 0 0 0 3px var(--dsk-primary-ring);
+}
+
+.fbBody::placeholder,
+.fbContact::placeholder {
+	color: var(--dsk-foreground-subtle);
+}
+
+/* 蜜罐：屏幕外，真人看不见也摸不到 */
+.fbHp {
+	position: absolute;
+	left: -9999px;
+	width: 1px;
+	height: 1px;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.fbStatus {
+	margin-bottom: 12px;
+	min-height: 20px;
+	font-size: var(--dsk-text-sm);
+	line-height: 1.6;
+	color: var(--dsk-foreground-muted);
+}
+
+.fbStatus.isError {
+	color: var(--dsk-danger);
+}
+
+.fbStatus.isSuccess {
+	color: var(--dsk-success);
+}
+
+.fbStatus.isWarning {
+	color: var(--dsk-warning);
+}
+
+.fbOpenLink {
+	color: inherit;
+	text-decoration: underline;
+	text-decoration-style: dotted;
+	text-underline-offset: 3px;
+}
+
+.fbOpenLink:hover {
+	color: var(--dsk-primary);
+}
+
+.fbModalActions {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+}
+
+.fbModalActions .siteHeaderBtn {
+	height: 36px;
+	font-size: var(--dsk-text-sm);
+}
+
+.fbModalActions .fbSubmit {
+	min-width: 96px;
+}
+
+.fbModalActions .fbSubmit:disabled {
+	opacity: 0.6;
+	cursor: progress;
+}
+
+/* ==========================================================================
+   详情视图
+   ========================================================================== */
+
+.fbBackBtn {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin-bottom: 18px;
+	padding: 6px 12px 6px 8px;
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-md);
+	background: transparent;
+	color: var(--dsk-foreground-muted);
+	font-family: inherit;
+	font-size: var(--dsk-text-sm);
+	cursor: pointer;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.fbBackBtn:hover {
+	background: var(--dsk-muted);
+	color: var(--dsk-foreground);
+}
+
+.fbDetailLoading,
+.fbDetailError {
+	padding: 40px 0;
+	text-align: center;
+	font-size: var(--dsk-text-sm);
+	color: var(--dsk-foreground-muted);
+}
+
+.fbDetailError {
+	color: var(--dsk-danger);
+}
+
+/* ---------- 主帖 ---------- */
+
+.fbPost {
+	padding: 20px 22px;
+	border: 1px solid var(--dsk-card-border);
+	border-radius: var(--dsk-radius-lg);
+	background: var(--dsk-card);
+	box-shadow: var(--dsk-shadow-sm);
+}
+
+.fbPostHead {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+	margin-bottom: 10px;
+}
+
+.fbPostMeta {
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+	font-family: var(--dsk-font-mono);
+}
+
+.fbPostTitle {
+	margin: 0 0 12px;
+	font-size: var(--dsk-text-xl);
+	font-weight: 650;
+	line-height: var(--dsk-leading-tight);
+	letter-spacing: -0.01em;
+	color: var(--dsk-foreground);
+	word-break: break-word;
+}
+
+.fbPostBody,
+.fbCommentBody {
+	font-size: var(--dsk-text-sm);
+	line-height: var(--dsk-leading-relaxed);
+	color: var(--dsk-foreground);
+	word-break: break-word;
+}
+
+.fbPostBody p,
+.fbCommentBody p {
+	margin: 0 0 10px;
+}
+
+.fbPostBody p:last-child,
+.fbCommentBody p:last-child {
+	margin-bottom: 0;
+}
+
+.fbPostBody a,
+.fbCommentBody a {
+	color: var(--dsk-primary);
+	text-decoration: none;
+	border-bottom: 1px solid color-mix(in srgb, var(--dsk-primary) 40%, transparent);
+}
+
+.fbPostBody a:hover,
+.fbCommentBody a:hover {
+	border-bottom-color: var(--dsk-primary);
+}
+
+.fbCode {
+	margin: 10px 0;
+	padding: 12px 14px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-border);
+	background: var(--dsk-muted);
+	overflow-x: auto;
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-xs);
+	line-height: 1.6;
+	color: var(--dsk-foreground);
+}
+
+.fbInlineCode {
+	padding: 1px 5px;
+	border-radius: 4px;
+	background: var(--dsk-muted);
+	font-family: var(--dsk-font-mono);
+	font-size: 0.92em;
+}
+
+/* ---------- 回复列表 ---------- */
+
+.fbCommentsTitle {
+	margin: 26px 0 12px;
+	font-size: var(--dsk-text-base);
+	font-weight: 600;
+	color: var(--dsk-foreground);
+}
+
+.fbCommentsCount {
+	margin-left: 4px;
+	padding: 1px 8px;
+	border-radius: var(--dsk-radius-full);
+	background: var(--dsk-muted);
+	font-size: var(--dsk-text-xs);
+	font-weight: 500;
+	color: var(--dsk-foreground-muted);
+}
+
+.fbComments {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.fbComment {
+	padding: 14px 16px;
+	border: 1px solid var(--dsk-card-border);
+	border-radius: var(--dsk-radius-lg);
+	background: var(--dsk-card);
+}
+
+.fbCommentHead {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+	flex-wrap: wrap;
+}
+
+.fbCommentAuthor {
+	font-size: var(--dsk-text-sm);
+	font-weight: 550;
+	color: var(--dsk-foreground);
+}
+
+.fbCommentDate {
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+	font-family: var(--dsk-font-mono);
+}
+
+.fbAnswerTag {
+	padding: 1px 7px;
+	border-radius: var(--dsk-radius-full);
+	background: color-mix(in srgb, var(--dsk-success) 18%, transparent);
+	color: var(--dsk-success);
+	font-size: 11px;
+	font-weight: 600;
+}
+
+/* bot 代发：明确标出来，不伪装成真人发言 */
+.fbAuthorBot {
+	padding: 1px 7px;
+	border-radius: var(--dsk-radius-full);
+	border: 1px solid color-mix(in srgb, var(--dsk-foreground-muted) 34%, transparent);
+	background: color-mix(in srgb, var(--dsk-foreground-muted) 12%, transparent);
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--dsk-foreground-muted);
+}
+
+.fbAuthorNote {
+	margin-left: 4px;
+	font-size: 11px;
+	font-weight: 400;
+	color: var(--dsk-foreground-subtle);
+}
+
+/* 「我提的」：只有本站登录用户看得到自己的记录 */
+.fbMineTag {
+	margin-left: 6px;
+	padding: 1px 7px;
+	border-radius: var(--dsk-radius-full);
+	background: color-mix(in srgb, var(--dsk-primary) 16%, transparent);
+	color: var(--dsk-primary);
+	font-size: 11px;
+	font-weight: 600;
+}
+
+.fbReplies {
+	margin-top: 10px;
+	padding-left: 14px;
+	border-left: 2px solid var(--dsk-border);
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.fbReply {
+	font-size: var(--dsk-text-sm);
+}
+
+.fbNoComments {
+	padding: 22px;
+	border: 1px dashed var(--dsk-border);
+	border-radius: var(--dsk-radius-lg);
+	text-align: center;
+	font-size: var(--dsk-text-sm);
+	color: var(--dsk-foreground-subtle);
+}
+
+/* ---------- 回复表单 ---------- */
+
+.fbReplyForm {
+	margin-top: 22px;
+	padding-top: 20px;
+	border-top: 1px solid var(--dsk-border-subtle);
+}
+
+.fbReplyBody {
+	min-height: 96px;
+}
+
+.fbReplyFoot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	flex-wrap: wrap;
+	margin-top: 10px;
+}
+
+.fbReplyHint {
+	font-size: var(--dsk-text-xs);
+	line-height: 1.5;
+	color: var(--dsk-foreground-subtle);
+}
+
+.fbReplyBtns {
+	display: flex;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.fbReplyBtns .siteHeaderBtn {
+	height: 34px;
+	font-size: var(--dsk-text-sm);
+}
+
+.fbReplyBtns .fbSubmit:disabled {
+	opacity: 0.6;
+	cursor: progress;
+}
+
+@media (max-width: 560px) {
+	.fbReplyBtns {
+		width: 100%;
+	}
+	.fbReplyBtns .siteHeaderBtn {
+		flex: 1;
+	}
+	.fbPost {
+		padding: 16px;
+	}
+	.fbPostTitle {
+		font-size: var(--dsk-text-lg);
+	}
+}
+
+/* ---------- 窄屏 ---------- */
+
+@media (max-width: 560px) {
+	.fbPage {
+		padding: 24px 16px 64px;
+	}
+	.fbTitle {
+		font-size: var(--dsk-text-2xl);
+	}
+	.fbHeader {
+		flex-direction: column;
+		gap: 14px;
+	}
+	.fbNewBtn {
+		width: 100%;
+		justify-content: center;
+	}
+	.fbModal {
+		padding: 18px;
+	}
+	.fbModalActions {
+		flex-direction: column-reverse;
+	}
+	.fbModalActions .siteHeaderBtn {
+		width: 100%;
+	}
+	.fbItemBadge {
+		display: none;
+	}
+}
