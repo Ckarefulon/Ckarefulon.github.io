@@ -28,15 +28,22 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+        # v3：数据库命令默认打本地栈，改动托管项目需要显式 --remote / --yes。
+        # 下面每一条命令都按 v3 口径写死了目标与确认，不依赖交互终端。
+        uses: supabase/setup-cli@v3
         with:
           version: latest
+
+      - name: Show CLI version
+        # 出问题时第一时间能看到实际用的 CLI 版本（v3 的命令口径与 v2 不同）
+        run: supabase --version
 
       - name: Link Supabase project
         run: supabase link --project-ref $SUPABASE_PROJECT_ID
 
       - name: Push database migrations
-        run: supabase db push
+        # v3 必带 --remote（否则打本地栈）与 --yes（CI 无法交互确认）
+        run: supabase db push --remote --yes
 
       - name: Push feedback function secrets
         # 只要配了 PAT 或 GitHub App 任一种身份就下发；都没有时函数照常部署，
@@ -55,9 +62,10 @@ jobs:
           set -euo pipefail
           # 逐个下发：GitHub Actions 里未设置的 secret 会展开成空串，
           # 直接传空值会把已有的值覆盖掉，所以只传非空的。
+          # v3：改动托管项目的命令必须带 --yes，否则 CI 里会卡在确认。
           while IFS='=' read -r key value; do
             if [ -n "$key" ] && [ -n "$value" ]; then
-              supabase secrets set "$key=$value"
+              supabase secrets set --yes "$key=$value"
             fi
           done <<EOF
           DISCUSSIONS_TOKEN=$DISCUSSIONS_TOKEN
@@ -70,4 +78,5 @@ jobs:
 
       - name: Deploy Edge Functions
         # feedback：站点反馈广场（列表 / 详情 / 回复 / 新建）
-        run: supabase functions deploy pulse-upsert-target pulse-run-now pulse-scheduler pulse-delete-target pulse-get-services feedback
+        # v3：functions deploy 同样需要 --yes
+        run: supabase functions deploy --yes pulse-upsert-target pulse-run-now pulse-scheduler pulse-delete-target pulse-get-services feedback

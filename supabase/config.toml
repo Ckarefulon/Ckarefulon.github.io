@@ -28,7 +28,10 @@ port = 54323
 api_url = "http://127.0.0.1"
 openai_api_key = "env(OPENAI_API_KEY)"
 
-[inbucket]
+# 本地邮件测试服务（Mailpit）。
+# Supabase CLI v3 移除了 [inbucket]，改名为 [local_smtp]；段内键名不变。
+# 只影响本地 `supabase start`，与线上部署无关，但不改名会让所有读配置的命令直接失败。
+[local_smtp]
 enabled = true
 port = 54324
 
