@@ -54,6 +54,7 @@
 		"study/question": "Study/Question",
 		"study/timer": "Study/Timer",
 		"tools": "Tools",
+		"tools/darkpdf": "Tools/DarkPDF",
 		"tools/kgenesis": "Tools/KGenesis",
 		"tools/pulse": "Tools/Pulse",
 		"tools/relay": "Tools/Relay",

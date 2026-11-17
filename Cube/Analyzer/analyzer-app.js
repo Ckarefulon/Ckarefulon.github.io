@@ -12,7 +12,7 @@
   const analyzable=solves=>solves.filter(noDnf).filter(noAnomaly);
   // —— 体验设置（观察秒数 / 语音报点 / 提示音）：独立 localStorage 键，绝不进训练数据与云同步载荷 ——
   const XP_KEY='cubeAnalyzerExperienceV1';
-  const xp=Object.assign({inspectionSec:15,soundOn:true,voiceOn:true,caseOrder:'weak'},(()=>{try{return JSON.parse(localStorage.getItem(XP_KEY)||'{}')}catch(e){return{}}})());
+  const xp=Object.assign({inspectionSec:15,soundOn:true,voiceOn:true,caseOrder:'weak',freeScramble:false},(()=>{try{return JSON.parse(localStorage.getItem(XP_KEY)||'{}')}catch(e){return{}}})());
   function saveXp(){try{localStorage.setItem(XP_KEY,JSON.stringify(xp))}catch(e){}}
   const inspectionMs=()=>(Number(xp.inspectionSec)||15)*1000;
   const STORAGE=(window.CubeAnalyzerCloud&&window.CubeAnalyzerCloud.storageKey)||'cubeAnalyzerDataV2', SETTINGS=(window.CubeAnalyzerCloud&&window.CubeAnalyzerCloud.settingsKey)||'cubeAnalyzerSettingsV2';
@@ -20,7 +20,7 @@
   let toastTimer=null, cloudHydrated=false, migratedData=false;
 
   const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-  function fmtMs(ms,digits=2){return Number.isFinite(Number(ms))?`${(Number(ms)/1000).toFixed(digits)}s`:'—'}
+  function fmtMs(ms,digits=2){if(ms==null||ms==='')return'—';return Number.isFinite(Number(ms))?`${(Number(ms)/1000).toFixed(digits)}s`:'—'}
   function fmtNum(v,d=2){return Number.isFinite(Number(v))?Number(v).toFixed(d):'—'}
   function fmtDate(v,short=false){const d=new Date(v);if(Number.isNaN(d.getTime()))return String(v||'—');return short?d.toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'}):d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}
   function solveTime(s){if(!s)return'—';if(C.normalizeFlag(s.flag)==='dnf')return'DNF';const base=fmtMs(C.displayTimeMs(s));return C.normalizeFlag(s.flag)==='plus_two'?`${base} +2`:base}
@@ -253,12 +253,14 @@
       ${metricCard('MEDIAN TPS',fmtNum(S.medianTps),S.avgTps?`Avg ${fmtNum(S.avgTps)}`:'需要智能魔方数据')}
     </div>`;
     const base=baselineStats();
-    const baseHtml=base?panel('今日 vs 基线',`基线 = 最近 ${base.count} 把有效成绩（DNF 与异常记录排除，+2 已计入）`,`<div class="kpi-bar">
-      <div class="kpi-inline"><span class="muted">今日</span><strong>${base.todayCount?`${base.todayCount} 把 · ${fmtMs(base.todayMean)}`:'—'}</strong></div>
-      <div class="kpi-inline"><span class="muted">基线均值</span><strong>${fmtMs(base.mean)}</strong></div>
-      <div class="kpi-inline"><span class="muted">基线最优</span><strong>${fmtMs(base.best)}</strong></div>
-      ${base.todayMean!=null?`<div class="kpi-inline"><span class="muted">相对基线</span><strong class="${base.todayMean<base.mean?'good-text':'bad-text'}">${base.todayMean<base.mean?'快':'慢'} ${Math.abs((base.todayMean-base.mean)/base.mean*100).toFixed(1)}%</strong></div>`:''}
-    </div>`):'';
+    // 「今日 vs 基线」只有一行数字，不必占用一整张面板 —— 做成一条窄条贴在指标卡下面
+    const baseHtml=base?`<div class="baseline-strip" title="基线 = 最近 ${base.count} 把有效成绩（DNF 与异常记录排除，+2 已计入）">
+      <span class="baseline-kicker">今日 vs 基线</span>
+      <span class="kpi-inline"><span class="muted">今日</span><strong>${base.todayCount?`${base.todayCount} 把 · ${fmtMs(base.todayMean)}`:'—'}</strong></span>
+      <span class="kpi-inline"><span class="muted">基线均值</span><strong>${fmtMs(base.mean)}</strong></span>
+      <span class="kpi-inline"><span class="muted">基线最优</span><strong>${fmtMs(base.best)}</strong></span>
+      ${base.todayMean!=null?`<span class="kpi-inline"><span class="muted">相对基线</span><strong class="${base.todayMean<base.mean?'good-text':'bad-text'}">${base.todayMean<base.mean?'快':'慢'} ${Math.abs((base.todayMean-base.mean)/base.mean*100).toFixed(1)}%</strong></span>`:''}
+    </div>`:'';
     el.innerHTML=metrics+baseHtml+`<div class="grid-2"><div id="overviewTrend"></div><div id="overviewQuality"></div></div><div id="overviewPlan" style="margin-top:10px"></div>`;
     $('#overviewTrend').outerHTML=panel('近期成绩趋势','最近 80 个有效数据点','<div class="chart-box" id="overviewChart"></div>');
     const series=solves.filter(s=>C.normalizeFlag(s.flag)!=='dnf').slice(-80).map(s=>({x:s.date,y:C.displayTimeMs(s),solve:s}));
@@ -366,8 +368,16 @@
   function renderSolves(solves){
     const el=$('#solvesContent');if(!solves.length){el.innerHTML=empty('没有单次数据','调整筛选条件。');return}
     const rows=solves.slice().reverse().slice(0,300);
-    el.innerHTML=panel('单次复盘',`显示最近 ${rows.length} / ${solves.length} 次；点击查看本次训练详情；▶ 可直接录像回放；⚠ 为异常标记记录（保留在列表，已从统计中排除）`,`<div class="solve-list">${rows.map(s=>`<article class="card solve-row-card" data-id="${esc(s.id)}"><div><div class="solve-time ${C.normalizeFlag(s.flag)==='dnf'?'bad':''}">${solveTime(s)}</div><div class="solve-date">${fmtDate(s.date)}${Q&&Q.active(s)?' <span class="anomaly-flag" title="'+esc(Q.label(s.anomaly))+'">⚠ 异常</span>':''}</div></div><div><strong>${esc(s.analysisType)}</strong><span class="mini-label">${esc(s.session)}</span></div><div class="data-col"><span class="mini-label">TPS</span><span class="mono">${fmtNum(s.tps)}</span></div><div class="data-col"><span class="mini-label">Turns</span><span class="mono">${fmtNum(s.turnCount,0)}</span></div><div class="optional-col data-col"><span class="mini-label">Fluency</span><span class="mono">${fmtNum(s.fluencyPercent,0)}%</span></div><div class="optional-col data-col"><span class="mini-label">Device</span><span>${esc(s.device)}</span></div><div class="row-actions">${Replay&&Replay.available(s)?`<button type="button" class="replay-entry" data-replay="${esc(s.id)}" title="录像回放">▶</button>`:''}<span class="accent">›</span></div></article>`).join('')}</div>`);
-    el.onclick=e=>{const rp=e.target.closest('[data-replay]');if(rp){e.stopPropagation();openReplay(solves.find(s=>String(s.id)===rp.dataset.replay));return}const row=e.target.closest('[data-id]');if(row)openSolve(solves.find(s=>String(s.id)===row.dataset.id))};
+    // 判罚与删除放在这里（训练页只留看的能力）—— 改记录本来就不该在训练时顺手做
+    el.innerHTML=panel('单次复盘',`显示最近 ${rows.length} / ${solves.length} 次；点击查看本次训练详情；▶ 可直接录像回放；⚠ 为异常标记记录（保留在列表，已从统计中排除）`,`<div class="solve-list">${rows.map(s=>`<article class="card solve-row-card" data-id="${esc(s.id)}"><div><div class="solve-time ${C.normalizeFlag(s.flag)==='dnf'?'bad':''}">${solveTime(s)}</div><div class="solve-date">${fmtDate(s.date)}${Q&&Q.active(s)?' <span class="anomaly-flag" title="'+esc(Q.label(s.anomaly))+'">⚠ 异常</span>':''}</div></div><div><strong>${esc(s.analysisType)}</strong><span class="mini-label">${esc(s.session)}</span></div><div class="data-col"><span class="mini-label">TPS</span><span class="mono">${fmtNum(s.tps)}</span></div><div class="data-col"><span class="mini-label">Turns</span><span class="mono">${fmtNum(s.turnCount,0)}</span></div><div class="optional-col data-col"><span class="mini-label">Fluency</span><span class="mono">${fmtNum(s.fluencyPercent,0)}%</span></div><div class="optional-col data-col"><span class="mini-label">Device</span><span>${esc(s.device)}</span></div><div class="row-actions">${Replay&&Replay.available(s)?`<button type="button" class="replay-entry" data-replay="${esc(s.id)}" title="录像回放">▶</button>`:''}<button type="button" class="solve-entry" data-penalty="plus_two" data-id="${esc(s.id)}" title="本把加 2 秒">+2</button><button type="button" class="solve-entry" data-penalty="dnf" data-id="${esc(s.id)}" title="标记为 DNF">DNF</button><button type="button" class="solve-entry danger" data-delete="${esc(s.id)}" title="删除这条记录">删</button><span class="accent">›</span></div></article>`).join('')}</div>`);
+    el.onclick=e=>{
+      const rp=e.target.closest('[data-replay]');
+      if(rp){e.stopPropagation();openReplay(solves.find(s=>String(s.id)===rp.dataset.replay));return}
+      const p=e.target.closest('[data-penalty]'),del=e.target.closest('[data-delete]');
+      if(p){e.stopPropagation();changePenalty(p.dataset.id,p.dataset.penalty);return}
+      if(del){e.stopPropagation();deleteSolve(del.dataset.delete);return}
+      const row=e.target.closest('[data-id]');if(row)openSolve(solves.find(s=>String(s.id)===row.dataset.id))
+    };
   }
 
   function detailSteps(s){
@@ -468,7 +478,27 @@
     const all=[];for(const file of files){const text=await file.text();const parsed=I.parseAny(text,file.name).map(upgradeSolve);all.push(...parsed)}
     if(!all.length)throw new Error('没有识别到有效 solve');state.solves=all.sort((a,b)=>new Date(a.date)-new Date(b.date));state.datasetName=files.length===1?files[0].name:`${files.length} 个文件`;state.filters={method:'all',session:'all',device:'all',start:'',end:''};syncFilterUI();refreshFilterOptions();save();renderAll();notify(`已导入 ${all.length} 条记录`)
   }
-  function syncFilterUI(){ $('#methodFilter').value=state.filters.method;$('#sessionFilter').value=state.filters.session;$('#deviceFilter').value=state.filters.device;$('#startDate').value=state.filters.start;$('#endDate').value=state.filters.end }
+  /**
+   * 筛选栏摘要 + 窄屏折叠（2026-11-15）。
+   * 窄屏五个控件各占一行会把首屏吃掉一半，所以默认收起，只在标题旁给一行
+   * 「当前在筛什么」；点一下才展开完整筛选。宽屏不显示这个开关，行为不变。
+   */
+  function renderFilterSummary(){
+    const sum=$('#filterSummary');if(!sum)return;
+    const f=state.filters,parts=[];
+    if(f.method&&f.method!=='all')parts.push(f.method);
+    if(f.session&&f.session!=='all')parts.push(f.session);
+    if(f.device&&f.device!=='all')parts.push(f.device);
+    if(f.start)parts.push(`${f.start} 起`);
+    if(f.end)parts.push(`${f.end} 止`);
+    sum.textContent=parts.length?parts.join(' · '):'全部数据';
+    sum.classList.toggle('is-active',parts.length>0);
+  }
+
+  function syncFilterUI(){
+    $('#methodFilter').value=state.filters.method;$('#sessionFilter').value=state.filters.session;$('#deviceFilter').value=state.filters.device;$('#startDate').value=state.filters.start;$('#endDate').value=state.filters.end;
+    renderFilterSummary();
+  }
 
   const trainer={
     phase:'scramble',freeScramble:false,scramble:'',scrambleMoves:[],scrambleObservedMoves:[],scrambleViewStore:null,scrambleTargetFacelet:'',scrambleBaseReady:false,scrambleComplete:false,
@@ -510,7 +540,6 @@
     for(const raw of moves||[]){const m=parseMove(raw);if(!m)continue;const last=out[out.length-1];if(last&&last.face===m.face){last.power=(last.power+m.power)%4;if(!last.power)out.pop()}else out.push({face:m.face,power:m.power})}
     return out.map(m=>moveText(m.face,m.power));
   }
-  function invertMoves(moves){return (moves||[]).slice().reverse().map(raw=>{const m=parseMove(raw);return m?moveText(m.face,4-m.power):''}).filter(Boolean)}
   function sameFacelet(a,b){return !!a&&!!b&&String(a).trim()===String(b).trim()}
   function solvedFacelet(){return window.mathlib&&window.mathlib.SOLVED_FACELET?window.mathlib.SOLVED_FACELET:''}
   function faceletAfterMoves(moves){
@@ -543,19 +572,204 @@
     });
   }
 
+  /**
+   * 自由打乱模式（2026-11-15 收进控制栏复选框）：
+   * 开 = 不给出目标公式，自己随便拧；转动记录实时反算出「已拧出的打乱公式」并显示，
+   * 拧完按「打乱完成」或空格即落定本把。关 = 常规按公式打乱。
+   * 切换只在打乱阶段生效，计时中不动它（避免中途把目标序列换掉）。
+   */
+  function applyFreeScramble(on){
+    on=!!on;
+    // 计时中不切：把勾选退回用户原来那一边，别让复选框与真实模式对不上
+    if(trainer.phase==='running'||trainer.phase==='inspection'){
+      xp.freeScramble=!on;saveXp();syncFreeToggle();notify('计时中不能切换打乱方式');return;
+    }
+    xp.freeScramble=on;saveXp();syncFreeToggle();
+    if(on)startFreeScramble();else nextScramble();
+  }
+
+  function syncFreeToggle(){
+    // 复选框反映「模式偏好」（跨把保持），而不是本把的临时状态
+    const t=$('#freeScrambleToggle');if(t)t.checked=!!xp.freeScramble;
+  }
+
+  /**
+   * 打乱公式与计时数字的字号自适应（2026-11-16）：
+   *
+   * 两者抢同一张卡片的高度，所以一起算，按「计时数字必须明显大于打乱公式」来分配：
+   *   1. 打乱先按上限尝试 —— 正好铺满三行，且不允许出现第四行；
+   *   2. 计时数字吃掉剩下的高度（二分找不溢出、不超宽的最大字号）；
+   *   3. 若计时数字还没比打乱公式大到 TIMER_SCRAMBLE_RATIO 倍，就把打乱压小、把高度让给它。
+   *
+   * 打乱过程中每转一步都会重新渲染，字号不变但会被重算 —— 用「步数 + 可用尺寸 + 上限」
+   * 做键缓存，命中就直接套用上次的结果；卡片尺寸变化时由 observeTrainerFit 清键重算。
+   */
+  const SCRAMBLE_MAX_LINES=3;
+  const SCRAMBLE_FONT_MAX=72;      // 上限：超宽屏上也不许再涨
+  const SCRAMBLE_FONT_MIN=10;      // 下限：极端长公式时还能再缩一档
+  const SCRAMBLE_TAPE_MAX_RATIO=0.42; // 打乱带最多占计时卡高度的这个比例（剩下留给计时）
+  /* 计时区（状态行 + 数字 + 说明行 + 按钮）最多用到可用高度的这个比例，剩下的**故意空着**。
+     这条不能省 —— 一旦允许"撑满"，内容就会顶到边界、居中后没有余量，
+     视觉上永远一样挤，加多少 margin 都会被字号吃掉。 */
+  const TIMER_FILL_RATIO=0.88;
+  const TIMER_FONT_MAX=320;        // 计时数字上限
+  const TIMER_FONT_MIN=40;         // 计时数字下限
+  const TIMER_SCRAMBLE_RATIO=1.5;  // 计时数字至少要是打乱公式的 1.5 倍
+
+  function scrambleLineCount(){
+    const el=$('#scrambleText');
+    if(!el)return 0;
+    const tops=[...el.querySelectorAll('.scramble-step')].map(s=>Math.round(s.getBoundingClientRect().top)).sort((a,b)=>a-b);
+    if(!tops.length)return el.textContent.trim()?1:0;
+    let lines=1;
+    for(let i=1;i<tops.length;i++)if(tops[i]-tops[i-1]>2)lines++;
+    return lines;
+  }
+
+  /** 打乱带当前高度是否还在「允许它吃的上限」之内 */
+  function tapeWithinBudget(){
+    const tape=$('.scramble-tape'),card=$('.timer-card');
+    if(!tape||!card)return true;
+    return tape.getBoundingClientRect().height<=card.clientHeight*SCRAMBLE_TAPE_MAX_RATIO;
+  }
+
+  /** 打乱公式：在 [MIN, cap] 里找最大的、不出四行也不挤扁计时区的字号 */
+  function fitScrambleFont(capPx){
+    const el=$('#scrambleText'),card=$('.timer-card'),hero=$('.timer-hero');
+    if(!el||!card)return 0;
+    const steps=el.querySelectorAll('.scramble-step').length;
+    const cardH=card.clientHeight;
+    if(!steps){el.style.fontSize='';el.dataset.fitKey='';el.dataset.fitPx='';return 0}
+    if(cardH<=0)return 0;                                // 卡片不可见（分析页）先不算，等它显示
+    const cap=Math.max(SCRAMBLE_FONT_MIN,Math.min(SCRAMBLE_FONT_MAX,Math.round(capPx||SCRAMBLE_FONT_MAX)));
+    const key=`${steps}|${Math.round(el.getBoundingClientRect().width)}|${cardH}|${cap}`;
+    if(el.dataset.fitKey===key&&el.dataset.fitPx){el.style.fontSize=`${el.dataset.fitPx}px`;return Number(el.dataset.fitPx)}
+    // 一档字号「放得下」判据：公式不出第四行、打乱带不超预算、且计时区没被压扁
+    const fits=()=>card.scrollHeight<=card.clientHeight+1
+      &&(!hero||hero.scrollHeight<=hero.clientHeight+1)
+      &&scrambleLineCount()<=SCRAMBLE_MAX_LINES
+      &&tapeWithinBudget();
+    el.style.maxHeight='';el.style.overflowY='';
+    let lo=SCRAMBLE_FONT_MIN,hi=cap,best=SCRAMBLE_FONT_MIN;
+    while(hi-lo>1){
+      const px=Math.round((lo+hi)/2);
+      el.style.fontSize=`${px}px`;
+      if(fits()){best=px;lo=px}else hi=px;
+    }
+    el.style.fontSize=`${best}px`;
+    // 极端情况（自由打乱攒了几十步）：最小字号也压不进三行，就在三行的高度里滚动，
+    // 保证计时卡不被撑破、页面上也不出现第四排。
+    if(scrambleLineCount()>SCRAMBLE_MAX_LINES){
+      const lh=parseFloat(getComputedStyle(el).lineHeight)||best*1.22;
+      el.style.maxHeight=`${Math.round(lh*SCRAMBLE_MAX_LINES)}px`;
+      el.style.overflowY='auto';
+    }
+    el.dataset.fitKey=key;el.dataset.fitPx=String(best);
+    return best;
+  }
+
+  /** 计时数字：在 [MIN, MAX] 里找最大的、不撑破计时区也不超出卡宽的字号 */
+  function fitTimerValue(){
+    const val=$('#timerValue'),card=$('.timer-card'),hero=$('.timer-hero');
+    if(!val||!card||!hero)return 0;
+    const cardH=card.clientHeight;
+    if(cardH<=0)return 0;
+    // 数字是等宽表格数字、位数固定，计时中每帧换文本不会改变布局 —— 键里只放布局尺寸，
+    // 免得每一帧都重跑一遍二分（8 次强制重排）。
+    const key=`${Math.round(card.clientWidth)}x${cardH}`;
+    if(val.dataset.fitKey===key&&val.dataset.fitPx){val.style.fontSize=`${val.dataset.fitPx}px`;return Number(val.dataset.fitPx)}
+    // 按「最长的样子」量：计时中可以跑到三位数秒（888.88，六格），
+    // 若只按此刻的 0.00 去量，真跑起来就会横向顶出卡片。
+    const real=val.textContent;
+    val.textContent='888.88';
+    // 量的是「计时区整块内容」的高度（状态行 + 数字 + 说明行 + 按钮），
+    // 只留 TIMER_FILL_RATIO 那么多，剩下的空着 —— 居中后就是上下各一份真留白。
+    const stage=$('.timer-stage'),actions=$('.timer-actions');
+    const contentH=()=>{
+      const s=stage?stage.getBoundingClientRect().height:0;
+      const a=actions?actions.getBoundingClientRect().height+parseFloat(getComputedStyle(actions).marginTop||0):0;
+      return s+a;
+    };
+    const fits=()=>hero.scrollHeight<=hero.clientHeight+1
+      &&card.scrollHeight<=card.clientHeight+1
+      &&val.getBoundingClientRect().width<=hero.clientWidth
+      &&contentH()<=hero.clientHeight*TIMER_FILL_RATIO;
+    let lo=TIMER_FONT_MIN,hi=TIMER_FONT_MAX,best=TIMER_FONT_MIN;
+    while(hi-lo>1){
+      const px=Math.round((lo+hi)/2);
+      val.style.fontSize=`${px}px`;
+      if(fits()){best=px;lo=px}else hi=px;
+    }
+    val.textContent=real;
+    val.style.fontSize=`${best}px`;
+    val.dataset.fitKey=key;val.dataset.fitPx=String(best);
+    return best;
+  }
+
+  /** 打乱与计时一起排：先给打乱，再把剩下的给计时，最后保证计时数字明显更大 */
+  function fitTrainerStage(){
+    const val=$('#timerValue'),el=$('#scrambleText'),card=$('.timer-card');
+    if(!el||!val||!card||card.clientHeight<=0)return;
+    // 整块排一次要跑两轮二分（十几趟强制重排）。打乱阶段每转一步都会重算，
+    // 所以先在「公式步数 + 两边宽度 + 卡片高度」上记一笔，没变化就直接返回。
+    const steps=el.querySelectorAll('.scramble-step').length;
+    const stageKey=`${steps}|${Math.round(el.getBoundingClientRect().width)}|${Math.round(card.clientWidth)}x${card.clientHeight}`;
+    if(!steps){el.style.fontSize='';el.dataset.fitKey='';el.dataset.fitPx='';return}
+    if(val.dataset.stageKey===stageKey&&val.dataset.fitPx)return;
+    // 先把计时数字收到最小 —— 否则它上一次算出来的大字号会压低「计时区还有多少空间」，
+    // 让打乱公式被莫名压小，同一块屏幕上里外两次结果不一样。
+    val.style.fontSize=`${TIMER_FONT_MIN}px`;
+    val.dataset.fitKey='';
+    const s0=fitScrambleFont();
+    if(!s0)return;
+    const t=fitTimerValue();
+    if(t<s0*TIMER_SCRAMBLE_RATIO){
+      // 计时不够大 ⇒ 压打乱、把高度让回去，再重算一次计时
+      const shrunk=fitScrambleFont(Math.floor(t/TIMER_SCRAMBLE_RATIO));
+      if(shrunk<s0)fitTimerValue();
+    }
+    val.dataset.stageKey=stageKey;
+  }
+
+  /** 计时卡尺寸变了（切页 / 缩放窗口 / 横竖屏）就重新排一次字号 */
+  function observeTrainerFit(){
+    const card=$('.timer-card');
+    if(!card||typeof ResizeObserver!=='function'||card.__fitObserver)return;
+    let last='';
+    const ro=new ResizeObserver(()=>{
+      const r=card.getBoundingClientRect();
+      const key=Math.round(r.width)+'x'+Math.round(r.height);
+      if(key===last)return;                              // 只跟着卡片尺寸动，避免自己被自己触发
+      last=key;
+      const el=$('#scrambleText'),val=$('#timerValue');
+      if(el)el.dataset.fitKey='';
+      if(val){val.dataset.fitKey='';val.dataset.stageKey=''}
+      fitTrainerStage();
+    });
+    ro.observe(card);
+    card.__fitObserver=ro;
+  }
+
   function renderScramble(){
     const el=$('#scrambleText'),meta=$('#scrambleMeta');if(!el)return;
     const freePending=trainer.freeScramble&&!trainer.scrambleComplete;
     const doneBtn=$('#freeScrambleDoneBtn');if(doneBtn)doneBtn.hidden=!freePending;
-    if(!trainer.scrambleMoves.length){
-      el.textContent='—';
-      if(meta)meta.textContent=freePending?(trainer.scrambleBaseReady?'自由打乱中 · 拧乱后按「打乱完成」或 Space':'自由打乱 · 请先把智能魔方复原'):'';
+    // 打乱行右侧提示：自由打乱期间让位给「打乱完成」，其余时候明示双击换下一条
+    const hint=$('#scrambleHint');if(hint)hint.hidden=freePending;
+    if(trainer.freeScramble&&!trainer.scrambleComplete){
+      // 自由打乱：不给目标公式，实时把「本次已拧出的公式」平铺显示（不参与三态着色）
+      const live=simplifyMoves(trainer.scrambleObservedMoves);
+      trainer.scrambleFreePreview=live;
+      if(!live.length){el.style.fontSize='';el.textContent=trainer.scrambleBaseReady?'随便拧':'先复原魔方'}else{ScrambleView.renderMoves(el,live);fitTrainerStage()}
+      if(meta)meta.textContent=!Cube||!Cube.isConnected()?'自由打乱需要连接智能魔方':(trainer.scrambleBaseReady?(live.length?`自由打乱 ${live.length} 步 · 拧完按「打乱完成」或空格`:'自由打乱 · 公式会随转动实时反算'):'自由打乱 · 请先把智能魔方复原');
       return;
     }
+    if(!trainer.scrambleMoves.length){el.style.fontSize='';el.textContent='—';if(meta)meta.textContent='';return}
     const view=computeScrambleView();
     ScrambleView.render(el,view);
+    fitTrainerStage();
     if(!meta)return;
-    if(!Cube||!Cube.isConnected()){meta.textContent='未连接魔方 · 可按 Space 手动起停';return}
+    if(!Cube||!Cube.isConnected()){meta.textContent=xp.freeScramble?'自由打乱需连接魔方 · 当前仍按公式打乱，Space 手动计时':'未连接魔方 · 可按 Space 手动起停';return}
     if(!trainer.scrambleBaseReady){meta.textContent='请先把智能魔方复原，再按公式打乱';return}
     if(trainer.scrambleComplete){meta.textContent='打乱完成';return}
     meta.textContent=view.correcting?'转动有偏差 · 按青色修正步继续':`打乱 ${view.progress}/${trainer.scrambleMoves.length}`;
@@ -590,8 +804,14 @@
     const recent=trainer.moves.slice(-28);$('#moveStream').innerHTML=recent.length?recent.map((m,i)=>`<span class="move-chip ${i===recent.length-1?'latest':''}">${esc(m)}</span>`).join(''):'<span class="muted">动作会显示在这里</span>';
   }
   function updateLive(elapsed){
-    const turns=C.extractTurnCount(trainer.moves)||0,tps=elapsed>0?turns*1000/elapsed:null,fluency=C.fluencyFromTimestamps(C.turnTimestamps(trainer.moves,trainer.timestamps),elapsed,400);
-    $('#liveTurns').textContent=turns;$('#liveTps').textContent=tps?fmtNum(tps):'—';$('#liveFluency').textContent=fluency==null?'—':`${fmtNum(fluency,0)}%`;renderMoveStream();
+    const turnTs=C.turnTimestamps(trainer.moves,trainer.timestamps);
+    const turns=C.extractTurnCount(trainer.moves)||0,tps=elapsed>0?turns*1000/elapsed:null;
+    const fluency=C.fluencyFromTimestamps(turnTs,elapsed,400);
+    const stability=C.stabilityFromTimestamps(turnTs);
+    $('#liveTurns').textContent=turns;$('#liveTps').textContent=tps?fmtNum(tps):'—';
+    $('#liveFluency').textContent=fluency==null?'—':`${fmtNum(fluency,0)}%`;
+    $('#liveStability').textContent=stability==null?'—':`${fmtNum(stability,0)}%`;
+    renderMoveStream();
   }
 
   function tick(){
@@ -615,7 +835,7 @@
   }
 
   function enterReadyAfterScramble(){
-    trainer.scrambleComplete=true;trainer.scrambleObservedMoves=trainer.scrambleMoves.slice();renderScramble();resetLive();trainer.inspectionPenalty='ok';trainer.voiceMark12=false;trainer.voiceMark8=false;
+    trainer.scrambleComplete=true;trainer.scrambleObservedMoves=trainer.scrambleMoves.slice();renderScramble();resetLive();syncFreeToggle();trainer.inspectionPenalty='ok';trainer.voiceMark12=false;trainer.voiceMark8=false;
     if($('#inspectionToggle').checked){trainer.inspectionStartedAt=performance.now();trainer.timingMode='pending';phase('inspection','观察中','按 Space 开始，或直接转动启用状态自动计时');$('#timerValue').textContent=(inspectionMs()/1000).toFixed(1);tick()}
     else{trainer.timingMode='pending';phase('ready','已打乱','按 Space 开始，或直接转动启用状态自动计时');$('#timerValue').textContent='0.00'}
   }
@@ -633,68 +853,46 @@
   }
 
   function startFreeScramble(){
-    if(!Cube||!Cube.isConnected()){notify('自由打乱需要连接智能魔方，否则无法记录转动');return}
-    if(trainer.phase==='running'||trainer.phase==='inspection'){notify('计时中不能切换打乱方式');return}
+    if(!Cube||!Cube.isConnected()){xp.freeScramble=false;saveXp();syncFreeToggle();notify('自由打乱需要连接智能魔方，否则无法记录转动');nextScramble();return}
+    if(trainer.phase==='running'||trainer.phase==='inspection'){notify('计时中不能切换打乱方式');syncFreeToggle();return}
     cancelAnimationFrame(trainer.raf);resetLive();
     trainer.freeScramble=true;trainer.scramble='';trainer.scrambleMoves=[];trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;trainer.scrambleTargetFacelet='';trainer.scrambleComplete=false;trainer.timingMode='pending';
     $('#timerValue').textContent='0.00';
     const f=Cube.getFacelet?.()||'';
     trainer.scrambleBaseReady=!!(f&&Cube.isSolved(f));
-    if(trainer.scrambleBaseReady)phase('scramble','自由打乱 · 开始拧','随便拧乱魔方，拧完按「打乱完成」或 Space');
+    if(trainer.scrambleBaseReady)phase('scramble','自由打乱 · 开始拧','随便拧乱魔方，公式会实时反算；拧完按「打乱完成」或 Space');
     else phase('scramble','自由打乱 · 先复原魔方','复原后随便拧乱，拧完按「打乱完成」');
-    renderScramble();
+    renderScramble();syncFreeToggle();
   }
 
+  /**
+   * 打乱完成（自由打乱）：由本次转动记录反算打乱公式 —— 反算失败也照样记录「化简后的公式」，
+   * 保证每一把成绩都带打乱公式，绝不落一条空公式的记录。
+   */
   function finishFreeScramble(){
     if(!trainer.freeScramble||trainer.phase!=='scramble'||trainer.scrambleComplete)return;
     const facelet=Cube&&Cube.isConnected()?Cube.getFacelet?.()||'':'';
     if(!facelet){notify('无法读取魔方状态，稍后再试');return}
     if(Cube.isSolved(facelet)){notify('魔方还是复原状态，先拧乱再完成打乱');return}
     const observed=trainer.scrambleObservedMoves.filter(Boolean);
-    let tokens=simplifyMoves(observed),ok=!!tokens.length&&sameFacelet(faceletAfterMoves(tokens),facelet);
-    if(!ok&&observed.length&&sameFacelet(faceletAfterMoves(observed),facelet)){tokens=observed;ok=true}
-    if(!ok){notify('未能从本次转动复原出打乱公式（可能含不支持的动作），本把不记打乱公式');
-      trainer.freeScramble=false;trainer.scramble='';trainer.scrambleMoves=[];trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;trainer.scrambleTargetFacelet=facelet;trainer.scrambleBaseReady=true;
-      enterReadyAfterScramble();return}
-    trainer.freeScramble=false;trainer.scramble=tokens.join(' ');trainer.scrambleMoves=tokens.slice();trainer.scrambleTargetFacelet=facelet;trainer.scrambleBaseReady=true;
-    notify(`自由打乱公式已生成（${tokens.length} 步）`);
-    enterReadyAfterScramble();
-  }
-
-  function generateScrambleFromState(){
-    if(trainer.phase==='running'||trainer.phase==='inspection'){notify('计时中不能重新生成打乱');return}
-    if(!Cube||!Cube.isConnected()){notify('需要连接智能魔方读取当前状态');return}
-    const facelet=Cube.getFacelet?.()||'';
-    if(!facelet){notify('无法读取魔方状态');return}
-    if(Cube.isSolved(facelet)){notify('魔方已复原，用「换一个」生成随机打乱即可');return}
-    const solver=window.Cube;
-    if(!solver||typeof solver.fromString!=='function'||typeof solver.initSolver!=='function'){notify('求解器未加载，请刷新页面');return}
-    const btn=$('#scrambleFromStateBtn');if(btn)btn.disabled=true;
-    const meta=$('#scrambleMeta');if(meta)meta.textContent='正在求解当前状态（首次需约 1-2 秒构建求解表）…';
-    window.setTimeout(()=>{
-      try{
-        if(!solver.__analyzerReady){solver.initSolver();solver.__analyzerReady=true}
-        const solution=solver.fromString(facelet).solve();
-        if(!solution)throw new Error('求解器未返回结果');
-        const tokens=invertMoves(solution.split(/\s+/));
-        if(!tokens.length)throw new Error('生成公式为空');
-        if(!sameFacelet(faceletAfterMoves(tokens),facelet))throw new Error('校验失败（公式无法复原当前状态）');
-        cancelAnimationFrame(trainer.raf);resetLive();
-        trainer.freeScramble=false;trainer.scramble=tokens.join(' ');trainer.scrambleMoves=tokens.slice();trainer.scrambleViewStore=null;trainer.scrambleTargetFacelet=facelet;trainer.scrambleBaseReady=true;trainer.scrambleComplete=true;trainer.timingMode='pending';
-        $('#timerValue').textContent='0.00';
-        notify(`打乱公式已由当前状态生成（${tokens.length} 步）`);
-        enterReadyAfterScramble();
-      }catch(e){console.warn('scramble-from-state failed',e);notify('生成失败：'+(e&&e.message||'未知错误'))}
-      finally{if(btn)btn.disabled=false;renderScramble()}
-    },30);
+    let tokens=simplifyMoves(observed),verified=!!tokens.length&&sameFacelet(faceletAfterMoves(tokens),facelet);
+    if(!verified&&observed.length&&sameFacelet(faceletAfterMoves(observed),facelet)){tokens=observed;verified=true}
+    if(!tokens.length){notify('没有记录到本次转动，先拧几下再完成打乱');return}
+    // 模式保持：复选框仍勾着，本把落定后下一把继续自由打乱
+    trainer.freeScramble=xp.freeScramble;trainer.scramble=tokens.join(' ');trainer.scrambleMoves=tokens.slice();trainer.scrambleViewStore=null;trainer.scrambleTargetFacelet=facelet;trainer.scrambleBaseReady=true;
+    notify(verified?`自由打乱公式已生成（${tokens.length} 步）`:`打乱公式已记录（${tokens.length} 步，含未支持动作，可能不完整）`);
+    enterReadyAfterScramble();syncFreeToggle();
   }
 
   function nextScramble(){
-    cancelAnimationFrame(trainer.raf);resetLive();trainer.freeScramble=false;trainer.scramble=randomScramble();trainer.scrambleMoves=trainer.scramble.split(/\s+/).filter(Boolean);trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;
+    cancelAnimationFrame(trainer.raf);resetLive();
+    // 自由打乱是可保持的模式：上一把结束后自动继续自由打乱，不必每把重开
+    if(xp.freeScramble&&Cube&&Cube.isConnected()){startFreeScramble();return}
+    trainer.freeScramble=false;trainer.scramble=randomScramble();trainer.scrambleMoves=trainer.scramble.split(/\s+/).filter(Boolean);trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;
     trainer.scrambleTargetFacelet=faceletAfterMoves(trainer.scrambleMoves);trainer.scrambleBaseReady=false;trainer.scrambleComplete=false;trainer.timingMode='pending';$('#timerValue').textContent='0.00';
     if(Cube&&Cube.isConnected())prepareScrambleBase(Cube.getFacelet?.());
     else phase('scramble','按公式打乱','完成后按 Space 手动起停；连接魔方后也可状态自动起停');
-    renderScramble();
+    renderScramble();syncFreeToggle();
   }
 
   function markScrambleComplete(){if(trainer.scrambleComplete)return;enterReadyAfterScramble()}
@@ -721,7 +919,16 @@
 
   function beginSolve(mode,firstDetail=null){
     if(trainer.phase!=='ready'&&trainer.phase!=='inspection'&&!(trainer.phase==='scramble'&&mode==='space'&&!Cube?.isConnected()))return false;
-    if(trainer.phase==='scramble'&&mode==='space'&&!Cube?.isConnected())trainer.scrambleComplete=true;
+    if(trainer.phase==='scramble'&&mode==='space'&&!Cube?.isConnected()){
+      // 无魔方的手动计时：随机打乱直接认作已完成；自由打乱则把人看到的那串反算公式落成正式公式，
+      // 保证每一把都带打乱公式（绝不因「没连魔方」就存一条空公式）
+      if(trainer.freeScramble&&!trainer.scrambleMoves.length){
+        const preview=trainer.scrambleFreePreview||[];
+        if(!preview.length){notify('自由打乱需要连接智能魔方，或先拧几下再计时');return false}
+        trainer.scramble=preview.join(' ');trainer.scrambleMoves=preview.slice();
+      }
+      trainer.scrambleComplete=true;
+    }
     if(trainer.phase==='inspection'){
       const total=inspectionMs(),inspect=performance.now()-trainer.inspectionStartedAt;trainer.inspectionPenalty=inspect>total+2000?'dnf':inspect>total?'plus_two':'ok';
       if(trainer.inspectionPenalty!=='ok'&&window.CubeAudio)CubeAudio.effect('alert');
@@ -733,7 +940,7 @@
     trainer.startedAt=performance.now();
     trainer.startFacelet=(firstDetail?.previousFacelet)||(Cube&&Cube.getFacelet?Cube.getFacelet():'')||trainer.scrambleTargetFacelet||'';
     if(trainer.startFacelet)trainer.snapshots.push({facelet:trainer.startFacelet,timestamp:0});
-    phase('running','计时中',mode==='space'?'按 Space 停止':'复原后自动停止');$('#timerValue').textContent='0.00';tick();
+    phase('running','计时中',mode==='space'?'按 Space 停止':'复原后自动停止');$('#timerValue').textContent='0.00';tick();syncFreeToggle();
     if(window.CubeAudio)CubeAudio.effect('click');
     return true;
   }
@@ -812,19 +1019,105 @@
       if(trainer.timingMode==='space'){Cube?.flushPending?.();finishSolve('space');}
       return;
     }
-    if(trainer.phase==='scramble'&&trainer.freeScramble){finishFreeScramble();return}
+    if(trainer.phase==='scramble'&&trainer.freeScramble&&Cube?.isConnected()){finishFreeScramble();return}
     if(trainer.phase==='scramble'&&Cube?.isConnected()&&!trainer.scrambleComplete){notify('请先按打乱公式完成打乱');return}
     beginSolve('space');
   }
 
   function cancelTraining(){cancelAnimationFrame(trainer.raf);nextScramble()}
   function sessionSolves(){const name=($('#trainingSession').value||'日常训练').trim();return state.solves.filter(s=>String(s.session)===name)}
-  function renderTrainerSummary(){
+  /**
+   * 右侧「成绩」区：两栏网格 —— 最新一把（加粗）→ 早几把（淡，可点）→ AO5（加粗，前面挂 AO 前缀）。
+   * 最省的时候是「前 5 把 + AO」共 6 格 = 3 行，正好和左边四宫格一般高；
+   * 空间更大就成对往下补更早的成绩，AO 始终停在第 6 个位置不动。
+   */
+  const SCORE_MIN_SOLVES = 5;    // 最少：最近 5 把
+  const SCORE_MAX_SOLVES = 61;   // 上限：防止一次渲染太多
+
+  /** 一次网格「行」的高度：两列时一行放两条，行高按最高的那条（加粗行）算 */
+  function scoreGridRowHeight(){
+    const rows=[...document.querySelectorAll('#trainingRecent .score-row')];
+    const grid=$('#trainingRecent');
+    const gap=grid?(parseFloat(getComputedStyle(grid).rowGap)||2):2;
+    if(!rows.length)return 30+gap;
+    return Math.max(...rows.map(e=>e.getBoundingClientRect().height))+gap;
+  }
+
+  let scoreSolveCount = SCORE_MIN_SOLVES;   // 当前实际渲染了几把
+
+  function scoreRowHTML(s,strong){
+    return strong
+      ? `<div class="score-row score-row-strong"><span class="score-time">${solveTime(s)}</span></div>`
+      : `<button type="button" class="score-row score-row-plain" data-open="${esc(s.id)}" title="${esc(fmtDate(s.date))} · ${esc(s.session)}"><span class="score-time">${solveTime(s)}</span></button>`;
+  }
+
+  function renderTrainerSummary(solveCount){
     const solves=sessionSolves(),S=solves.length?C.solveSummary(solves):null;
     $('#sessionSummary').textContent=solves.length?`${solves.length} 次 · ${$('#trainingMethod').value}`:'暂无成绩';
     $('#sessionMetrics').innerHTML=S?`<div><span>Latest</span><strong>${solveTime(solves[solves.length-1])}</strong></div><div><span>AO5</span><strong>${S.ao5?.isDNF?'DNF':fmtMs(S.ao5?.time)}</strong></div><div><span>AO12</span><strong>${S.ao12?.isDNF?'DNF':fmtMs(S.ao12?.time)}</strong></div><div><span>Best</span><strong>${fmtMs(S.best)}</strong></div>`:`<div class="muted">完成第一把后显示统计</div>`;
-    const rows=state.solves.slice(-8).reverse();
-    $('#trainingRecent').innerHTML=rows.length?`<div class="training-solve-list">${rows.map(s=>`<div class="training-solve-row" data-open="${esc(s.id)}"><div><strong class="mono">${solveTime(s)}</strong><span>${fmtDate(s.date)}</span></div><div><strong>${esc(s.session)}</strong><span>${esc(s.device)}</span></div><div class="recent-stats"><span>TPS ${fmtNum(s.tps)}</span><span>${fmtNum(s.turnCount,0)} turns</span></div><div class="recent-actions">${Replay&&Replay.available(s)?`<button type="button" data-replay="${esc(s.id)}" title="录像回放">▶ 回放</button>`:''}<button type="button" data-penalty="plus_two" data-id="${esc(s.id)}">+2</button><button type="button" data-penalty="dnf" data-id="${esc(s.id)}">DNF</button><button type="button" data-delete="${esc(s.id)}">删除</button></div></div>`).join('')}</div>`:empty('还没有训练记录','连接智能魔方开始训练，或使用空格进行手动计时。');
+    // PB：全部记录里的个人最好成绩（与 S.best 同一套口径）
+    const pb=$('#liveBest');
+    if(pb)pb.textContent=state.solves.length?fmtMs(C.solveSummary(state.solves).best):'—';
+
+    // 要显示几把：显式传入就照办；否则沿用上一次拟合出的条数（新成绩进来不必重新长一遍）。
+    // 把数保持奇数 —— 加上 AO 是偶数格，两栏网格不会剩半行；增删都按 2 走（整行）。
+    const have=solves.length;
+    let want=Number.isFinite(solveCount)?solveCount:scoreSolveCount;
+    want=Math.max(SCORE_MIN_SOLVES,Math.min(SCORE_MAX_SOLVES,Math.round(want)));
+    if(want%2===0)want--;
+    if(want>have)want=have;
+    const recent=solves.slice(-Math.max(1,want)).reverse();   // 最新的在前
+    scoreSolveCount=recent.length;
+    const ao5=S&&S.ao5?(S.ao5.isDNF?'DNF':fmtMs(S.ao5.time)):'';
+
+    // AO 固定排在第 6 格：前面满 5 把，后面才是更早的成绩
+    const head=recent.slice(0,SCORE_MIN_SOLVES),tail=recent.slice(SCORE_MIN_SOLVES);
+    const rows=head.map((s,i)=>scoreRowHTML(s,i===0));
+    if(ao5)rows.push(`<div class="score-row score-row-strong score-row-ao"><span class="score-label">AO</span><span class="score-time">${ao5}</span></div>`);
+    tail.forEach(s=>rows.push(scoreRowHTML(s,false)));
+    $('#trainingRecent').innerHTML=rows.length?rows.join(''):`<div class="score-empty">还没有训练记录</div>`;
+    // 渲染完再看一眼能不能多放一行（下一帧量，避免读到旧布局）
+    requestAnimationFrame(fitTrainerRecent);
+  }
+
+  /** 给成绩列表挂 ResizeObserver：容器高度变化就重新拟合条数 */
+  function observeTrainerRecent(){
+    const list=$('#trainingRecent');
+    if(!list||typeof ResizeObserver!=='function')return;
+    if(list.__fitObserver)return;               // 只挂一次
+    const ro=new ResizeObserver(()=>fitTrainerRecent());
+    ro.observe(list);
+    list.__fitObserver=ro;
+  }
+
+  /**
+   * 条数拟合：先按剩余高度一次估出还能放几行（两栏网格 = +2 把），
+   * 卡片变矮（窗口缩小 / 横屏转竖屏）放不下时反过来收掉一行，最少回到 5 把 + AO。
+   * 上界是 SCORE_MAX_SOLVES 与本 Session 的实际把数，避免无限补。
+   */
+  let fitBusy=false;
+  function fitTrainerRecent(){
+    if(fitBusy)return;
+    const list=$('#trainingRecent');
+    if(!list||!state.solves.length)return;
+    fitBusy=true;
+    try{
+      const rows=[...list.querySelectorAll('.score-row')];
+      if(!rows.length)return;
+      const rowH=scoreGridRowHeight();
+      if(rowH<=0)return;
+      // 放不下了：收一行（最少留 5 把 + AO 这三行）
+      if(list.scrollHeight-list.clientHeight>0){
+        if(scoreSolveCount>SCORE_MIN_SOLVES)renderTrainerSummary(Math.max(SCORE_MIN_SOLVES,scoreSolveCount-2));
+        return;
+      }
+      const room=list.getBoundingClientRect().bottom-Math.max(...rows.map(e=>e.getBoundingClientRect().bottom));
+      if(room<rowH)return;                                 // 再放一行就溢出，停
+      let next=scoreSolveCount+Math.floor(room/rowH)*2;    // 按空间一次补足
+      next=Math.min(next,SCORE_MAX_SOLVES,sessionSolves().length);
+      if(next<=scoreSolveCount)return;
+      renderTrainerSummary(next);
+    }finally{fitBusy=false}
   }
 
   function changePenalty(id,flag){const s=state.solves.find(x=>String(x.id)===String(id));if(!s)return;s.flag=C.normalizeFlag(s.flag)===flag?'ok':flag;save(true);renderTrainerSummary();renderAll()}
@@ -845,7 +1138,9 @@
 
   function bindCube(){
     Cube.on('connecting',()=>{$('#cubeStatus').textContent='等待选择设备';$('#connectCubeBtn').classList.remove('connected')});
-    Cube.on('connect',async d=>{const battery=await Cube.battery(),batteryLevel=Array.isArray(battery)?battery[0]:battery;$('#connectCubeBtn').classList.add('connected');$('#connectCubeLabel').textContent=d.deviceName||'已连接';$('#cubeStatus').textContent=batteryLevel==null?'已连接':`已连接 · ${batteryLevel}%`;$('#liveDevice').textContent=d.deviceName||'智能魔方';prepareScrambleBase(Cube.getFacelet?.())});
+    Cube.on('connect',async d=>{const battery=await Cube.battery(),batteryLevel=Array.isArray(battery)?battery[0]:battery;$('#connectCubeBtn').classList.add('connected');$('#connectCubeLabel').textContent=d.deviceName||'已连接';$('#cubeStatus').textContent=batteryLevel==null?'已连接':`已连接 · ${batteryLevel}%`;$('#liveDevice').textContent=d.deviceName||'智能魔方';
+      // 勾着「自由打乱」就连上后直接进入该模式；否则按公式打乱
+      if(xp.freeScramble)startFreeScramble();else prepareScrambleBase(Cube.getFacelet?.())});
     Cube.on('disconnect',()=>{$('#connectCubeBtn').classList.remove('connected');$('#connectCubeLabel').textContent='连接魔方';$('#cubeStatus').textContent='未连接';$('#liveDevice').textContent='等待训练';nextScramble()});
     Cube.on('state',handleCubeState);
     Cube.on('move',recordCubeMove);
@@ -904,6 +1199,39 @@
     }catch(e){ cloudHydrated=false; console.warn('Cloud hydration skipped',e) }
   }
 
+  /**
+   * 训练设置抽屉（2026-11-15）：自由打乱 / 观察 / 声音 / 状态重置这些「偶尔改一次」的操作
+   * 不再平铺在控制栏上跟计时器抢高度，收进控制栏齿轮后面的一片浮层。
+   */
+  function bindSettingsPop(bindControls){
+    const btn=$('#settingsBtn'),panel=$('#settingsPanel');
+    if(!btn||!panel)return;
+    bindControls&&bindControls(panel);
+    const isOpen=()=>!panel.hidden;
+    const setOpen=open=>{
+      panel.hidden=!open;
+      btn.setAttribute('aria-expanded',open?'true':'false');
+    };
+    btn.onclick=e=>{e.stopPropagation();setOpen(!isOpen())};
+    const close=$('#closeSettingsBtn');if(close)close.onclick=()=>{setOpen(false);btn.focus()};
+    // 浮层内点击不冒泡到 document，点面板外任意处收起；Esc 也收起
+    panel.onclick=e=>e.stopPropagation();
+    document.addEventListener('click',()=>{if(isOpen())setOpen(false)});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&isOpen()){setOpen(false);btn.focus()}});
+    return {setOpen,isOpen};
+  }
+
+  /** 抽屉里的控件绑定（原来都平铺在控制栏，逻辑不变，只是搬了位置） */
+  function bindSettingsControls(){
+    $('#inspectionToggle').onchange=e=>{state.training.inspection=e.target.checked;save(false)};
+    const secSel=$('#inspectionSec');
+    if(secSel){secSel.value=String(xp.inspectionSec);secSel.onchange=e=>{xp.inspectionSec=Number(e.target.value)||15;saveXp();notify(`观察时长 ${xp.inspectionSec}s（判罚窗口随之调整）`)}}
+    const vT=$('#voiceToggle');
+    if(vT){vT.checked=!!xp.voiceOn;vT.onchange=e=>{xp.voiceOn=e.target.checked;saveXp();if(window.CubeAudio)CubeAudio.setPrefs({voiceOn:xp.voiceOn})}}
+    const sT=$('#soundToggle');
+    if(sT){sT.checked=!!xp.soundOn;sT.onchange=e=>{xp.soundOn=e.target.checked;saveXp();if(window.CubeAudio)CubeAudio.setPrefs({soundOn:xp.soundOn})}}
+  }
+
   function bind(){
     // 状态重置（Cube 公用功能块）：给已连接的 GAN 魔方发 REQUEST_RESET，
     // 把当前物理姿态认作复原态；反馈写入连接状态行 cubeStatus
@@ -912,21 +1240,20 @@
     }
     $('#workspaceMode').onclick=e=>{const b=e.target.closest('[data-mode]');if(b)switchWorkspace(b.dataset.mode)};
     $('#goAnalysisBtn').onclick=()=>switchWorkspace('analysis');
-    $('#connectCubeBtn').onclick=toggleCube;$('#newScrambleBtn').onclick=nextScramble;$('#freeScrambleBtn').onclick=startFreeScramble;$('#freeScrambleDoneBtn').onclick=finishFreeScramble;$('#scrambleFromStateBtn').onclick=generateScrambleFromState;$('#readyBtn').onclick=handleSpaceTimer;$('#cancelTimerBtn').onclick=cancelTraining;
+    $('#connectCubeBtn').onclick=toggleCube;
+    bindSettingsPop(bindSettingsControls);
+    // 打乱公式双击 = 换下一条（自由打乱模式直接重开，不给目标公式）
+    const st=$('#scrambleText');
+    if(st)st.addEventListener('dblclick',()=>{if(trainer.phase==='running'||trainer.phase==='inspection'){notify('计时中不能换打乱');return}nextScramble()});
+    const freeT=$('#freeScrambleToggle');
+    if(freeT){freeT.checked=!!xp.freeScramble;freeT.onchange=e=>applyFreeScramble(e.target.checked)}
+    $('#freeScrambleDoneBtn').onclick=finishFreeScramble;$('#readyBtn').onclick=handleSpaceTimer;$('#cancelTimerBtn').onclick=cancelTraining;
     $('#trainingMethod').onchange=e=>{state.training.method=e.target.value;save(false);renderTrainerSummary()};
     $('#trainingSession').onchange=e=>{state.training.session=e.target.value.trim()||'日常训练';e.target.value=state.training.session;save(false);renderTrainerSummary()};
-    $('#inspectionToggle').onchange=e=>{state.training.inspection=e.target.checked;save(false)};
-    // —— 融入控件：观察秒数 / 语音报点 / 提示音 / 数据体检（2026-09-29）——
-    const secSel=$('#inspectionSec');
-    if(secSel){secSel.value=String(xp.inspectionSec);secSel.onchange=e=>{xp.inspectionSec=Number(e.target.value)||15;saveXp();notify(`观察时长 ${xp.inspectionSec}s（判罚窗口随之调整）`)}}
-    const vT=$('#voiceToggle');
-    if(vT){vT.checked=!!xp.voiceOn;vT.onchange=e=>{xp.voiceOn=e.target.checked;saveXp();if(window.CubeAudio)CubeAudio.setPrefs({voiceOn:xp.voiceOn})}}
-    const sT=$('#soundToggle');
-    if(sT){sT.checked=!!xp.soundOn;sT.onchange=e=>{xp.soundOn=e.target.checked;saveXp();if(window.CubeAudio)CubeAudio.setPrefs({soundOn:xp.soundOn})}}
     const qBtn=$('#qualityBtn');if(qBtn)qBtn.onclick=openQuality;
     const sAi=$('#sessionAiBtn');
     if(sAi)sAi.onclick=()=>{if(!sessionSolves().length){notify('本 Session 还没有成绩');return}switchWorkspace('analysis');state.activeTab='ai';$$('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab==='ai'));$$('.tab-panel').forEach(x=>x.classList.toggle('active',x.dataset.panel==='ai'));if(window.CubeAnalyzerAI)CubeAnalyzerAI.renderTabShell();};
-    $('#trainingRecent').onclick=e=>{const rp=e.target.closest('[data-replay]');if(rp){e.stopPropagation();openReplay(state.solves.find(s=>String(s.id)===rp.dataset.replay));return}const p=e.target.closest('[data-penalty]'),del=e.target.closest('[data-delete]');if(p){e.stopPropagation();changePenalty(p.dataset.id,p.dataset.penalty);return}if(del){e.stopPropagation();deleteSolve(del.dataset.delete);return}const row=e.target.closest('[data-open]');if(row)openSolve(state.solves.find(s=>String(s.id)===row.dataset.open))};
+    $('#trainingRecent').onclick=e=>{const row=e.target.closest('[data-open]');if(row)openSolve(state.solves.find(s=>String(s.id)===row.dataset.open))};
     document.addEventListener('keydown',e=>{if(e.code!=='Space'||e.repeat||/INPUT|TEXTAREA|SELECT|BUTTON/.test(document.activeElement?.tagName||''))return;if(state.workspaceMode!=='training')return;if(Replay&&Replay.isOpen())return;e.preventDefault();handleSpaceTimer()});
 
     $('#importBtn').onclick=()=>$('#fileInput').click();$('#fileInput').onchange=async e=>{try{await mergeImportFiles([...e.target.files])}catch(err){console.error(err);notify(`导入失败：${err.message}`)}finally{e.target.value=''}};
@@ -955,8 +1282,22 @@
       if(window.CubeAnalyzerCloud)window.CubeAnalyzerCloud.scheduleUpload();
       notify('已清空训练数据');
     };
-    ['method','session','device'].forEach(k=>{$(`#${k}Filter`).onchange=e=>{state.filters[k]=e.target.value;renderAll()}});$('#startDate').onchange=e=>{state.filters.start=e.target.value;renderAll()};$('#endDate').onchange=e=>{state.filters.end=e.target.value;renderAll()};
+    ['method','session','device'].forEach(k=>{$(`#${k}Filter`).onchange=e=>{state.filters[k]=e.target.value;renderFilterSummary();renderAll()}});$('#startDate').onchange=e=>{state.filters.start=e.target.value;renderFilterSummary();renderAll()};$('#endDate').onchange=e=>{state.filters.end=e.target.value;renderFilterSummary();renderAll()};
     $('#resetFilterBtn').onclick=()=>{state.filters={method:'all',session:'all',device:'all',start:'',end:''};syncFilterUI();renderAll()};
+    // 窄屏筛选栏折叠开关（宽屏时按钮被 CSS 隐藏，不显示也不影响筛选）
+    const fToggle=$('#filterToggle'),fBar=$('#filterBar');
+    if(fToggle&&fBar){
+      fToggle.onclick=()=>{
+        const open=fToggle.getAttribute('aria-expanded')==='true';
+        fToggle.setAttribute('aria-expanded',open?'false':'true');
+        fBar.dataset.collapsed=open?'true':'false';
+      };
+      window.addEventListener('resize',()=>{
+        if(window.innerWidth>760&&fBar.dataset.collapsed==='true'){
+          fBar.dataset.collapsed='false';fToggle.setAttribute('aria-expanded','true');
+        }
+      });
+    }
     $('#tabs').onclick=e=>{const b=e.target.closest('.tab[data-tab]');if(!b)return;state.activeTab=b.dataset.tab;$$('.tab').forEach(x=>x.classList.toggle('active',x===b));$$('.tab-panel').forEach(x=>x.classList.toggle('active',x.dataset.panel===state.activeTab))};
     $('#closeSolveModal').onclick=()=>$('#solveModal').hidden=true;$('#solveModal').onclick=e=>{if(e.target===$('#solveModal'))$('#solveModal').hidden=true};document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!(Replay&&Replay.isOpen()))$('#solveModal').hidden=true});
     window.addEventListener('cube-analyzer-cloud-sync',e=>{
@@ -974,6 +1315,11 @@
     if(window.siteNav&&typeof window.siteNav.init==='function')window.siteNav.init({setTheme});
     window._siteNavReloadData=reloadFromStorage;
     bindCube();bind();nextScramble();refreshFilterOptions();syncFilterUI();renderTrainerSummary();renderAll();switchWorkspace('training');updateSolveBadge();updateCloudIndicator();
+    observeTrainerRecent();
+    observeTrainerFit();
+    // 窄屏进来默认收起筛选栏，先让首屏看到数据本身
+    {const fb=$('#filterBar'),ft=$('#filterToggle');
+     if(fb&&ft&&window.innerWidth<=760){fb.dataset.collapsed='true';ft.setAttribute('aria-expanded','false')}}
     // —— 融入启动（2026-09-29）：体验偏好同步到音频模块；AI 报告桥接站点数据（DNF/异常由 AI 模块内二次排除）——
     if(window.CubeAudio){CubeAudio.setPrefs({voiceOn:!!xp.voiceOn,soundOn:!!xp.soundOn});CubeAudio.preload();}
     if(window.CubeAnalyzerAI)CubeAnalyzerAI.init({getFiltered:()=>filtered(),getBaseline:baselineStats});

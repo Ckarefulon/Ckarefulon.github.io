@@ -18,11 +18,11 @@
   <link rel="stylesheet" href="/nav/nav.css?v=2475">
   <link rel="stylesheet" href="../assets/scramble/scramble.css?v=1892">
   <link rel="stylesheet" href="../assets/state-reset/state-reset.css?v=1949">
-  <link rel="stylesheet" href="./analyzer.css?v=2083">
+  <link rel="stylesheet" href="./analyzer.css?v=2623">
 
   <script src="../assets/base/jquery-4.0.0.min.js"></script>
   <script src="../assets/base/compat.js?v=1877" defer></script>
-  <script src="/nav/nav.js?v=2579" defer></script>
+  <script src="/nav/nav.js?v=2593" defer></script>
   <script src="/assets/services/core/site-scope.js?v=2255" defer></script>
   <script src="/assets/services/core/storage-manager.js?v=1892" defer></script>
   <script src="../../assets/vendor/supabase/supabase.min.js" defer></script>
@@ -68,17 +68,16 @@
   <script src="./analyzer-quality.js?v=2005" defer></script>
   <script src="./analyzer-ai.js?v=2005" defer></script>
   <script src="./analyzer-replay.js?v=2083" defer></script>
-  <script src="./analyzer-app.js?v=2579" defer></script>
+  <script src="./analyzer-app.js?v=2623" defer></script>
 </head>
 <body data-workspace="training">
   <div class="page-shell">
     <section class="control-bar card" aria-label="Analyzer 主控制栏">
-      <div class="device-cluster">
+      <div class="device-cluster training-only">
         <button class="btn btn-primary device-button" id="connectCubeBtn" type="button">
           <span class="device-dot"></span><span id="connectCubeLabel">连接魔方</span>
         </button>
         <span class="tool-status" id="cubeStatus">未连接</span>
-        <span id="stateResetMount"></span>
       </div>
 
       <div class="mode-switch" id="workspaceMode" role="tablist" aria-label="训练与分析">
@@ -93,18 +92,46 @@
         <label class="toolbar-field compact-field session-field">Session
           <input id="trainingSession" type="text" maxlength="40" value="日常训练" autocomplete="off">
         </label>
-        <label class="toolbar-check" title="开始前观察倒计时；超时按 WCA 口径 +2 / DNF"><input id="inspectionToggle" type="checkbox"> <span>观察倒计时</span></label>
-        <label class="toolbar-field compact-field" title="观察阶段总时长；剩 12s / 8s 语音报点与判罚窗口随之调整">观察
-          <select id="inspectionSec"><option value="10">10s</option><option value="12">12s</option><option value="15" selected>15s</option><option value="20">20s</option><option value="30">30s</option></select>
-        </label>
-        <label class="toolbar-check" title="观察阶段剩 12s / 8s 语音提醒（WCA 报点口径，中/英 × 男/女可在音频模块切换）"><input id="voiceToggle" type="checkbox" checked> <span>语音</span></label>
-        <label class="toolbar-check" title="开始计时 / 观察判罚提示音"><input id="soundToggle" type="checkbox" checked> <span>音效</span></label>
-        <span class="auto-frame-chip" title="CFOP、Roux、ZZ 均遍历完整方位识别，不锁定白底或固定持握方向">六色底 / 方位自动识别</span>
+        <!-- 训练设置：自由打乱 / 观察 / 声音等低频开关收进抽屉，主栏只留每把都要看的项 -->
+        <button class="icon-btn settings-btn" id="settingsBtn" type="button" aria-expanded="false" aria-controls="settingsPanel" title="训练设置：自由打乱、观察倒计时、语音音效">
+          <span class="settings-glyph" aria-hidden="true">⚙</span>
+        </button>
       </div>
 
       <div class="workspace-meta">
         <span class="cloud-state" id="cloudState">本地数据</span>
         <span class="badge" id="totalSolveBadge">0 solves</span>
+      </div>
+
+      <div class="settings-pop training-only" id="settingsPanel" hidden>
+        <div class="settings-pop-head">
+          <strong>训练设置</strong>
+          <button class="icon-btn" id="closeSettingsBtn" type="button" aria-label="关闭设置">×</button>
+        </div>
+        <label class="settings-row">
+          <span class="settings-text">自由打乱<em>不按公式，自己随便拧；公式由转动记录实时反算</em></span>
+          <input id="freeScrambleToggle" type="checkbox">
+        </label>
+        <label class="settings-row">
+          <span class="settings-text">观察倒计时<em>开始前倒计时，超时按 WCA 口径 +2 / DNF</em></span>
+          <input id="inspectionToggle" type="checkbox">
+        </label>
+        <label class="settings-row">
+          <span class="settings-text">观察时长<em>剩 12s / 8s 语音报点与判罚窗口随之调整</em></span>
+          <select id="inspectionSec"><option value="10">10s</option><option value="12">12s</option><option value="15" selected>15s</option><option value="20">20s</option><option value="30">30s</option></select>
+        </label>
+        <div class="settings-row">
+          <span class="settings-text">声音<em>观察报点与起停提示音</em></span>
+          <span class="settings-inline">
+            <label class="toolbar-check" title="观察阶段剩 12s / 8s 语音提醒（WCA 报点口径）"><input id="voiceToggle" type="checkbox" checked> <span>语音</span></label>
+            <label class="toolbar-check" title="开始计时 / 观察判罚提示音"><input id="soundToggle" type="checkbox" checked> <span>音效</span></label>
+          </span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-text">状态重置<em>把魔方当前状态认作复原态（重置内部面位）</em></span>
+          <span id="stateResetMount"></span>
+        </div>
+        <p class="settings-note" title="CFOP、Roux、ZZ 均遍历完整方位识别，不锁定白底或固定持握方向">六色底 / 方位自动识别：按打乱后的实际状态识别解法方位。</p>
       </div>
     </section>
 
@@ -113,57 +140,67 @@
         <section class="trainer-grid">
           <article class="card timer-card">
             <div class="scramble-head">
-              <div>
-                <span class="section-kicker">打乱</span>
-                <span class="scramble-legend"><i class="pending"></i>待完成 <i class="current"></i>当前 / 修正 <i class="done"></i>已完成</span>
-              </div>
-              <div class="scramble-actions">
-                <button class="text-btn" id="newScrambleBtn" type="button">换一个</button>
-                <button class="text-btn" id="freeScrambleBtn" type="button" title="不按公式，自己随便拧乱；拧完由转动记录反算打乱公式">自由打乱</button>
-                <button class="text-btn" id="scrambleFromStateBtn" type="button" title="魔方不在复原状态时：求解当前状态并反推打乱公式">由当前状态生成</button>
-                <button class="text-btn" id="freeScrambleDoneBtn" type="button" hidden>打乱完成</button>
-              </div>
+              <span class="section-kicker">打乱</span>
+              <span class="scramble-hint" id="scrambleHint">双击公式换一条</span>
+              <button class="text-btn" id="freeScrambleDoneBtn" type="button" hidden>打乱完成</button>
             </div>
-            <div class="scramble-text" id="scrambleText"></div>
+            <div class="scramble-tape">
+              <div class="scramble-text" id="scrambleText"></div>
+            </div>
             <div class="scramble-meta" id="scrambleMeta"></div>
 
-            <div class="timer-stage" id="timerStage" data-state="idle">
-              <div class="timer-status" id="timerStatus">按公式打乱</div>
-              <div class="timer-value" id="timerValue">0.00</div>
-              <div class="timer-sub" id="timerSub">Space 起停，或直接转动使用魔方状态自动起停</div>
-            </div>
+            <div class="timer-hero">
+              <div class="timer-stage" id="timerStage" data-state="idle">
+                <div class="timer-status" id="timerStatus">按公式打乱</div>
+                <div class="timer-value" id="timerValue">0.00</div>
+                <div class="timer-sub" id="timerSub">Space 起停，或直接转动使用魔方状态自动起停</div>
+              </div>
 
-            <div class="timer-actions">
-              <button class="btn btn-primary ready-btn" id="readyBtn" type="button" hidden>开始</button>
-              <button class="btn btn-ghost" id="cancelTimerBtn" type="button" disabled>取消本把</button>
+              <div class="timer-actions">
+                <button class="btn btn-primary ready-btn" id="readyBtn" type="button" hidden>开始</button>
+                <button class="btn btn-ghost" id="cancelTimerBtn" type="button" disabled>取消本把</button>
+              </div>
             </div>
             <div class="keyboard-hint" id="keyboardHint"><kbd>Space</kbd> 起停；若不按 Space 而直接转动，本把将全程使用状态计时</div>
           </article>
 
           <aside class="trainer-side">
-            <article class="card live-card">
-              <div class="panel-head compact-head"><div><h2>实时数据</h2><div class="panel-sub" id="liveDevice">等待训练</div></div></div>
+            <!-- 右侧：窄屏时两栏合成一张卡（左四宫格 / 右记录）；
+                 宽屏时两块各自成为一张卡，都留在右侧。 -->
+
+            <!-- 成绩记录 -->
+            <article class="stat-block stat-block-score">
+              <div class="block-head">
+                <h2>成绩</h2>
+                <button class="text-btn" id="goAnalysisBtn" type="button">全部记录 →</button>
+              </div>
+              <div class="score-list" id="trainingRecent"></div>
+            </article>
+
+            <!-- 实时指标 + 本次 Session -->
+            <article class="stat-block stat-block-live">
+              <div class="block-head">
+                <h2>实时</h2>
+                <span class="panel-sub" id="liveDevice">等待训练</span>
+              </div>
               <div class="live-metrics">
                 <div><span>TPS</span><strong id="liveTps">—</strong></div>
                 <div><span>Turns</span><strong id="liveTurns">0</strong></div>
                 <div><span>Fluency</span><strong id="liveFluency">—</strong></div>
+                <div><span>PB</span><strong id="liveBest">—</strong></div>
               </div>
               <div class="move-stream" id="moveStream"><span class="muted">动作会显示在这里</span></div>
-            </article>
 
-            <article class="card session-card">
-              <div class="panel-head compact-head"><div><h2>本次 Session</h2><div class="panel-sub" id="sessionSummary">暂无成绩</div></div><button class="text-btn" id="sessionAiBtn" type="button" title="用 AI 生成本 Session 训练小结">AI 小结 →</button></div>
-              <div class="session-metrics" id="sessionMetrics"></div>
+              <div class="session-block">
+                <div class="block-head">
+                  <h2>本次 Session</h2>
+                  <span class="panel-sub" id="sessionSummary">暂无成绩</span>
+                  <button class="text-btn" id="sessionAiBtn" type="button" title="用 AI 生成本 Session 训练小结">AI 小结 →</button>
+                </div>
+                <div class="session-metrics" id="sessionMetrics"></div>
+              </div>
             </article>
           </aside>
-        </section>
-
-        <section class="card recent-card">
-          <div class="panel-head">
-            <div><h2>最近成绩</h2><div class="panel-sub">训练完成即保存完整智能魔方轨迹，可修正 +2 / DNF 或删除误触记录。</div></div>
-            <button class="text-btn" id="goAnalysisBtn" type="button">查看分析 →</button>
-          </div>
-          <div id="trainingRecent"></div>
         </section>
       </section>
 
@@ -183,7 +220,12 @@
               <button class="text-btn danger-text" id="clearBtn" type="button">清空</button>
             </div>
           </div>
-          <div class="filter-bar" aria-label="数据筛选">
+          <!-- 窄屏：筛选栏默认收起，先给一行当前条件摘要，点开才展开完整筛选 -->
+          <button class="filter-toggle" id="filterToggle" type="button" aria-expanded="false" aria-controls="filterBar">
+            <span>筛选</span><span class="filter-sum" id="filterSummary">全部数据</span>
+            <span class="filter-caret" aria-hidden="true">⌄</span>
+          </button>
+          <div class="filter-bar" id="filterBar" aria-label="数据筛选">
             <label>方法<select id="methodFilter"><option value="all">全部</option><option>CFOP</option><option>Roux</option><option>ZZ</option></select></label>
             <label>Session<select id="sessionFilter"><option value="all">全部</option></select></label>
             <label>设备<select id="deviceFilter"><option value="all">全部</option></select></label>

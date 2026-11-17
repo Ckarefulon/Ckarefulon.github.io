@@ -206,3 +206,536 @@ body[data-workspace="analysis"] .training-only{display:none}.workspace-panel{dis
   .replay-move{grid-template-columns:22px minmax(34px,auto) 46px 40px;font-size:10px}
   .replay-move .replay-move-raw{display:none}
 }
+
+/* ============================================================================
+   训练页重设计（2026-11-15）
+   ----------------------------------------------------------------------------
+   问题：页面上堆了 4 张同权重卡片，每块都在抢注意力 —— 没有主次，显得臃肿。
+
+   办法：**只留一个强调点**。
+     · 计时数字 = 唯一的巨字、唯一的亮色（青色），页面视觉焦点；
+     · 打乱公式 = 工具信息，缩成一条横向带，不再用大字跟计时器抢戏；
+     · 指标数字 = 用竖分隔线分组，不再给每个数字套方框（8 个框 → 0 个框）；
+     · 控制栏 = 退成一条低饱和工具条，不跟内容区争；
+     · 卡片 = 4 张减到 2 张（计时卡 + 数据卡），成绩列表并进数据卡下方。
+
+   同时保持「整页不滚动」：三层 flex 定高链，只让成绩列表内部滚动。
+   ============================================================================ */
+
+/* —— 层次令牌：把「强调 / 信息 / 静默」三档写进变量，后统一按档取用 —— */
+body[data-workspace="training"]{
+  --t-accent:var(--accent);              /* 唯一强调色：只给计时数字与当前动作 */
+  --t-strong:var(--foreground);          /* 标题级文字 */
+  --t-body:var(--text-muted);            /* 说明级文字 */
+  --t-faint:var(--text-subtle);          /* 静默级文字 */
+  --t-hair:color-mix(in srgb,var(--border) 62%,transparent); /* 发丝分隔线 */
+  --t-panel:color-mix(in srgb,var(--card) 82%,var(--background)); /* 次级面板底 */
+}
+
+/* —— 定高链：shell → main → 训练面板 —— */
+body[data-workspace="training"] .page-shell{height:calc(100vh - var(--site-nav-height,44px));height:calc(100dvh - var(--site-nav-height,44px));padding:10px 0 12px;display:flex;flex-direction:column;overflow:hidden}
+body[data-workspace="training"]{overflow:hidden}
+body[data-workspace="training"] .workspace-main{flex:1;min-height:0;display:flex;flex-direction:column}
+body[data-workspace="training"] #trainingWorkspace.active{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+
+/* ===== 控制栏：退成一条安静的工具条 =====
+   原来它有独立卡片底 + 阴影 + 描边，和内容区的卡片同权重，视觉上像"第五个模块"。
+   现在去掉底色与阴影，只靠间距与一条下边线跟内容区分隔。 */
+body[data-workspace="training"] .control-bar{
+  position:static;                 /* 单屏不滚动，sticky 无意义，且会把控制栏顶出空隙 */
+  flex:none;margin-bottom:2px;
+  background:none;border:0;border-radius:0;box-shadow:none;
+  border-bottom:1px solid var(--t-hair);
+  padding:0 2px 10px;
+  display:flex;align-items:center;gap:10px;min-height:0;
+}
+body[data-workspace="training"] .device-cluster{display:flex;align-items:center;gap:8px;flex:none;min-width:0}
+body[data-workspace="training"] .device-button{min-width:0;height:34px;padding:0 14px;font-size:13px;border-radius:9px}
+body[data-workspace="training"] .tool-status{font-size:11px;color:var(--t-faint);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 状态重置是低频操作，做成次要按钮（公共功能块自带外观，这里只调尺寸） */
+body[data-workspace="training"] #stateResetMount .cubeStateResetBtn{height:30px;padding:0 10px;font-size:12px}
+body[data-workspace="training"] .mode-switch{flex:none;padding:2px;border-radius:9px;background:var(--t-panel);border-color:var(--t-hair)}
+body[data-workspace="training"] .mode-switch-btn{min-width:74px;height:28px;padding:0 14px;font-size:13px;border-radius:7px}
+body[data-workspace="training"] .mode-switch-btn.active{background:var(--primary);color:#fff;box-shadow:0 1px 6px rgba(107,93,194,.35)}
+body[data-workspace="training"] .training-controls{display:flex;align-items:center;gap:6px;flex:1;min-width:0;justify-content:flex-end}
+body[data-workspace="training"] .toolbar-field.compact-field{gap:6px;font-size:11px;color:var(--t-faint);text-transform:none;letter-spacing:0}
+body[data-workspace="training"] .toolbar-field.compact-field select,
+body[data-workspace="training"] .toolbar-field.compact-field input{height:32px;border-color:var(--t-hair);background:var(--t-panel);font-size:12.5px}
+body[data-workspace="training"] .session-field input{width:150px}
+body[data-workspace="training"] .workspace-meta{margin-left:auto;flex:none;gap:8px}
+body[data-workspace="training"] .cloud-state{font-size:11px;color:var(--t-faint)}
+body[data-workspace="training"] #totalSolveBadge{background:none;border:1px solid var(--t-hair);color:var(--t-body);font-weight:600;font-size:11px;min-height:22px}
+
+/* 齿轮：唯一的"更多"入口，安静但可见 */
+body[data-workspace="training"] .settings-btn{flex:none;width:32px;height:32px;min-height:32px;min-width:32px;padding:0;border-radius:9px;background:var(--t-panel);border-color:var(--t-hair);color:var(--t-body);font-size:14px;display:inline-flex;align-items:center;justify-content:center;position:relative}
+body[data-workspace="training"] .settings-btn .settings-glyph{line-height:1}
+body[data-workspace="training"] .settings-btn:hover{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-hover)}
+body[data-workspace="training"] .settings-btn[aria-expanded="true"]{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-hover)}
+
+/* ===== 训练设置抽屉 ===== */
+.settings-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:60;width:min(320px,calc(100vw - 24px));max-height:min(70vh,520px);overflow-y:auto;overscroll-behavior:contain;padding:8px 12px 11px;border:1px solid var(--card-border);border-radius:var(--radius-lg);background:var(--popover);box-shadow:0 20px 48px rgba(0,0,0,.46);display:grid;gap:0}
+.settings-pop[hidden]{display:none}
+.settings-pop-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 0 9px;margin-bottom:3px;border-bottom:1px solid var(--border-subtle);font-size:12px;color:var(--t-strong)}
+.settings-pop-head .icon-btn{min-height:24px;min-width:24px;padding:0 6px;font-size:16px;border:0;background:transparent;color:var(--t-faint)}
+.settings-pop-head .icon-btn:hover{color:var(--t-strong);background:transparent}
+.settings-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;cursor:pointer}
+.settings-row+.settings-row{border-top:1px solid var(--border-subtle)}
+.settings-text{display:flex;flex-direction:column;gap:3px;font-size:12.5px;font-weight:600;color:var(--t-strong);min-width:0}
+.settings-text em{font-style:normal;font-weight:400;font-size:10.5px;line-height:1.5;color:var(--t-faint)}
+.settings-row input[type="checkbox"]{flex:none;width:17px;height:17px;accent-color:var(--primary);cursor:pointer}
+.settings-row select{flex:none;height:30px;min-width:74px;border:1px solid var(--border);border-radius:var(--radius);background:var(--input);color:var(--foreground);padding:0 8px;outline:none;font-size:12px}
+.settings-inline{display:flex;gap:6px;flex:none}
+.settings-inline .toolbar-check{height:30px;font-size:11px;padding:0 9px;background:var(--input);border-color:var(--border);color:var(--t-body);cursor:pointer}
+.settings-inline .toolbar-check:hover{border-color:var(--primary);background:var(--primary-soft)}
+.settings-inline .toolbar-check span{white-space:nowrap}
+/* 状态重置按钮（Cube 公用功能块自带外观，这里只调尺寸与对齐） */
+.settings-row #stateResetMount{flex:none;display:inline-flex;align-items:center}
+.settings-row #stateResetMount .cubeStateResetBtn{height:30px;padding:0 11px;font-size:11.5px;border-radius:8px;border-color:var(--border);background:var(--input);color:var(--t-body)}
+.settings-row #stateResetMount .cubeStateResetBtn:hover{border-color:var(--primary);background:var(--primary-soft);color:var(--t-strong)}
+.settings-note{margin:9px 0 0;padding-top:9px;border-top:1px solid var(--border-subtle);font-size:10.5px;line-height:1.55;color:var(--t-faint)}
+
+/* ============================================================================
+   训练页（2026-11-15 重写）
+   ----------------------------------------------------------------------------
+   结构：左边一张大卡（打乱 + 计时器），右边一列。
+
+   窄屏（<900px）：
+     整页铺满一屏，上下两段 ——
+       上：打乱 + 计时器
+       下：一张卡，内部左右分栏（左 = 2×2 四宫格，右 = 两栏三列记录），竖线分隔
+     窄屏不放栏目标题（「实时」「成绩」等），只留数字。
+
+   宽屏（>=900px）：
+     左右两栏，右边两张卡上下叠放，都留在右侧 ——
+       卡一：成绩记录
+       卡二：实时四宫格 + 本次 Session
+   ============================================================================ */
+
+/* —— 层次令牌：强调 / 信息 / 静默三档 —— */
+body[data-workspace="training"]{
+  --t-accent:var(--accent);
+  --t-strong:var(--foreground);
+  --t-body:var(--text-muted);
+  --t-faint:var(--text-subtle);
+  --t-hair:color-mix(in srgb,var(--border) 62%,transparent);
+  --t-panel:color-mix(in srgb,var(--card) 82%,var(--background));
+  --side-w:300px;
+}
+
+/* —— 定高链：shell → main → 训练面板 —— */
+body[data-workspace="training"]{overflow:hidden}
+body[data-workspace="training"] .page-shell{
+  height:calc(100vh - var(--site-nav-height,44px));
+  height:calc(100dvh - var(--site-nav-height,44px));
+  padding:10px 0 12px;display:flex;flex-direction:column;overflow:hidden;
+}
+body[data-workspace="training"] .workspace-main{flex:1;min-height:0;display:flex;flex-direction:column}
+body[data-workspace="training"] #trainingWorkspace.active{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+
+/* ===== 控制栏：一条安静的工具条 ===== */
+body[data-workspace="training"] .control-bar{
+  position:static;flex:none;margin-bottom:2px;
+  background:none;border:0;border-radius:0;box-shadow:none;
+  border-bottom:1px solid var(--t-hair);
+  padding:0 2px 10px;
+  display:flex;align-items:center;gap:10px;min-height:0;
+}
+body[data-workspace="training"] .device-cluster{display:flex;align-items:center;gap:8px;flex:none;min-width:0}
+body[data-workspace="training"] .device-button{min-width:0;height:34px;padding:0 14px;font-size:13px;border-radius:9px}
+body[data-workspace="training"] .tool-status{font-size:11px;color:var(--t-faint);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body[data-workspace="training"] .mode-switch{flex:none;padding:2px;border-radius:9px;background:var(--t-panel);border-color:var(--t-hair)}
+body[data-workspace="training"] .mode-switch-btn{min-width:74px;height:28px;padding:0 14px;font-size:13px;border-radius:7px}
+body[data-workspace="training"] .mode-switch-btn.active{background:var(--primary);color:#fff;box-shadow:0 1px 6px rgba(107,93,194,.35)}
+body[data-workspace="training"] .training-controls{display:flex;align-items:center;gap:6px;flex:1;min-width:0;justify-content:flex-end}
+body[data-workspace="training"] .toolbar-field.compact-field{gap:6px;font-size:11px;color:var(--t-faint);text-transform:none;letter-spacing:0}
+body[data-workspace="training"] .toolbar-field.compact-field select,
+body[data-workspace="training"] .toolbar-field.compact-field input{height:32px;border-color:var(--t-hair);background:var(--t-panel);font-size:12.5px}
+body[data-workspace="training"] .session-field input{width:150px}
+body[data-workspace="training"] .workspace-meta{margin-left:auto;flex:none;gap:8px}
+body[data-workspace="training"] .cloud-state{font-size:11px;color:var(--t-faint)}
+body[data-workspace="training"] #totalSolveBadge{background:none;border:1px solid var(--t-hair);color:var(--t-body);font-weight:600;font-size:11px;min-height:22px}
+body[data-workspace="training"] .settings-btn{flex:none;width:32px;height:32px;min-height:32px;min-width:32px;padding:0;border-radius:9px;background:var(--t-panel);border:1px solid var(--t-hair);color:var(--t-body);font-size:14px;display:inline-flex;align-items:center;justify-content:center}
+body[data-workspace="training"] .settings-btn .settings-glyph{line-height:1}
+body[data-workspace="training"] .settings-btn:hover,
+body[data-workspace="training"] .settings-btn[aria-expanded="true"]{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-hover)}
+
+/* ===== 主体网格 ===== */
+body[data-workspace="training"] .trainer-grid{
+  flex:1 1 auto;min-height:0;
+  display:grid;grid-template-columns:minmax(0,1fr) var(--side-w);
+  gap:12px;align-items:stretch;
+}
+
+/* ===== 左：计时卡（页面主角）=====
+   打乱带贴顶，计时区吃掉剩余高度并居中 —— 空间够时两者自然被拉开，不显得拥挤。
+   --scramble-vgap / --timer-vgap 是两处的呼吸留白：字号越大，留白也得跟着长，
+   否则大号字会顶在框边上，看着发挤。 */
+body[data-workspace="training"] .timer-card{
+  --scramble-vgap:22px;     /* 打乱公式上下留白 */
+  --timer-vgap:34px;        /* 计时数字上下留白 */
+  min-width:0;min-height:0;padding:20px 24px 18px;
+  display:flex;flex-direction:column;justify-content:flex-start;
+  background:var(--card);border:1px solid var(--card-border);border-radius:14px;overflow:hidden;
+}
+body[data-workspace="training"] .timer-card>*{min-width:0;max-width:100%}
+
+/* 打乱：字号跟着容器宽度自适应放大（容器越宽字越大），放不下就换行 */
+body[data-workspace="training"] .scramble-head{display:flex;align-items:center;gap:10px;flex:none;min-width:0}
+body[data-workspace="training"] .section-kicker{font:650 9.5px var(--mono);letter-spacing:.16em;color:var(--t-faint);text-transform:uppercase}
+body[data-workspace="training"] .scramble-hint{margin-left:auto;color:var(--t-faint);font-size:10px;white-space:nowrap;user-select:none;pointer-events:none}
+body[data-workspace="training"] .scramble-tape{
+  margin:12px 0 0;padding:16px 20px;border-radius:12px;
+  background:var(--t-panel);border:1px solid var(--t-hair);
+  overflow:hidden;min-width:0;max-width:100%;
+  flex:0 0 auto;                   /* 不参与收缩：字号算大了要能被 JS 量出来，而不是把内容裁掉 */
+  container-type:inline-size;      /* 让下面的 cqw 跟随这块的实际宽度 */
+}
+body[data-workspace="training"] .scramble-text{
+  min-height:0;padding:var(--scramble-vgap) 0;text-align:center;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 0;
+  /* 字号由 JS 二分算出（analyzer-app.js 的 fitScrambleFont）：正好铺满三行、绝不出现第四行。
+     这里的 clamp 只是脚本跑起来之前的兜底值。 */
+  font:650 clamp(20px,6.6cqw,68px)/1.22 var(--mono);letter-spacing:.01em;
+  color:var(--t-body);touch-action:manipulation;
+}
+body[data-workspace="training"] .scramble-text .scramble-step{font-size:1.12em;font-weight:700;margin-right:.38em;opacity:.75}
+body[data-workspace="training"] .scramble-text .scramble-step.isCurrent,
+body[data-workspace="training"] .scramble-text .scramble-step.isFix{opacity:1}
+body[data-workspace="training"] .scramble-meta{flex:none;text-align:center;min-height:0;font-size:10.5px;color:var(--t-faint);margin-top:14px}
+
+/* 计时：打乱带与计时区之间留弹性空白（够高就自然隔开，矮屏自动收窄）。
+   数字与按钮始终贴在一起，不参与这个弹性。 */
+body[data-workspace="training"] .timer-hero{
+  flex:1 1 auto;min-height:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  margin:0;padding:24px 0 20px;
+}
+body[data-workspace="training"] .timer-stage{flex:none;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border:0;margin:0}
+body[data-workspace="training"] .timer-status{font-size:12px;color:var(--t-body);font-weight:600}
+/* 数字：字号由 JS 跟着卡片可用高度算（analyzer-app.js 的 fitTimerValue），
+   始终明显大于打乱公式；这里的 clamp 只是脚本跑起来之前的兜底值。
+   上下留白用 --timer-vgap：大字不至于顶在状态行与说明行上。 */
+body[data-workspace="training"] .timer-value{
+  font:700 clamp(60px,17vh,180px)/.9 var(--mono);letter-spacing:-.055em;
+  margin:var(--timer-vgap) 0;color:var(--t-strong);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+body[data-workspace="training"] .timer-stage[data-state="ready"] .timer-value,
+body[data-workspace="training"] .timer-stage[data-state="inspection"] .timer-value{color:var(--t-accent)}
+body[data-workspace="training"] .timer-sub{font-size:11.5px;color:var(--t-faint);line-height:1.5;max-width:34em}
+body[data-workspace="training"] .timer-actions{display:flex;gap:9px;flex:none;flex-wrap:wrap;justify-content:center;margin-top:14px}
+body[data-workspace="training"] .timer-actions .btn{min-height:40px;padding:0 22px;border-radius:10px;font-size:14px;white-space:nowrap}
+body[data-workspace="training"] .ready-btn{min-width:130px;font-weight:650}
+body[data-workspace="training"] .keyboard-hint{flex:none;text-align:center;color:var(--t-faint);font-size:10.5px;margin-top:12px}
+body[data-workspace="training"] .keyboard-hint kbd{font:10px var(--mono);border:1px solid var(--t-hair);background:var(--t-panel);border-radius:4px;padding:1px 5px}
+
+/* ===== 右：卡片列 ===== */
+body[data-workspace="training"] .trainer-side{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
+body[data-workspace="training"] .stat-block{
+  padding:14px 16px;min-width:0;
+  background:var(--card);border:1px solid var(--card-border);border-radius:14px;
+  display:flex;flex-direction:column;
+}
+/* 成绩卡吃掉右侧剩余高度：列表随之伸展，配合 JS 按高度补条，底部不留空白 */
+body[data-workspace="training"] .stat-block-score{flex:1 1 auto;min-height:0;overflow:hidden}
+body[data-workspace="training"] .stat-block-live{flex:0 0 auto;min-height:0}
+
+/* 区块小标题 */
+body[data-workspace="training"] .block-head{display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-wrap:nowrap;min-width:0;flex:none}
+body[data-workspace="training"] .block-head h2{margin:0;font-size:10.5px;font-weight:650;letter-spacing:.09em;text-transform:uppercase;color:var(--t-faint);flex:none;white-space:nowrap}
+body[data-workspace="training"] .block-head .panel-sub{margin:0;font-size:11px;color:var(--t-body);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body[data-workspace="training"] .block-head .text-btn{margin-left:auto;flex:none;font-size:11px;color:var(--t-faint);padding:2px 4px}
+body[data-workspace="training"] .block-head .text-btn:hover{color:var(--t-accent)}
+
+/* ===== 成绩记录：两栏网格，填满卡片剩余高度 ===== */
+body[data-workspace="training"] .score-list{
+  display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;
+  align-content:start;                 /* 行从上往下排，不把行距拉开 */
+  flex:1 1 auto;min-width:0;min-height:0;   /* 吃掉卡片剩余高度，供 JS 量出来补条 */
+  overflow-y:auto;scrollbar-width:none;
+}
+body[data-workspace="training"] .score-list::-webkit-scrollbar{display:none}
+body[data-workspace="training"] .score-row{
+  display:flex;align-items:baseline;padding:4px 6px;border:0;border-radius:6px;background:none;
+  text-align:left;font:inherit;min-width:0;
+}
+body[data-workspace="training"] button.score-row{cursor:pointer;transition:background .15s}
+body[data-workspace="training"] button.score-row:hover{background:color-mix(in srgb,var(--primary-soft) 32%,transparent)}
+body[data-workspace="training"] .score-time{font-family:var(--mono);letter-spacing:-.01em;white-space:nowrap}
+/* AO 那一条：成绩前面挂一个 AO 前缀，位置固定在前几把之后 */
+body[data-workspace="training"] .score-label{
+  flex:none;margin-right:.4em;color:var(--t-faint);
+  font:650 .74em/1 var(--mono);letter-spacing:.06em;
+}
+body[data-workspace="training"] .score-row-strong .score-time{font-size:16px;font-weight:700;color:var(--t-strong)}
+body[data-workspace="training"] .score-row-plain .score-time{font-size:12.5px;color:var(--t-faint)}
+body[data-workspace="training"] .score-row-plain:hover .score-time{color:var(--t-body)}
+body[data-workspace="training"] .score-empty{grid-column:1/-1;font-size:11.5px;color:var(--t-faint);padding:3px 6px}
+
+/* ===== 实时四宫格 ===== */
+body[data-workspace="training"] .live-metrics{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;flex:none;margin:0}
+body[data-workspace="training"] .live-metrics>div{display:flex;flex-direction:column;gap:3px;padding:0;border:0;background:none;border-radius:0;min-width:0}
+body[data-workspace="training"] .live-metrics span,
+body[data-workspace="training"] .session-metrics span{display:block;color:var(--t-faint);font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+body[data-workspace="training"] .live-metrics strong{display:block;font:650 20px/1.1 var(--mono);color:var(--t-strong)}
+
+/* 动作流：细窄横带 */
+body[data-workspace="training"] .move-stream{
+  display:flex;flex-wrap:nowrap;align-items:center;gap:4px;
+  margin-top:12px;padding:0;height:24px;min-height:24px;flex:none;
+  border:0;border-radius:0;background:none;
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:none;
+}
+body[data-workspace="training"] .move-stream::-webkit-scrollbar{display:none}
+body[data-workspace="training"] .move-chip{flex:none;height:21px;min-width:26px;padding:0 6px;border-radius:5px;background:var(--t-panel);border:1px solid var(--t-hair);font:600 10.5px var(--mono);color:var(--t-body)}
+body[data-workspace="training"] .move-chip.latest{border-color:var(--t-accent);color:var(--t-accent)}
+body[data-workspace="training"] .move-stream .muted{font-size:10.5px;color:var(--t-faint);white-space:nowrap}
+
+/* ===== 本次 Session ===== */
+body[data-workspace="training"] .session-block{margin-top:auto;padding-top:13px;border-top:1px solid var(--t-hair);flex:none}
+body[data-workspace="training"] .session-block .block-head{margin-bottom:10px}
+body[data-workspace="training"] .session-metrics{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+body[data-workspace="training"] .session-metrics>div{display:flex;flex-direction:column;gap:3px;padding:0;border:0;background:none;border-radius:0;min-width:0}
+body[data-workspace="training"] .session-metrics strong{display:block;font:650 17px/1.1 var(--mono);color:var(--t-strong)}
+body[data-workspace="training"] .session-metrics .muted{grid-column:1/-1;padding:2px 0;font-size:11px;color:var(--t-faint)}
+
+/* ============================================================================
+   窄屏（<900px）：上下两段；下面那张卡内部左右分栏
+   ============================================================================ */
+@media (max-width:900px){
+  body[data-workspace="training"] .page-shell{width:min(100% - 16px,1440px);padding:8px 0 10px}
+  body[data-workspace="training"] #trainingWorkspace.active{gap:8px}
+
+  /* 控制栏：两行网格 */
+  body[data-workspace="training"] .control-bar{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"device mode meta" "fields fields fields";gap:8px 10px;padding:0 2px 9px}
+  body[data-workspace="training"] .device-cluster{grid-area:device;gap:7px;min-width:0}
+  body[data-workspace="training"] .device-button{height:32px;font-size:12.5px;padding:0 12px}
+  body[data-workspace="training"] .tool-status{display:none}
+  body[data-workspace="training"] .mode-switch{grid-area:mode;justify-self:end}
+  body[data-workspace="training"] .mode-switch-btn{min-width:0;height:27px;padding:0 12px;font-size:12.5px}
+  body[data-workspace="training"] .workspace-meta{grid-area:meta;margin-left:0;gap:6px}
+  body[data-workspace="training"] .cloud-state{display:none}
+  body[data-workspace="training"] .training-controls{grid-area:fields;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:7px;align-items:center;padding-top:0}
+  body[data-workspace="training"] .toolbar-field.compact-field select,
+  body[data-workspace="training"] .toolbar-field.compact-field input{height:31px}
+  body[data-workspace="training"] .session-field input{width:100%}
+  body[data-workspace="training"] .settings-btn{width:31px;height:31px;min-height:31px;min-width:31px}
+  body[data-workspace="training"] .settings-pop{right:0;left:auto;width:min(320px,calc(100vw - 16px))}
+
+  /* 主体：上下两段。下面那行给足高度（约三成）—— 记录才有地方排，
+     条数按实际空间来，放不下就滚动，不强求显示 6 条。 */
+  body[data-workspace="training"] .trainer-grid{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(120px,30%);gap:8px;align-items:stretch}
+  body[data-workspace="training"] .timer-card{padding:12px 14px 13px;justify-content:flex-start;--scramble-vgap:12px;--timer-vgap:18px}
+  body[data-workspace="training"] .scramble-tape{margin-top:9px;padding:12px 14px}
+  body[data-workspace="training"] .scramble-text{font-size:clamp(15px,5.4cqw,24px);line-height:1.32}
+  body[data-workspace="training"] .scramble-meta{margin-top:6px;font-size:10px}
+  body[data-workspace="training"] .timer-hero{margin:14px 0 0;padding:0;flex:1 1 auto;justify-content:center}
+  body[data-workspace="training"] .timer-value{font-size:clamp(44px,12vw,68px);margin:var(--timer-vgap) 0}
+  body[data-workspace="training"] .timer-status{font-size:11px}
+  body[data-workspace="training"] .timer-sub{font-size:10.5px}
+  body[data-workspace="training"] .timer-actions{gap:7px;margin-top:12px;flex-wrap:nowrap}
+  body[data-workspace="training"] .timer-actions .btn{min-height:34px;padding:0 15px;font-size:13px}
+  body[data-workspace="training"] .keyboard-hint{display:none}
+
+  /* 下面：两张独立卡片并排（左边指标、右边成绩）。
+     原来是一张卡用一条竖线分隔，那条线太淡看不清 —— 干脆做成两张卡，边界自然清楚。 */
+  body[data-workspace="training"] .trainer-side{
+    display:grid;grid-template-columns:minmax(150px,44%) minmax(0,1fr);
+    gap:8px;align-items:stretch;
+    background:none;border:0;border-radius:0;overflow:visible;flex:none;
+  }
+  body[data-workspace="training"] .stat-block{
+    padding:12px 13px;flex:none;min-height:0;
+    background:var(--card);border:1px solid var(--card-border);border-radius:12px;
+  }
+  /* 左栏跟着这一行的高度走：成绩少（5 把 + AO，三行）时两卡底边齐平 */
+  body[data-workspace="training"] .stat-block-live{order:1;align-self:stretch}
+  /* 成绩卡跟着这一行的高度走，列表内部填满 —— 底部不留白 */
+  body[data-workspace="training"] .stat-block-score{order:2;overflow:hidden;align-self:stretch}
+  /* 窄屏不显示栏目标题与入口 */
+  body[data-workspace="training"] .stat-block-live>.block-head,
+  body[data-workspace="training"] .stat-block-score>.block-head{display:none}
+  body[data-workspace="training"] .session-block{display:none}
+  body[data-workspace="training"] .move-stream{display:none}
+  /* 左：纯 2×2 四宫格。竖向撑满卡片 —— 成绩只有「5 把 + AO」三行时，
+     两张卡等高，四宫格的格子高度就跟记录的三行对齐。 */
+  body[data-workspace="training"] .live-metrics{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;align-content:center;flex:1 1 auto;min-height:0;gap:12px 14px}
+  body[data-workspace="training"] .live-metrics span{font-size:9px;letter-spacing:.06em}
+  body[data-workspace="training"] .live-metrics strong{font-size:17px}
+  /* 右：记录网格。下面那行已经给了高度，6 格能排下；再挤就滚动 */
+  body[data-workspace="training"] .score-list{align-content:start;overflow-y:auto;gap:2px 8px}
+  body[data-workspace="training"] .score-row{padding:3px 4px}
+  body[data-workspace="training"] .score-row-strong .score-time{font-size:15px}
+  body[data-workspace="training"] .score-row-plain .score-time{font-size:12px}
+}
+
+/* 极窄屏：左栏再窄一点，四宫格字号收小 */
+@media (max-width:400px){
+  body[data-workspace="training"] .trainer-side{grid-template-columns:minmax(136px,44%) minmax(0,1fr)}
+  body[data-workspace="training"] .stat-block{padding:10px 11px}
+  body[data-workspace="training"] .live-metrics{gap:13px 10px}
+  body[data-workspace="training"] .live-metrics strong{font-size:15px}
+  body[data-workspace="training"] .score-row-strong .score-time{font-size:14px}
+  body[data-workspace="training"] .score-row-plain .score-time{font-size:11.5px}
+  body[data-workspace="training"] #totalSolveBadge{display:none}
+}
+
+/* 矮屏：只收留白与字号 */
+@media (max-height:720px){
+  body[data-workspace="training"] .page-shell{padding:7px 0 9px}
+  body[data-workspace="training"] .timer-card{padding:10px 12px 11px;--scramble-vgap:9px;--timer-vgap:13px}
+  body[data-workspace="training"] .scramble-tape{margin-top:7px;padding:10px 12px}
+  body[data-workspace="training"] .scramble-text{font-size:clamp(14px,5.2cqw,22px);line-height:1.3}
+  body[data-workspace="training"] .scramble-meta{margin-top:5px}
+  body[data-workspace="training"] .timer-hero{margin:10px 0 8px}
+  body[data-workspace="training"] .timer-value{font-size:clamp(40px,10.5vh,72px);margin:var(--timer-vgap) 0}
+  body[data-workspace="training"] .timer-sub{display:none}
+  body[data-workspace="training"] .timer-actions{margin-top:9px}
+  body[data-workspace="training"] .timer-actions .btn{min-height:32px;padding:0 14px}
+  body[data-workspace="training"] .keyboard-hint{display:none}
+  body[data-workspace="training"] .stat-block{padding:10px 12px}
+  body[data-workspace="training"] .block-head{margin-bottom:8px}
+  body[data-workspace="training"] .live-metrics{gap:11px 14px}
+  body[data-workspace="training"] .live-metrics strong{font-size:17px}
+  body[data-workspace="training"] .move-stream{height:21px;margin-top:9px}
+  body[data-workspace="training"] .session-block{padding-top:10px;margin-top:10px}
+  body[data-workspace="training"] .session-metrics{gap:9px 14px}
+  body[data-workspace="training"] .score-row{padding:3px 5px}
+}
+/* ============================================================================
+   分析页优化（2026-11-15）
+   ----------------------------------------------------------------------------
+   原来一屏只看得见半张图表：六张指标卡各 118px 高、一句「今日 vs 基线」独占 120px、
+   图表 403px，加起来 815px。这里压掉纵向浪费、把首屏还给内容本身。
+   ============================================================================ */
+
+/* 分析页不需要连魔方控件（它属于训练页），已由 .training-only 隐藏；
+   控制栏随之变成一条窄条，不再占满一整行。 */
+body[data-workspace="analysis"] .control-bar{
+  padding:8px 10px;min-height:0;min-width:0;
+  display:flex;align-items:center;gap:10px;
+}
+body[data-workspace="analysis"] .mode-switch{order:-1}         /* 页签靠左，先看到"我在哪" */
+body[data-workspace="analysis"] .workspace-meta{margin-left:auto}
+
+/* 指标卡：压缩纵向留白，一屏能多看见下面的图 */
+body[data-workspace="analysis"] .metric-grid{gap:8px;margin-bottom:0}
+body[data-workspace="analysis"] .metric-card{min-height:0;padding:11px 13px;justify-content:flex-start;gap:2px}
+body[data-workspace="analysis"] .metric-value{font-size:clamp(21px,1.9vw,28px);margin:4px 0 2px;line-height:1.05}
+body[data-workspace="analysis"] .metric-label{font-size:11px}
+body[data-workspace="analysis"] .metric-sub,
+body[data-workspace="analysis"] .metric-card .muted{font-size:10px}
+
+/* 面板：统一收紧内边距与标题间距 */
+body[data-workspace="analysis"] .panel-card{padding:14px 16px}
+body[data-workspace="analysis"] .panel-head{margin-bottom:11px}
+body[data-workspace="analysis"] .panel-head h2{font-size:14px}
+
+/* 图表：给一个"看得见趋势即可"的高度，不再 290px 起步 */
+body[data-workspace="analysis"] .chart-box{min-height:210px}
+body[data-workspace="analysis"] .grid-2{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(280px,1fr);gap:10px;align-items:start}
+
+/* 筛选栏：日期框与下拉统一高度、同一套外观；标签缩一号 */
+body[data-workspace="analysis"] .filter-bar{align-items:end;gap:8px}
+body[data-workspace="analysis"] .filter-bar>label{display:flex;flex-direction:column;gap:3px;font-size:10.5px;color:var(--text-subtle);min-width:0}
+body[data-workspace="analysis"] .filter-bar select,
+body[data-workspace="analysis"] .filter-bar input{height:32px;border:1px solid var(--border);border-radius:8px;background:var(--input);color:var(--foreground);padding:0 9px;font-size:12px;min-width:0;width:100%}
+body[data-workspace="analysis"] .filter-bar select:focus,
+body[data-workspace="analysis"] .filter-bar input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);outline:none}
+/* 日期输入的原生日历图标在深色下几乎看不见，统一提亮 */
+body[data-workspace="analysis"] .filter-bar input[type="date"]{color-scheme:dark}
+body[data-workspace="analysis"] .filter-bar input[type="date"]::-webkit-calendar-picker-indicator{opacity:.62;cursor:pointer;filter:invert(.82)}
+body[data-workspace="analysis"] .filter-bar input[type="date"]:hover::-webkit-calendar-picker-indicator{opacity:1}
+html[data-theme="light"] body[data-workspace="analysis"] .filter-bar input[type="date"]{color-scheme:light}
+html[data-theme="light"] body[data-workspace="analysis"] .filter-bar input[type="date"]::-webkit-calendar-picker-indicator{filter:none;opacity:.5}
+body[data-workspace="analysis"] .filter-reset{height:32px;min-height:32px;padding:0 14px;font-size:12px}
+
+/* 数据集头：标题/徽标/按钮排成一条，别让按钮挤到第二行 */
+body[data-workspace="analysis"] .analysis-headline{padding-bottom:9px;margin-bottom:9px;gap:10px;flex-wrap:wrap}
+body[data-workspace="analysis"] .analysis-data-meta strong{font-size:14px}
+body[data-workspace="analysis"] .analysis-actions{gap:2px}
+
+/* 标签栏：更紧凑，且不吃满整行高度 */
+body[data-workspace="analysis"] .tabs{padding:4px;gap:2px;margin-bottom:10px}
+body[data-workspace="analysis"] .tab{min-height:32px;padding:6px 12px;font-size:12.5px}
+
+/* 空态：不要一大块虚线框，收成一行提示 */
+body[data-workspace="analysis"] .tab-panel>.empty,
+body[data-workspace="analysis"] .card>.empty{min-height:0;padding:16px;border-style:dashed}
+
+/* 基线那一行：从"整张卡只有一个句子"压成一条窄条 */
+body[data-workspace="analysis"] .panel-card .callout{padding:9px 12px;font-size:11.5px}
+
+/* 窄屏：指标卡两列、图表再矮一点、筛选栏收紧 */
+@media (max-width:760px){
+  body[data-workspace="analysis"] .metric-grid{grid-template-columns:1fr 1fr;gap:7px}
+  body[data-workspace="analysis"] .metric-card{padding:10px 11px}
+  body[data-workspace="analysis"] .metric-value{font-size:20px}
+  body[data-workspace="analysis"] .chart-box{min-height:170px}
+  body[data-workspace="analysis"] .grid-2{grid-template-columns:1fr}
+  body[data-workspace="analysis"] .panel-card{padding:12px 13px}
+  body[data-workspace="analysis"] .analysis-control{padding:11px 12px}
+  body[data-workspace="analysis"] .filter-bar{grid-template-columns:1fr 1fr}
+  body[data-workspace="analysis"] .filter-reset{grid-column:1/-1}
+  body[data-workspace="analysis"] .tab{min-height:30px;padding:5px 10px;font-size:12px}
+}
+/* 「今日 vs 基线」→ 一条窄条（原来是一整张面板只放一行数字） */
+body[data-workspace="analysis"] .baseline-strip{
+  display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 22px;
+  margin:8px 0 0;padding:9px 14px;
+  border:1px solid var(--border-subtle);border-radius:var(--radius);
+  background:var(--input);
+}
+body[data-workspace="analysis"] .baseline-kicker{
+  font:650 9.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text-subtle);flex:none;margin-right:2px;
+}
+body[data-workspace="analysis"] .baseline-strip .kpi-inline{display:inline-flex;align-items:baseline;gap:7px;font-size:12px}
+body[data-workspace="analysis"] .baseline-strip .kpi-inline .muted{font-size:10.5px}
+body[data-workspace="analysis"] .baseline-strip .kpi-inline strong{font:650 13px var(--mono);color:var(--card-fg)}
+
+/* 首屏 grid-2 紧跟在指标/窄条之后，别再多留一层空隙 */
+body[data-workspace="analysis"] .tab-panel>.card+.grid-2,
+body[data-workspace="analysis"] .tab-panel>.metric-grid+.baseline-strip{margin-top:8px}
+body[data-workspace="analysis"] .grid-2{margin-top:8px}
+
+@media (max-width:760px){
+  body[data-workspace="analysis"] .baseline-strip{padding:8px 11px;gap:4px 14px}
+  body[data-workspace="analysis"] .baseline-strip .kpi-inline{font-size:11px}
+  body[data-workspace="analysis"] .baseline-strip .kpi-inline strong{font-size:12px}
+}
+/* 极窄屏：基线窄条里的四组数字换成两行，别把一行挤爆 */
+@media (max-width:400px){
+  body[data-workspace="analysis"] .baseline-strip{padding:7px 10px;gap:3px 12px}
+  body[data-workspace="analysis"] .baseline-kicker{width:100%;margin:0 0 2px}
+  body[data-workspace="analysis"] .baseline-strip .kpi-inline{gap:5px}
+  body[data-workspace="analysis"] .baseline-strip .kpi-inline .muted{font-size:9.5px}
+  body[data-workspace="analysis"] .baseline-strip .kpi-inline strong{font-size:11.5px}
+  body[data-workspace="analysis"] .chart-box{min-height:190px}
+}
+/* ============================================================================
+   分析页窄屏：筛选栏默认收起
+   ----------------------------------------------------------------------------
+   窄屏下五个筛选控件各占一行会把首屏吃掉一半（320px 高）。这里改成：
+   默认只显示一行摘要，点「筛选」再展开。摘要里直接写明当前生效的条件，
+   不展开也知道在筛什么。
+   ============================================================================ */
+body[data-workspace="analysis"] .filter-toggle{
+  display:none;width:100%;margin:0;
+  align-items:center;gap:8px;
+  height:32px;padding:0 11px;
+  border:1px solid var(--border);border-radius:8px;
+  background:var(--input);color:var(--text-muted);
+  font-size:12px;cursor:pointer;text-align:left;
+}
+body[data-workspace="analysis"] .filter-toggle .filter-caret{margin-left:auto;flex:none;transition:transform .15s}
+body[data-workspace="analysis"] .filter-toggle[aria-expanded="true"] .filter-caret{transform:rotate(180deg)}
+body[data-workspace="analysis"] .filter-toggle .filter-sum{color:var(--foreground);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+@media (max-width:760px){
+  body[data-workspace="analysis"] .filter-toggle{display:flex}
+  /* 收起态：隐藏筛选网格，只留摘要行 */
+  body[data-workspace="analysis"] .filter-bar[data-collapsed="true"]{display:none}
+  body[data-workspace="analysis"] .analysis-control{padding:10px 11px}
+  body[data-workspace="analysis"] .analysis-headline{margin-bottom:8px;padding-bottom:8px}
+}
