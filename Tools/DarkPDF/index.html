@@ -359,10 +359,10 @@
 					<button data-mode="threshold">阈值</button>
 					<button data-mode="none">原样</button>
 				</div>
-				<div class="row"><label for="bg">背景灰度</label><span class="val" id="bgVal">0</span></div>
-				<input type="range" id="bg" min="0" max="60" value="0">
-				<div class="row"><label for="ink">文字亮度</label><span class="val" id="inkVal">255</span></div>
-				<input type="range" id="ink" min="150" max="255" value="255">
+				<div class="row"><label for="bg">背景灰度</label><span class="val" id="bgVal">18</span></div>
+				<input type="range" id="bg" min="0" max="60" value="18">
+				<div class="row"><label for="ink">文字亮度</label><span class="val" id="inkVal">229</span></div>
+				<input type="range" id="ink" min="150" max="255" value="229">
 				<div id="thrWrap" hidden>
 					<div class="row"><label for="thr">阈值</label><span class="val" id="thrVal">150</span></div>
 					<input type="range" id="thr" min="30" max="230" value="150">
@@ -373,7 +373,8 @@
 				<label class="chk"><input type="checkbox" id="edgeTrim" checked><span>裁掉扫描暗边（反色后不留白角）</span></label>
 				<label class="chk"><input type="checkbox" id="imgInv" checked><span>位图一并处理</span></label>
 				<p class="hint">彩色一律转黑白：取反后红变青，不转灰就不是「黑底白字」。<br>
-					「阈值」把页面二值化：小于阈值算墨，适合底色发灰的扫描件。</p>
+					「阈值」把页面二值化：小于阈值算墨，适合底色发灰的扫描件。<br>
+					<b>这里的设置会自动记住</b>，下次打开还是你这套数值。</p>
 			</div>
 
 			<div class="grp">
@@ -457,6 +458,99 @@ function luminance(nums) {
     l = 1 - Math.min(1, 0.3 * c + 0.59 * m + 0.11 * y + k);
   }
   return l < 0 ? 0 : l > 1 ? 1 : l;
+}
+
+/* ============================================================
+ * 自动色阶曲线（预览 / 矢量导出 / 位图导出 共用同一份）
+ *
+ * 预览按「像素直方图」走、矢量导出按「内容流里出现过的灰度」走，
+ * 只要两边都调用这一个函数，得到的映射就完全一致 —— 否则就是
+ * 「预览好看、导出变样」。
+ * ============================================================ */
+
+/** smootherstep：两端平、中间陡，浅灰（水印/纸纹）压到背景，墨仍落在最亮端 */
+function smoothstepCurve(t) {
+  return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+/**
+ * 由直方图求出纸/墨两端，返回 256 项查找表（索引 = 输入灰阶 0..255）。
+ * @param {Uint32Array|Array<number>} hist 256 项直方图
+ * @param {number} total 直方图样本总数
+ * @param {number} bg255 背景灰度 0..255
+ * @param {number} ink255 文字亮度 0..255
+ * @param {boolean} auto 是否自动色阶（false 时两端固定 0/255）
+ * @returns {Uint8ClampedArray}
+ */
+function makeLevelsLut(hist, total, bg255, ink255, auto) {
+  const n = total || 1;
+  const pick = (p) => {
+    let acc = 0;
+    const target = n * p;
+    for (let v = 0; v < 256; v++) { acc += hist[v] || 0; if (acc >= target) return v; }
+    return 255;
+  };
+  let lo = 0, hi = 255;
+  if (auto) {
+    // 墨（暗端）取 0.5% 分位：真墨常只占 1-2%，3% 会被半透明水印/纸纹拖到 200 以上，
+    // 水印于是被当成墨、反色后变成一片亮白。
+    lo = pick(0.005); hi = pick(0.98);
+    if (lo > 128) lo = 0;              // 整页没有真墨（空白页），不拉伸
+    if (hi - lo < 24) { lo = 0; hi = 255; }
+  }
+  const span = hi - lo;
+  const lut = new Uint8ClampedArray(256);
+  for (let v = 0; v < 256; v++) {
+    let t = span > 0 ? (v - lo) / span : v / 255;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    if (auto) t = smoothstepCurve(t);
+    lut[v] = Math.round(bg255 + (1 - t) * (ink255 - bg255));
+  }
+  return lut;
+}
+
+/** 像素直方图（步进采样，上限约 20 万点） */
+function histFromPixels(data) {
+  const hist = new Uint32Array(256);
+  // 采样上限放宽到 20 万点：0.5% 分位只有几百个像素，样本太少会被 JPEG 噪点带偏
+  const step = Math.max(4, Math.floor(data.length / 4 / 200000) * 4);
+  let n = 0;
+  for (let i = 0; i + 2 < data.length; i += step) {
+    hist[(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) | 0]++;
+    n++;
+  }
+  return { hist, total: n };
+}
+
+/**
+ * 阈值模式的查找表：小于阈值算墨，边缘按 smooth 过渡。
+ * 与反色表一样是 256 项，这样三种模式在预览/导出里都能走同一条 LUT。
+ */
+function makeThresholdLut(bg255, ink255, thr255, smooth) {
+  const thr = (thr255 == null ? 150 : thr255) / 255;
+  const sm = (smooth == null ? 6 : smooth) / 255;
+  const lo = thr - sm / 2, hi = thr + sm / 2;
+  const span = (ink255 - bg255) / 255;
+  const lut = new Uint8ClampedArray(256);
+  for (let v = 0; v < 256; v++) {
+    const u = v / 255;
+    let t;
+    if (sm <= 0) {
+      t = u < thr ? 1 : 0;
+    } else {
+      t = (hi - u) / (hi - lo || 1);
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      t = t * t * (3 - 2 * t);      // smoothstep
+    }
+    lut[v] = Math.round(bg255 + t * span * 255);
+  }
+  return lut;
+}
+
+/** 按当前模式选一张 LUT（预览与两种导出都调这一个） */
+function makeModeLut(mode, hist, total, bg255, ink255, thr255, smooth, auto) {
+  if (mode === 'threshold') return makeThresholdLut(bg255, ink255, thr255, smooth);
+  return makeLevelsLut(hist, total, bg255, ink255, auto);
 }
 
 /** Uint8Array -> latin1 字符串（1 字节 1 字符，可无损往返） */
@@ -552,13 +646,35 @@ function skipInlineImage(s, i) {
 
 /**
  * 重写颜色算子。
+ *
+ * 必须与预览（paint()）用同一张查找表，否则就是「预览好看、导出不对」：
+ *   mode=none       原样返回（矢量导出就是复制文件，不再反色）
+ *   其它            u(0..1) → LUT[round(u*255)] / 255
+ *
+ * LUT 由 makeModeLut() 统一产出，预览、矢量导出、图片导出三条链路共用一份。
+ *
  * @param {string} src  latin1 内容流
  * @param {number} bg   背景灰度 0..1（纸的颜色）
  * @param {number} ink  文字亮度 0..1（墨的颜色）
+ * @param {{mode?:string, thr?:number, smooth?:number, lut?:Uint8ClampedArray}} [opt]
  * @returns {string}    改写后的 latin1 内容流
  */
-function rewriteColors(src, bg, ink) {
-  const map = (v) => fmt(bg + (1 - v) * ink);
+function rewriteColors(src, bg, ink, opt) {
+  const o = opt || {};
+  const mode = o.mode || 'invert';
+  if (mode === 'none') return src;              // 原样模式：一个字节都不碰
+
+  const table = o.lut || null;
+
+  /** 0..1 亮度 -> 输出灰度 0..1 */
+  const mapU = (u) => {
+    const v = Math.round(u * 255);
+    const idx = v < 0 ? 0 : v > 255 ? 255 : v;
+    if (table) return fmt(table[idx] / 255);
+    // 没有 LUT 时的兜底：与 makeLevelsLut 在 auto=false 时等价
+    return fmt(bg + (1 - idx / 255) * (ink - bg));
+  };
+
   const out = [];
   let pend = '';          // 待输出的操作数原文
   let nums = [];          // 顶层数字操作数
@@ -607,12 +723,12 @@ function rewriteColors(src, bg, ink) {
     }
 
     if (pure && COLOR_1.has(tok) && nums.length === 1) {
-      out.push(map(nums[0]) + ' ' + tok + '\n');
+      out.push(mapU(nums[0]) + ' ' + tok + '\n');
     } else if (pure && COLOR_N.has(tok) && nums.length === 1) {
-      out.push(map(nums[0]) + ' ' + tok + '\n');
+      out.push(mapU(nums[0]) + ' ' + tok + '\n');
     } else if (pure && COLOR_N.has(tok) && (nums.length === 3 || nums.length === 4)) {
       // 彩色统一降为灰度：否则红变青，出来的不是"黑底白字"
-      out.push(fmt(bg + (1 - luminance(nums)) * ink) + (STROKE_N.has(tok) ? ' G\n' : ' g\n'));
+      out.push(mapU(luminance(nums)) + (STROKE_N.has(tok) ? ' G\n' : ' g\n'));
     } else {
       out.push(pend + tok + '\n');
     }
@@ -636,7 +752,8 @@ function rewriteColors(src, bg, ink) {
 /**
  * @param {object} PDFLib  pdf-lib 命名空间
  * @param {Uint8Array} bytes  原 PDF 字节
- * @param {{bg:number, ink:number, images?:boolean}} opts  bg/ink 为 0..255
+ * @param {{bg:number, ink:number, mode?:string, thr?:number, smooth?:number,
+ *          images?:boolean, autoLevel?:boolean, edge?:boolean}} opts  bg/ink 为 0..255
  * @param {(done:number,total:number)=>void} [onProgress]
  * @returns {Promise<{bytes:Uint8Array, failed:number, forms:number, images:number}>}
  */
@@ -645,12 +762,25 @@ async function vectorInvert(PDFLib, bytes, opts, onProgress) {
 
   const doc = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
   const ctx = doc.context;
-  const bg = (opts.bg || 0) / 255;
-  const ink = (opts.ink == null ? 255 : opts.ink) / 255;
+  const bg255 = opts.bg || 0;
+  const ink255 = opts.ink == null ? 255 : opts.ink;
+  const bg = bg255 / 255;
+  const ink = ink255 / 255;
   const doImages = opts.images !== false;
+  const mode = opts.mode || 'invert';
+  const autoLevel = opts.autoLevel !== false;
+  // 预览侧已经算好的查找表（256 项）。传进来就直接用，
+  // 保证「屏幕上看到什么，导出就是什么」。
+  const sharedLut = opts.lut || null;
 
   const seenForm = new Set();
   const imgDone = new Map();
+
+  /* 「原样」模式：矢量导出就是原文件，不做任何改写 */
+  if (mode === 'none') {
+    if (onProgress) onProgress(1, 1);
+    return { bytes, failed: 0, forms: 0, images: 0 };
+  }
 
   /** 色彩空间 → 通道数。必须支持间接形式，扫描仪常写 [/ICCBased <流 /N 3>]，
    *  只认 /DeviceRGB 的名字会把这类整页扫描件直接跳过（表现为"转了跟没转一样"）。 */
@@ -722,7 +852,9 @@ async function vectorInvert(PDFLib, bytes, opts, onProgress) {
         try {
           // Form 的内容就是这条流本身，不在 /Contents 里
           const inner = decodePDFRawStream(obj).decode();
-          const text = rewriteColors(bytesToLatin1(inner), bg, ink);
+          const text = rewriteColors(bytesToLatin1(inner), bg, ink, {
+            mode, thr: opts.thr, smooth: opts.smooth, lut,
+          });
           // 复制原字典（去掉滤波器相关项）。注意 pdf-lib 的 flateStream 会 {...dict}，
           // 必须给普通对象，直接塞 PDFDict 会被摊成 {dict, context} 两个键。
           const keep = {};
@@ -841,40 +973,12 @@ async function vectorInvert(PDFLib, bytes, opts, onProgress) {
     return new Uint8Array(await new Response(stream).arrayBuffer());
   };
 
-  /** 用直方图估计纸/墨两个色阶，返回 256 项查找表（与 Python 版同参数） */
+  /** 用直方图估计纸/墨两个色阶，返回 256 项查找表。
+   *  曲线本体在 invert-core 的 makeLevelsLut 里，预览/矢量/位图三处共用同一份，
+   *  否则同一份 PDF 会「预览一个样、导出另一个样」。 */
   const buildLut = (data, bg255, ink255, auto) => {
-    const hist = new Uint32Array(256);
-    // 采样上限放宽到 20 万点：0.5% 分位只有几百个像素，样本太少会被 JPEG 噪点带偏
-    const step = Math.max(4, Math.floor(data.length / 4 / 200000) * 4);
-    let n = 0;
-    for (let i = 0; i + 2 < data.length; i += step) {
-      const l = (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) | 0;
-      hist[l]++; n++;
-    }
-    const pick = (p) => {
-      let acc = 0;
-      const target = n * p;
-      for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= target) return v; }
-      return 255;
-    };
-    let lo = 0, hi = 255;
-    if (auto) {
-      // 墨（暗端）取 0.5% 分位：真墨常只占 1-2%，3% 会被半透明水印/纸纹拖到 200 以上，
-      // 水印于是被当成墨、反色后变成一片亮白。
-      lo = pick(0.005); hi = pick(0.98);
-      if (lo > 128) lo = 0;              // 整页没有真墨（空白页），不拉伸
-      if (hi - lo < 24) { lo = 0; hi = 255; }
-    }
-    const span = hi - lo;
-    const lut = new Uint8ClampedArray(256);
-    for (let v = 0; v < 256; v++) {
-      let t = (v - lo) / span;
-      t = t < 0 ? 0 : t > 1 ? 1 : t;
-      // smootherstep：两端平、中间陡，浅灰（水印）压到背景，墨仍落在最亮端
-      if (auto) t = t * t * t * (t * (t * 6 - 15) + 10);
-      lut[v] = Math.round(bg255 + (1 - t) * (ink255 - bg255));
-    }
-    return lut;
+    const { hist, total } = histFromPixels(data);
+    return makeLevelsLut(hist, total, bg255, ink255, auto);
   };
 
   /** 扫描件四边常有书脊/纸边的暗影，反色后会翻成白角白边。
@@ -903,6 +1007,39 @@ async function vectorInvert(PDFLib, bytes, opts, onProgress) {
     return { cutL, cutR, cutT, cutB, any: sum > 0 };
   };
 
+  /** 读出 /Decode 数组（可能是间接引用）。
+   *  扫描仪常把图像存成"反着"的：像素值 255 表示纸白、0 表示墨黑，
+   *  再靠 /Decode [1 0] 在显示时翻回来。直接拿原始字节当亮度用，
+   *  就会把白纸认成黑墨 —— 反色后整页发白，看起来"跟没转一样"。 */
+  function readDecode(dict, nComp) {
+    let d = dict.get(PDFName.of('Decode'));
+    if (!d) return null;
+    d = ctx.lookup(d);
+    if (!(d instanceof PDFArray)) return null;
+    const out = [];
+    for (let i = 0; i < d.size(); i++) {
+      const v = ctx.lookup(d.get(i));
+      out.push(v && typeof v.asNumber === 'function' ? v.asNumber() : Number(v));
+    }
+    return out.length >= nComp * 2 ? out : null;
+  }
+
+  /** 按 /Decode 把样本值映射回"真实亮度"（0..255） */
+  function applyDecodeTables(dec, nComp, bpc) {
+    const maxV = (1 << bpc) - 1;
+    const tables = [];
+    for (let c = 0; c < nComp; c++) {
+      const lo = dec[c * 2], hi = dec[c * 2 + 1];
+      const t = new Uint8Array(maxV + 1);
+      for (let v = 0; v <= maxV; v++) {
+        const u = lo + (v / maxV) * (hi - lo);
+        t[v] = Math.max(0, Math.min(255, Math.round(u * 255)));
+      }
+      tables.push(t);
+    }
+    return tables;
+  }
+
   /** 把一张图像流变成灰度 JPEG 流；无法处理时返回 null（调用方退回 /Decode） */
   async function grayJpegStream(obj, nComp) {
     const filt = obj.dict.get(PDFName.of('Filter'));
@@ -924,6 +1061,18 @@ async function vectorInvert(PDFLib, bytes, opts, onProgress) {
       g2.drawImage(bmp, 0, 0);
       img = g2.getImageData(0, 0, w, h);
       if (bmp.close) bmp.close();
+      // JPEG 同样可能挂 /Decode 反相，画到 canvas 之后按通道表翻回来
+      const jdec = readDecode(obj.dict, nComp);
+      if (jdec) {
+        const dt = applyDecodeTables(jdec, nComp, 8);
+        const jd = img.data;
+        for (let i = 0, p = 0; i < w * h; i++, p += 4) {
+          jd[p] = dt[0][jd[p]];
+          if (nComp >= 3) { jd[p + 1] = dt[1][jd[p + 1]]; jd[p + 2] = dt[2][jd[p + 2]]; }
+          else jd[p + 1] = jd[p + 2] = jd[p];
+        }
+      }
+      obj.dict.delete(PDFName.of('Decode'));
     } else if (fname === '' || fname === '/FlateDecode') {
       const num = (v) => (v && typeof v.asNumber === 'function' ? v.asNumber() : Number(v));
       w = num(obj.dict.get(PDFName.of('Width')));
@@ -953,23 +1102,34 @@ async function vectorInvert(PDFLib, bytes, opts, onProgress) {
       }
 
       if (!w || !h || raw.length < w * h * nComp) return null;
+      // /Decode 必须在算亮度之前应用：扫描件常存成反相 + /Decode [1 0]
+      const dec = readDecode(obj.dict, nComp);
+      const dt = dec ? applyDecodeTables(dec, nComp, bpc) : null;
       img = new ImageData(w, h);
       const d = img.data;
       for (let i = 0, p = 0; i < w * h; i++, p += 4) {
-        if (nComp === 1) { const v = raw[i]; d[p] = d[p + 1] = d[p + 2] = v; }
-        else {
+        if (nComp === 1) {
+          const v = dt ? dt[0][raw[i]] : raw[i];
+          d[p] = d[p + 1] = d[p + 2] = v;
+        } else {
           const q = i * nComp;
-          d[p] = raw[q]; d[p + 1] = raw[q + 1]; d[p + 2] = raw[q + 2];
+          d[p] = dt ? dt[0][raw[q]] : raw[q];
+          d[p + 1] = dt ? dt[1][raw[q + 1]] : raw[q + 1];
+          d[p + 2] = dt ? dt[2][raw[q + 2]] : raw[q + 2];
         }
         d[p + 3] = 255;
       }
+      // 已经按真实亮度重编码，旧的 /Decode 必须去掉，否则会被再翻一次
+      obj.dict.delete(PDFName.of('Decode'));
     } else {
       return null;
     }
 
     const d = img.data;
     const bgV = opts.bg || 0;
-    const lut = buildLut(d, bgV, opts.ink == null ? 255 : opts.ink, opts.autoLevel !== false);
+    // 有共享色阶就用共享的：预览里这块图长什么样，导出后就长什么样。
+    // 没有才按这张图自己的直方图估。
+    const lut = sharedLut || buildLut(d, bgV, opts.ink == null ? 255 : opts.ink, opts.autoLevel !== false);
     const gray = new Uint8Array(w * h);
     for (let i = 0, p = 0; i < gray.length; i++, p += 4) {
       gray[i] = (0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2]) | 0;
@@ -1062,6 +1222,85 @@ async function vectorInvert(PDFLib, bytes, opts, onProgress) {
     }
   }
 
+  /** 把一条内容流里的灰度直方图统计出来。矢量导出靠它估纸/墨两端，
+   *  这样预览（像素直方图）与导出（算子直方图）走的是同一条色阶曲线。 */
+  function colorHistOf(src, hist) {
+    let pend = '', nums = [], pure = true, i = 0;
+    const n = src.length;
+    const add = (u) => { hist[Math.max(0, Math.min(255, Math.round(u * 255)))]++; };
+    while (i < n) {
+      const code = src.charCodeAt(i);
+      const ch = src[i];
+      if (WS_CODE.has(code)) { i++; continue; }
+      if (ch === '(') { const j = skipLiteral(src, i); pend += 'x'; pure = false; i = j; continue; }
+      if (ch === '<') {
+        const j = src.startsWith('<<', i) ? skipArray(src, i, true) : skipHex(src, i);
+        pend += 'x'; pure = false; i = j; continue;
+      }
+      if (ch === '[') { const j = skipArray(src, i, false); pend += 'x'; pure = false; i = j; continue; }
+      if (ch === ']' || ch === '>' || ch === '}' || ch === '{') { pure = false; i++; continue; }
+      if (ch === '/') {
+        let j = i + 1;
+        while (j < n && !WS_CODE.has(src.charCodeAt(j)) && !DELIM.has(src.charCodeAt(j))) j++;
+        pure = false; i = j; continue;
+      }
+      if (ch === '%') { const j = src.indexOf('\n', i); i = j < 0 ? n : j; continue; }
+      let j = i;
+      while (j < n && !WS_CODE.has(src.charCodeAt(j)) && !DELIM.has(src.charCodeAt(j))) j++;
+      const tok = src.slice(i, j);
+      i = j;
+      if (isNum(tok)) { nums.push(parseFloat(tok)); continue; }
+      if (tok === 'BI') { const k = skipInlineImage(src, i - 2); i = k; pend = ''; nums = []; pure = true; continue; }
+      if (pure && (COLOR_1.has(tok) || COLOR_N.has(tok))) {
+        if (nums.length === 1) add(nums[0]);
+        else if (nums.length === 3 || nums.length === 4) add(luminance(nums));
+      }
+      pend = ''; nums = []; pure = true;
+    }
+  }
+
+  /* 色阶表：优先用预览传进来的那份（两边逐像素一致）；
+     没传（比如直接调 API）才按内容流里出现过的灰度自己估一份。 */
+  let lut = sharedLut;
+  if (mode === 'threshold') {
+    if (!lut) lut = makeThresholdLut(bg255, ink255, opts.thr, opts.smooth);
+  } else if (autoLevel && !lut) {
+    const hist = new Uint32Array(256);
+    for (const page of doc.getPages()) {
+      try {
+        const node = page.node;
+        colorHistOf(bytesToLatin1(readContents(node)), hist);
+        const res = node.Resources ? node.Resources() : null;
+        if (res) collectFormHist(res, hist, new Set());
+      } catch (e) { /* 单页读不出就跳过，不拖垮整份文档 */ }
+    }
+    let total = 0;
+    for (let v = 0; v < 256; v++) total += hist[v];
+    if (total >= 64) lut = makeLevelsLut(hist, total, bg255, ink255, true);
+  } else if (!lut) {
+    lut = makeLevelsLut(null, 0, bg255, ink255, false);
+  }
+
+  /** 递归统计 Form XObject 里的颜色算子（水印/模板常整页拍平成 Form） */
+  function collectFormHist(res, hist, seen) {
+    const xo = res.lookup ? res.lookup(PDFName.of('XObject')) : res.get(PDFName.of('XObject'));
+    if (!xo || !xo.entries) return;
+    for (const [, ref] of xo.entries()) {
+      const obj = ctx.lookup(ref);
+      if (!obj || !obj.dict) continue;
+      const sub = obj.dict.get(PDFName.of('Subtype'));
+      if (!sub || sub.toString() !== '/Form') continue;
+      const id = String(ref);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      try {
+        colorHistOf(bytesToLatin1(decodePDFRawStream(obj).decode()), hist);
+        const subRes = obj.dict.get(PDFName.of('Resources'));
+        if (subRes) collectFormHist(ctx.lookup(subRes), hist, seen);
+      } catch (e) { /* 解不开就跳过 */ }
+    }
+  }
+
   const pages = doc.getPages();
   for (let i = 0; i < pages.length; i++) {
     if (onProgress) onProgress(i + 1, pages.length);
@@ -1070,10 +1309,28 @@ async function vectorInvert(PDFLib, bytes, opts, onProgress) {
     try {
       const body = readContents(node);
       const mb = page.getMediaBox();
-      const cb = node.CropBox ? node.CropBox() : undefined;
-      const [x0, y0, x1, y1] = cb || [mb.x, mb.y, mb.x + mb.width, mb.y + mb.height];
+      // cropBox(): 有的 PDF 没有 /CropBox，pdf-lib 会退回 MediaBox；
+      // 注意它返回的是 PDFArray 对象，不是 JS 数组，不能直接解构，
+      // 否则整个页面会抛 TypeError 被 catch 吞掉 —— 表现就是"导出跟没转一样"。
+      function boxNumbers(arr, fallback) {
+        if (!arr) return fallback;
+        const out = [];
+        const n = typeof arr.size === 'function' ? arr.size() : 0;
+        for (let k = 0; k < n; k++) {
+          const v = ctx.lookup(typeof arr.get === 'function' ? arr.get(k) : arr[k]);
+          out.push(v && typeof v.asNumber === 'function' ? v.asNumber() : Number(v));
+        }
+        return out.length === 4 && out.every((x) => Number.isFinite(x)) ? out : fallback;
+      }
+      const fb = [mb.x, mb.y, mb.x + mb.width, mb.y + mb.height];
+      const cb = boxNumbers(node.CropBox ? node.CropBox() : null, null);
+      const [x0, y0, x1, y1] = cb && cb[2] > cb[0] && cb[3] > cb[1] ? cb : fb;
+      // 三种模式都必须铺底：PDF 页面默认是白的，不铺的话阈值模式会把
+      // 没被覆盖的区域留成一片白纸（反色模式下恰好有铺底才没暴露）。
       const head = `${bg.toFixed(4)} g\n${x0} ${y0} ${x1 - x0} ${y1 - y0} re\nf\n`;
-      const text = head + rewriteColors(bytesToLatin1(body), bg, ink);
+      const text = head + rewriteColors(bytesToLatin1(body), bg, ink, {
+        mode, thr: opts.thr, smooth: opts.smooth, lut,
+      });
       node.set(PDFName.of('Contents'), ctx.register(ctx.flateStream(latin1ToBytes(text), {})));
       await processResources(node.Resources ? node.Resources() : null);
     } catch (e) {
@@ -1133,10 +1390,40 @@ if (typeof module !== 'undefined' && module.exports) {
 
   /* ---------------- 状态 ---------------- */
   const $ = (s) => document.querySelector(s);
+
+  /* ---------------- 偏好记忆 ----------------
+   * 背景灰度/文字亮度这类「调到舒服就再也不想动」的值必须记住，
+   * 否则每次打开都回到默认，等于每次都要重调一遍。 */
+  const PREF_KEY = 'darkpdf.prefs.v1';
+  const PREF_KEYS = ['mode', 'bg', 'ink', 'thr', 'smooth', 'images', 'autoLevel', 'edge', 'dpi', 'zoom'];
+
+  function loadPrefs() {
+    try {
+      const raw = localStorage.getItem(PREF_KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      return o && typeof o === 'object' ? o : null;
+    } catch (e) { return null; }
+  }
+  let prefTimer = 0;
+  function savePrefs() {
+    clearTimeout(prefTimer);
+    // 拖动滑块会连发 input，攒一下再写，避免每 16ms 一次 localStorage
+    prefTimer = setTimeout(() => {
+      try {
+        const o = {};
+        for (const k of PREF_KEYS) if (state.opts[k] !== undefined) o[k] = state.opts[k];
+        o.dpi = $('#dpi').value;
+        o.zoom = state.zoomMode;
+        localStorage.setItem(PREF_KEY, JSON.stringify(o));
+      } catch (e) { /* 隐私模式下写不了就算了，不影响功能 */ }
+    }, 220);
+  }
+
   const state = {
     doc: null, bytes: null, name: '',
     scale: 1, dpr: Math.min(window.devicePixelRatio || 1, 2),
-    opts: { mode: 'invert', bg: 0, ink: 255, thr: 150, smooth: 6, images: true, autoLevel: true, edge: true },
+    opts: { mode: 'invert', bg: 18, ink: 229, thr: 150, smooth: 6, images: true, autoLevel: true, edge: true },
     pages: [], observer: null, zoomMode: 'fit',
   };
 
@@ -1154,37 +1441,6 @@ if (typeof module !== 'undefined' && module.exports) {
   const kb = (n) => n > 1048576 ? (n / 1048576).toFixed(2) + ' MB' : Math.round(n / 1024) + ' KB';
 
   /* ---------------- 像素处理 ---------------- */
-  /** 自动色阶：从直方图估出纸/墨两端，回来一张 256 项查找表。
-   *  纸(亮端) -> bg，墨(暗端) -> ink；纯白底的矢量页两端就是 255/0，等于普通取反。 */
-  function levelsLut(data) {
-    const { bg, ink } = state.opts;
-    const hist = new Uint32Array(256);
-    const step = Math.max(4, Math.floor(data.length / 4 / 200000) * 4);
-    let n = 0;
-    for (let i = 0; i + 2 < data.length; i += step) {
-      hist[(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) | 0]++;
-      n++;
-    }
-    const pick = (p) => {
-      let acc = 0;
-      const target = n * p;
-      for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= target) return v; }
-      return 255;
-    };
-    let lo = pick(0.005), hi = pick(0.98);
-    if (lo > 128) lo = 0;
-    if (hi - lo < 24) { lo = 0; hi = 255; }
-    const span = hi - lo;
-    const lut = new Uint8ClampedArray(256);
-    for (let v = 0; v < 256; v++) {
-      let t = (v - lo) / span;
-      t = t < 0 ? 0 : t > 1 ? 1 : t;
-      t = t * t * t * (t * (t * 6 - 15) + 10);   // 同矢量导出，压掉水印/纸纹
-      lut[v] = Math.round(bg + (1 - t) * (ink - bg));
-    }
-    return lut;
-  }
-
   /** 扫描件四边常有书脊/纸边的暗影，反色后会翻成刺眼的白角白边。
    *  逐行逐列从四边往里找第一块纸色，外面的暗影直接当背景。
    *  返回每条边的裁剪量；整页一起裁掉超过 22% 说明不是暗边（可能是满版黑图），弃用。 */
@@ -1212,7 +1468,8 @@ if (typeof module !== 'undefined' && module.exports) {
     return { cutL, cutR, cutT, cutB, any: sum > 0 };
   }
 
-  /** 把一块像素就地改写成"黑底白字"（预览与两种导出共用，保证结果一致） */
+  /** 把一块像素就地改写成"黑底白字"（预览与两种导出共用，保证结果一致）。
+   *  lut 是 256 项查找表，由 makeModeLut() 产生；不传就现场算一张。 */
   function paint(imgData, lut) {
     const { mode, bg, ink, thr, smooth, edge } = state.opts;
     if (mode === 'none') return;
@@ -1223,25 +1480,16 @@ if (typeof module !== 'undefined' && module.exports) {
       // 彩色一律降为灰度：取反后红会变青，那不是"黑底白字"
       gray[i] = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
     }
+    const { hist, total } = histFromPixels(imgData.data);
+    const table = lut || makeModeLut(mode, hist, total, bg, ink, thr, smooth, state.opts.autoLevel);
     const cut = edge !== false && w > 16 && h > 16 ? edgeCuts(gray, w, h, 180) : null;
-    const lo = thr - smooth / 2, hi = thr + smooth / 2;
     for (let i = 0, p = 0, x = 0, y = 0; i < gray.length; i++, p += 4) {
-      const l = gray[i];
       let v;
       if (cut && cut.any && (x < cut.cutL[y] || x >= w - cut.cutR[y] ||
                              y < cut.cutT[x] || y >= h - cut.cutB[x])) {
         v = bg;                                   // 纸外的暗影：反色后本会变白，直接按背景
-      } else if (mode === 'invert') {
-        v = lut ? lut[l] : bg + (255 - l) * (ink - bg) / 255;
       } else {
-        let t;
-        if (smooth <= 0) t = l < thr ? 1 : 0;
-        else {
-          t = (hi - l) / (hi - lo);
-          t = t < 0 ? 0 : t > 1 ? 1 : t;
-          t = t * t * (3 - 2 * t);
-        }
-        v = bg + t * (ink - bg);
+        v = table[gray[i]];
       }
       d[p] = d[p + 1] = d[p + 2] = v;
       d[p + 3] = 255;
@@ -1249,12 +1497,20 @@ if (typeof module !== 'undefined' && module.exports) {
     }
   }
 
+  /** 预览用：按当前设置给一页算好查找表（导出时原样递给 vectorInvert / 图片导出） */
+  function lutFor(imgData) {
+    const { mode, bg, ink, thr, smooth, autoLevel } = state.opts;
+    if (mode === 'none') return null;
+    const { hist, total } = histFromPixels(imgData.data);
+    return makeModeLut(mode, hist, total, bg, ink, thr, smooth, autoLevel);
+  }
+
   function applyColor(ps) {
     if (!ps.base) return;
     if (state.opts.mode === 'none') { ps.ctx.putImageData(ps.base, 0, 0); return; }
     const out = ps.ctx.createImageData(ps.base.width, ps.base.height);
     out.data.set(ps.base.data);
-    paint(out, state.opts.autoLevel ? levelsLut(ps.base.data) : null);
+    paint(out, lutFor(ps.base));
     ps.ctx.putImageData(out, 0, 0);
   }
 
@@ -1388,17 +1644,22 @@ if (typeof module !== 'undefined' && module.exports) {
   $('#modeSeg').onclick = (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    [...$('#modeSeg').children].forEach((x) => x.classList.toggle('on', x === b));
-    state.opts.mode = b.dataset.mode;
-    $('#thrWrap').hidden = state.opts.mode !== 'threshold';
+    setMode(b.dataset.mode);
     reprocessAll();
   };
+
+  function setMode(mode) {
+    state.opts.mode = mode;
+    [...$('#modeSeg').children].forEach((x) => x.classList.toggle('on', x.dataset.mode === mode));
+    $('#thrWrap').hidden = mode !== 'threshold';
+  }
 
   const bindRange = (id, key, labelId, after) => {
     const el = $('#' + id);
     const sync = () => {
       state.opts[key] = +el.value;
       $('#' + labelId).textContent = el.value;
+      savePrefs();
       if (after) after();
     };
     el.oninput = sync;
@@ -1409,21 +1670,60 @@ if (typeof module !== 'undefined' && module.exports) {
   bindRange('thr', 'thr', 'thrVal', reprocessAll);
   bindRange('sm', 'smooth', 'smVal', reprocessAll);
 
-  $('#imgInv').onchange = (e) => { state.opts.images = e.target.checked; };
-  $('#autoLv').onchange = (e) => { state.opts.autoLevel = e.target.checked; reprocessAll(); };
-  $('#edgeTrim').onchange = (e) => { state.opts.edge = e.target.checked; reprocessAll(); };
+  $('#imgInv').onchange = (e) => { state.opts.images = e.target.checked; savePrefs(); };
+  $('#autoLv').onchange = (e) => { state.opts.autoLevel = e.target.checked; savePrefs(); reprocessAll(); };
+  $('#edgeTrim').onchange = (e) => { state.opts.edge = e.target.checked; savePrefs(); reprocessAll(); };
+  $('#dpi').onchange = savePrefs;
 
-  $('#zoom').onchange = (e) => { state.zoomMode = e.target.value; relayout(); };
+  $('#zoom').onchange = (e) => { state.zoomMode = e.target.value; savePrefs(); relayout(); };
   window.addEventListener('resize', () => { if (state.zoomMode === 'fit') relayout(); });
+
+  /* ---------------- 恢复上次的设置 ---------------- */
+  function restorePrefs() {
+    const p = loadPrefs();
+    if (!p) return;
+    const setRange = (id, key, labelId) => {
+      const el = $('#' + id);
+      if (typeof p[key] !== 'number') return;
+      const v = Math.max(+el.min, Math.min(+el.max, p[key]));
+      el.value = v;
+      state.opts[key] = v;
+      $('#' + labelId).textContent = v;
+    };
+    setRange('bg', 'bg', 'bgVal');
+    setRange('ink', 'ink', 'inkVal');
+    setRange('thr', 'thr', 'thrVal');
+    setRange('sm', 'smooth', 'smVal');
+
+    if (typeof p.images === 'boolean') { state.opts.images = p.images; $('#imgInv').checked = p.images; }
+    if (typeof p.autoLevel === 'boolean') { state.opts.autoLevel = p.autoLevel; $('#autoLv').checked = p.autoLevel; }
+    if (typeof p.edge === 'boolean') { state.opts.edge = p.edge; $('#edgeTrim').checked = p.edge; }
+    if (p.mode) setMode(p.mode);
+
+    if (p.dpi && [...$('#dpi').options].some((o) => o.value === String(p.dpi))) $('#dpi').value = String(p.dpi);
+    if (p.zoom && [...$('#zoom').options].some((o) => o.value === String(p.zoom))) {
+      $('#zoom').value = String(p.zoom);
+      state.zoomMode = String(p.zoom);
+    }
+  }
+  restorePrefs();
 
   /* ---------------- 导出：矢量 ---------------- */
   async function exportVector() {
     busy(true, '正在反色…');
     try {
+      // 把预览页已经算好的查找表交给矢量导出：
+      // 两边用同一张表，才谈得上「预览什么样，导出就什么样」。
+      const ref = state.pages.find((p) => p.base);
+      const lut = ref ? lutFor(ref.base) : null;
       const r = await vectorInvert(window.PDFLib, new Uint8Array(state.bytes.slice(0)), {
         bg: state.opts.bg, ink: state.opts.ink, images: state.opts.images,
         autoLevel: state.opts.autoLevel,
         edge: state.opts.edge,
+        // 这三项以前没传：矢量导出永远走「反色」，选了阈值/原样也照样反色，
+        // 结果就是预览和导出对不上。
+        mode: state.opts.mode, thr: state.opts.thr, smooth: state.opts.smooth,
+        lut,
       }, (done, total) => busy(true, `正在反色 ${done}/${total} 页…`));
 
       if (r.failed) toast(`有 ${r.failed} 页没能处理（结构特殊），已原样保留`, true);
@@ -1459,8 +1759,11 @@ if (typeof module !== 'undefined' && module.exports) {
         const data = c2.getImageData(0, 0, cv.width, cv.height);
         applyColorToData(data, cv);
         c2.putImageData(data, 0, 0);
-        const blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.94));
-        imgs.push({ w: cv.width, h: cv.height, pw: vp1.width, ph: vp1.height, jpg: new Uint8Array(await blob.arrayBuffer()) });
+        const enc = await grayFlate(data.data, cv.width, cv.height);
+        imgs.push({
+          w: cv.width, h: cv.height, pw: vp1.width, ph: vp1.height,
+          bytes: enc.bytes, flate: enc.flate,
+        });
       }
       const pdf = await buildImagePdf(imgs);
       saveBlob(new Blob([pdf], { type: 'application/pdf' }), state.name + ` - Dark-${dpi}dpi.pdf`);
@@ -1474,10 +1777,27 @@ if (typeof module !== 'undefined' && module.exports) {
 
   function applyColorToData(imgData) {
     if (state.opts.mode === 'none') return;
-    paint(imgData, state.opts.autoLevel ? levelsLut(imgData.data) : null);
+    paint(imgData, lutFor(imgData));
   }
 
-  /* 手写一个只装 JPEG 的 PDF（避免再引一个 PDF 生成库） */
+  /** RGBA 像素 -> 1 通道灰度 + Flate 无损压缩。
+   *  这里绝不能用 JPEG：反色后的文档大面积是同一灰度，
+   *  JPEG 的 8x8 DCT 在平坦区会留下块状/条状振铃，
+   *  放大缩小时还会跳动（看起来像"有根线在闪"）。Flate 无损，且这种图反而更小。
+   *  @returns {Promise<{bytes:Uint8Array, flate:boolean}>} */
+  async function grayFlate(rgba, w, h) {
+    const gray = new Uint8Array(w * h);
+    for (let i = 0, p = 0; i < gray.length; i++, p += 4) gray[i] = rgba[p];
+    if (typeof CompressionStream === 'function') {
+      try {
+        const s = new Blob([gray]).stream().pipeThrough(new CompressionStream('deflate'));
+        return { bytes: new Uint8Array(await new Response(s).arrayBuffer()), flate: true };
+      } catch (e) { /* 落到下面不压缩的兜底 */ }
+    }
+    return { bytes: gray, flate: false };
+  }
+
+  /* 手写一个只装灰度图的 PDF（避免再引一个 PDF 生成库） */
   function buildImagePdf(pages) {
     const enc = new TextEncoder();
     const chunks = [];
@@ -1505,8 +1825,11 @@ if (typeof module !== 'undefined' && module.exports) {
         + `/Resources << /XObject << /Im0 ${imgId} 0 R >> >> /Contents ${contId} 0 R >>`);
       const content = `q\n${p.pw.toFixed(2)} 0 0 ${p.ph.toFixed(2)} 0 0 cm\n/Im0 Do\nQ`;
       obj(contId, `<< /Length ${content.length} >>`, content);
-      obj(imgId, `<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} `
-        + `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpg.length} >>`, p.jpg);
+      const imgDict = `<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} `
+        + `/ColorSpace /DeviceGray /BitsPerComponent 8`
+        + (p.flate ? ' /Filter /FlateDecode' : '')
+        + ` /Length ${p.bytes.length} >>`;
+      obj(imgId, imgDict, p.bytes);
     });
 
     const xref = len;

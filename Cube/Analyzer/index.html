@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/nav/nav.css?v=2475">
   <link rel="stylesheet" href="../assets/scramble/scramble.css?v=1892">
   <link rel="stylesheet" href="../assets/state-reset/state-reset.css?v=1949">
-  <link rel="stylesheet" href="./analyzer.css?v=2623">
+  <link rel="stylesheet" href="./analyzer.css?v=2653">
 
   <script src="../assets/base/jquery-4.0.0.min.js"></script>
   <script src="../assets/base/compat.js?v=1877" defer></script>
@@ -68,7 +68,7 @@
   <script src="./analyzer-quality.js?v=2005" defer></script>
   <script src="./analyzer-ai.js?v=2005" defer></script>
   <script src="./analyzer-replay.js?v=2083" defer></script>
-  <script src="./analyzer-app.js?v=2623" defer></script>
+  <script src="./analyzer-app.js?v=2653" defer></script>
 </head>
 <body data-workspace="training">
   <div class="page-shell">
@@ -109,7 +109,7 @@
           <button class="icon-btn" id="closeSettingsBtn" type="button" aria-label="关闭设置">×</button>
         </div>
         <label class="settings-row">
-          <span class="settings-text">自由打乱<em>不按公式，自己随便拧；公式由转动记录实时反算</em></span>
+          <span class="settings-text">自由打乱<em>不按公式，自己随便拧；公式由转动记录实时反算，魔方不必先复原</em></span>
           <input id="freeScrambleToggle" type="checkbox">
         </label>
         <label class="settings-row">
@@ -142,10 +142,13 @@
             <div class="scramble-head">
               <span class="section-kicker">打乱</span>
               <span class="scramble-hint" id="scrambleHint">双击公式换一条</span>
-              <button class="text-btn" id="freeScrambleDoneBtn" type="button" hidden>打乱完成</button>
             </div>
             <div class="scramble-tape">
               <div class="scramble-text" id="scrambleText"></div>
+            </div>
+            <!-- 自由打乱时，打乱区下面出现「结束打乱」：点它即进入可计时状态，公式反算在后台进行 -->
+            <div class="scramble-finish">
+              <button class="btn btn-primary" id="freeScrambleDoneBtn" type="button" hidden>结束打乱</button>
             </div>
             <div class="scramble-meta" id="scrambleMeta"></div>
 
@@ -188,6 +191,12 @@
                 <div><span>Turns</span><strong id="liveTurns">0</strong></div>
                 <div><span>Fluency</span><strong id="liveFluency">—</strong></div>
                 <div><span>PB</span><strong id="liveBest">—</strong></div>
+              </div>
+              <!-- 四宫格下方：修正本 Session 最新一把（DNF / +2 / 删除） -->
+              <div class="live-actions" id="liveActions" role="group" aria-label="修正最新一把">
+                <button class="live-action" id="liveDnfBtn" type="button" data-live-penalty="dnf" aria-pressed="false" title="把本 Session 最新一把标记为 DNF">DNF</button>
+                <button class="live-action" id="livePlusTwoBtn" type="button" data-live-penalty="plus_two" aria-pressed="false" title="给本 Session 最新一把加 2 秒">+2</button>
+                <button class="live-action danger" id="liveDeleteBtn" type="button" data-live-delete="1" title="删除本 Session 最新一把（需确认）">删除</button>
               </div>
               <div class="move-stream" id="moveStream"><span class="muted">动作会显示在这里</span></div>
 

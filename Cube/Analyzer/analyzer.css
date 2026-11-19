@@ -402,6 +402,10 @@ body[data-workspace="training"] .scramble-text .scramble-step{font-size:1.12em;f
 body[data-workspace="training"] .scramble-text .scramble-step.isCurrent,
 body[data-workspace="training"] .scramble-text .scramble-step.isFix{opacity:1}
 body[data-workspace="training"] .scramble-meta{flex:none;text-align:center;min-height:0;font-size:10.5px;color:var(--t-faint);margin-top:14px}
+/* 自由打乱的「结束打乱」：贴在打乱区正下方，是这一段唯一的主按钮。
+   收起时（hidden）整块不占高度，不影响按公式打乱时的版式。 */
+body[data-workspace="training"] .scramble-finish{flex:none;display:flex;justify-content:center;margin-top:12px}
+body[data-workspace="training"] .scramble-finish .btn{min-height:40px;padding:0 26px;border-radius:10px;font-size:14px;font-weight:650}
 
 /* 计时：打乱带与计时区之间留弹性空白（够高就自然隔开，矮屏自动收窄）。
    数字与按钮始终贴在一起，不参与这个弹性。 */
@@ -478,6 +482,28 @@ body[data-workspace="training"] .live-metrics>div{display:flex;flex-direction:co
 body[data-workspace="training"] .live-metrics span,
 body[data-workspace="training"] .session-metrics span{display:block;color:var(--t-faint);font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
 body[data-workspace="training"] .live-metrics strong{display:block;font:650 20px/1.1 var(--mono);color:var(--t-strong)}
+
+/* ===== 修正最新一把：DNF / +2 / 删除 =====
+   紧贴四宫格下方一条，只作用于「本 Session 最新一把」，改错再点一次即还原（删除需确认）。
+   三个按钮等宽、极矮，不跟四宫格抢视线。 */
+body[data-workspace="training"] .live-actions{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;
+  flex:none;margin-top:12px;min-width:0;
+}
+body[data-workspace="training"] .live-action{
+  min-width:0;min-height:26px;padding:0 6px;
+  border:1px solid var(--t-hair);border-radius:7px;background:var(--t-panel);
+  color:var(--t-body);font:650 11px/1 var(--font);letter-spacing:.04em;
+  cursor:pointer;transition:border-color .15s,background .15s,color .15s;
+}
+body[data-workspace="training"] .live-action:hover{border-color:var(--t-accent);color:var(--t-accent)}
+body[data-workspace="training"] .live-action[aria-pressed="true"]{
+  border-color:var(--t-accent);background:var(--accent-soft);color:var(--t-accent);
+}
+body[data-workspace="training"] .live-action.danger:hover{border-color:var(--danger);color:var(--danger)}
+body[data-workspace="training"] .live-action:disabled{
+  opacity:.38;cursor:default;border-color:var(--t-hair);background:var(--t-panel);color:var(--t-faint);
+}
 
 /* 动作流：细窄横带 */
 body[data-workspace="training"] .move-stream{
@@ -557,6 +583,9 @@ body[data-workspace="training"] .session-metrics .muted{grid-column:1/-1;padding
   body[data-workspace="training"] .stat-block-score>.block-head{display:none}
   body[data-workspace="training"] .session-block{display:none}
   body[data-workspace="training"] .move-stream{display:none}
+  /* 修正按钮在窄屏也留着：四宫格下方一条，不占标题行 */
+  body[data-workspace="training"] .live-actions{margin-top:8px;gap:5px}
+  body[data-workspace="training"] .live-action{min-height:24px;font-size:10.5px;padding:0 4px}
   /* 左：纯 2×2 四宫格。竖向撑满卡片 —— 成绩只有「5 把 + AO」三行时，
      两张卡等高，四宫格的格子高度就跟记录的三行对齐。 */
   body[data-workspace="training"] .live-metrics{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;align-content:center;flex:1 1 auto;min-height:0;gap:12px 14px}

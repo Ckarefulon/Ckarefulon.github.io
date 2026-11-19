@@ -502,6 +502,11 @@
 
   const trainer={
     phase:'scramble',freeScramble:false,scramble:'',scrambleMoves:[],scrambleObservedMoves:[],scrambleViewStore:null,scrambleTargetFacelet:'',scrambleBaseReady:false,scrambleComplete:false,
+    /* 起点未必是复原态（2026-11-19）：非自由打乱时按「当前状态 → WCA 打乱态」反算一段等价公式，
+       wcaScramble 只作为占位与落点基准，真正的公式落在 scrambleMoves 上。 */
+    scrambleBaseFacelet:'',wcaScramble:[],scrambleDeriving:false,scramblePendingBase:false,freeScrambleTarget:null,
+    /* 自由打乱期间的原始转动记录（只攒着，结束时一次性算公式） */
+    scrambleFreeMoves:[],
     moves:[],timestamps:[],rawSolutionSequence:[],snapshots:[],gyroSamples:[],startFacelet:'',startedAt:0,startedEpoch:0,
     inspectionStartedAt:0,inspectionPenalty:'ok',raf:0,lastSolved:false,timingMode:'pending'
   };
@@ -549,6 +554,94 @@
       (moves||[]).forEach(m=>cube.selfMoveStr(m));return cube.toFaceCube();
     }catch(e){console.warn('Scramble state build failed',e);return''}
   }
+
+  /* ---------- 状态求解与反算（2026-11-19） ----------
+   * 一条铁律：**绝不让用户先把魔方拧回复原态**。
+   *   cubejs 的 solve(facelet) = 「把这个状态拧回复原」，所以：
+   *     · 反算「从复原拧到这个状态」的等价打乱 = solve(facelet) 取逆（≤22 步）。
+   *
+   * 【为什么走 Worker】求解器首次建表实测 ~1.4s，是同步计算。放在主线程会卡住
+   * 计时器的 rAF 循环 —— 而「结束打乱」之后用户随时可能起表，这一卡正好落在
+   * 最不该卡的时刻。所以反算一律丢给 scramble-worker.js，主线程不参与；
+   * Worker 不可用时才退回主线程同步计算（并接受一次性建表代价）。
+   * ---------------------------------------------------------- */
+  let solverReady=false, solverBroken=false;
+  function warmSolver(){
+    if(solverReady)return true;
+    if(solverBroken)return false;
+    const S=window.Cube;
+    if(!S||typeof S.initSolver!=='function'||typeof S.fromString!=='function'){solverBroken=true;return false}
+    try{S.initSolver();solverReady=true}catch(e){solverBroken=true;console.warn('Scramble solver init failed',e)}
+    return solverReady;
+  }
+  /** 复原 → facelet 的解法（token 数组）；无法求解返回 null，复原态返回 [] */
+  function solveFromSolved(facelet){
+    const f=String(facelet||'').trim();
+    if(f.length!==54)return null;
+    if(sameFacelet(f,solvedFacelet()))return[];
+    const S=window.Cube;
+    if(!S||typeof S.fromString!=='function')return null;
+    if(!warmSolver())return null;
+    try{
+      const sol=String(S.fromString(f).solve()||'').trim().split(/\s+/).filter(Boolean);
+      return sol.length?sol:null;
+    }catch(e){console.warn('Scramble solve failed',e);return null}
+  }
+  /** 单个 token 取逆（X2 不变） */
+  function invertTokens(tokens){
+    return (tokens||[]).slice().reverse().map(t=>t.endsWith('2')?t:(t.endsWith("'")?t.slice(0,-1):t+"'"));
+  }
+  /** 状态 → 「从复原拧到这里」的等价打乱（≤22 步）；无法反算返回 null，复原态返回 [] */
+  function scrambleFromFacelet(facelet){
+    const sol=solveFromSolved(facelet);
+    return sol?invertTokens(sol):null;
+  }
+
+  /* ---------- Worker 通道 ----------
+   * 一次只跑一个请求；结果按 id 回调。Worker 起不来说明环境不支持，
+   * 这时才让调用方退回主线程版本，保证功能不丢。
+   *
+   * 【排队语义】Worker 起手要先建表（~1.4s）。旧实现里这期间的请求会直接
+   * 回 null，调用方就退化成「原始转动记录」那条粗公式 —— 明明能算出精确公式却没用上。
+   * 现在改成：请求一律发过去，由 Worker 自己排队，建完表按序回答。 */
+  const workerState={worker:null,broken:false,seq:0,pending:new Map(),ready:false};
+  function ensureWorker(){
+    if(workerState.worker)return workerState.worker;
+    if(workerState.broken)return null;
+    if(typeof Worker!=='function'){workerState.broken=true;return null}
+    try{
+      // 带版本号，避免旧 Worker 被缓存（与 index.html 里的 ?v= 同口径）
+      const w=new Worker('./scramble-worker.js?v=2653');
+      w.onmessage=e=>{
+        const d=e.data||{};
+        if(d.type==='ready'){workerState.ready=true;return}
+        const cb=workerState.pending.get(d.id);
+        if(cb){workerState.pending.delete(d.id);cb(d.ok?d.moves:null)}
+      };
+      w.onerror=()=>{workerState.broken=true;workerState.worker=null;
+        // 已挂起的请求全部按失败结束，让调用方走兜底
+        workerState.pending.forEach(cb=>cb(null));workerState.pending.clear()};
+      workerState.worker=w;
+      return w;
+    }catch(e){workerState.broken=true;return null}
+  }
+  /**
+   * 在 Worker 里反算等价打乱（不阻塞主线程）。
+   * 建表期间发来的请求照样排队，不预先回 null —— 交给 Worker 按序答。
+   * 只有 Worker 根本起不来（环境不支持）才 done(null)，让调用方兜底。
+   */
+  function scrambleFromFaceletAsync(facelet,done){
+    const w=ensureWorker();
+    if(!w){done(null);return}
+    const id=++workerState.seq;
+    workerState.pending.set(id,done);
+    try{w.postMessage({type:'scramble',id,facelet:String(facelet||'')})}
+    catch(e){workerState.pending.delete(id);done(null)}
+  }
+
+  /** 换打乱时让在途结果作废 */
+  let deriveSeq=0;
+  function cancelDerive(){deriveSeq++;trainer.scrambleDeriving=false}
 
   function randomScramble(length=20){
     const faces=['U','R','F','D','L','B'],suffix=['',"'",'2'];let out=[],lastFace='',axisRun=[];
@@ -754,24 +847,25 @@
     const el=$('#scrambleText'),meta=$('#scrambleMeta');if(!el)return;
     const freePending=trainer.freeScramble&&!trainer.scrambleComplete;
     const doneBtn=$('#freeScrambleDoneBtn');if(doneBtn)doneBtn.hidden=!freePending;
-    // 打乱行右侧提示：自由打乱期间让位给「打乱完成」，其余时候明示双击换下一条
+    // 打乱行右侧提示：自由打乱期间让位给「结束打乱」，其余时候明示双击换下一条
     const hint=$('#scrambleHint');if(hint)hint.hidden=freePending;
-    if(trainer.freeScramble&&!trainer.scrambleComplete){
-      // 自由打乱：不给目标公式，实时把「本次已拧出的公式」平铺显示（不参与三态着色）
-      const live=simplifyMoves(trainer.scrambleObservedMoves);
-      trainer.scrambleFreePreview=live;
-      if(!live.length){el.style.fontSize='';el.textContent=trainer.scrambleBaseReady?'随便拧':'先复原魔方'}else{ScrambleView.renderMoves(el,live);fitTrainerStage()}
-      if(meta)meta.textContent=!Cube||!Cube.isConnected()?'自由打乱需要连接智能魔方':(trainer.scrambleBaseReady?(live.length?`自由打乱 ${live.length} 步 · 拧完按「打乱完成」或空格`:'自由打乱 · 公式会随转动实时反算'):'自由打乱 · 请先把智能魔方复原');
+    if(freePending){
+      /* 自由打乱：打乱期间**不显示、也不累计公式**（不再每拧一步就往上加一步）。
+         公式只在「结束打乱」那一刻算一次；这期间打乱区只给一句状态提示。 */
+      el.style.fontSize='';el.textContent=trainer.scrambleBaseReady?'随便拧':'等待魔方状态';
+      if(meta)meta.textContent=!Cube||!Cube.isConnected()?'自由打乱需要连接智能魔方':'自由打乱 · 拧完点「结束打乱」或按 Space，公式届时自动生成';
       return;
     }
-    if(!trainer.scrambleMoves.length){el.style.fontSize='';el.textContent='—';if(meta)meta.textContent='';return}
+    if(!trainer.scrambleMoves.length){
+      el.style.fontSize='';el.textContent='—';if(meta)meta.textContent='';return
+    }
     const view=computeScrambleView();
     ScrambleView.render(el,view);
     fitTrainerStage();
     if(!meta)return;
     if(!Cube||!Cube.isConnected()){meta.textContent=xp.freeScramble?'自由打乱需连接魔方 · 当前仍按公式打乱，Space 手动计时':'未连接魔方 · 可按 Space 手动起停';return}
-    if(!trainer.scrambleBaseReady){meta.textContent='请先把智能魔方复原，再按公式打乱';return}
     if(trainer.scrambleComplete){meta.textContent='打乱完成';return}
+    if(trainer.scrambleDeriving){meta.textContent='魔方未复原 · 正在反算等价打乱公式…';return}
     meta.textContent=view.correcting?'转动有偏差 · 按青色修正步继续':`打乱 ${view.progress}/${trainer.scrambleMoves.length}`;
   }
 
@@ -807,10 +901,8 @@
     const turnTs=C.turnTimestamps(trainer.moves,trainer.timestamps);
     const turns=C.extractTurnCount(trainer.moves)||0,tps=elapsed>0?turns*1000/elapsed:null;
     const fluency=C.fluencyFromTimestamps(turnTs,elapsed,400);
-    const stability=C.stabilityFromTimestamps(turnTs);
     $('#liveTurns').textContent=turns;$('#liveTps').textContent=tps?fmtNum(tps):'—';
     $('#liveFluency').textContent=fluency==null?'—':`${fmtNum(fluency,0)}%`;
-    $('#liveStability').textContent=stability==null?'—':`${fmtNum(stability,0)}%`;
     renderMoveStream();
   }
 
@@ -840,57 +932,178 @@
     else{trainer.timingMode='pending';phase('ready','已打乱','按 Space 开始，或直接转动启用状态自动计时');$('#timerValue').textContent='0.00'}
   }
 
+  /**
+   * 打乱起点（2026-11-19 定稿）：**不要求先复原，也不拼「先复原再打乱」两段**。
+   *   · 复原态 → 直接用 WCA 打乱本体；
+   *   · 未复原 → 反算一串「从当前状态走完即落到 WCA 打乱态」的等价公式（≤22 步）；
+   *   · **状态未知**（刚 connect、面位还没上报）→ 不能当成复原态，公式先标记「待定」，
+   *     等第一次上报拿到真实面位再反算，期间不放行按公式打乱。
+   * 反算异步进行（首次要建表 ~1.4s），期间显示占位，不卡界面。
+   */
   function prepareScrambleBase(facelet){
     if(!Cube||!Cube.isConnected())return;
+    cancelDerive();
     const f=facelet||Cube.getFacelet?.()||'';
-    if(Cube.isSolved(f)){
-      trainer.scrambleBaseReady=true;trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;trainer.scrambleComplete=false;
-      phase('scramble',trainer.freeScramble?'自由打乱 · 开始拧':'按公式打乱','完成后即可开始计时');renderScramble();
-    }else{
-      trainer.scrambleBaseReady=false;trainer.scrambleComplete=false;
-      phase('scramble','请先复原魔方','复原后自动进入打乱跟踪');renderScramble();
+    trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;trainer.scrambleComplete=false;
+    trainer.scrambleBaseFacelet=f;
+    const wca=trainer.wcaScramble.slice();
+    /* 关键：面位为空 = 还不知道状态，绝不能按「已复原」处理 —— 否则公式原样保留，
+       从非复原态走完必然到不了 WCA 打乱态。 */
+    if(!f){
+      trainer.scrambleBaseReady=false;trainer.scramblePendingBase=true;
+      trainer.scrambleMoves=wca;trainer.scramble=trainer.scrambleMoves.join(' ');
+      trainer.scrambleTargetFacelet=faceletAfterMoves(wca);
+      phase('scramble','等待魔方状态','正在读取魔方面位，拿到后立即生成等价打乱公式…');
+      renderScramble();return;
     }
+    trainer.scramblePendingBase=false;
+    if(Cube.isSolved(f)){
+      trainer.scrambleBaseReady=true;
+      trainer.scrambleMoves=wca;
+      trainer.scramble=trainer.scrambleMoves.join(' ');
+      trainer.scrambleTargetFacelet=faceletAfterMoves(wca);
+      phase('scramble',trainer.freeScramble?'自由打乱 · 开始拧':'按公式打乱','完成后即可开始计时');
+      renderScramble();return;
+    }
+    // 未复原：先挂上 WCA 本体当占位，异步换成一段等价公式
+    trainer.scrambleBaseReady=false;
+    trainer.scrambleMoves=wca;
+    trainer.scramble=trainer.scrambleMoves.join(' ');
+    phase('scramble','正在生成等价打乱','魔方未复原，正在反算一串等价公式…');
+    renderScramble();
+    buildEquivScramble(f,wca,0);
   }
 
+  /**
+   * 反算「从当前状态落到 WCA 打乱态」的单段公式；期间状态又变了就按最新状态重算。
+   * 落在打乱阶段，不会与计时抢时间，但仍放进 Worker，避免首次建表把页面顶住。
+   */
+  function buildEquivScramble(facelet,wca,attempt){
+    const seq=++deriveSeq;
+    trainer.scrambleDeriving=true;renderScramble();
+    const wcaNow=simplifyMoves(wca);
+    const finish=tokens=>{
+      if(seq!==deriveSeq)return;                         // 期间换了打乱：这次结果作废
+      trainer.scrambleDeriving=false;
+      if(trainer.phase!=='scramble'||trainer.freeScramble)return;
+      const now=Cube&&Cube.isConnected()?(Cube.getFacelet?.()||''):'';
+      if(now&&!sameFacelet(now,facelet)&&attempt<2){buildEquivScramble(now,wca,attempt+1);return}
+      const equiv=Array.isArray(tokens)&&tokens.length?tokens:wcaNow;
+      trainer.scrambleMoves=equiv.slice();
+      trainer.scramble=trainer.scrambleMoves.join(' ');
+      trainer.scrambleViewStore=null;
+      trainer.scrambleBaseReady=true;
+      // 落点固定是 WCA 打乱态（WCA 本体从复原态出发的结果），与起点无关
+      trainer.scrambleTargetFacelet=faceletAfterMoves(wcaNow)||faceletAfterMoves(equiv);
+      phase('scramble','按公式打乱','完成后即可开始计时');
+      renderScramble();
+    };
+    // 先要 cur → 复原 的那一段，再求 P = cur⁻¹·wca 的等价公式；两个重活都在 Worker 里
+    scrambleFromFaceletAsync(facelet,backInv=>{
+      if(seq!==deriveSeq)return;
+      if(!backInv||!backInv.length){finish(null);return}
+      if(sameFacelet(facelet,solvedFacelet())){finish(wcaNow);return}
+      const back=invertTokens(backInv);                  // cur → 复原
+      const p=faceletAfterMoves([...back,...wcaNow]);
+      if(!p){finish(null);return}
+      scrambleFromFaceletAsync(p,single=>finish(single&&single.length?single:simplifyMoves([...back,...wcaNow])));
+    });
+  }
+
+  /**
+   * 自由打乱（2026-11-19）：起点就是当前魔方状态，**不要求先复原**。
+   * 不预设目标公式，拧的过程实时反算成公式；拧完点「打乱完成」或按 Space 落定本把。
+   */
   function startFreeScramble(){
     if(!Cube||!Cube.isConnected()){xp.freeScramble=false;saveXp();syncFreeToggle();notify('自由打乱需要连接智能魔方，否则无法记录转动');nextScramble();return}
     if(trainer.phase==='running'||trainer.phase==='inspection'){notify('计时中不能切换打乱方式');syncFreeToggle();return}
-    cancelAnimationFrame(trainer.raf);resetLive();
+    cancelAnimationFrame(trainer.raf);cancelDerive();resetLive();
     trainer.freeScramble=true;trainer.scramble='';trainer.scrambleMoves=[];trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;trainer.scrambleTargetFacelet='';trainer.scrambleComplete=false;trainer.timingMode='pending';
+    trainer.wcaScramble=[];trainer.freeScrambleTarget=null;trainer.scrambleFreeMoves=[];
     $('#timerValue').textContent='0.00';
     const f=Cube.getFacelet?.()||'';
-    trainer.scrambleBaseReady=!!(f&&Cube.isSolved(f));
-    if(trainer.scrambleBaseReady)phase('scramble','自由打乱 · 开始拧','随便拧乱魔方，公式会实时反算；拧完按「打乱完成」或 Space');
-    else phase('scramble','自由打乱 · 先复原魔方','复原后随便拧乱，拧完按「打乱完成」');
+    // 起点不必是复原态；打乱过程中只攒原始转动，不显示也不累计公式
+    trainer.scrambleBaseFacelet=f;trainer.scrambleBaseReady=true;
+    phase('scramble','自由打乱 · 随便拧','随便拧，公式等结束打乱后再算；拧完点「结束打乱」或按 Space');
     renderScramble();syncFreeToggle();
   }
 
   /**
-   * 打乱完成（自由打乱）：由本次转动记录反算打乱公式 —— 反算失败也照样记录「化简后的公式」，
-   * 保证每一把成绩都带打乱公式，绝不落一条空公式的记录。
+   * 结束打乱（自由打乱）：**这一刻才计算公式**，并且先放行计时再做运算。
+   * 顺序很关键：先把阶段切到可计时（观察 / ready），把计时器交给用户；
+   * 运算放到后面的任务里做，算多久都不影响随时起表。
    */
   function finishFreeScramble(){
     if(!trainer.freeScramble||trainer.phase!=='scramble'||trainer.scrambleComplete)return;
     const facelet=Cube&&Cube.isConnected()?Cube.getFacelet?.()||'':'';
     if(!facelet){notify('无法读取魔方状态，稍后再试');return}
-    if(Cube.isSolved(facelet)){notify('魔方还是复原状态，先拧乱再完成打乱');return}
-    const observed=trainer.scrambleObservedMoves.filter(Boolean);
-    let tokens=simplifyMoves(observed),verified=!!tokens.length&&sameFacelet(faceletAfterMoves(tokens),facelet);
-    if(!verified&&observed.length&&sameFacelet(faceletAfterMoves(observed),facelet)){tokens=observed;verified=true}
-    if(!tokens.length){notify('没有记录到本次转动，先拧几下再完成打乱');return}
-    // 模式保持：复选框仍勾着，本把落定后下一把继续自由打乱
-    trainer.freeScramble=xp.freeScramble;trainer.scramble=tokens.join(' ');trainer.scrambleMoves=tokens.slice();trainer.scrambleViewStore=null;trainer.scrambleTargetFacelet=facelet;trainer.scrambleBaseReady=true;
-    notify(verified?`自由打乱公式已生成（${tokens.length} 步）`:`打乱公式已记录（${tokens.length} 步，含未支持动作，可能不完整）`);
+    if(Cube.isSolved(facelet)){notify('魔方还是复原状态，先拧乱再结束打乱');return}
+    const recorded=(trainer.scrambleObservedMoves.length?trainer.scrambleObservedMoves:trainer.scrambleFreeMoves).filter(Boolean);
+    if(!recorded.length){notify('没有记录到本次转动，先拧几下再结束打乱');return}
+    // 1) 先放行计时：公式位置先留空，落盘前会补上（绝不落一条空公式）
+    trainer.freeScramble=xp.freeScramble;
+    trainer.scramble='';trainer.scrambleMoves=[];trainer.scrambleViewStore=null;
+    trainer.scrambleTargetFacelet=facelet;trainer.scrambleBaseReady=true;
+    trainer.freeScrambleTarget={facelet,observed:recorded.slice()};
     enterReadyAfterScramble();syncFreeToggle();
+    notify('打乱已结束 · 可立即开始计时');
+    // 2) 再算公式：放到下一轮事件循环，绝不占用这次点击/按键之后的任何一帧
+    scheduleFreeScrambleCompute();
   }
 
+  /**
+   * 自由打乱的公式计算：结束打乱之后才算一次。
+   * 用 setTimeout 而非当前帧，且整个过程不读计时器、不改阶段、不阻塞输入 ——
+   * 用户点完立刻起表也完全不受影响。算完只补这一把的 scramble 文本。
+   */
+  function scheduleFreeScrambleCompute(){
+    const target=trainer.freeScrambleTarget;
+    if(!target)return;
+    // 反算丢给 Worker：主线程一帧都不占，用户随时起表都不受影响
+    scrambleFromFaceletAsync(target.facelet,derived=>{
+      const rough=simplifyMoves(target.observed);
+      const cands=[];
+      if(derived&&derived.length)cands.push(derived);
+      if(rough.length)cands.push(rough);
+      // 取「重放能精确回到打乱落点」的那条；都不行就用实际转动记录（一定能重放，只要没丢包）
+      const tokens=cands.find(t=>t&&t.length&&sameFacelet(faceletAfterMoves(t),target.facelet))||cands.find(t=>t&&t.length);
+      if(!tokens||!tokens.length)return;
+      const text=tokens.join(' ');
+      // 1) 这一把还没结算：挂在 trainer 上，落盘时自动带上
+      trainer.scramble=text;trainer.scrambleMoves=tokens.slice();
+      /* 2) 已经结算（用户起表很快）：把最新那条的 scramble 换成精确公式。
+            只有「重放落点 == 这一把的打乱落点」时才替换 —— 成绩/时间/动作一个都不动。 */
+      const last=state.solves[state.solves.length-1];
+      if(last){
+        const cur=String(last.scramble||'');
+        const same=cur&&sameFacelet(faceletAfterMoves(cur.split(/\s+/).filter(Boolean)),target.facelet);
+        if(!same){last.scramble=text;try{save(true)}catch(e){}}
+      }
+    });
+  }
+
+  /**
+   * 下一条打乱（2026-11-19 定稿）：**魔方不必先复原**。
+   *   自由打乱（模式保持）⇒ 从当前状态接着拧，不预设目标；
+   *   非自由打乱 ⇒ 抽一条 WCA 打乱定下落点；魔方未复原时反算一串
+   *     「从复原态重放即落到该落点」的等价公式（≤22 步），只有一段，不拼「先复原再打乱」。
+   *   没连魔方 ⇒ 随机公式，Space 手动计时。
+   */
   function nextScramble(){
-    cancelAnimationFrame(trainer.raf);resetLive();
+    cancelAnimationFrame(trainer.raf);cancelDerive();resetLive();
+    const connected=!!(Cube&&Cube.isConnected());
+    const facelet=connected?(Cube.getFacelet?.()||''):'';
     // 自由打乱是可保持的模式：上一把结束后自动继续自由打乱，不必每把重开
-    if(xp.freeScramble&&Cube&&Cube.isConnected()){startFreeScramble();return}
-    trainer.freeScramble=false;trainer.scramble=randomScramble();trainer.scrambleMoves=trainer.scramble.split(/\s+/).filter(Boolean);trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;
-    trainer.scrambleTargetFacelet=faceletAfterMoves(trainer.scrambleMoves);trainer.scrambleBaseReady=false;trainer.scrambleComplete=false;trainer.timingMode='pending';$('#timerValue').textContent='0.00';
-    if(Cube&&Cube.isConnected())prepareScrambleBase(Cube.getFacelet?.());
+    if(xp.freeScramble&&connected){startFreeScramble();return}
+    trainer.freeScramble=false;trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;trainer.scrambleComplete=false;trainer.timingMode='pending';$('#timerValue').textContent='0.00';
+    trainer.scrambleBaseFacelet=facelet;
+    // WCA 打乱本体：落点先定死，等价公式只是同一落点的另一种写法
+    trainer.wcaScramble=randomScramble().split(/\s+/).filter(Boolean);
+    trainer.scrambleMoves=trainer.wcaScramble.slice();
+    trainer.scramble=trainer.scrambleMoves.join(' ');
+    trainer.scrambleTargetFacelet=faceletAfterMoves(trainer.wcaScramble);
+    trainer.scrambleBaseReady=connected&&!!facelet&&Cube.isSolved(facelet);
+    if(connected)prepareScrambleBase(facelet);
     else phase('scramble','按公式打乱','完成后按 Space 手动起停；连接魔方后也可状态自动起停');
     renderScramble();syncFreeToggle();
   }
@@ -899,34 +1112,43 @@
 
   function handleScrambleMove(detail){
     if(trainer.phase!=='scramble')return false;
+    if(trainer.freeScramble){
+      /* 自由打乱：转动只进「原始记录」，**不记账、不渲染、不累计公式**。
+         公式统一在「结束打乱」时算一次 —— 边拧边算是多余的活，也让人以为每拧一步公式就在变长。 */
+      const raw=Array.isArray(detail.rawMoves)&&detail.rawMoves.length?detail.rawMoves:[detail.move];
+      trainer.scrambleFreeMoves.push(...raw.filter(Boolean));
+      return true;
+    }
+    // 非自由打乱且等价公式还没算好：这段期间的转动不记账，
+    // 等公式就绪后按「当前状态」重新对齐，避免进度与公式对不上。
     if(!trainer.scrambleBaseReady){
-      if(detail.previousFacelet&&Cube.isSolved(detail.previousFacelet))trainer.scrambleBaseReady=true;
-      else if(detail.solved){trainer.scrambleBaseReady=true;trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;renderScramble();phase('scramble',trainer.freeScramble?'自由打乱 · 开始拧':'按公式打乱','完成后即可开始计时');return true}
-      else{renderScramble();return true}
+      const now=detail.facelet||Cube.getFacelet?.()||'';
+      if(now&&!trainer.scrambleDeriving)buildEquivScramble(now,trainer.wcaScramble.slice(),1);
+      return true;
     }
     const observed=Array.isArray(detail.rawMoves)&&detail.rawMoves.length?detail.rawMoves:[detail.move];trainer.scrambleObservedMoves.push(...observed.filter(Boolean));renderScramble();
     const current=detail.facelet||Cube.getFacelet?.()||'';
-    if(detail.batchFinal!==false&&!trainer.freeScramble){if(trainer.scrambleTargetFacelet&&current){if(sameFacelet(current,trainer.scrambleTargetFacelet))markScrambleComplete()}else if(computeScrambleView().done)markScrambleComplete();}
+    if(detail.batchFinal!==false){if(trainer.scrambleTargetFacelet&&current){if(sameFacelet(current,trainer.scrambleTargetFacelet))markScrambleComplete()}else if(computeScrambleView().done)markScrambleComplete();}
     return true;
   }
 
   function handleCubeState(detail){
-    if(trainer.phase==='scramble'){
-      if(!trainer.scrambleBaseReady&&detail.solved){trainer.scrambleBaseReady=true;trainer.scrambleObservedMoves=[];trainer.scrambleViewStore=null;phase('scramble',trainer.freeScramble?'自由打乱 · 开始拧':'按公式打乱','完成后即可开始计时');renderScramble();return}
-      if(trainer.scrambleBaseReady&&!trainer.scrambleComplete&&!trainer.freeScramble&&trainer.scrambleTargetFacelet&&sameFacelet(detail.facelet,trainer.scrambleTargetFacelet))markScrambleComplete();
+    if(trainer.phase!=='scramble')return;
+    const f=detail.facelet||'';
+    if(!trainer.freeScramble&&f){
+      /* 待定起点（刚 connect 时面位还没上报）：拿到真实面位立即补齐。
+         这是「连接前后公式必须不同」的关键 —— 之前把空面位当复原态，
+         公式原样保留，从非复原态走完到不了 WCA 打乱态。 */
+      if(trainer.scramblePendingBase){trainer.scramblePendingBase=false;prepareScrambleBase(f);return}
+      if(!trainer.scrambleBaseReady&&!trainer.scrambleDeriving){buildEquivScramble(f,trainer.wcaScramble.slice(),1);return}
     }
+    if(trainer.scrambleBaseReady&&!trainer.scrambleComplete&&!trainer.freeScramble&&trainer.scrambleTargetFacelet&&sameFacelet(f,trainer.scrambleTargetFacelet))markScrambleComplete();
   }
 
   function beginSolve(mode,firstDetail=null){
     if(trainer.phase!=='ready'&&trainer.phase!=='inspection'&&!(trainer.phase==='scramble'&&mode==='space'&&!Cube?.isConnected()))return false;
     if(trainer.phase==='scramble'&&mode==='space'&&!Cube?.isConnected()){
-      // 无魔方的手动计时：随机打乱直接认作已完成；自由打乱则把人看到的那串反算公式落成正式公式，
-      // 保证每一把都带打乱公式（绝不因「没连魔方」就存一条空公式）
-      if(trainer.freeScramble&&!trainer.scrambleMoves.length){
-        const preview=trainer.scrambleFreePreview||[];
-        if(!preview.length){notify('自由打乱需要连接智能魔方，或先拧几下再计时');return false}
-        trainer.scramble=preview.join(' ');trainer.scrambleMoves=preview.slice();
-      }
+      // 无魔方的手动计时：没有转动记录可算，随机打乱直接认作已完成
       trainer.scrambleComplete=true;
     }
     if(trainer.phase==='inspection'){
@@ -1020,11 +1242,13 @@
       return;
     }
     if(trainer.phase==='scramble'&&trainer.freeScramble&&Cube?.isConnected()){finishFreeScramble();return}
+    // 状态还未知时不许放行：否则会拿一条还没对齐当前状态的公式开始计时
+    if(trainer.phase==='scramble'&&Cube?.isConnected()&&trainer.scramblePendingBase){notify('正在读取魔方状态，稍等一下就绪');return}
     if(trainer.phase==='scramble'&&Cube?.isConnected()&&!trainer.scrambleComplete){notify('请先按打乱公式完成打乱');return}
     beginSolve('space');
   }
 
-  function cancelTraining(){cancelAnimationFrame(trainer.raf);nextScramble()}
+  function cancelTraining(){cancelAnimationFrame(trainer.raf);cancelDerive();nextScramble()}
   function sessionSolves(){const name=($('#trainingSession').value||'日常训练').trim();return state.solves.filter(s=>String(s.session)===name)}
   /**
    * 右侧「成绩」区：两栏网格 —— 最新一把（加粗）→ 早几把（淡，可点）→ AO5（加粗，前面挂 AO 前缀）。
@@ -1049,6 +1273,44 @@
     return strong
       ? `<div class="score-row score-row-strong"><span class="score-time">${solveTime(s)}</span></div>`
       : `<button type="button" class="score-row score-row-plain" data-open="${esc(s.id)}" title="${esc(fmtDate(s.date))} · ${esc(s.session)}"><span class="score-time">${solveTime(s)}</span></button>`;
+  }
+
+  /**
+   * 四宫格下方的修正按钮（2026-11-19 加回）：只作用于「本 Session 最新一把」。
+   *   DNF / +2 —— 再点一次即还原（与单次列表里的切换口径一致）；
+   *   删除 —— 需确认一次，删的就是最新那一把。
+   * 按 flag 反显 aria-pressed，让「这条已经是 DNF 了」一眼看得见。
+   */
+  function renderLiveActions(){
+    const wrap=$('#liveActions');if(!wrap)return;
+    const solves=sessionSolves();
+    const last=solves[solves.length-1]||null;
+    const flag=last?C.normalizeFlag(last.flag):'';
+    const dnf=$('#liveDnfBtn'),p2=$('#livePlusTwoBtn'),del=$('#liveDeleteBtn');
+    if(dnf)dnf.setAttribute('aria-pressed',flag==='dnf'?'true':'false');
+    if(p2)p2.setAttribute('aria-pressed',flag==='plus_two'?'true':'false');
+    [dnf,p2,del].forEach(b=>{if(b)b.disabled=!last});
+  }
+
+  /** 最新一把的判定：与本 Session 当前筛选一致，取时间最晚的一条 */
+  function latestSessionSolve(){
+    const solves=sessionSolves();
+    return solves.length?solves[solves.length-1]:null;
+  }
+
+  function applyLivePenalty(flag){
+    const s=latestSessionSolve();
+    if(!s){notify('本 Session 还没有成绩');return}
+    changePenalty(s.id,flag);
+    notify(C.normalizeFlag(s.flag)===flag?`最新一把已标记 ${flag==='dnf'?'DNF':'+2'}`:'已还原这条记录');
+  }
+
+  function applyLiveDelete(){
+    const s=latestSessionSolve();
+    if(!s){notify('本 Session 还没有成绩');return}
+    if(!confirm(`确认删除本 Session 最新一把？\n${solveTime(s)} · ${fmtDate(s.date)}`))return;
+    deleteSolve(s.id);
+    notify('已删除这一把');
   }
 
   function renderTrainerSummary(solveCount){
@@ -1076,6 +1338,8 @@
     if(ao5)rows.push(`<div class="score-row score-row-strong score-row-ao"><span class="score-label">AO</span><span class="score-time">${ao5}</span></div>`);
     tail.forEach(s=>rows.push(scoreRowHTML(s,false)));
     $('#trainingRecent').innerHTML=rows.length?rows.join(''):`<div class="score-empty">还没有训练记录</div>`;
+    // 四宫格下方的修正按钮跟着「本 Session 最新一把」走
+    renderLiveActions();
     // 渲染完再看一眼能不能多放一行（下一帧量，避免读到旧布局）
     requestAnimationFrame(fitTrainerRecent);
   }
@@ -1248,6 +1512,13 @@
     const freeT=$('#freeScrambleToggle');
     if(freeT){freeT.checked=!!xp.freeScramble;freeT.onchange=e=>applyFreeScramble(e.target.checked)}
     $('#freeScrambleDoneBtn').onclick=finishFreeScramble;$('#readyBtn').onclick=handleSpaceTimer;$('#cancelTimerBtn').onclick=cancelTraining;
+    // 四宫格下方：修正本 Session 最新一把（DNF / +2 / 删除）
+    const liveActions=$('#liveActions');
+    if(liveActions)liveActions.onclick=e=>{
+      const p=e.target.closest('[data-live-penalty]'),del=e.target.closest('[data-live-delete]');
+      if(p){e.stopPropagation();applyLivePenalty(p.dataset.livePenalty);p.blur();return}
+      if(del){e.stopPropagation();applyLiveDelete();del.blur();return}
+    };
     $('#trainingMethod').onchange=e=>{state.training.method=e.target.value;save(false);renderTrainerSummary()};
     $('#trainingSession').onchange=e=>{state.training.session=e.target.value.trim()||'日常训练';e.target.value=state.training.session;save(false);renderTrainerSummary()};
     const qBtn=$('#qualityBtn');if(qBtn)qBtn.onclick=openQuality;
@@ -1326,6 +1597,9 @@
     if(window.authManager&&typeof window.authManager.onAuthStateChange==='function')window.authManager.onAuthStateChange(handleAuthState);
     // 分层存储：首屏已用 localStorage 同步渲染，这里再把扩展存储里的较早记录并回来
     hydrate();
+    // 打乱反算全部在 scramble-worker.js 里做（建表 ~1.4s 也只占 Worker 线程）。
+    // 这里只把 Worker 提前拉起来，让它自己在后台建表，主线程一点都不用等。
+    try{ ensureWorker() }catch(e){}
   }
 
   document.addEventListener('DOMContentLoaded',init);
