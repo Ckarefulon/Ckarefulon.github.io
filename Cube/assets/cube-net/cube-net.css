@@ -3,6 +3,9 @@
  *
  * 规则一律收在 .cubeNet 作用域内：face / sticker 是通用词，别的页面也可能有同名类，
  * 不加作用域会互相串味。
+ *
+ * 本文件只管「六面十字展开图」这一块；外面的弹窗外壳（弹窗定位、开合动画）
+ * 由各页自己负责（Cross 在 cross.css 的「状态图」一节，Analyzer 在 analyzer.css 的同名一节）。
  */
 
 .cubeNet {

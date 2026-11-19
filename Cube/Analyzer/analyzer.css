@@ -632,20 +632,61 @@ body[data-workspace="training"] .session-metrics .muted{grid-column:1/-1;padding
   body[data-workspace="training"] .score-row{padding:3px 5px}
 }
 /* ============================================================================
-   分析页优化（2026-11-15）
+   状态图（飞机图）弹窗（2026-11-19）
    ----------------------------------------------------------------------------
-   原来一屏只看得见半张图表：六张指标卡各 118px 高、一句「今日 vs 基线」独占 120px、
-   图表 403px，加起来 815px。这里压掉纵向浪费、把首屏还给内容本身。
+   计时器下面那排的「状态图」按钮 → 弹出六面展开图。展开图本体是 Cube 公用件
+   （/Cube/assets/cube-net/），这里只写本页自己的弹窗外壳：定位交给 JS（fixed +
+   顶栏下沿夹紧），默认隐藏，按钮按下才显示。
+   ============================================================================ */
+body[data-workspace="training"] .cubePopWrap{position:relative;display:inline-flex;flex:none}
+body[data-workspace="training"] .cubePop{
+  display:none;position:fixed;left:12px;
+  /* 兜底位置：顶栏下沿 + 12，别让弹窗钻到顶栏底下被挡住 */
+  top:calc(var(--site-nav-height,44px) + 12px);
+  z-index:60;
+  background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius-lg);
+  box-shadow:0 20px 48px rgba(0,0,0,.46);
+  padding:12px 14px;min-width:0;
+}
+body[data-workspace="training"] .cubePopWrap.isPinned .cubePop{display:block}
+body[data-workspace="training"] .cubePopHead{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+body[data-workspace="training"] .cubePopHead span:first-child{font-size:12.5px;font-weight:650;color:var(--t-strong)}
+body[data-workspace="training"] .cubePopHead .cubeHint{font-size:10.5px;color:var(--t-faint);white-space:nowrap}
+body[data-workspace="training"] #cubeNetBtn[aria-expanded="true"]{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-hover)}
+/* 展开图在本页比 Cross 略大一档：计时卡空间足够，贴纸 20px 更好认 */
+body[data-workspace="training"] .cubePop .cubeNet .face{grid-template-columns:repeat(3,20px);grid-template-rows:repeat(3,20px)}
+@media (max-width:900px){
+  body[data-workspace="training"] .cubePop{padding:10px 12px}
+  body[data-workspace="training"] .cubePop .cubeNet .face{grid-template-columns:repeat(3,17px);grid-template-rows:repeat(3,17px)}
+}
+
+/* ============================================================================
+   分析页优化（2026-11-19 重构）
+   ----------------------------------------------------------------------------
+   原来首屏被三块「外壳」吃掉：控制栏 60px + 数据集/筛选卡 129px + 标签栏 43px
+   = 232px，而 800px 高的屏幕上图表当场被切掉。这一版把外壳压到最小：
+
+     · 模式切换与数据集头**并进同一条**：左边是「训练 / 分析」，右边是数据量与操作，
+       不再用一张带边框的卡把筛选栏整体包起来；
+     · 筛选栏常驻一行（宽屏 5 个控件 + 重置），不再需要靠折叠才省空间；
+     · 标签栏与控制栏合成一条吸顶条，滚动时只吸一次、不会两层叠在一起；
+     · 图表高度跟着视口走（clamp），矮屏自动收到能看见趋势的下限。
+
+   目标：1280×800 首屏能完整看见「指标 + 基线 + 趋势图」。
    ============================================================================ */
 
-/* 分析页不需要连魔方控件（它属于训练页），已由 .training-only 隐藏；
-   控制栏随之变成一条窄条，不再占满一整行。 */
+/* —— 控制栏：分析页退成一条细工具条；滚动时由标签栏单独吸住（两层同时 sticky 会互相压） —— */
 body[data-workspace="analysis"] .control-bar{
-  padding:8px 10px;min-height:0;min-width:0;
+  padding:0 2px 8px;min-height:0;min-width:0;
   display:flex;align-items:center;gap:10px;
+  background:none;border:0;border-radius:0;box-shadow:none;
+  border-bottom:1px solid var(--border-subtle);
+  position:static;
 }
-body[data-workspace="analysis"] .mode-switch{order:-1}         /* 页签靠左，先看到"我在哪" */
-body[data-workspace="analysis"] .workspace-meta{margin-left:auto}
+body[data-workspace="analysis"] .mode-switch{order:-1;padding:2px;border-radius:9px}
+body[data-workspace="analysis"] .mode-switch-btn{height:28px;padding:0 14px;font-size:12.5px;min-width:70px}
+body[data-workspace="analysis"] .workspace-meta{margin-left:auto;gap:8px}
+body[data-workspace="analysis"] .workspace-meta .badge{min-height:21px;font-size:10.5px;padding:1px 7px}
 
 /* 指标卡：压缩纵向留白，一屏能多看见下面的图 */
 body[data-workspace="analysis"] .metric-grid{gap:8px;margin-bottom:0}
@@ -660,15 +701,30 @@ body[data-workspace="analysis"] .panel-card{padding:14px 16px}
 body[data-workspace="analysis"] .panel-head{margin-bottom:11px}
 body[data-workspace="analysis"] .panel-head h2{font-size:14px}
 
-/* 图表：给一个"看得见趋势即可"的高度，不再 290px 起步 */
-body[data-workspace="analysis"] .chart-box{min-height:210px}
+/* 图表：高度跟着视口长，矮屏也不至于把图压成一条线 */
+body[data-workspace="analysis"] .chart-box{min-height:clamp(180px,34vh,360px)}
 body[data-workspace="analysis"] .grid-2{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(280px,1fr);gap:10px;align-items:start}
 
-/* 筛选栏：日期框与下拉统一高度、同一套外观；标签缩一号 */
-body[data-workspace="analysis"] .filter-bar{align-items:end;gap:8px}
-body[data-workspace="analysis"] .filter-bar>label{display:flex;flex-direction:column;gap:3px;font-size:10.5px;color:var(--text-subtle);min-width:0}
+/* ===== 数据集头：并进控制栏后剩下的部分 —— 只留一行，不再包一张卡 ===== */
+body[data-workspace="analysis"] .analysis-control{
+  padding:0;margin:0 0 8px;background:none;border:0;box-shadow:none;
+}
+body[data-workspace="analysis"] .analysis-headline{
+  padding:0 2px 7px;margin:0;gap:10px;flex-wrap:wrap;
+  border-bottom:0;
+}
+body[data-workspace="analysis"] .analysis-data-meta{gap:7px}
+body[data-workspace="analysis"] .analysis-data-meta strong{font-size:13px}
+body[data-workspace="analysis"] .analysis-data-meta .badge{min-height:21px;font-size:10.5px}
+body[data-workspace="analysis"] .analysis-actions{gap:0}
+body[data-workspace="analysis"] .analysis-actions .text-btn{font-size:12px;padding:3px 8px;border-radius:7px}
+body[data-workspace="analysis"] .analysis-actions .text-btn:hover{background:var(--primary-soft)}
+
+/* 筛选栏：常驻一行，控件统一 30px 高、标签缩到 10px，重置键贴在同一行尾 */
+body[data-workspace="analysis"] .filter-bar{align-items:end;gap:8px;padding:0 2px}
+body[data-workspace="analysis"] .filter-bar>label{display:flex;flex-direction:column;gap:2px;font-size:10px;color:var(--text-subtle);min-width:0}
 body[data-workspace="analysis"] .filter-bar select,
-body[data-workspace="analysis"] .filter-bar input{height:32px;border:1px solid var(--border);border-radius:8px;background:var(--input);color:var(--foreground);padding:0 9px;font-size:12px;min-width:0;width:100%}
+body[data-workspace="analysis"] .filter-bar input{height:30px;border:1px solid var(--border);border-radius:7px;background:var(--input);color:var(--foreground);padding:0 8px;font-size:12px;min-width:0;width:100%}
 body[data-workspace="analysis"] .filter-bar select:focus,
 body[data-workspace="analysis"] .filter-bar input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);outline:none}
 /* 日期输入的原生日历图标在深色下几乎看不见，统一提亮 */
@@ -677,16 +733,17 @@ body[data-workspace="analysis"] .filter-bar input[type="date"]::-webkit-calendar
 body[data-workspace="analysis"] .filter-bar input[type="date"]:hover::-webkit-calendar-picker-indicator{opacity:1}
 html[data-theme="light"] body[data-workspace="analysis"] .filter-bar input[type="date"]{color-scheme:light}
 html[data-theme="light"] body[data-workspace="analysis"] .filter-bar input[type="date"]::-webkit-calendar-picker-indicator{filter:none;opacity:.5}
-body[data-workspace="analysis"] .filter-reset{height:32px;min-height:32px;padding:0 14px;font-size:12px}
+body[data-workspace="analysis"] .filter-reset{height:30px;min-height:30px;padding:0 12px;font-size:12px;border-radius:7px}
 
-/* 数据集头：标题/徽标/按钮排成一条，别让按钮挤到第二行 */
-body[data-workspace="analysis"] .analysis-headline{padding-bottom:9px;margin-bottom:9px;gap:10px;flex-wrap:wrap}
-body[data-workspace="analysis"] .analysis-data-meta strong{font-size:14px}
-body[data-workspace="analysis"] .analysis-actions{gap:2px}
-
-/* 标签栏：更紧凑，且不吃满整行高度 */
-body[data-workspace="analysis"] .tabs{padding:4px;gap:2px;margin-bottom:10px}
-body[data-workspace="analysis"] .tab{min-height:32px;padding:6px 12px;font-size:12.5px}
+/* 标签栏：整页唯一吸顶的一层（滚动后仍能切页签） */
+body[data-workspace="analysis"] .tabs{
+  position:sticky;top:var(--site-nav-height,44px);z-index:46;
+  padding:3px;gap:2px;margin-bottom:8px;
+  border-radius:9px;
+  background:color-mix(in srgb,var(--card) 94%,transparent);
+  backdrop-filter:blur(14px);
+}
+body[data-workspace="analysis"] .tab{min-height:30px;padding:5px 12px;font-size:12.5px;border-radius:7px}
 
 /* 空态：不要一大块虚线框，收成一行提示 */
 body[data-workspace="analysis"] .tab-panel>.empty,
@@ -700,13 +757,12 @@ body[data-workspace="analysis"] .panel-card .callout{padding:9px 12px;font-size:
   body[data-workspace="analysis"] .metric-grid{grid-template-columns:1fr 1fr;gap:7px}
   body[data-workspace="analysis"] .metric-card{padding:10px 11px}
   body[data-workspace="analysis"] .metric-value{font-size:20px}
-  body[data-workspace="analysis"] .chart-box{min-height:170px}
+  body[data-workspace="analysis"] .chart-box{min-height:clamp(150px,30vh,240px)}
   body[data-workspace="analysis"] .grid-2{grid-template-columns:1fr}
   body[data-workspace="analysis"] .panel-card{padding:12px 13px}
-  body[data-workspace="analysis"] .analysis-control{padding:11px 12px}
   body[data-workspace="analysis"] .filter-bar{grid-template-columns:1fr 1fr}
   body[data-workspace="analysis"] .filter-reset{grid-column:1/-1}
-  body[data-workspace="analysis"] .tab{min-height:30px;padding:5px 10px;font-size:12px}
+  body[data-workspace="analysis"] .tab{min-height:28px;padding:4px 10px;font-size:12px}
 }
 /* 「今日 vs 基线」→ 一条窄条（原来是一整张面板只放一行数字） */
 body[data-workspace="analysis"] .baseline-strip{

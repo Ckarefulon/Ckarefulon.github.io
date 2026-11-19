@@ -18,7 +18,9 @@
   <link rel="stylesheet" href="/nav/nav.css?v=2475">
   <link rel="stylesheet" href="../assets/scramble/scramble.css?v=1892">
   <link rel="stylesheet" href="../assets/state-reset/state-reset.css?v=1949">
-  <link rel="stylesheet" href="./analyzer.css?v=2653">
+  <!-- 魔方展开图（Cube 公用 /Cube/assets/cube-net/），与 Cross、Trainer 共用同一份 -->
+  <link rel="stylesheet" href="../assets/cube-net/cube-net.css?v=2664">
+  <link rel="stylesheet" href="./analyzer.css?v=2664">
 
   <script src="../assets/base/jquery-4.0.0.min.js"></script>
   <script src="../assets/base/compat.js?v=1877" defer></script>
@@ -56,6 +58,9 @@
   <script src="../assets/cube-3d/twistynnn.js?v=2450" defer></script>
 
   <script src="./analyzer-core.js?v=1877" defer></script>
+  <!-- 魔方展开图（Cube 公用 /Cube/assets/cube-net/）。必须排在 analyzer-app.js 之前：
+       状态图在 init 里就要用到 window.CubeNet。 -->
+  <script src="../assets/cube-net/cube-net.js?v=2664" defer></script>
   <script src="./analyzer-import.js?v=2063" defer></script>
   <script src="./analyzer-charts.js?v=1877" defer></script>
   <script src="./smartcube-bridge.js?v=1927" defer></script>
@@ -68,7 +73,7 @@
   <script src="./analyzer-quality.js?v=2005" defer></script>
   <script src="./analyzer-ai.js?v=2005" defer></script>
   <script src="./analyzer-replay.js?v=2083" defer></script>
-  <script src="./analyzer-app.js?v=2653" defer></script>
+  <script src="./analyzer-app.js?v=2664" defer></script>
 </head>
 <body data-workspace="training">
   <div class="page-shell">
@@ -162,6 +167,18 @@
               <div class="timer-actions">
                 <button class="btn btn-primary ready-btn" id="readyBtn" type="button" hidden>开始</button>
                 <button class="btn btn-ghost" id="cancelTimerBtn" type="button" disabled>取消本把</button>
+                <!-- 状态图（飞机图）：与 Cross 同一套交互 —— 点开在按钮旁弹出六面展开图。
+                     展开图本体与配色换算都是 Cube 公用件 /Cube/assets/cube-net/，这里只挂宿主 div。 -->
+                <div class="cubePopWrap" id="cubeNetWrap">
+                  <button class="btn btn-ghost" id="cubeNetBtn" type="button" aria-expanded="false" aria-controls="cubeNetPop" aria-haspopup="dialog" title="查看当前魔方状态（六面展开图）">状态图</button>
+                  <div class="cubePop" id="cubeNetPop" role="dialog" aria-label="魔方状态">
+                    <div class="cubePopHead">
+                      <span id="cubeNetTitle">魔方状态</span>
+                      <span class="cubeHint" id="cubeNetHint">未连接</span>
+                    </div>
+                    <div class="cubeNet" id="cubeNet" aria-label="魔方六面展开图"></div>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="keyboard-hint" id="keyboardHint"><kbd>Space</kbd> 起停；若不按 Space 而直接转动，本把将全程使用状态计时</div>

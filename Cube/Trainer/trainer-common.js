@@ -258,8 +258,12 @@
 		return true;
 	}
 
-	/* facelet 字符串 → CubeNet 数值口径（colorOfFace[Math.floor(v/9)]） */
+	/* facelet 字符串 → CubeNet 数值口径。
+	 * 换算本身归公用件（CubeNet.toNumeric），这里只做转发，别在本文件再养一份映射。 */
 	function toNumeric(f) {
+		if (window.CubeNet && typeof window.CubeNet.toNumeric === 'function') {
+			return window.CubeNet.toNumeric(f);
+		}
 		var out = new Array(54);
 		for (var i = 0; i < 54; i++) {
 			var fi = FACE_LETTERS.indexOf(f.charAt(i));

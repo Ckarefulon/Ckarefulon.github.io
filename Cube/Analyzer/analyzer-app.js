@@ -532,7 +532,27 @@
     document.body.dataset.workspace=state.workspaceMode;
     $$('.mode-switch-btn').forEach(b=>{const active=b.dataset.mode===state.workspaceMode;b.classList.toggle('active',active);b.setAttribute('aria-selected',active?'true':'false')});
     $$('.workspace-panel').forEach(p=>p.classList.toggle('active',p.dataset.workspace===state.workspaceMode));
-    if(state.workspaceMode==='analysis'){refreshFilterOptions();syncFilterUI();renderAll()}
+    if(state.workspaceMode==='analysis'){refreshFilterOptions();syncFilterUI();renderAll();syncFilterCollapse()}
+  }
+
+  /**
+   * 窄屏筛选栏折叠：默认收起，只留一行摘要。
+   * 必须在**每次进入分析页**时按当前宽度重算 —— 原来只在 init 里判断一次，
+   * 于是「宽屏进来、缩窄或切到分析页」时筛选栏一直是展开的，把首屏占满。
+   */
+  function syncFilterCollapse(){
+    const fb=$('#filterBar'),ft=$('#filterToggle');
+    if(!fb||!ft)return;
+    if(window.innerWidth>760){
+      // 宽屏：始终展开，折叠按钮由 CSS 隐藏
+      fb.dataset.collapsed='false';ft.setAttribute('aria-expanded','true');
+      return;
+    }
+    // 窄屏：保留用户本次会话的手动选择，没选过就默认收起
+    const userSet=fb.dataset.userToggled==='true';
+    const collapsed=userSet?fb.dataset.collapsed==='true':true;
+    fb.dataset.collapsed=collapsed?'true':'false';
+    ft.setAttribute('aria-expanded',collapsed?'false':'true');
   }
 
   function parseMove(move){
@@ -547,11 +567,17 @@
   }
   function sameFacelet(a,b){return !!a&&!!b&&String(a).trim()===String(b).trim()}
   function solvedFacelet(){return window.mathlib&&window.mathlib.SOLVED_FACELET?window.mathlib.SOLVED_FACELET:''}
-  function faceletAfterMoves(moves){
+  function faceletAfterMoves(moves){return faceletFromState('',moves)}
+  /** 从任意起点走一段转动得到面位；起点为空按复原态算，解析失败返回空串 */
+  function faceletFromState(base,moves){
     try{
       if(!window.mathlib||!window.mathlib.CubieCube||!window.mathlib.SOLVED_FACELET)return'';
-      const cube=new window.mathlib.CubieCube();cube.fromFacelet(window.mathlib.SOLVED_FACELET);
-      (moves||[]).forEach(m=>cube.selfMoveStr(m));return cube.toFaceCube();
+      const cube=new window.mathlib.CubieCube();
+      const from=String(base||'').trim();
+      if(from.length>=54){ if(cube.fromFacelet(from)===-1)return''; }
+      else if(cube.fromFacelet(window.mathlib.SOLVED_FACELET)===-1)return'';
+      (moves||[]).forEach(m=>cube.selfMoveStr(m));
+      return cube.toFaceCube();
     }catch(e){console.warn('Scramble state build failed',e);return''}
   }
 
@@ -869,11 +895,117 @@
     meta.textContent=view.correcting?'转动有偏差 · 按青色修正步继续':`打乱 ${view.progress}/${trainer.scrambleMoves.length}`;
   }
 
+  /* ============================================================================
+     状态图（飞机图）—— 六面展开图弹窗（2026-11-19）
+     ----------------------------------------------------------------------------
+     交互与 Cube/Cross 一致：计时器下面那排的「状态图」按钮点一下弹、再点收起；
+     点面板外任意处 / 按 Esc 也收起。
+
+     分工：**展开图本体与配色换算全是 Cube 公用件**（/Cube/assets/cube-net/cube-net.js，
+     直接喂 54 字符面位串即可）；这里只负责本页独有的两件事 ——
+     弹窗外壳（开合 / 定位 / 收起），以及「该显示哪个状态」。
+     ============================================================================ */
+  const netState={open:false};
+
+  /**
+   * 当前该显示哪个状态（本页独有，各页状态机不同，不能塞进公用件）：
+   *   · 连着魔方且拿得到面位 —— 用真实状态（打乱中、计时中都是实时值）；
+   *   · 没连接 —— 按「打乱目标 + 本把已做转动」现算，没打乱就显示复原态。
+   */
+  function cubeNetFacelet(){
+    const real=Cube&&Cube.isConnected()?String(Cube.getFacelet?.()||'').trim():'';
+    if(real.length>=54)return real;
+    if(trainer.phase==='running'||trainer.phase==='ready'||trainer.phase==='inspection'){
+      const base=trainer.scrambleTargetFacelet||solvedFacelet();
+      return trainer.moves.length?faceletFromState(base,trainer.moves):base;
+    }
+    return trainer.scrambleTargetFacelet||solvedFacelet();
+  }
+
+  function cubeNetSubtitle(){
+    if(Cube&&Cube.isConnected?.()){
+      if(trainer.phase==='running')return '计时中 · 实时状态';
+      if(trainer.phase==='scramble')return '打乱中 · 实时状态';
+      return '已连接 · 实时状态';
+    }
+    if(trainer.phase==='ready'||trainer.phase==='running'||trainer.phase==='done')return '按打乱后状态推算';
+    return '未连接 · 按公式推算';
+  }
+
+  function renderCubeNet(){
+    const host=$('#cubeNet');
+    if(!host||!window.CubeNet)return;
+    /* 直接喂 54 字符面位串：字符串 → 面序 → 配色是公用件内部的事 */
+    window.CubeNet.render(host,cubeNetFacelet());
+    const title=$('#cubeNetTitle'),hint=$('#cubeNetHint');
+    if(title)title.textContent='魔方状态';
+    if(hint)hint.textContent=cubeNetSubtitle();
+  }
+
+  /* 弹窗定位：fixed 相对视口，默认在按钮右侧弹出；右溢出翻左侧；两边都放不下就居中。
+     垂直方向：优先与按钮顶端对齐；下方装不下就**让弹窗底部与按钮底部对齐**（向上长），
+     最后才夹进「顶栏下沿 ~ 视口底」之间 —— 这样按钮贴着页面底边时也不会把弹窗压扁到底角。 */
+  function positionCubeNetPop(){
+    const wrap=$('#cubeNetWrap'),pop=$('#cubeNetPop');
+    if(!wrap||!pop)return;
+    const r=wrap.getBoundingClientRect();
+    const w=pop.offsetWidth||300,h=pop.offsetHeight||240;
+    const vw=window.innerWidth,vh=window.innerHeight;
+    const navEl=document.querySelector('.siteHeader');
+    const minTop=(navEl?Math.round(navEl.getBoundingClientRect().height)||44:44)+8;
+    const maxTop=Math.max(minTop,vh-h-8);
+
+    let left=r.right+10;
+    if(left+w>vw-8)left=Math.max(8,r.left-w-10);
+    if(w>vw-16)left=Math.max(8,(vw-w)/2);
+
+    let top=r.top;
+    if(top+h>vh-8)top=r.bottom-h;          // 下方装不下：向上展开，底部与按钮对齐
+    top=Math.min(Math.max(top,minTop),maxTop);
+
+    pop.style.left=Math.round(left)+'px';
+    pop.style.top=Math.round(top)+'px';
+  }
+
+  function setCubeNetOpen(open){
+    const wrap=$('#cubeNetWrap'),btn=$('#cubeNetBtn'),pop=$('#cubeNetPop');
+    if(!wrap||!btn||!pop)return;
+    netState.open=!!open;
+    wrap.classList.toggle('isPinned',netState.open);
+    btn.setAttribute('aria-expanded',netState.open?'true':'false');
+    pop.setAttribute('aria-hidden',netState.open?'false':'true');
+    if(netState.open){
+      renderCubeNet();
+      positionCubeNetPop();
+    }else{
+      pop.style.left='';pop.style.top='';
+    }
+  }
+
+  function bindCubeNet(){
+    const wrap=$('#cubeNetWrap'),btn=$('#cubeNetBtn'),pop=$('#cubeNetPop'),host=$('#cubeNet');
+    if(!wrap||!btn||!pop||!host)return;
+    if(window.CubeNet)window.CubeNet.build(host);
+    pop.setAttribute('aria-hidden','true');
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      setCubeNetOpen(!netState.open);
+    });
+    /* 弹窗内点击不冒泡 → 只有点面板外才收起 */
+    pop.addEventListener('click',e=>e.stopPropagation());
+    document.addEventListener('click',()=>{if(netState.open)setCubeNetOpen(false)});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&netState.open){setCubeNetOpen(false);btn.focus()}});
+    window.addEventListener('resize',()=>{if(netState.open)positionCubeNetPop()});
+    window.addEventListener('scroll',()=>{if(netState.open)positionCubeNetPop()},true);
+  }
+
   function phase(stateName,status,sub){
     trainer.phase=stateName;const stage=$('#timerStage');if(stage)stage.dataset.state=stateName;
     if(status!==undefined)$('#timerStatus').textContent=status;if(sub!==undefined)$('#timerSub').textContent=sub;
     const cancel=$('#cancelTimerBtn');if(cancel)cancel.disabled=stateName!=='running'&&stateName!=='inspection';
     updateTimingControls();
+    // 阶段一变，「状态图」的副标题（实时 / 推算）跟着变；弹窗开着才重画
+    if(netState.open)renderCubeNet();
   }
 
   function updateTimingControls(){
@@ -1105,7 +1237,7 @@
     trainer.scrambleBaseReady=connected&&!!facelet&&Cube.isSolved(facelet);
     if(connected)prepareScrambleBase(facelet);
     else phase('scramble','按公式打乱','完成后按 Space 手动起停；连接魔方后也可状态自动起停');
-    renderScramble();syncFreeToggle();
+    renderScramble();syncFreeToggle();if(netState.open)renderCubeNet();
   }
 
   function markScrambleComplete(){if(trainer.scrambleComplete)return;enterReadyAfterScramble()}
@@ -1505,6 +1637,7 @@
     $('#workspaceMode').onclick=e=>{const b=e.target.closest('[data-mode]');if(b)switchWorkspace(b.dataset.mode)};
     $('#goAnalysisBtn').onclick=()=>switchWorkspace('analysis');
     $('#connectCubeBtn').onclick=toggleCube;
+    bindCubeNet();
     bindSettingsPop(bindSettingsControls);
     // 打乱公式双击 = 换下一条（自由打乱模式直接重开，不给目标公式）
     const st=$('#scrambleText');
@@ -1562,12 +1695,10 @@
         const open=fToggle.getAttribute('aria-expanded')==='true';
         fToggle.setAttribute('aria-expanded',open?'false':'true');
         fBar.dataset.collapsed=open?'true':'false';
+        // 记下这是用户主动选的：之后切页签回来不再强行收起
+        fBar.dataset.userToggled='true';
       };
-      window.addEventListener('resize',()=>{
-        if(window.innerWidth>760&&fBar.dataset.collapsed==='true'){
-          fBar.dataset.collapsed='false';fToggle.setAttribute('aria-expanded','true');
-        }
-      });
+      window.addEventListener('resize',()=>{syncFilterCollapse()});
     }
     $('#tabs').onclick=e=>{const b=e.target.closest('.tab[data-tab]');if(!b)return;state.activeTab=b.dataset.tab;$$('.tab').forEach(x=>x.classList.toggle('active',x===b));$$('.tab-panel').forEach(x=>x.classList.toggle('active',x.dataset.panel===state.activeTab))};
     $('#closeSolveModal').onclick=()=>$('#solveModal').hidden=true;$('#solveModal').onclick=e=>{if(e.target===$('#solveModal'))$('#solveModal').hidden=true};document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!(Replay&&Replay.isOpen()))$('#solveModal').hidden=true});
@@ -1588,9 +1719,8 @@
     bindCube();bind();nextScramble();refreshFilterOptions();syncFilterUI();renderTrainerSummary();renderAll();switchWorkspace('training');updateSolveBadge();updateCloudIndicator();
     observeTrainerRecent();
     observeTrainerFit();
-    // 窄屏进来默认收起筛选栏，先让首屏看到数据本身
-    {const fb=$('#filterBar'),ft=$('#filterToggle');
-     if(fb&&ft&&window.innerWidth<=760){fb.dataset.collapsed='true';ft.setAttribute('aria-expanded','false')}}
+    // 窄屏进来默认收起筛选栏，先让首屏看到数据本身（每次切页签都会重算，见 syncFilterCollapse）
+    syncFilterCollapse();
     // —— 融入启动（2026-09-29）：体验偏好同步到音频模块；AI 报告桥接站点数据（DNF/异常由 AI 模块内二次排除）——
     if(window.CubeAudio){CubeAudio.setPrefs({voiceOn:!!xp.voiceOn,soundOn:!!xp.soundOn});CubeAudio.preload();}
     if(window.CubeAnalyzerAI)CubeAnalyzerAI.init({getFiltered:()=>filtered(),getBaseline:baselineStats});
