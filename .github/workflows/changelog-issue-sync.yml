@@ -31,22 +31,38 @@ on:
         default: ''
 
 permissions:
+  # 实际写入都走 ISSUE_SYNC_PAT；这里只保留读代码的最低权限。
   contents: read
-  issues: write
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    env:
+      # if: 里不能直接引用 secrets，所以先在这里求值成布尔字符串。
+      # 名字不带 GITHUB_ 前缀（那是保留前缀）。
+      ISSUE_SYNC_PAT_SET: ${{ secrets.ISSUE_SYNC_PAT != '' }}
     steps:
+      - name: 检查 PAT 是否配置
+        if: ${{ env.ISSUE_SYNC_PAT_SET != 'true' }}
+        run: |
+          echo "::error::缺少 ISSUE_SYNC_PAT secret。本工作流统一用 PAT 身份操作 Issue，"
+          echo "::error::这样 closed 事件才会触发 Discussion ↔ Issue 联动。"
+          echo "::error::请在仓库 Settings → Secrets and variables → Actions 添加 ISSUE_SYNC_PAT。"
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: 解析新增条目并处理 Issue
+        if: ${{ env.ISSUE_SYNC_PAT_SET == 'true' }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # 整个工作流统一用 PAT：
+          # GITHUB_TOKEN 触发的事件不会创建新的工作流运行，那样 Discussion ↔ Issue 联动
+          # 永远收不到 closed 事件。用 PAT 时关闭/重开都是真实事件，下游照常触发。
+          github-token: ${{ secrets.ISSUE_SYNC_PAT }}
           script: |
             const { execSync } = require('child_process');
             const fs = require('fs');
@@ -193,6 +209,7 @@ jobs:
                 core.info(`Issue #${num} 已是 ${reason}，不重复关闭。`);
                 return true;
               }
+              // 用 PAT 身份关闭——这样 closed 事件才会真正触发下游联动
               await github.graphql(
                 `mutation($id:ID!,$reason:IssueClosedStateReason!){
                    closeIssue(input:{issueId:$id,stateReason:$reason}){ issue{ number state stateReason } }

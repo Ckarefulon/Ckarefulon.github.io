@@ -2,7 +2,7 @@ name: Discussion ↔ Issue 联动
 
 # 约定：Issue 正文里写「Discussion #N」即视为把该 Issue 链接到 Discussion #N。
 # 新建/编辑/关闭/重开时，在对应 Discussion 下自动留言；同一条只留一次（标记写在 Discussion 评论里）。
-# GITHUB_TOKEN 触发的事件不会再触发本工作流，无循环风险。
+# 与 Changelog → Issue 联动 共用同一个 PAT 身份（ISSUE_SYNC_PAT）。
 #
 # 补跑历史 Issue：Actions → 本工作流 → Run workflow，issue_numbers 填 "11,12" 或 "all"。
 
@@ -17,18 +17,27 @@ on:
         default: ''
 
 permissions:
+  # 实际读写都走 ISSUE_SYNC_PAT；这里只保留最低权限。
   contents: read
-  issues: read
-  discussions: write
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    env:
+      # if: 里不能直接引用 secrets，先求值成布尔字符串（名字不带 GITHUB_ 前缀）。
+      ISSUE_SYNC_PAT_SET: ${{ secrets.ISSUE_SYNC_PAT != '' }}
     steps:
+      - name: 检查 PAT 是否配置
+        if: ${{ env.ISSUE_SYNC_PAT_SET != 'true' }}
+        run: |
+          echo "::error::缺少 ISSUE_SYNC_PAT secret。本工作流统一用 PAT 身份在 Discussion 下留言。"
+          echo "::error::请在仓库 Settings → Secrets and variables → Actions 添加 ISSUE_SYNC_PAT。"
+          exit 1
+
       - name: 在关联的 Discussion 下留言
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.ISSUE_SYNC_PAT }}
           script: |
             const { owner, repo } = context.repo;
             const LINK_RE = /Discussion\s*#(\d+)/gi;
@@ -105,11 +114,13 @@ jobs:
                 core.info(`Discussion #${num}：${key} 留言已存在，跳过。`);
                 return false;
               }
+              // 去重标记放在正文末尾：邮件/搜索/首行摘要里都不会露出内部标记。
+              // 判定仍然用 includes，位置不影响识别。
               await github.graphql(
                 `mutation($id:ID!,$body:String!){
                    addDiscussionComment(input:{discussionId:$id,body:$body}){ comment { id } }
                  }`,
-                { id: d.id, body: `${tag}\n${makeText(d)}` }
+                { id: d.id, body: `${makeText(d)}\n\n${tag}` }
               );
               core.info(`已在 Discussion #${num} 留言（${key}）。`);
               return true;
