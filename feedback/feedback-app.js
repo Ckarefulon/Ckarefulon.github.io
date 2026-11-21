@@ -304,33 +304,76 @@
 		};
 	}
 
+	/**
+	 * 草稿只在「表格已经开始被用户操作」之后才写。
+	 * 启动时 setType() 会走一次 saveDraft，那时表单还是空的，
+	 * 放行就会把上一次的历史直接抹掉（#20 之后尤其明显：不再自动回填，
+	 * 也就没人把它写回来）。所以启动完成前一律不写盘。
+	 */
+	var draftReady = false;
+	/** 正在往表单里灌历史内容：这期间 setType() 引起的 saveDraft() 必须跳过 */
+	var restoring = false;
+
 	function saveDraft() {
+		if (!draftReady || restoring) return;
 		try {
 			var d = payloadDraft();
-			if (!d.body && !d.contact && !d.title) { localStorage.removeItem(DRAFT_KEY); return; }
+			if (!d.body && !d.contact && !d.title) { localStorage.removeItem(DRAFT_KEY); refreshRestoreBtn(); return; }
 			d.at = Date.now();
 			localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+			refreshRestoreBtn();
 		} catch (e) {}
 	}
 
-	function restoreDraft() {
+	/**
+	 * 读出草稿（不落进表单）。
+	 * 超过 7 天视为过期，顺手清掉。没有可用内容返回 null。
+	 */
+	function readDraft() {
 		var raw = null;
 		try { raw = localStorage.getItem(DRAFT_KEY); } catch (e) {}
-		if (!raw) return false;
+		if (!raw) return null;
 		var d = null;
-		try { d = JSON.parse(raw); } catch (e) { return false; }
-		if (!d || typeof d !== "object") return false;
-		if (d.at && Date.now() - d.at > 7 * 24 * 3600 * 1000) { clearDraft(); return false; }
-		if (d.type) setType(d.type);
-		if (d.title && els.title) els.title.value = d.title;
-		if (d.body && els.body) els.body.value = d.body;
-		if (d.contact && els.contact) els.contact.value = d.contact;
-		if (d.page && els.page) els.page.value = d.page;
-		return !!(d.body || d.contact || d.title);
+		try { d = JSON.parse(raw); } catch (e) { return null; }
+		if (!d || typeof d !== "object") return null;
+		if (d.at && Date.now() - d.at > 7 * 24 * 3600 * 1000) { clearDraft(); return null; }
+		if (!d.body && !d.contact && !d.title) return null;
+		return d;
+	}
+
+	/**
+	 * 把上次的内容恢复进表单。**只在用户点按钮时调用** ——
+	 * 打开新建对话框不再自动填入（见 issue #20），但内容一直留着。
+	 */
+	function restoreDraft() {
+		var d = readDraft();
+		if (!d) return false;
+		// 填值期间一律不写盘：setType() 会触发 saveDraft()，
+		// 那一刻字段还是空的，放行就会把刚要恢复的这条历史当场删掉。
+		restoring = true;
+		try {
+			if (d.title && els.title) els.title.value = d.title;
+			if (d.body && els.body) els.body.value = d.body;
+			if (d.contact && els.contact) els.contact.value = d.contact;
+			if (d.page && els.page) els.page.value = d.page;
+			// 最后再定类型：此时表单已有内容，setType 顺手存回去也是对的
+			if (d.type) setType(d.type);
+		} finally {
+			restoring = false;
+		}
+		refreshRestoreBtn();
+		return true;
+	}
+
+	/** 标题旁的「恢复上次内容」：有历史才显示，没历史就藏起来 */
+	function refreshRestoreBtn() {
+		if (!els.restoreBtn) return;
+		els.restoreBtn.hidden = !readDraft();
 	}
 
 	function clearDraft() {
 		try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+		refreshRestoreBtn();
 	}
 
 	/* ---------------- 来源页面（从哪一页点进来的） ---------------- */
@@ -348,6 +391,78 @@
 		return true;
 	}
 
+	/**
+	 * 把路径还原成站点里的真实大小写。
+	 *
+	 * Netlify 会把网址强制小写（/Cube/Formula/ → /cube/formula/），所以
+	 * `?from=`、`document.referrer`、`location.pathname` 拿到的都是小写。
+	 * 顶栏 nav.js 里有一张登记表（PATH_LABELS）记着真实目录名，优先借它；
+	 * nav.js 还没加载完就先用本地这份兜底表（只收含大写的路径）。
+	 */
+	var FROM_CASE_FALLBACK = {
+		"cube": "Cube",
+		"cube/formula": "Cube/Formula",
+		"cube/formula/classic": "Cube/Formula/Classic",
+		"cube/formula - 副本": "Cube/Formula - 副本",
+		"cube/analyzer": "Cube/Analyzer",
+		"cube/cross": "Cube/Cross",
+		"cube/music": "Cube/Music",
+		"cube/trainer": "Cube/Trainer",
+		"study": "Study",
+		"study/focus": "Study/Focus",
+		"study/merit": "Study/Merit",
+		"study/merit/beta-qwen": "Study/Merit/beta-Qwen",
+		"study/merit/beta-step": "Study/Merit/beta-step",
+		"study/question": "Study/Question",
+		"study/timer": "Study/Timer",
+		"tools": "Tools",
+		"tools/darkpdf": "Tools/DarkPDF",
+		"tools/kgenesis": "Tools/KGenesis",
+		"tools/pulse": "Tools/Pulse",
+		"tools/relay": "Tools/Relay",
+		"tools/roster": "Tools/Roster",
+		"tools/speed": "Tools/Speed",
+		"jump/onedrive": "jump/OneDrive"
+	};
+
+	function trueCasePath(pathname) {
+		var nav = window.siteNav;
+		if (nav && typeof nav.trueCasePath === "function") {
+			try { return nav.trueCasePath(pathname); } catch (e) {}
+		}
+		var input = String(pathname == null ? "" : pathname);
+		if (!input) return input;
+		var trailing = /\/$/.test(input) ? "/" : "";
+		var body = trailing ? input.slice(0, -1) : input;
+		var head = body.charAt(0) === "/" ? "/" : "";
+		if (head) body = body.slice(1);
+		if (!body) return head || "/";
+
+		var segs = body.split("/");
+		var out = [];
+		var i = 0;
+		while (i < segs.length) {
+			var found = null;
+			var foundLen = 0;
+			for (var len = segs.length - i; len >= 1; len--) {
+				var key = segs.slice(i, i + len).join("/").toLowerCase();
+				if (Object.prototype.hasOwnProperty.call(FROM_CASE_FALLBACK, key)) {
+					found = FROM_CASE_FALLBACK[key];
+					foundLen = len;
+					break;
+				}
+			}
+			if (found) {
+				out = out.concat(found.split("/"));
+				i += foundLen;
+			} else {
+				out.push(segs[i]);
+				i += 1;
+			}
+		}
+		return head + out.join("/") + trailing;
+	}
+
 	/** 规范化：补前导斜杠，去掉零宽/控制字符，只留路径（丢 query / hash），最长 300 */
 	function normalizeFrom(value) {
 		if (!isSitePath(value)) return "";
@@ -356,7 +471,7 @@
 		s = s.split("#")[0].split("?")[0];
 		if (!s) return "";
 		if (s.charAt(0) !== "/") s = "/" + s;
-		return s.slice(0, 300);
+		return trueCasePath(s).slice(0, 300);
 	}
 
 	/** 反馈页自己的路径不算「来源」 */
@@ -503,7 +618,7 @@
 
 	function showDetail() {
 		if (!els.detail) return;
-		els.page.hidden = true;
+		els.main.hidden = true;
 		els.detail.hidden = false;
 		window.scrollTo(0, 0);
 		loadDetail(detailNumber);
@@ -512,7 +627,7 @@
 	function closeDetail() {
 		if (!els.detail) return;
 		els.detail.hidden = true;
-		els.page.hidden = false;
+		els.main.hidden = false;
 		detailNumber = null;
 		if (history.pushState) {
 			history.pushState(null, "", window.location.pathname);
@@ -1065,7 +1180,9 @@
 
 	function boot() {
 		els = {
-			page: $("fbPageMain"),
+			// ⚠️ 容器与输入框必须分键：els.page 是「来源页面」输入框，
+			// 容器另叫 main。混用会把输入框当容器隐藏，列表视图永远关不掉。
+			main: $("fbPageMain"),
 			detail: $("fbPageDetail"),
 			detailBody: $("fbDetailBody"),
 			backBtn: $("fbBackBtn"),
@@ -1076,6 +1193,7 @@
 			newBtn: $("fbNewBtn"),
 			overlay: $("fbOverlay"),
 			modalClose: $("fbComposeClose"),
+			restoreBtn: $("fbRestoreBtn"),
 			types: $("fbTypes"),
 			typeHint: $("fbTypeHint"),
 			title: $("fbTitle"),
@@ -1127,7 +1245,7 @@
 				showDetail();
 			} else if (els.detail && !els.detail.hidden) {
 				els.detail.hidden = true;
-				els.page.hidden = false;
+				els.main.hidden = false;
 				detailNumber = null;
 			}
 		});
@@ -1172,6 +1290,18 @@
 			});
 		}
 		if (els.modalClose) els.modalClose.addEventListener("click", closeModal);
+		if (els.restoreBtn) {
+			els.restoreBtn.addEventListener("click", function () {
+				if (!restoreDraft()) {
+					refreshRestoreBtn();
+					setStatus("没有可恢复的历史内容", "Warning");
+					return;
+				}
+				setStatus("已恢复上次的内容", "Success");
+				// 恢复完焦点落在正文，方便继续写
+				try { (els.body || els.title).focus({ preventScroll: true }); } catch (e) {}
+			});
+		}
 		if (els.overlay) {
 			els.overlay.addEventListener("click", function (e) {
 				if (e.target === els.overlay) closeModal();
@@ -1207,13 +1337,17 @@
 			if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); }
 		}, true);
 
-		// 恢复草稿 + 初始类型
-		restoreDraft();
+		// 初始类型。**不再自动回填草稿**（#20）：上次写过的内容留在
+		// localStorage 里当历史，由标题旁的「恢复上次内容」按钮按需取回。
 		setType(currentType);
 
 		// 来源页面：先就地捕获（?from= / referrer），再补进输入框（只填空值）
 		var captured = captureFrom();
 		applyFrom(captured);
+
+		// 表单初始化完毕，之后才允许写草稿（否则 setType 那一次就把历史抹了）
+		draftReady = true;
+		refreshRestoreBtn();
 
 		// 进页即预热（列表请求同时也把分类映射带回来）
 		prewarm();

@@ -20,11 +20,11 @@
   <link rel="stylesheet" href="../assets/state-reset/state-reset.css?v=1949">
   <!-- 魔方展开图（Cube 公用 /Cube/assets/cube-net/），与 Cross、Trainer 共用同一份 -->
   <link rel="stylesheet" href="../assets/cube-net/cube-net.css?v=2664">
-  <link rel="stylesheet" href="./analyzer.css?v=2664">
+  <link rel="stylesheet" href="./analyzer.css?v=2712">
 
   <script src="../assets/base/jquery-4.0.0.min.js"></script>
   <script src="../assets/base/compat.js?v=1877" defer></script>
-  <script src="/nav/nav.js?v=2593" defer></script>
+  <script src="/nav/nav.js?v=2712" defer></script>
   <script src="/assets/services/core/site-scope.js?v=2255" defer></script>
   <script src="/assets/services/core/storage-manager.js?v=1892" defer></script>
   <script src="../../assets/vendor/supabase/supabase.min.js" defer></script>
@@ -63,7 +63,9 @@
   <script src="../assets/cube-net/cube-net.js?v=2664" defer></script>
   <script src="./analyzer-import.js?v=2063" defer></script>
   <script src="./analyzer-charts.js?v=1877" defer></script>
-  <script src="./smartcube-bridge.js?v=1927" defer></script>
+  <!-- 智能魔方蓝牙桥：Cube 公用（/Cube/assets/bluetooth/smartcube-bridge.js），
+       与 Cross / Trainer 共用同一份。对外仍是 window.CubeAnalyzerSmartCube。 -->
+  <script src="../assets/bluetooth/smartcube-bridge.js?v=2683" defer></script>
   <script src="./solve-analyzer.js?v=1877" defer></script>
   <script src="/assets/services/sync/payload-codec.js?v=1892" defer></script>
   <script src="./analyzer-store.js?v=2579" defer></script>
@@ -73,7 +75,7 @@
   <script src="./analyzer-quality.js?v=2005" defer></script>
   <script src="./analyzer-ai.js?v=2005" defer></script>
   <script src="./analyzer-replay.js?v=2083" defer></script>
-  <script src="./analyzer-app.js?v=2664" defer></script>
+  <script src="./analyzer-app.js?v=2712" defer></script>
 </head>
 <body data-workspace="training">
   <div class="page-shell">

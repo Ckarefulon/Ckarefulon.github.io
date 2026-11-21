@@ -2516,6 +2516,11 @@
 							self.toggleFormulaOrganize();
 							return;
 						}
+						var clearAll = event.target.closest("[data-formula-clear-all]");
+						if (clearAll) {
+							self.clearAllFormulaEntries();
+							return;
+						}
 						var remove = event.target.closest("[data-formula-delete]");
 						if (remove) {
 							self.deleteFormulaEntry(remove.getAttribute("data-formula-delete"));
@@ -2817,6 +2822,7 @@
 					html += '<div class="draftListActions">';
 					html += '<button class="formulaAddButton" type="button" data-formula-add aria-label="新增公式" title="新增公式"' + addDisabled + '></button>';
 					html += '<button class="button secondary formulaOrganizeButton' + (this.formulaOrganizeMode ? " isActive" : "") + '" type="button" data-formula-organize aria-label="' + (this.formulaOrganizeMode ? "完成整理" : "整理") + '" title="' + (this.formulaOrganizeMode ? "完成整理" : "整理") + '"' + organizeDisabled + '></button>';
+					html += '<button class="button secondary formulaClearAllButton" type="button" data-formula-clear-all aria-label="清空全部公式" title="清空全部公式（会先确认）"' + organizeDisabled + '>清空</button>';
 					html += '</div>';
 					this.elements.draftList.innerHTML = html;
 				},
@@ -2868,6 +2874,52 @@
 						this.formulaOrganizeMode = false;
 					}
 					this.renderFormulaList();
+				},
+
+				/**
+				 * 一键清空公式制作里的整张列表（issue #13）。
+				 *
+				 * 以前只能进「整理」模式逐条删，条数一多就是纯体力活。
+				 * 这是不可撤销的破坏性操作，所以：
+				 *   · 走站点自己的确认弹层（不用 window.confirm，样式跟别处一致）；
+				 *   · 弹层里带上条数与「导出」的提醒，别让人清完才发现没备份；
+				 *   · 录制中不给清（会产生半截记录），整理模式顺手退掉。
+				 */
+				clearAllFormulaEntries: function() {
+					var self = this;
+					if (this.isRecordingFormula) {
+						this.showToast("正在录制公式，先停止录制再清空");
+						return;
+					}
+					var count = this.formulaEntries.length;
+					if (!count) {
+						this.showToast("列表已经是空的");
+						return;
+					}
+					var finish = function() {
+						self.formulaEntries = [];
+						self.formulaExportTextOverride = "";
+						self.activeFormulaId = null;
+						self.dragFormulaId = null;
+						self._editingOrigin = null;
+						self.formulaOrganizeMode = false;
+						self.saveFormulaEntries();
+						self.renderFormulaList();
+						self.showToast("已清空 " + count + " 条公式");
+					};
+					if (typeof this.openNoticePrompt === "function") {
+						this.openNoticePrompt({
+							title: "清空全部公式？",
+							message: "当前列表里的 " + count + " 条公式会被全部删除，无法撤销。需要保留的话请先点「导出」备份。",
+							confirmText: "清空 " + count + " 条",
+							cancelText: "保留",
+							warning: true,
+							onConfirm: finish
+						});
+						return;
+					}
+					// 极端兜底：确认弹层不可用时也不能静默删
+					if (window.confirm("清空全部 " + count + " 条公式？无法撤销。")) { finish(); }
 				},
 
 				markDropPos: function(row, clientY) {

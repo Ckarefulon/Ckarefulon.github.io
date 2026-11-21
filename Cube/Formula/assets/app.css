@@ -1461,11 +1461,27 @@
 		}
 
 		.formulaAddButton:disabled,
+		.formulaClearAllButton:disabled,
 		.formulaOrganizeButton:disabled {
 			cursor: default;
 			opacity: 0.45;
 			transform: none;
 			box-shadow: none;
+		}
+
+		/* 一键清空（#13）：跟着「新增 / 整理」并排，宽度按文字走，
+		   悬停时才染红 —— 不是主操作，不该抢视线。 */
+		.formulaClearAllButton {
+			width: auto;
+			min-width: 62px;
+			padding: 0 14px;
+			color: var(--muted);
+			font-weight: 700;
+		}
+
+		.formulaClearAllButton:hover:not(:disabled) {
+			border-color: var(--red);
+			color: var(--red);
 		}
 
 		.formulaOrganizeButton::before {
@@ -3353,6 +3369,7 @@
 			.makerView .formulaTrack,
 			.makerView .formulaIconButton,
 			.makerView .formulaAddButton,
+			.makerView .formulaClearAllButton,
 			.makerView .formulaOrganizeButton { min-height: 44px; }
 			.memoryView > .reviewArea {
 				gap: 10px;

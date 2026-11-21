@@ -19,9 +19,9 @@
 
 	<link rel="stylesheet" href="/ui/colors_and_type.css">
 	<link rel="stylesheet" href="/nav/nav.css?v=2475">
-	<link rel="stylesheet" href="/feedback/feedback.css?v=2579">
+	<link rel="stylesheet" href="/feedback/feedback.css?v=2712">
 
-	<script src="/nav/nav.js?v=2593" defer></script>
+	<script src="/nav/nav.js?v=2712" defer></script>
 	<script src="/assets/services/core/site-scope.js?v=2255" defer></script>
 
 	<!-- 只有配置（385 字节，纯静态），**不加载** supabase-js（217KB）。
@@ -29,7 +29,7 @@
 	       以前这里连配置都没有，于是整个广场拿不到后端地址。 -->
 	<script src="/supabase/supabase-config.js?v=1877" defer></script>
 
-	<script src="/feedback/feedback-app.js?v=2579" defer></script>
+	<script src="/feedback/feedback-app.js?v=2712" defer></script>
 
 	<title>反馈广场 — Ckarefulon</title>
 </head>
@@ -84,7 +84,12 @@
 		<div class="fbModal">
 			<div class="fbModalHead">
 				<span class="fbModalTitle" id="fbComposeTitle">新建反馈</span>
-				<button class="fbModalClose" id="fbComposeClose" type="button" title="关闭" aria-label="关闭">&times;</button>
+				<div class="fbModalHeadActions">
+					<!-- 上次写过的内容不再自动填进来；点这里才恢复（localStorage 里仍留 7 天） -->
+					<button class="fbRestoreBtn" id="fbRestoreBtn" type="button" hidden
+						title="把上次没提交的内容填回表单">恢复上次内容</button>
+					<button class="fbModalClose" id="fbComposeClose" type="button" title="关闭" aria-label="关闭">&times;</button>
+				</div>
 			</div>
 
 			<div class="fbField">

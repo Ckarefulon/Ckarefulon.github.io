@@ -25,26 +25,51 @@
 		var(--dsk-card);
 }
 
+/* 画布：宽度跟容器、高度按 viewBox 比例，但**封了上限**。
+   ----------------------------------------------------------------------------
+   原来 height:auto + width:100% 的效果是：宽屏上整张图被等比放到 1400×778，
+   又大又空；窄到 900 以下标签只剩 10px，0.8 倍缩放下更是 9px 看不清。
+   现在改成：
+     · 宽度吃满容器，但 max-width 封住，避免超宽屏把图吹爆；
+     · 标签与节点的字号用「不低于 12px 的物理尺寸」兜底 ——
+       SVG 里的 px 会随缩放一起变，所以真正的兜底放在 JS（fitGraphScale）里：
+       量出当前缩放比，缩放低于阈值就把 viewBox 收窄（见 setViewport）。
+   这里只负责「别把图拉成畸形」：高度上限按比例给，窄屏允许更长一点。 */
 .gpSvg {
 	display: block;
 	width: 100%;
+	max-width: 1000px;      /* 超宽屏别吹到 1400 */
 	height: auto;
+	max-height: 560px;      /* 宽屏别长到 778 那么高 */
+	margin: 0 auto;
 	touch-action: none;
 	user-select: none;
 }
+/* 节点在缩放不足时也要保持可读：用 vector-effect 锁住描边，
+   文字则由 JS 在缩得太小时整体换一档更大的字号（见 fitGraphScale）。 */
+.gpNode.dragging { cursor: grabbing; }
+.gpNode { cursor: grab; }
 
-/* 连线：底色极淡（表示「这些都连得上」的范围），只让路径与悬停亮起来 */
+/* 连线分两种：
+   · spine  —— 骨架边（同一泳道相邻的两步），常驻显示，是「流程主干」；
+   · 其它   —— 跳转可能性（跨泳道、跳步），默认几乎看不见，
+                只在悬停某个节点或选中路径时亮起来。
+   这样图上一眼能看清主干，交互时又能问出「从这还能去哪」。 */
 .gpLink {
 	stroke: var(--dsk-purple-400);
 	stroke-width: 1;
 	fill: none;
-	opacity: 0.11;
-	transition: opacity .12s ease, stroke-width .12s ease;
+	opacity: 0;
+	transition: opacity .14s ease, stroke-width .14s ease;
+}
+.gpLink.spine {
+	opacity: .34;
+	stroke-width: 1.5;
 }
 .gpLink.hover {
 	stroke: var(--dsk-purple-200);
-	stroke-width: 1.6;
-	opacity: 0.85;
+	stroke-width: 2;
+	opacity: .9;
 }
 .gpLink.active {
 	stroke: var(--dsk-accent);
@@ -52,12 +77,21 @@
 	stroke-width: 3;
 	filter: drop-shadow(0 0 6px rgba(36, 240, 234, 0.55));
 }
+/* 选中路径上的边即使不是骨架也要亮出来 */
+.gpLink.active.hover { opacity: 1; }
+/* 顶层小组的底线：淡虚线，标出「这几个是一伙的」 */
+.gpLink.group {
+	stroke: var(--dsk-purple-300);
+	stroke-width: 1.2;
+	stroke-dasharray: 3 5;
+	opacity: .3;
+}
 .gpLinkGhost {
 	stroke: var(--dsk-accent);
 	stroke-width: 2;
 	stroke-dasharray: 6 6;
 	fill: none;
-	opacity: 0.8;
+	opacity: .8;
 	pointer-events: none;
 }
 
@@ -77,6 +111,8 @@
 	stroke: var(--dsk-accent);
 	stroke-width: 4;
 }
+/* 标签压在圆心：字号与 R 一起定，别让它顶到圆边。
+ * 选中时圆里还要塞一个序号，所以标签在选中状态下整体下移一点点。 */
 .gpNodeLabel {
 	font-family: var(--dsk-font-mono);
 	font-size: 11px;
@@ -84,16 +120,25 @@
 	fill: var(--dsk-foreground);
 	pointer-events: none;
 	text-anchor: middle;
+	dominant-baseline: central;
 }
 .gpNode[data-selected="1"] .gpNodeLabel { fill: var(--dsk-accent); }
 .gpNodeDot { pointer-events: none; }
+/* 序号徽标：深底 + 亮字，压在圆的左上角，与居中的名字彻底分开 */
+.gpNodeOrderBg {
+	fill: var(--dsk-accent);
+	stroke: var(--dsk-popover);
+	stroke-width: 1.5;
+	pointer-events: none;
+}
 .gpNodeOrder {
 	font-family: var(--dsk-font-mono);
-	font-size: 10px;
+	font-size: 9.5px;
 	font-weight: 700;
 	fill: var(--dsk-background, #0f0d18);
 	pointer-events: none;
 	text-anchor: middle;
+	dominant-baseline: central;
 }
 
 /* 图例 */

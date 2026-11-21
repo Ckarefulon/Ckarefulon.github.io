@@ -298,7 +298,46 @@
     $('#historyTable').onclick=e=>{const tr=e.target.closest('tr[data-id]');if(tr)openSolve(solves.find(s=>String(s.id)===tr.dataset.id))};
   }
 
-  function splitStack(rows,total){return `<div class="split-stack">${rows.filter(r=>r.time>0).map((r,i)=>{const pct=total?Math.max(5,r.time/total*100):25;const recPct=r.time?Math.min(100,(r.recognition||0)/r.time*100):0;return `<div class="split-seg" style="width:${pct}%" title="${esc(r.label)} ${fmtMs(r.time)}"><i class="split-rec" style="width:${recPct}%"></i><span class="split-label">${esc(r.label)}</span></div>`}).join('')}</div>`}
+  /**
+   * 分段比例条。
+   *
+   * 每段宽度 = 该段耗时 ÷ 各段总耗时 ×100%。**不再给 5% 下限** ——
+   * 以前 `Math.max(5, 占比%)` 配上 `.split-seg` 的 min-width:38px，
+   * 短阶段被硬撑大、长阶段被挤扁，PLL 占 78% 却只画出 1/7（issue #12）。
+   *
+   * 极短阶段（<1.2%）在比例上已经看不见了，但仍要能 hover 出数值：
+   * 给一个 1.2% 的下限只是让它的触摸热区不至于消失，视觉误差被
+   * `.split-tiny` 的窄边条吸收，长阶段的比例一眼就能读对。
+   */
+  function splitStack(rows,total){
+    const segs=rows.filter(r=>Number(r.time)>0);
+    const sum=Number(total)>0?Number(total):C.sum(segs.map(r=>Number(r.time)||0));
+    if(!segs.length||!(sum>0))return '';
+    const raw=segs.map(r=>(Number(r.time)||0)/sum*100);
+    // 只把极短段抬到 MIN_TINY，多出来的份额从最长段扣，保证合计 100%
+    const MIN_TINY=1.2;
+    const widths=raw.map(p=>p<MIN_TINY?MIN_TINY:p);
+    let over=C.sum(widths)-100;
+    if(over>0){
+      let longest=0;
+      for(let i=1;i<widths.length;i++)if(widths[i]>widths[longest])longest=i;
+      widths[longest]=Math.max(MIN_TINY,widths[longest]-over);
+    }
+    return `<div class="split-stack">${segs.map((r,i)=>{
+      const recPct=Number(r.time)?Math.min(100,Math.max(0,(Number(r.recognition)||0)/Number(r.time)*100)):0;
+      const tiny=widths[i]<6?' split-tiny':'';
+      const pctText=Math.round(raw[i]*10)/10;
+      return `<div class="split-seg${tiny}" style="width:${widths[i]}%" title="${esc(r.label)} ${fmtMs(r.time)} · ${pctText}%"><i class="split-rec" style="width:${recPct}%"></i><span class="split-label">${escapeLabel(r.label,widths[i])}</span></div>`;
+    }).join('')}</div>`;
+  }
+
+  /** 段太窄就别硬塞文字（会溢出到隔壁段上），留给 title 提示 */
+  function escapeLabel(label,widthPct){
+    const text=String(label==null?'':label);
+    if(widthPct<11)return '';
+    if(widthPct<22&&text.length>2)return esc(text.slice(0,2));
+    return esc(text);
+  }
 
   function renderSplits(solves){
     const el=$('#splitsContent');const method=state.filters.method==='all'?dominantMethod(solves):state.filters.method;const ms=solves.filter(noDnf).filter(s=>s.analysisType===method&&s.steps?.length);
@@ -1401,10 +1440,15 @@
 
   let scoreSolveCount = SCORE_MIN_SOLVES;   // 当前实际渲染了几把
 
+  /**
+   * 成绩行。**两支都是按钮**：加粗的「本次」也要能点开单次详情
+   * （以前是 <div>，点上去没反应 —— issue #15）。
+   * 差别只在样式类：score-row-strong 字大加粗，score-row-plain 小字淡色。
+   */
   function scoreRowHTML(s,strong){
-    return strong
-      ? `<div class="score-row score-row-strong"><span class="score-time">${solveTime(s)}</span></div>`
-      : `<button type="button" class="score-row score-row-plain" data-open="${esc(s.id)}" title="${esc(fmtDate(s.date))} · ${esc(s.session)}"><span class="score-time">${solveTime(s)}</span></button>`;
+    const cls=strong?'score-row score-row-strong':'score-row score-row-plain';
+    const title=`${esc(fmtDate(s.date))} · ${esc(s.session)}`;
+    return `<button type="button" class="${cls}" data-open="${esc(s.id)}" title="${title}"><span class="score-time">${solveTime(s)}</span></button>`;
   }
 
   /**

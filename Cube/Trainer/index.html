@@ -2,11 +2,14 @@
 <html lang="zh-CN">
 <head>
 	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Trainer — 训练场</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<meta name="color-scheme" content="dark light">
+	<meta name="theme-color" content="#0f0d18">
+	<title>Trainer · 分段训练</title>
 	<link rel="icon" href="/favicon.svg?v=1877" type="image/svg+xml">
+	<meta name="description" content="把整段复原拆成分段来练：在节点图上点两个节点连成一条路，只练这一段。">
 
-	<!-- 主题先落地，避免深浅色闪一下。口径与 Cube/Cross 一致：本页是深色设计的，
+	<!-- 主题先落地，避免深浅色闪一下。口径与 Cube 其它页一致：本页是深色设计的，
 	     没主动选过主题时保持深色，只有用户在顶栏选过浅色才跟随。 -->
 	<script>
 		(function () {
@@ -19,184 +22,222 @@
 	<!-- 设计令牌（dsk-*）必须先于页面样式 -->
 	<link rel="stylesheet" href="/ui/colors_and_type.css">
 	<link rel="stylesheet" href="/nav/nav.css?v=2475">
-	<script src="/nav/nav.js?v=2593" defer></script>
 
-	<!-- Cube 功能块样式：展开图 → 阶段节点图 → 公用计时台 → 页面自己的样式 -->
+	<!-- Cube 功能块样式：展开图 → 阶段节点图 → 公用计时台 → 本页样式 -->
 	<link rel="stylesheet" href="../assets/cube-net/cube-net.css?v=2664">
-	<link rel="stylesheet" href="../assets/stages/cube-graph.css?v=2267">
-	<link rel="stylesheet" href="../assets/timer/cube-timer.css?v=2170">
-	<link rel="stylesheet" href="trainer.css?v=2170">
+	<link rel="stylesheet" href="../assets/stages/cube-graph.css?v=2683">
+	<link rel="stylesheet" href="../assets/timer/cube-timer.css?v=2683">
+	<link rel="stylesheet" href="trainer.css?v=2683">
 
-	<!-- 站点作用域 + 云同步（登录态与其它页共享） -->
+	<script src="../assets/base/jquery-4.0.0.min.js"></script>
+	<script src="/nav/nav.js?v=2712" defer></script>
 	<script src="/assets/services/core/site-scope.js?v=2255" defer></script>
-	<script src="../../assets/vendor/supabase/supabase.min.js" defer></script>
-	<script src="/supabase/supabase-config.js?v=1877" defer></script>
-	<script src="/supabase/supabase-client.js?v=2579" defer></script>
-	<script src="/supabase/auth-manager.js?v=1892" defer></script>
 
 	<!-- 魔方引擎：compat（DEBUG 全局）→ isaac → mathlib（顺序不可换）；
-	     formula-core 解析算法；qr-cases 提供 ll/zbll 案例题库（本页独用）。
-	     本页不做参考解求解，故不加载 cubejs 求解器（省 52KB 且无需建表）。 -->
-	<script src="../assets/base/compat.js?v=1877" defer></script>
-	<script src="../assets/codec/isaac.js?v=1877" defer></script>
-	<script src="../assets/cube-solve/mathlib.js?v=1877" defer></script>
-	<script src="../assets/cube-solve/formula-core.js?v=2317" defer></script>
-	<script src="../assets/quickreaction/qr-cases.js?v=2143" defer></script>
+	     formula-core 解析算法。本页不做参考解求解，故不加载 cubejs 求解器。 -->
+	<script src="../assets/base/compat.js?v=2683" defer></script>
+	<script src="../assets/codec/lzstring.js?v=2683" defer></script>
+	<script src="../assets/codec/sha256.js?v=2683" defer></script>
+	<script src="../assets/codec/isaac.js?v=2683" defer></script>
+	<script src="../assets/cube-solve/mathlib.js?v=2683" defer></script>
+	<script src="../assets/cube-solve/formula-core.js?v=2683" defer></script>
 	<script src="../assets/cube-net/cube-net.js?v=2664" defer></script>
 
-	<!-- 节拍器公用块：自带 CubeAudio 懒加载，必须在 trainer-common.js 之前 -->
-	<script src="../assets/metronome/metronome.js?v=2143" defer></script>
+	<!-- 智能魔方蓝牙桥（Cube 公用，与 Analyzer 同一份）。
+	     ⚠️ 必须排在 cube-timer.js 之前：计时台通过它取设备与转动事件。 -->
+	<script src="../assets/bluetooth/smartcube-bridge.js?v=2683" defer></script>
 
-	<!-- 页面逻辑：公共组件在前，主应用在后 -->
-	<script src="trainer-common.js?v=2664" defer></script>
-	<!-- 阶段节点库（判定 + 六色底参考系）→ 节点图组件 → 公用计时台 -->
-	<script src="../assets/stages/cube-stages.js?v=2170" defer></script>
-	<script src="../assets/stages/cube-graph.js?v=2267" defer></script>
-	<script src="../assets/timer/cube-timer.js?v=2170" defer></script>
-	<script src="trainer-app.js?v=2267" defer></script>
+	<!-- 页面逻辑：公共组件 → 阶段节点库 → 节点图 → 公用计时台 → 主应用 -->
+	<script src="trainer-common.js?v=2683" defer></script>
+	<script src="../assets/stages/cube-stages.js?v=2683" defer></script>
+	<script src="../assets/stages/cube-graph.js?v=2683" defer></script>
+	<script src="../assets/timer/cube-timer.js?v=2683" defer></script>
+	<script src="trainer-app.js?v=2683" defer></script>
 </head>
-<body>
-	<div class="trainerPage">
+<body data-workspace="trainer">
 
-		<!-- ============ 首页：选一条要练的路 ============ -->
-		<section class="trHome" id="trHome">
-			<h1 class="trTitle">trainer <b>训练场</b></h1>
-			<p class="trSub">在节点图上点两个节点连成一条路，只练这一段 · 支持六色底 · 连接智能魔方自动判定</p>
+	<div class="page-shell">
 
-			<!-- 节点图 -->
-			<div class="trGraphBlock">
-				<div class="trGraphHead">
-					<span class="trGraphTitle">节点图</span>
-					<span class="trGraphHint">点节点选起止（第一个=起点，最后一个=终点），再点别的节点可插入中间分段；<b>任意两个节点都能连</b>，画出的线只是导航参考；拖动节点可改布局，下方胶囊可拖动改顺序</span>
-					<button class="trBtn ghost sm" id="trGraphReset" type="button">还原布局</button>
-				</div>
-				<div class="gpWrap" id="trGraph"></div>
-				<div class="gpLegend" id="trGraphLegend"></div>
+		<!-- ============ 页头：标题 + 当前这一段 + 两个入口 ============ -->
+		<header class="page-head">
+			<div class="page-head-main">
+				<h1 class="page-title">分段训练 <b>trainer</b></h1>
+				<p class="page-sub" id="trHeadSub">在节点图上点两个节点连成一条路，只练这一段。</p>
 			</div>
-
-			<!-- 选中结果 + 出题设置 -->
-			<div class="trPickRow">
-				<div class="trPickMain">
-					<div class="trBlockLabel">选中的路</div>
-					<div class="gpPathBox" id="trPathBox"></div>
-					<div class="gpHint" id="trPathHint"></div>
-					<div class="trPresets" id="trPresets"></div>
-					<div class="trActions">
-						<button class="trBtn primary" id="trStartBtn" type="button" disabled>开始这段训练</button>
-						<button class="trBtn" id="trSavePathBtn" type="button" disabled>存为我的路径</button>
-						<button class="trBtn ghost" id="trClearPathBtn" type="button">清空选择</button>
-					</div>
-				</div>
-
-				<div class="trPickSide">
-					<div class="trBlockLabel">底色</div>
-					<div class="trColorRow" id="trColorRow"></div>
-					<div class="trBlockLabel" style="margin-top:12px">前面朝向</div>
-					<div class="trColorRow" id="trFrontRow"></div>
-					<div class="trColorNote" id="trColorNote">完整打乱态自动识别；其它情况请自己选。</div>
-
-					<div class="trBlockLabel" style="margin-top:14px">起点状态</div>
-					<div class="trOriginRow" id="trOriginRow">
-						<button class="trOriginBtn" type="button" data-origin="scramble">新打乱</button>
-						<button class="trOriginBtn" type="button" data-origin="current">用魔方当前状态</button>
-					</div>
-					<div class="trColorNote" id="trOriginNote">新打乱 = 随机打乱后开始；用当前状态 = 把蓝牙魔方现在的状态当作起点。</div>
-				</div>
-			</div>
-
-			<!-- 我的路径 -->
-			<div class="trSavedBlock">
-				<div class="trBlockLabel">我的路径</div>
-				<div class="gpSaved" id="trSavedList"></div>
-			</div>
-
-			<!-- 总览 -->
-			<div class="trStatsStrip" id="trStatsStrip"></div>
-		</section>
-
-		<!-- ============ 训练页 ============ -->
-		<section class="trTrain" id="trTrain" hidden>
-			<div class="trTrainBar">
-				<button class="trBtn ghost" id="trBack" type="button">&#8592; 返回</button>
-				<span class="trPathName" id="trPathName"></span>
-				<span class="trChips" id="trChips"></span>
-				<span class="ctSpacer"></span>
-				<button class="trBtn ghost" id="trHelpBtn" type="button">说明</button>
-			</div>
-
-			<!-- 设备行 -->
-			<div class="ctDevice" id="trDeviceRow">
-				<button class="ctDeviceBtn" id="trConnectBtn" type="button">
-					<span class="ctDeviceDot"></span><span id="trConnectLabel">连接魔方</span>
+			<div class="page-head-side">
+				<button class="btn btn-primary device-button" id="trConnectBtn" type="button">
+					<span class="device-dot"></span><span id="trConnectLabel">连接魔方</span>
 				</button>
-				<span class="ctDeviceStatus" id="trDeviceStatus">未连接 · 可手动计时</span>
-				<span class="trFrameTag" id="trFrameTag" hidden></span>
+				<button class="icon-btn" id="trHelpBtn" type="button" title="说明与快捷键">?</button>
 			</div>
+		</header>
 
-			<div class="ctGrid">
-				<!-- 左：虚拟魔方展开图 -->
-				<div class="ctPanel">
-					<div class="cubeNet ctNet" id="trNet"></div>
-					<div class="trNetHint" id="trNetHint"></div>
+		<main class="workspace-main">
+
+			<!-- ==================== 选段 ==================== -->
+			<section class="workspace-panel active" id="trPick" data-panel="pick">
+
+				<!-- 快速选段：不碰节点图也能三秒选好 -->
+				<article class="card quick-card">
+					<div class="card-head">
+						<h2>快速选段</h2>
+						<span class="panel-sub">常用组合一点即选；想练别的走下面的节点图</span>
+					</div>
+					<div class="quick-row">
+						<div class="quick-presets" id="trPresets"></div>
+						<span class="quick-sep"></span>
+						<label class="field field-inline">起点
+							<select id="trFromSelect"></select>
+						</label>
+						<label class="field field-inline">终点
+							<select id="trToSelect"></select>
+						</label>
+						<button class="btn btn-ghost sm" id="trApplyPairBtn" type="button">选这一段</button>
+					</div>
+				</article>
+
+				<div class="pick-grid">
+					<!-- 节点图（保留：任意两个节点都能连，中间节点自动分段） -->
+					<article class="card graph-card">
+						<div class="card-head">
+							<h2>节点图</h2>
+							<span class="panel-sub" id="trGraphHint">点第一个节点当起点，再点第二个当终点；再点别的节点插入中间分段</span>
+							<button class="text-btn" id="trGraphReset" type="button">还原布局</button>
+						</div>
+						<div class="gpWrap" id="trGraph"></div>
+						<div class="gpLegend" id="trGraphLegend"></div>
+					</article>
+
+					<aside class="pick-side">
+						<!-- 选中的路：这一栏的主角，放在最上面 -->
+						<article class="card side-card side-card-main">
+							<div class="card-head">
+								<h2>选中的路</h2>
+								<span class="panel-sub" id="trPathHint"></span>
+							</div>
+							<div class="gpPathBox" id="trPathBox"></div>
+							<div class="side-actions">
+								<button class="btn btn-primary" id="trStartBtn" type="button" disabled>开始训练</button>
+								<button class="btn btn-ghost sm" id="trSavePathBtn" type="button" disabled>存为我的路径</button>
+								<button class="btn btn-ghost sm" id="trClearPathBtn" type="button">清空</button>
+							</div>
+						</article>
+						<!-- 参考系：底色 / 前面 / 起点来源 -->
+						<article class="card side-card">
+							<div class="card-head">
+								<h2>参考系</h2>
+								<span class="panel-sub" id="trFrameAuto"></span>
+							</div>
+							<div class="side-label">底面</div>
+							<div class="chip-row" id="trColorRow"></div>
+							<div class="side-label">前面</div>
+							<div class="chip-row" id="trFrontRow"></div>
+							<div class="side-label">这道题的起点</div>
+							<div class="chip-row" id="trOriginRow">
+								<button class="chip" type="button" data-origin="scramble" aria-pressed="true">新打乱</button>
+								<button class="chip" type="button" data-origin="current" aria-pressed="false">魔方当前状态</button>
+							</div>
+						</article>
+
+						<!-- 我的路径 -->
+						<article class="card side-card side-card-list">
+							<div class="card-head">
+								<h2>我的路径</h2>
+								<span class="panel-sub" id="trSavedMeta"></span>
+							</div>
+							<div class="gpSaved" id="trSavedList"></div>
+						</article>
+					</aside>
+				</div>
+			</section>
+			<!-- ==================== 训练 ==================== -->
+			<section class="workspace-panel" id="trTrain" data-panel="train">
+				<div class="train-grid">
+
+					<!-- 左：目标 + 计时（页面唯一主角） -->
+					<article class="card timer-card">
+						<div class="card-head">
+							<h2>目标</h2>
+							<span class="panel-sub" id="trTargetLabel"></span>
+							<button class="text-btn" id="trBackBtn" type="button">← 换一段</button>
+						</div>
+
+						<div class="target-tape">
+							<div class="target-text" id="trTargetText"></div>
+							<div class="target-note" id="trTargetNote"></div>
+						</div>
+
+						<div class="timer-hero">
+							<div class="timer-stage" id="trTimerStage" data-state="ready">
+								<div class="timer-status" id="trTimerStatus">准备</div>
+								<div class="timer-value" id="trTimer">0.00</div>
+								<div class="timer-sub" id="trTimerSub"><kbd>Space</kbd> 起停；连着魔方时直接拧也会起表</div>
+							</div>
+							<div class="timer-actions">
+								<button class="btn btn-primary" id="trRunBtn" type="button">开始</button>
+								<button class="btn btn-ghost" id="trStopBtn" type="button" disabled>停表</button>
+								<button class="btn btn-ghost" id="trNewBtn" type="button">换一题</button>
+								<button class="btn btn-ghost" id="trResetBtn" type="button" disabled>重做</button>
+							</div>
+						</div>
+
+						<div class="input-row">
+							<input class="alg-input" id="trAlgInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+								placeholder="没有魔方就输入算法，如 R U R' U'（回车应用）">
+							<button class="btn btn-ghost sm" id="trApplyBtn" type="button">应用</button>
+						</div>
+						<div class="input-hint" id="trInputHint"></div>
+					</article>
+
+					<!-- 右：这一段的进度 + 魔方状态 + 这条路的历史
+					     注意这一栏是给「练一段」用的，不是 Analyzer 的「实时/成绩」：
+					     这里要回答的是「我这一段走到哪了、下一个目标是什么、这段历史最好多少」。 -->
+					<aside class="train-side">
+						<article class="stat-block stat-block-now">
+							<div class="card-head">
+								<h2>这一段</h2>
+								<span class="panel-sub" id="trLiveDevice">等待训练</span>
+							</div>
+							<div class="now-target">
+								<div class="now-target-label">下一个目标</div>
+								<div class="now-target-name" id="trNextTarget">—</div>
+							</div>
+							<div class="now-progress" id="trNowProgress"></div>
+							<div class="now-mini">
+								<span><b id="trLiveTurns">0</b> 步</span>
+								<span><b id="trLiveTps">—</b> tps</span>
+								<span><b id="trLiveBest">—</b> 最好</span>
+							</div>
+							<div class="move-stream" id="trMoves"><span class="muted">转动会显示在这里</span></div>
+							<div class="net-wrap">
+								<div class="cubeNet ctNet" id="trNet"></div>
+							</div>
+						</article>
+
+						<article class="stat-block stat-block-score">
+							<div class="card-head">
+								<h2>这条路的成绩</h2>
+								<span class="panel-sub" id="trHistoryMeta"></span>
+							</div>
+							<div class="score-list" id="trHistList"></div>
+						</article>
+					</aside>
 				</div>
 
-				<!-- 右：计时 / 阶段 / 实时 / 输入 / 控制 -->
-				<div class="ctSide">
-					<div class="ctStage">
-						<div class="ctTimerBox" id="trTimerBox" data-phase="ready">
-							<div class="ctTimer" id="trTimer">0.00</div>
-							<div class="ctPhase" id="trPhase" data-phase="ready">准备</div>
-						</div>
-						<div class="ctStageBar" id="trStageBar"></div>
+				<!-- 分段条：横跨整幅。放在网格下面而不是挤进右栏 ——
+				     右栏只有 300px，七个节点竖排会被切成一堆半行。 -->
+				<article class="card stage-card">
+					<div class="card-head">
+						<h2>分段</h2>
+						<span class="panel-sub" id="trSegSummary"></span>
 					</div>
+					<div class="seg-list" id="trStageBar"></div>
+				</article>
 
-					<div class="ctLive">
-						<div class="ctLiveItem">
-							<div class="ctLiveLabel">turns</div>
-							<div class="ctLiveValue" id="trLiveTurns">0</div>
-						</div>
-						<div class="ctLiveItem">
-							<div class="ctLiveLabel">tps</div>
-							<div class="ctLiveValue" id="trLiveTps">—</div>
-						</div>
-						<div class="ctLiveItem">
-							<div class="ctLiveLabel">已完成段</div>
-							<div class="ctLiveValue" id="trLiveSegs">0/0</div>
-						</div>
-					</div>
-					<div class="ctMoves" id="trMoves"></div>
-
-					<div class="ctTarget" id="trTarget"></div>
-
-					<div class="ctInputRow">
-						<input class="ctInput" id="trAlgInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
-							placeholder="输入算法，如 R U R' U'（小写=双层，回车应用）">
-						<button class="ctBtn" id="trApplyBtn" type="button">应用</button>
-					</div>
-					<div class="ctHint" id="trInputHint"></div>
-
-					<div class="ctKeys" id="trKeys" hidden></div>
-
-					<div class="ctControls">
-						<button class="ctBtn primary" id="trRunBtn" type="button">开始</button>
-						<button class="ctBtn" id="trStopBtn" type="button" disabled>停表</button>
-						<button class="ctBtn" id="trNewBtn" type="button">换一题</button>
-						<button class="ctBtn" id="trResetBtn" type="button" disabled>重做</button>
-					</div>
-
-					<div class="ctResult" id="trResult" hidden></div>
-					<div class="ctSplitsWrap" id="trSplitsWrap" hidden></div>
-				</div>
-			</div>
-
-			<div class="trHistory">
-				<div class="trHistoryHead">
-					<span class="trHistoryTitle">这条路的最近成绩</span>
-					<span class="ctHistMeta" id="trHistoryMeta"></span>
-				</div>
-				<div class="ctHist" id="trHistList"></div>
-			</div>
-		</section>
+				<!-- 本次结果：停表后展开 -->
+				<article class="card result-card" id="trResult" hidden></article>
+			</section>
+		</main>
 	</div>
 
 	<div id="trHelpMount"></div>

@@ -295,6 +295,11 @@
 	justify-content: center;
 	padding: 16px;
 	background: rgba(0, 0, 0, 0.45);
+	/* 移动端地址栏收起/展开会改变 100vh；用 dvh 跟上可视区，避免弹窗被裁掉一截 */
+	height: 100vh;
+	height: 100dvh;
+	box-sizing: border-box;
+	overscroll-behavior: contain;
 }
 
 .fbOverlay.isVisible {
@@ -304,8 +309,12 @@
 .fbModal {
 	width: 520px;
 	max-width: 100%;
-	max-height: calc(100vh - 40px);
+	/* 与 overlay 的 padding 对齐：上下各留 16px，弹窗永远落在可视区内 */
+	max-height: calc(100vh - 32px);
+	max-height: calc(100dvh - 32px);
 	overflow-y: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
 	box-sizing: border-box;
 	padding: 22px 24px 20px;
 	border: 1px solid var(--dsk-border);
@@ -318,7 +327,40 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	gap: 12px;
 	margin-bottom: 16px;
+}
+
+.fbModalHeadActions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex: none;
+}
+
+/* 上次内容不再自动填进来（#20），点这个按钮才恢复 */
+.fbRestoreBtn {
+	padding: 4px 10px;
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-full);
+	background: transparent;
+	color: var(--dsk-foreground-muted);
+	font-family: inherit;
+	font-size: var(--dsk-text-xs);
+	font-weight: 500;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.fbRestoreBtn:hover {
+	border-color: var(--dsk-primary);
+	color: var(--dsk-primary);
+	background: color-mix(in srgb, var(--dsk-primary) 8%, transparent);
+}
+
+.fbRestoreBtn[hidden] {
+	display: none;
 }
 
 .fbModalTitle {
@@ -833,8 +875,21 @@
 		width: 100%;
 		justify-content: center;
 	}
+	/* 窄屏不要居中留白太多，让弹窗尽量吃满高度，正文区才好滚 */
+	.fbOverlay {
+		align-items: stretch;
+		padding: 12px;
+	}
 	.fbModal {
 		padding: 18px;
+		max-height: calc(100vh - 24px);
+		max-height: calc(100dvh - 24px);
+	}
+	.fbBody {
+		/* 小屏上把正文框让出来，标题/类型/联系方式的滚动交给弹窗本身 */
+		min-height: 120px;
+		max-height: 34vh;
+		max-height: 34dvh;
 	}
 	.fbModalActions {
 		flex-direction: column-reverse;

@@ -2,11 +2,14 @@
  * Cube 计时训练台（公用）
  * ---------------------------------------------------------------------------
  * 「计时 + 阶段进度 + 实时数据 + 动作流 + 屏幕魔方 + 蓝牙起停」这一套的公用逻辑。
- * 训练场（Cube/Trainer）用它；后续 Analyzer 训练页可直接挂同一份。
+ * 训练场（Cube/Trainer）用它。
  *
  * 职责边界：
  *   · 本模块负责计时状态机、阶段分段、实时数据、动作流、蓝牙起停判定；
- *   · 出题（打乱/案例）、成绩存储、页面排版由调用页负责，通过 options 注入。
+ *   · 出题（打乱/案例）、成绩存储、页面排版由调用页负责，通过 options 注入；
+ *   · 蓝牙这一层**不再由本模块自己加载适配器**：统一走共用桥
+ *     /Cube/assets/bluetooth/smartcube-bridge.js（window.CubeSmartCube），
+ *     与 Analyzer 用的是同一份实现，避免两处各养一套「加载顺序 + 面位差分」。
  *
  * 起停口径（与用户确认）：
  *   · 起表用「智能魔方直接拧」→ 停表也用智能魔方状态识别（到达终点节点自动停）；
@@ -14,7 +17,7 @@
  *     停表后校验状态，没到终点节点判 DNF。
  *
  * 依赖：TrainerCommon.FaceletUtil（引擎口径）、CubeStages（节点判定）、
- *       mathlib（cubie 置换判定）、CubeNet（屏幕魔方，可选）。
+ *       CubeSmartCube（蓝牙桥，可选）、CubeNet（屏幕魔方，可选）。
  */
 (function (root) {
 	'use strict';
@@ -36,183 +39,63 @@
 	}
 
 	/* ================= 蓝牙接入 =================
-	 * 直接用站点既有的适配层（Cube/assets/bluetooth/*，与 Analyzer 同一套）。
-	 * 本模块不重复实现适配，只做「连线 → 转动事件 → 面位」的转发与起停判定。 */
-
-	var CUBE_SCRIPTS = [
-		"bluetooth.js", "giikercube.js", "gocube.js", "gancube.js",
-		"moyucube.js", "moyu32cube.js", "qiyicube.js"
-	];
-	var BT_BASE = "/Cube/assets/bluetooth/";
-
-	var bt = {
-		loaded: false,
-		loading: null,
-		connected: false,
-		connecting: false,
-		deviceName: "",
-		facelet: "",
-		lastHistory: [],
-		ignoreInitial: true,
-		onMove: null,
-		onState: null,
-		onConnect: null,
-		onDisconnect: null,
-		onError: null
-	};
-
-	function loadScript(src) {
-		return new Promise(function (resolve) {
-			var exist = document.querySelector('script[data-ct-bt="' + src + '"]');
-			if (exist) { resolve(); return; }
-			var s = document.createElement("script");
-			s.src = src;
-			s.defer = true;
-			s.dataset.ctBt = src.split("/").pop();
-			s.onload = function () { resolve(); };
-			s.onerror = function () { resolve(); };
-			document.head.appendChild(s);
-		});
+	 * 薄转发层：真正的连线 / 差分 / 中层识别都在 CubeSmartCube 里。
+	 * 这里只把桥的事件转成计时台能用的形状，并保留一个「桥没加载也能用」
+	 * 的降级面（页面照常手动计时）。 */
+	var btBridge = null;
+	function bridge() {
+		if (!btBridge && root.CubeSmartCube) { btBridge = root.CubeSmartCube; }
+		return btBridge;
 	}
-	function ensureBtLoaded() {
-		if (bt.loaded) { return Promise.resolve(true); }
-		if (bt.loading) { return bt.loading; }
-		bt.loading = Promise.all(CUBE_SCRIPTS.map(function (n) {
-			return loadScript(BT_BASE + n + "?v=2143");
-		})).then(function () {
-			bt.loaded = !!root.GiikerCube;
-			return bt.loaded;
-		});
-		return bt.loading;
+	function requiresBridge() {
+		var b = bridge();
+		if (!b) {
+			throw new Error('蓝牙桥未加载（/Cube/assets/bluetooth/smartcube-bridge.js）');
+		}
+		return b;
 	}
+	var btListeners = { connect: null, disconnect: null, state: null, move: null, connecting: null };
 
-	function isSolvedFacelet(s) {
-		s = String(s || "").trim().toUpperCase();
-		if (s.length !== 54) { return false; }
-		for (var i = 0; i < 6; i++) {
-			var part = s.slice(i * 9, i * 9 + 9);
-			for (var j = 1; j < 9; j++) { if (part.charAt(j) !== part.charAt(0)) { return false; } }
-		}
-		return true;
-	}
-
-	/* 历史差分：硬件上报 newest-first，找出比上次新增的转动 */
-	function normalizeHistory(prevMoves) {
-		var out = [];
-		for (var i = 0; prevMoves && i < prevMoves.length; i++) {
-			var t = String(prevMoves[i] == null ? "" : prevMoves[i]).trim().replace(/[’`]/g, "'");
-			var m = /^([URFDLB])([2]?)('?)$/i.exec(t);
-			if (!m) { continue; }
-			var face = m[1].toUpperCase();
-			out.push(m[2] === "2" ? face + "2" : (m[3] ? face + "'" : face));
-		}
-		return out;
-	}
-	function newMoves(prevMoves) {
-		var current = normalizeHistory(prevMoves);
-		if (!current.length) { return []; }
-		if (bt.lastHistory.length) {
-			var same = current.length === bt.lastHistory.length;
-			if (same) {
-				for (var i = 0; i < current.length; i++) { if (current[i] !== bt.lastHistory[i]) { same = false; break; } }
-				if (same) { return []; }
-			}
-			var offset = -1;
-			for (var o = 0; o < current.length; o++) {
-				var match = 0;
-				while (match < bt.lastHistory.length && o + match < current.length &&
-					current[o + match] === bt.lastHistory[match]) { match++; }
-				if (bt.lastHistory.length && match === Math.min(bt.lastHistory.length, current.length - o)) { offset = o; break; }
-			}
-			if (offset === 0) { return []; }
-			if (offset > 0) {
-				bt.lastHistory = current.slice(0, 12);
-				return current.slice(0, offset).reverse();
-			}
-		}
-		bt.lastHistory = current.slice(0, 12);
-		return [current[0]];
-	}
-
-	function handleCallback(facelet, prevMoves, lastTs, hardware) {
-		if (hardware) { bt.deviceName = String(hardware); }
-		if (typeof facelet === "string" && facelet.length >= 54) { bt.facelet = facelet; }
-
-		if (bt.ignoreInitial) {
-			bt.ignoreInitial = false;
-			normalizeHistory(prevMoves);
-			bt.lastHistory = normalizeHistory(prevMoves).slice(0, 12);
-			if (bt.onState) { bt.onState({ facelet: facelet, solved: isSolvedFacelet(facelet) }); }
-			return;
-		}
-		var moves = newMoves(prevMoves);
-		if (!moves.length) {
-			if (bt.onState) { bt.onState({ facelet: facelet, solved: isSolvedFacelet(facelet) }); }
-			return;
-		}
-		for (var i = 0; i < moves.length; i++) {
-			if (bt.onMove) {
-				bt.onMove({
-					move: moves[i],
-					facelet: i === moves.length - 1 ? facelet : null,
-					previousFacelet: i === 0 ? null : null,
-					timestamp: lastTs && lastTs[1] ? Number(lastTs[1]) + i : Date.now() + i,
-					solved: isSolvedFacelet(facelet)
-				});
-			}
-		}
-		if (bt.onState) { bt.onState({ facelet: facelet, solved: isSolvedFacelet(facelet) }); }
+	function bindBridge() {
+		var b = bridge();
+		if (!b || b.__ctBound) { return; }
+		b.__ctBound = true;
+		b.on('connecting', function () { if (btListeners.connecting) { btListeners.connecting(); } });
+		b.on('connect', function (d) { if (btListeners.connect) { btListeners.connect(d); } });
+		b.on('disconnect', function () { if (btListeners.disconnect) { btListeners.disconnect(); } });
+		b.on('state', function (d) { if (btListeners.state) { btListeners.state(d); } });
+		b.on('move', function (d) { if (btListeners.move) { btListeners.move(d); } });
 	}
 
 	var btApi = {
-		isSupported: function () { return !!navigator.bluetooth; },
-		isConnected: function () { return bt.connected; },
-		isConnecting: function () { return bt.connecting; },
-		deviceName: function () { return bt.deviceName || "智能魔方"; },
-		facelet: function () { return bt.facelet; },
-		isSolved: isSolvedFacelet,
+		isSupported: function () { return !!(root.navigator && navigator.bluetooth); },
+		isConnected: function () { var b = bridge(); return !!(b && b.isConnected()); },
+		isConnecting: function () { var b = bridge(); return !!(b && b.isConnecting()); },
+		deviceName: function () { var b = bridge(); return (b && b.getDeviceName()) || '智能魔方'; },
+		facelet: function () { var b = bridge(); return (b && b.getFacelet()) || ''; },
+		isSolved: function (s) {
+			var b = bridge();
+			return b ? b.isSolved(s) : false;
+		},
+		/* 事件类型：connect / disconnect / connecting / state / move */
 		on: function (type, fn) {
-			bt["on" + type.charAt(0).toUpperCase() + type.slice(1)] = fn;
+			if (!(type in btListeners)) { return; }
+			btListeners[type] = fn;
+			bindBridge();
 		},
 		connect: function () {
-			return ensureBtLoaded().then(function (okc) {
-				if (!okc || !root.GiikerCube) { throw new Error("智能魔方适配层未加载"); }
-				if (!navigator.bluetooth) { throw new Error("当前浏览器不支持 Web Bluetooth，请用 Chrome / Edge 并通过 HTTPS 打开"); }
-				bt.connecting = true;
-				bt.ignoreInitial = true;
-				bt.lastHistory = [];
-				if (bt.onConnect) { bt.onConnect({ deviceName: bt.deviceName }); }
-				root.GiikerCube.setCallback(handleCallback);
-				root.GiikerCube.setEventCallback(function (info) {
-					if (info === "disconnect") {
-						bt.connected = false;
-						bt.connecting = false;
-						bt.lastHistory = [];
-						if (bt.onDisconnect) { bt.onDisconnect(); }
-					}
-				});
-				return root.GiikerCube.init().then(function () {
-					bt.connected = true;
-					bt.connecting = false;
-					if (bt.onConnect) { bt.onConnect({ deviceName: bt.deviceName }); }
-					return true;
-				});
-			}).catch(function (e) {
-				bt.connected = false;
-				bt.connecting = false;
-				var raw = String((e && (e.message || e)) || "连接失败");
-				if (/cancel|chooser|User cancelled|NotFoundError/i.test(raw)) { throw new Error("已取消选择设备"); }
-				throw new Error(raw);
+			return Promise.resolve().then(function () {
+				return requiresBridge().connect();
 			});
 		},
 		disconnect: function () {
-			if (!root.GiikerCube) { return Promise.resolve(); }
-			return Promise.resolve(root.GiikerCube.stop()).then(function () {
-				bt.connected = false;
-				bt.connecting = false;
-				bt.lastHistory = [];
-				if (bt.onDisconnect) { bt.onDisconnect(); }
-			});
+			var b = bridge();
+			return b ? b.disconnect() : Promise.resolve();
+		},
+		/* 预加载适配层（不弹选设备框）：页面空闲时调一下，首次点「连接魔方」就不用等 */
+		preload: function () {
+			var b = bridge();
+			return (b && b.ensureLoaded) ? b.ensureLoaded() : Promise.resolve(false);
 		}
 	};
 
@@ -235,7 +118,7 @@
 		var frame = opts.frame || { bottom: "D", front: "F" };
 
 		var st = {
-			phase: "ready",          /* ready | running | done */
+			phase: "ready",          /* ready | running | done | dnf */
 			startT: 0,
 			elapsed: 0,
 			raf: 0,
@@ -243,7 +126,6 @@
 			timingMode: "pending",   /* pending | manual | state */
 			startFacelet: opts.startFacelet || F.SOLVED,
 			curFacelet: opts.startFacelet || F.SOLVED,
-			toks: [],
 			segTimes: [],            /* 每段用时（秒），长度 = path.length-1 */
 			segMarks: [],            /* 每段结束时的时间戳（ms，相对起表） */
 			doneSegs: 0,             /* 已经结算完的段数（segTimes 的下一个空位） */
@@ -274,7 +156,9 @@
 				else { state = ""; }
 				seg.dataset.state = state;
 				var time = st.segTimes[i - 1];
-				if (state === "current" && st.phase === "running") { time = st.elapsed - (st.segMarks[i - 2] || 0) / 1000; }
+				if (state === "current" && st.phase === "running") {
+					time = st.elapsed - (st.segMarks[i - 2] || 0) / 1000;
+				}
 				seg.appendChild(el("span", "ctStageSegName", nodeName(path[i - 1]) + " \u2192 " + nodeName(path[i])));
 				seg.appendChild(el("span", "ctStageSegTime", time != null ? fmt(time) : "\u2014"));
 				M.stageBar.appendChild(seg);
@@ -285,7 +169,7 @@
 		function renderLive() {
 			if (!M.liveTurns) { return; }
 			M.liveTurns.textContent = String(st.live.turns);
-			M.liveTps.textContent = st.live.tps ? st.live.tps.toFixed(2) : "\u2014";
+			if (M.liveTps) { M.liveTps.textContent = st.live.tps ? st.live.tps.toFixed(2) : "\u2014"; }
 			if (M.moves) {
 				M.moves.innerHTML = "";
 				var recent = st.live.moves.slice(-28);
@@ -425,7 +309,7 @@
 
 		/* ---- 结束 ---- */
 		function finish(ok, how) {
-			if (st.phase !== "running") { return; }
+			if (st.phase !== "running") { return null; }
 			stopTimers();
 			st.elapsed = (performance.now() - st.startT) / 1000;
 			/* 手动停表必须校验状态；未达终点判 DNF */
@@ -557,6 +441,6 @@
 		create: create,
 		bluetooth: btApi,
 		fmt: fmt,
-		isSolvedFacelet: isSolvedFacelet
+		isSolvedFacelet: function (s) { return btApi.isSolved(s); }
 	};
 })(typeof globalThis !== "undefined" ? globalThis : this);

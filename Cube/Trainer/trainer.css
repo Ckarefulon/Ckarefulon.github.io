@@ -1,319 +1,806 @@
 /*
- * Trainer 训练场（页面级样式）
+ * Trainer 分段训练（页面级样式）
  * ---------------------------------------------------------------------------
- * 页面职责：首页的「节点图选择 + 底色/起点设置 + 我的路径」排版，
- *           训练页的页面级排版与历史列表。
- * 块级视觉（计时台 / 阶段条 / 实时数据 / 展开图）在公用块里：
+ * 视觉口径照 Cube/Analyzer 的训练页：
+ *   · 页面只有一个强调点 —— 计时数字。其余全部退成「信息 / 静默」两档灰。
+ *   · 卡片统一 14px 圆角、1px 发丝描边、无阴影；靠留白分组，不靠框套框。
+ *   · 顶栏是一条工具条（模式切换 + 设备 + 当前选段），不跟内容区争。
+ *
+ * 块级视觉（计时台 / 阶段条 / 展开图 / 节点图）在公用块里，本文件只管页面排版：
  *   Cube/assets/timer/cube-timer.css
  *   Cube/assets/stages/cube-graph.css
+ *   Cube/assets/cube-net/cube-net.css
  *
- * 口径：设计令牌 dsk-* 必须先于本文件加载；UI 一律小写；固定 px 尺寸不缩放。
+ * 口径：设计令牌 dsk-* 必须先于本文件加载；UI 一律小写；固定 px 不缩放。
  */
 
-.trainerPage {
-	max-width: 1020px;
-	margin: 0 auto;
-	padding: 28px 24px 72px;
+:root {
+	--background: var(--dsk-background);
+	--elevated: var(--dsk-background-elevated);
+	--foreground: var(--dsk-foreground);
+	--text-muted: var(--dsk-foreground-muted);
+	--text-subtle: var(--dsk-foreground-subtle);
+	--card: var(--dsk-card);
+	--card-border: var(--dsk-card-border);
+	--popover: var(--dsk-popover);
+	--primary: var(--dsk-primary);
+	--primary-hover: var(--dsk-primary-hover);
+	--primary-soft: var(--dsk-primary-soft);
+	--accent: var(--dsk-accent);
+	--accent-soft: var(--dsk-accent-soft);
+	--border: var(--dsk-border);
+	--border-subtle: var(--dsk-border-subtle);
+	--input: var(--dsk-input);
+	--danger: var(--dsk-danger);
+	--warning: var(--dsk-warning);
+	--radius-sm: var(--dsk-radius-sm);
+	--radius: var(--dsk-radius-md);
+	--radius-lg: var(--dsk-radius-lg);
+	--font: var(--dsk-font-sans);
+	--mono: var(--dsk-font-mono);
+
+	/* 三档层次：强调 / 信息 / 静默 */
+	--t-accent: var(--accent);
+	--t-strong: var(--foreground);
+	--t-body: var(--text-muted);
+	--t-faint: var(--text-subtle);
+	--t-hair: color-mix(in srgb, var(--border) 62%, transparent);
+	--t-panel: color-mix(in srgb, var(--card) 82%, var(--background));
 }
 
-/* ---------------- 首页标题 ---------------- */
-.trTitle {
-	margin: 6px 0 0;
-	font-size: var(--dsk-text-4xl);
-	font-weight: 650;
-	line-height: var(--dsk-leading-tight);
-	letter-spacing: -0.02em;
+/* 全局盒模型先落地；高度与滚动口径见下面「整页一屏」一节 */
+* { box-sizing: border-box; }
+body {
+	margin: 0;
+	background: var(--background);
+	color: var(--foreground);
+	font-family: var(--font);
+	font-size: 14px;
+	line-height: 1.5;
+	-webkit-font-smoothing: antialiased;
 }
-.trTitle b {
+button, input, select { font: inherit; color: inherit; }
+
+/* ============================================================================
+   页面高度口径
+   ----------------------------------------------------------------------------
+   目标：内容**完整可见**，不因为硬塞进一屏而被裁掉或盖住。
+   之前用「body 锁死一屏 + 各区块 overflow:hidden」想逼所有东西挤进一屏，
+   结果窗口一矮，按钮/数字/说明行就被裁掉或互相盖住 —— 那才是真正的「乱」。
+
+   现在改成最朴素可靠的做法：
+     · 页面正常从上往下排，内容多高页面就多高，需要时**整页滚动**；
+     · 各区块按内容自然排布，一律不裁切；
+     · 宽屏内容本来就放得下一屏，不会凭空多出滚动条。
+   这样任何尺寸下内容都是完整的，用户滚一下就能看到，绝不会「只看到一部分」。
+
+   (nav 是 position:fixed，body 用 padding-top 为它留位。)
+   ============================================================================ */
+html { height: 100%; }
+body[data-workspace="trainer"] {
+	min-height: 100dvh;
+	/* 不锁死高度、不 overflow:hidden —— 内容多时整页可滚 */
+	padding-top: var(--site-nav-height, 44px);
+	box-sizing: border-box;
+}
+.page-shell {
+	width: min(1360px, calc(100% - 32px));
+	margin: 0 auto;
+	padding: 12px 0 24px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	box-sizing: border-box;
+}
+
+/* ============================================================================
+   卡片与通用件
+   ============================================================================ */
+.card {
+	background: var(--card);
+	border: 1px solid var(--card-border);
+	border-radius: var(--radius-lg);
+	padding: 16px;
+	min-width: 0;
+}
+.card-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: nowrap;
+	min-width: 0;
+	margin-bottom: 12px;
+}
+.card-head h2 {
+	margin: 0;
+	flex: none;
+	font-size: 10.5px;
+	font-weight: 650;
+	letter-spacing: .09em;
+	text-transform: uppercase;
+	color: var(--t-faint);
+	white-space: nowrap;
+}
+.card-head .panel-sub {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-size: 11px;
+	color: var(--t-body);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.card-head .text-btn,
+.card-head .btn { flex: none; margin-left: auto; }
+
+.btn {
+	border: 1px solid var(--border);
+	background: var(--input);
+	border-radius: var(--radius);
+	min-height: 36px;
+	padding: 7px 15px;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: border-color .15s, background .15s, color .15s, transform .15s;
+}
+.btn:hover { border-color: var(--primary); background: var(--primary-soft); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .42; cursor: not-allowed; border-color: var(--border); background: var(--input); }
+.btn:disabled:hover { border-color: var(--border); background: var(--input); }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 650; }
+.btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.btn-primary:disabled:hover { background: var(--card); border-color: var(--card-border); color: var(--t-faint); }
+.btn-ghost { background: transparent; }
+.btn.sm { min-height: 30px; padding: 4px 11px; font-size: 12px; }
+
+.icon-btn {
+	width: 32px; height: 32px; min-width: 32px; min-height: 32px;
+	display: inline-flex; align-items: center; justify-content: center;
+	padding: 0; border-radius: 9px;
+	border: 1px solid var(--t-hair); background: var(--t-panel);
+	color: var(--t-body); font-size: 13px; font-weight: 700;
+	cursor: pointer; transition: border-color .15s, background .15s, color .15s;
+}
+.icon-btn:hover { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-hover); }
+
+.text-btn {
+	border: 0; background: transparent; padding: 3px 5px; cursor: pointer;
+	font-size: 11.5px; color: var(--t-faint); transition: color .15s;
+}
+.text-btn:hover { color: var(--t-accent); }
+
+/* ============================================================================
+   页头
+   ----------------------------------------------------------------------------
+   这里是「训练场」这个页面的标题区：
+     · 左：标题 + 一句话说明当前在练哪一段（路径本身就是这页的主语）；
+     · 右：只放两个入口 —— 连接魔方、说明。
+   **没有选项卡、没有工具条**：选段与训练是线性两步，
+   进去靠「开始训练」，回来靠训练页的「← 换一段」。
+   排版用 grid 两列（左自适应 + 右侧固定），窄屏自动压缩。
+   ============================================================================ */
+.page-head {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 14px 18px;
+	align-items: start;
+	padding: 2px 2px 14px;
+	margin-bottom: 14px;
+	border-bottom: 1px solid var(--border-subtle);
+}
+.page-head-main { min-width: 0; }
+.page-title {
+	margin: 0;
+	font-size: 22px;
+	font-weight: 650;
+	letter-spacing: -0.02em;
+	line-height: 1.2;
+	color: var(--t-strong);
+}
+.page-title b {
 	font-weight: inherit;
-	background: linear-gradient(118deg, var(--dsk-purple-200), var(--dsk-accent));
+	background: linear-gradient(118deg, var(--dsk-purple-200), var(--accent));
 	-webkit-background-clip: text;
 	background-clip: text;
 	color: transparent;
 }
-.trSub {
-	margin: 8px 0 0;
-	font-size: var(--dsk-text-sm);
-	color: var(--dsk-foreground-muted);
+.page-sub {
+	margin: 7px 0 0;
+	font-size: 12.5px;
+	line-height: 1.55;
+	color: var(--t-body);
 }
-
-/* ---------------- 节点图块 ---------------- */
-.trGraphBlock { margin-top: 22px; }
-.trGraphHead {
-	display: flex;
-	align-items: baseline;
-	gap: 10px;
-	margin-bottom: 8px;
-	flex-wrap: wrap;
-}
-.trGraphTitle {
-	font-size: var(--dsk-text-sm);
+.page-sub .sub-path {
+	font-family: var(--mono);
 	font-weight: 650;
-	color: var(--dsk-foreground-muted);
+	color: var(--t-accent);
 }
-.trGraphHint {
-	font-size: var(--dsk-text-xs);
-	color: var(--dsk-foreground-subtle);
+.page-sub .sub-frame {
+	font-family: var(--mono);
+	font-size: 11px;
+	color: var(--t-faint);
 }
-.trGraphHead .trBtn { margin-left: auto; }
-
-/* ---------------- 选择结果 + 设置 ---------------- */
-.trPickRow {
-	margin-top: 18px;
+.page-head-side {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) 300px;
-	gap: 16px;
-	align-items: start;
-}
-@media (max-width: 900px) {
-	.trPickRow { grid-template-columns: minmax(0, 1fr); }
-}
-.trPickMain, .trPickSide {
-	padding: 14px 16px;
-	border-radius: var(--dsk-radius-lg);
-	border: 1px solid var(--dsk-card-border);
-	background: var(--dsk-card);
-}
-.trPickMain { display: flex; flex-direction: column; gap: 10px; }
-.trPickSide { display: flex; flex-direction: column; }
-.trBlockLabel {
-	font-size: var(--dsk-text-xs);
-	font-family: var(--dsk-font-mono);
-	color: var(--dsk-foreground-subtle);
-	margin-bottom: 8px;
-	letter-spacing: 0.02em;
-}
-.trActions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-
-/* 底色 / 朝向按钮 */
-.trColorRow { display: flex; gap: 6px; flex-wrap: wrap; }
-.trColorBtn {
-	display: inline-flex;
+	grid-template-columns: auto auto;
+	gap: 8px;
 	align-items: center;
-	gap: 5px;
-	font: inherit;
-	font-size: var(--dsk-text-xs);
-	font-family: var(--dsk-font-mono);
-	padding: 4px 9px 4px 5px;
-	border-radius: var(--dsk-radius-full);
-	border: 1px solid var(--dsk-card-border);
-	background: transparent;
-	color: var(--dsk-foreground-muted);
-	cursor: pointer;
-	transition: border-color .14s ease, color .14s ease, background .14s ease;
+	justify-content: end;
+	padding-top: 2px;
 }
-.trColorBtn:hover { border-color: var(--dsk-accent-ring); color: var(--dsk-accent); }
-.trColorBtn[aria-pressed="true"] {
-	border-color: var(--dsk-accent);
-	color: var(--dsk-accent);
-	background: var(--dsk-accent-soft);
+
+/* 设备按钮：保留圆点，但不再挤在工具条里 */
+.device-button {
+	display: inline-flex; align-items: center; gap: 8px;
+	min-height: 34px; padding: 0 15px;
 }
-.trColorSwatch {
-	width: 12px;
-	height: 12px;
-	border-radius: 3px;
-	background: var(--swatch, #888);
-	border: 1px solid rgba(0, 0, 0, 0.25);
+.device-dot {
+	width: 8px; height: 8px; border-radius: 50%; flex: none;
+	border: 1px solid currentColor; background: transparent;
+}
+.device-button.connected { background: transparent; border-color: var(--accent-soft); color: var(--accent); }
+.device-button.connected .device-dot { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* ============================================================================
+   面板（选段 / 训练）—— 不是选项卡，是「线性两步」
+   ----------------------------------------------------------------------------
+   页面上没有 tab 条：选好一段就点「开始训练」进入，训练页左上「← 换一段」回来。
+   两个面板都吃掉 main 的剩余高度，谁也不许把页面撑高。
+   ============================================================================ */
+.workspace-main {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+.workspace-panel { display: none; }
+.workspace-panel.active {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+/* ============================================================================
+   选段：快速选段
+   ----------------------------------------------------------------------------
+   这一条是选段页的「工具栏」，只占自然高度；剩下的高度全给下面的节点图区，
+   所以它 flex:0，绝不参与拉伸。
+   ============================================================================ */
+.quick-card {
+	flex: 0 0 auto;
+	padding: 12px 14px;
+}
+.quick-row { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; min-width: 0; }
+/* 预设胶囊：一行放不下就横向滚，不要折行 —— 折行会把整块顶高一倍。
+   14 个组合挤成两行是之前「快速选段」占了 155px 高、显得乱的主因。
+   flex:1 让它吃掉剩余宽度，把起止下拉挤到行的右端（而不是被挤到下一行）。 */
+.quick-presets {
+	display: flex; gap: 6px; flex-wrap: nowrap;
+	flex: 1 1 auto;
+	min-width: 0; overflow-x: auto; overflow-y: hidden;
+	scrollbar-width: none; padding-bottom: 1px;
+}
+.quick-presets::-webkit-scrollbar { display: none; }
+.preset-btn {
 	flex: none;
+	border: 1px solid var(--t-hair); background: var(--t-panel);
+	border-radius: 999px; padding: 5px 12px; cursor: pointer;
+	font-size: 12px; color: var(--t-body); white-space: nowrap;
+	transition: border-color .15s, background .15s, color .15s;
 }
-.trColorLabel { line-height: 1; }
-.trColorNote {
-	margin-top: 8px;
-	font-size: var(--dsk-text-xs);
-	color: var(--dsk-foreground-subtle);
-	line-height: var(--dsk-leading-relaxed);
-}
+.preset-btn:hover { border-color: var(--primary); background: var(--primary-soft); color: var(--t-strong); }
+.preset-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 650; }
 
-/* 起点状态 */
-.trOriginRow { display: flex; gap: 6px; flex-wrap: wrap; }
-.trOriginBtn {
-	font: inherit;
-	font-size: var(--dsk-text-xs);
-	font-family: var(--dsk-font-mono);
-	padding: 5px 10px;
-	border-radius: var(--dsk-radius-full);
-	border: 1px solid var(--dsk-card-border);
-	background: transparent;
-	color: var(--dsk-foreground-muted);
-	cursor: pointer;
+.quick-row-drop { align-items: flex-end; }
+/* 预设行与起止下拉之间的分隔竖线 */
+.quick-sep {
+	flex: none; width: 1px; align-self: stretch;
+	background: var(--border-subtle); margin: 0 2px;
 }
-.trOriginBtn:hover { color: var(--dsk-accent); border-color: var(--dsk-accent-ring); }
-.trOriginBtn[aria-pressed="true"] {
-	color: var(--dsk-accent);
-	border-color: var(--dsk-accent);
-	background: var(--dsk-accent-soft);
+/* 行内的下拉：标签在左、控件在右，横着排省高度 */
+.field-inline {
+	flex-direction: row; align-items: center; gap: 6px;
+	flex: 0 0 auto; white-space: nowrap;
 }
+.field {
+	display: flex; flex-direction: column; gap: 4px;
+	font-size: 10.5px; font-weight: 650; letter-spacing: .04em;
+	text-transform: uppercase; color: var(--t-faint);
+	min-width: 0; flex: 0 1 180px;
+}
+.field select {
+	height: 30px; padding: 0 9px; border-radius: var(--radius);
+	border: 1px solid var(--border); background: var(--input);
+	font-size: 12.5px; font-weight: 500; letter-spacing: 0; text-transform: none;
+	outline: none; min-width: 0; max-width: 132px;
+}
+.field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.field-arrow { align-self: flex-end; padding-bottom: 8px; color: var(--t-faint); font-size: 13px; }
+.quick-row-drop .btn { margin-bottom: 0; }
 
-/* ---------------- 我的路径 ---------------- */
-.trSavedBlock { margin-top: 20px; }
-
-/* ---------------- 首页统计条 ---------------- */
-.trStatsStrip {
-	margin-top: 22px;
-	padding: 14px 18px;
-	border-radius: var(--dsk-radius-lg);
-	border: 1px solid var(--dsk-card-border);
-	background: var(--dsk-card);
+/* ============================================================================
+   选段：主体两栏
+   ----------------------------------------------------------------------------
+   这一块吃掉选段页剩下的全部高度：左边节点图按容器尺寸自适应，右边侧栏内部滚动。
+   两侧都 min-height:0，否则内容会把自己撑高、把页面顶出视口。
+   ============================================================================ */
+.pick-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 320px;
+	gap: 12px;
+	align-items: stretch;
+	min-height: 460px;   /* 节点图有个舒服的最小高度，内容多时自然长高 */
+}
+.graph-card {
 	display: flex;
-	gap: 26px;
-	flex-wrap: wrap;
+	flex-direction: column;
+	min-height: 0;
+	padding: 12px 14px;
+	overflow: hidden;
 }
-.trStatItem { min-width: 120px; }
-.trStatLabel {
-	font-size: var(--dsk-text-xs);
-	color: var(--dsk-foreground-subtle);
-	font-family: var(--dsk-font-mono);
-}
-.trStatValue {
-	margin-top: 2px;
-	font-size: var(--dsk-text-lg);
-	font-weight: 650;
-	font-family: var(--dsk-font-mono);
-	color: var(--dsk-purple-200);
-}
-:root[data-theme="light"] .trStatValue { color: var(--dsk-purple-600); }
-
-/* ---------------- 训练页 ---------------- */
-.trTrainBar {
+.graph-card .card-head { flex: none; margin-bottom: 8px; }
+/* 节点图：给它一个明确高度（按视口高自适应），SVG 等比缩放填满。
+   不再依赖「flex 剩余空间」—— 那需要先锁死整页高度，正是裁切的根源。 */
+.graph-card .gpWrap {
+	flex: 1 1 auto;
+	min-height: 380px;
+	height: min(56vh, 620px);
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	margin-bottom: 12px;
-	flex-wrap: wrap;
+	justify-content: center;
+	border: 0;
+	border-radius: var(--radius);
+	background: var(--t-panel);
+	overflow: hidden;
 }
-.trPathName {
-	font-size: var(--dsk-text-2xl);
-	font-weight: 650;
-	letter-spacing: -0.01em;
-	color: var(--dsk-foreground);
+.graph-card .gpWrap .gpSvg {
+	width: 100%;
+	height: 100%;
+	max-width: none;
+	max-height: none;
 }
-.ctSpacer { flex: 1; }
-.ctChips { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.ctChip {
-	font-size: var(--dsk-text-xs);
-	font-family: var(--dsk-font-mono);
-	color: var(--dsk-foreground-muted);
-	border: 1px solid var(--dsk-card-border);
-	border-radius: var(--dsk-radius-full);
-	padding: 2px 10px;
-	white-space: nowrap;
-}
-.ctChip b { color: var(--dsk-accent); font-weight: 600; }
+.graph-card .gpLegend { flex: none; border-top: 0; padding: 7px 2px 0; }
 
-.trFrameTag {
-	font-size: var(--dsk-text-xs);
-	font-family: var(--dsk-font-mono);
-	color: var(--dsk-accent);
-	border: 1px solid var(--dsk-accent-ring);
-	border-radius: var(--dsk-radius-full);
-	padding: 2px 10px;
-	white-space: nowrap;
-}
-.trFrameTag[hidden] { display: none; }
-
-.trNetHint {
-	margin-top: 14px;
-	font-size: var(--dsk-text-xs);
-	color: var(--dsk-foreground-subtle);
-	line-height: var(--dsk-leading-relaxed);
-}
-.trNetHint b { color: var(--dsk-foreground-muted); font-weight: 600; }
-
-/* ---------------- 历史列表 ---------------- */
-.trHistory { margin-top: 20px; }
-.trHistoryHead {
+/* 右侧栏：三张卡竖排。
+   结构上分三种角色，各有各的高度规则：
+     · side-card-main  主角（选中的路），按内容
+     · side-card       次要（参考系），按内容
+     · side-card-list  列表（我的路径），**吃掉剩余高度**，内部滚动
+   最后一张吃剩余，是为了不让栏底留一条空白 —— 空白摊在卡片里最难看。 */
+.pick-side {
 	display: flex;
-	align-items: baseline;
+	flex-direction: column;
 	gap: 10px;
-	margin-bottom: 8px;
+	min-width: 0;
+}
+.pick-side .side-card { padding: 11px 13px; display: flex; flex-direction: column; }
+.pick-side .side-card .card-head { margin-bottom: 8px; }
+.side-card-main .gpPathBox { min-height: 46px; }
+.side-actions { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; margin-top: 9px; }
+.side-label {
+	margin: 10px 0 5px;
+	font: 650 9.5px/1 var(--mono);
+	letter-spacing: .12em; text-transform: uppercase; color: var(--t-faint);
+}
+.side-label:first-of-type { margin-top: 0; }
+/* 「我的路径」内容多时自己滚 */
+.side-card-list .gpSaved { max-height: 220px; overflow-y: auto; scrollbar-width: thin; padding-right: 2px; }
+/* 空态时不必撑满 —— 一句话说明就够，别占一大块地 */
+.gpSavedEmpty { padding: 10px; }
+
+.chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+	display: inline-flex; align-items: center; gap: 6px;
+	border: 1px solid var(--t-hair); background: transparent;
+	border-radius: 999px; padding: 5px 11px; cursor: pointer;
+	font-size: 12px; color: var(--t-body);
+	transition: border-color .15s, background .15s, color .15s;
+}
+.chip:hover { border-color: var(--primary); color: var(--t-strong); }
+.chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.chip.swatch { padding: 4px 10px 4px 5px; }
+.chip-swatch { width: 11px; height: 11px; border-radius: 3px; border: 1px solid rgba(0,0,0,.3); background: var(--swatch, #888); flex: none; }
+.chip-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--swatch, #888); flex: none; }
+
+/* 我的路径 */
+.gpSaved { display: grid; gap: 7px; }
+.gpSaved .gpSavedCard {
+	display: flex; flex-direction: column; gap: 4px;
+	padding: 9px 11px; border-radius: var(--radius);
+	border: 1px solid var(--t-hair); background: var(--t-panel);
+	cursor: pointer; text-align: left; font: inherit; color: inherit;
+	transition: border-color .15s, background .15s;
+}
+.gpSaved .gpSavedCard:hover { border-color: var(--primary); background: var(--primary-soft); }
+.gpSaved .gpSavedPath { font-family: var(--mono); font-size: 12px; font-weight: 650; color: var(--t-strong); word-break: break-word; }
+.gpSaved .gpSavedStat { font-family: var(--mono); font-size: 10.5px; color: var(--t-faint); }
+.gpSavedEmpty {
+	padding: 14px 12px; border-radius: var(--radius);
+	border: 1px dashed var(--border); color: var(--t-faint);
+	font-size: 11.5px; text-align: center;
+}
+
+/* ============================================================================
+   训练：左计时 + 右数据 + 底部分段条
+   ----------------------------------------------------------------------------
+   高度链现在由外层统一决定（见「整页一屏」）：
+     panel 吃掉 main 剩余高度 → 网格吃掉分段条之外的高度 → 内部各卡自己滚。
+   这里**不再写死 100dvh 之类的算式** —— 之前写死过，窗口一变就算错，于是溢出。
+   ============================================================================ */
+.train-grid {
+	/* 按内容自然高度排布，不锁高、不裁切。内容多时整页滚动。 */
+	display: grid;
+	grid-template-columns: minmax(0, 1.7fr) minmax(280px, .62fr);
+	gap: 12px;
+	align-items: stretch;
+}
+/* 计时卡给一个舒服的最小高度，保证公式/数字/按钮都有地方 */
+.train-grid > .timer-card { min-height: 480px; }
+
+/* ---- 左：目标 + 计时（页面唯一主角） ----
+   打乱公式与计时数字的字号都由 JS 按卡片尺寸**直接算出**
+   （trainer-app.js 的 refitTimerCard），不靠测量回溯，所以同尺寸必得同结果。
+   这里的 px 只是脚本跑起来之前的兜底值。 */
+.timer-card {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	/* ⚠️ 内容放不下时**滚动**，绝不 hidden 裁切 ——
+	 * 裁切会让计时数字/状态行只看得到半截，这正是「某个尺寸下东西消失」的根因。
+	 * 滚动虽然要多滚一下，但内容永远完整可见。 */
+	overflow-y: auto;
+	overflow-x: hidden;
+	scrollbar-width: thin;
+	padding: 12px 16px 14px;
+}
+.timer-card > * { min-width: 0; max-width: 100%; flex-shrink: 0; }
+
+/* 打乱带：高度按卡片的 SCRAMBLE_SHARE(0.30) 固定占位。
+   ⚠️ 必须用固定高度而不是「内容撑多高算多高」—— 否则公式长短一变，
+   计时区的高度就跟着变，字号又得重算，加多少 min-height 都会被吃掉。
+   这里给它一个确定的盒子，字号只在这个盒子里做算术。 */
+.target-tape {
+	flex: 0 0 30%;
+	min-height: 76px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	padding: 10px 16px;
+	border-radius: var(--radius);
+	background: var(--t-panel);
+	border: 1px solid var(--t-hair);
+	min-width: 0;
+	overflow: hidden;
+}
+.target-text {
+	min-height: 0;
+	text-align: center;
+	display: flex;
 	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	align-content: center;
+	gap: 0;
+	/* 兜底值；真值由 refitTimerCard 的算术给。这里别用 clamp，
+	   否则脚本没跑起来时尺寸与算出来的不一致，看起来就像「跳了一下」。 */
+	font: 650 24px/1.22 var(--mono);
+	letter-spacing: .01em;
+	color: var(--t-body);
+	word-break: break-word;
+	touch-action: manipulation;
+	overflow: hidden;
 }
-.trHistoryTitle {
-	font-size: var(--dsk-text-sm);
-	font-weight: 650;
-	color: var(--dsk-foreground-muted);
-}
-.ctHistMeta {
-	font-size: var(--dsk-text-xs);
-	font-family: var(--dsk-font-mono);
-	color: var(--dsk-foreground-subtle);
+.target-text .scramble-step { font-weight: 700; margin-right: .34em; opacity: .85; }
+.target-text .target-empty { font-size: 13px; font-weight: 500; opacity: .7; }
+.target-note {
+	flex: none;
+	margin-top: 6px;
+	font-size: 10.5px; line-height: 1.4; color: var(--t-faint);
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* ---------------- 按钮（页面级，复用 dsk 令牌） ---------------- */
-.trBtn {
-	font: inherit;
-	font-size: var(--dsk-text-sm);
-	padding: 7px 14px;
-	border-radius: var(--dsk-radius-md);
-	border: 1px solid var(--dsk-card-border);
-	background: var(--dsk-card);
-	color: var(--dsk-foreground);
-	cursor: pointer;
-	transition: border-color .16s ease, background .16s ease, color .16s ease;
+/* 计时区：拿走剩下的全部高度，内容居中。
+   ⚠️ 两个要点：
+     ① overflow 用 visible 而不是 hidden —— 裁切会把按钮整排切掉（比滚动更糟）；
+     ② timer-stage 必须**包住**自己的内容（状态行 + 数字 + 说明行）。
+        它的 flex-basis 是 auto，但内容超出时子元素会溢出到盒子外，
+        说明行就会掉到按钮身上、两者叠字 —— 之前 1024px 下就是这样。
+        所以这里给它 overflow:hidden + 明确的高度约束，让溢出变成「被裁」而不是「乱跑」；
+        而真正的保护在 JS：数字字号已经扣掉了固定开销，不会真的溢出。 */
+.timer-hero {
+	/* 关键：hero 按内容自然排（不 flex:1 拉伸、不设固定高）。
+	 * 之前 flex:1 + 固定高度预算，字号一大内容就溢出 hero，
+	 * 按钮被后面的输入框盖住 —— 只露半截就是这么来的。
+	 * 现在内容多高 hero 就多高，卡片整体可滚，绝不重叠。 */
+	flex: 0 0 auto;
+	min-height: 0;
+	display: flex; flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 8px 0 4px;
+	overflow: visible;
 }
-.trBtn:hover { border-color: var(--dsk-accent-ring); color: var(--dsk-accent); }
-.trBtn:focus-visible { outline: 2px solid var(--dsk-accent-ring); outline-offset: 2px; }
-.trBtn.primary {
-	background: var(--dsk-primary);
-	border-color: var(--dsk-primary);
-	color: var(--dsk-primary-foreground);
-	font-weight: 600;
+.timer-stage {
+	flex: 0 0 auto;            /* 内容要多大就多大，绝不压缩 */
+	display: flex; flex-direction: column;
+	align-items: center; text-align: center;
+	/* ⚠️ 不设 overflow:hidden —— 那会把放不下的数字/状态行/说明行整个裁掉，
+	 * 这正是「某个窗口尺寸下东西只看得到一半」的根因。
+	 * 空间不够时的正确做法：让计时卡自己滚动（见 .timer-card 的 overflow）。 */
 }
-.trBtn.primary:hover { background: var(--dsk-primary-hover); color: #fff; }
-.trBtn.primary:disabled {
-	background: var(--dsk-card);
-	border-color: var(--dsk-card-border);
-	color: var(--dsk-foreground-subtle);
-	cursor: not-allowed;
+.timer-status { font-size: 12px; font-weight: 600; color: var(--t-body); flex: none; }
+.timer-value {
+	font: 700 96px/.9 var(--mono);   /* 兜底值；真值由 refitTimerCard 给 */
+	letter-spacing: -.055em;
+	margin: 12px 0;
+	color: var(--t-strong);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	/* 字号由 JS 定；这里别加 transition，逐帧改字号会抖 */
 }
-.trBtn.ghost { background: transparent; }
-.trBtn.sm { padding: 4px 10px; font-size: var(--dsk-text-xs); }
-.trBtn:disabled { opacity: .45; cursor: not-allowed; }
+.timer-stage[data-state="ready"] .timer-value { color: var(--t-accent); }
+.timer-stage[data-state="running"] .timer-value { color: var(--t-strong); }
+.timer-stage[data-state="dnf"] .timer-value { color: var(--danger); }
+.timer-sub { font-size: 11.5px; color: var(--t-faint); line-height: 1.5; max-width: 32em; }
+/* JS 在空间不够时会把说明行收起来（sub.hidden），显式声明免得被别处的 display 覆盖 */
+.timer-sub[hidden] { display: none; }
+.timer-sub kbd {
+	font: 10px var(--mono); border: 1px solid var(--t-hair); background: var(--t-panel);
+	border-radius: 4px; padding: 1px 5px;
+}
+.timer-actions { display: flex; gap: 9px; flex-wrap: wrap; justify-content: center; margin-top: 15px; flex: none; }
+.timer-actions .btn { min-height: 38px; padding: 0 20px; border-radius: 10px; }
+#trRunBtn { min-width: 118px; font-weight: 650; }
 
-/* ---------------- 说明弹层 ---------------- */
-.trHelpMask {
-	position: fixed;
-	inset: 0;
-	background: rgba(10, 8, 20, 0.62);
-	z-index: 60;
+.input-row { display: flex; gap: 8px; flex: none; }
+.alg-input {
+	flex: 1; min-width: 0;
+	font-family: var(--mono); font-size: 13px; font-weight: 600;
+	padding: 8px 12px; border-radius: var(--radius);
+	border: 1px solid var(--border); background: var(--input); outline: none;
 }
-.trHelpBox {
-	position: fixed;
-	left: 50%;
-	top: 50%;
-	transform: translate(-50%, -50%);
-	width: 560px;
-	max-width: calc(100vw - 40px);
-	max-height: calc(100vh - 80px);
-	overflow: auto;
-	padding: 20px 22px;
-	border-radius: var(--dsk-radius-lg);
-	border: 1px solid var(--dsk-card-border);
-	background: var(--dsk-popover);
-	box-shadow: var(--dsk-shadow-lg);
-	z-index: 61;
-}
-.trHelpTitle {
-	font-size: var(--dsk-text-lg);
-	font-weight: 650;
-	margin-bottom: 10px;
-}
-.trHelpBody {
-	font-size: var(--dsk-text-sm);
-	color: var(--dsk-foreground-muted);
-	line-height: var(--dsk-leading-relaxed);
-}
-.trHelpBody b { color: var(--dsk-foreground); font-weight: 600; }
-.trHelpBody code {
-	font-family: var(--dsk-font-mono);
-	font-size: var(--dsk-text-xs);
-	background: var(--dsk-primary-soft);
-	padding: 1px 4px;
-	border-radius: 4px;
-}
-.trHelpBody p { margin: 8px 0; }
-.trHelpFoot { margin-top: 14px; text-align: right; }
+.alg-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.alg-input::placeholder { color: var(--t-faint); font-weight: 400; }
+.input-hint { margin-top: 7px; min-height: 14px; font-size: 10.5px; font-family: var(--mono); color: var(--t-faint); }
+.input-hint[data-kind="err"] { color: var(--danger); }
+.input-hint[data-kind="ok"] { color: var(--accent); }
 
-/* ---------------- 浅色适配 ---------------- */
-:root[data-theme="light"] .trPickMain,
-:root[data-theme="light"] .trPickSide { background: #fff; }
+/* ---- 右栏：两卡竖排，都在自己的范围里滚 ---- */
+.train-side {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	min-width: 0;
+}
+.stat-block {
+	display: flex; flex-direction: column;
+	min-width: 0; padding: 12px 14px;
+	background: var(--card);
+	border: 1px solid var(--card-border);
+	border-radius: var(--radius-lg);
+}
+.stat-block .card-head { margin-bottom: 9px; flex: none; }
+/* 各卡按内容排，不锁高不裁切；成绩列表自己有高度上限，超了在内部滚 */
+.stat-block-now { flex: 0 0 auto; }
+.stat-block-score { flex: 0 0 auto; }
+.score-list { max-height: 260px; overflow-y: auto; scrollbar-width: thin; }
+
+/* ---- 分段条：横跨整幅的一条，格子等宽平分 ---- */
+.stage-card { flex: 0 0 auto; padding: 10px 14px 12px; }
+.stage-card .card-head { margin-bottom: 7px; }
+.seg-list {
+	display: flex; gap: 6px; align-items: stretch;
+	min-width: 0; overflow-x: auto; scrollbar-width: none;
+}
+.seg-list::-webkit-scrollbar { display: none; }
+.seg-list .ctStageSegArrow {
+	align-self: center; flex: none;
+	color: var(--t-faint); font-size: 11px; line-height: 1;
+}
+.seg-list .ctStageSeg {
+	flex: 1 1 0; min-width: 84px;
+	display: flex; flex-direction: column; gap: 3px;
+	padding: 7px 9px; border-radius: var(--radius);
+	border: 1px solid var(--t-hair); background: var(--t-panel);
+	min-width: 0;
+}
+.seg-list .ctStageSeg[data-state="done"] { border-color: var(--accent-soft); background: var(--accent-soft); }
+.seg-list .ctStageSeg[data-state="current"] { border-color: var(--primary); background: var(--primary-soft); }
+.seg-list .ctStageSegName {
+	min-width: 0;
+	font-family: var(--mono); font-size: 10.5px; color: var(--t-faint);
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.seg-list .ctStageSeg[data-state="done"] .ctStageSegName { color: var(--accent); }
+.seg-list .ctStageSeg[data-state="current"] .ctStageSegName { color: var(--t-body); }
+.seg-list .ctStageSegTime {
+	font-family: var(--mono); font-size: 15px; font-weight: 700;
+	color: var(--t-strong); font-variant-numeric: tabular-nums;
+}
+
+/* 「这一段」仪表：下一个目标 + 进度点 + 三格小数据
+   这一块是本页自己的语汇（练一段），不是 Analyzer 的实时四宫格。 */
+.now-target {
+	padding: 10px 12px;
+	border-radius: var(--radius);
+	border: 1px solid var(--t-hair);
+	background: var(--t-panel);
+}
+.now-target-label {
+	font-size: 9.5px; font-weight: 600; letter-spacing: .08em;
+	text-transform: uppercase; color: var(--t-faint);
+}
+.now-target-name {
+	margin-top: 3px;
+	font: 700 18px/1.2 var(--mono);
+	color: var(--t-accent);
+	word-break: break-word;
+}
+.now-progress { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 11px; }
+.now-dot {
+	width: 100%; height: 4px; min-width: 12px; flex: 1 1 0;
+	border-radius: 2px; background: var(--border);
+	transition: background .16s ease;
+}
+.now-dot[data-state="done"] { background: var(--accent); }
+.now-dot[data-state="current"] { background: var(--primary); }
+.now-mini {
+	display: flex; gap: 14px; flex-wrap: wrap;
+	margin-top: 10px;
+	font-size: 11px; color: var(--t-faint);
+}
+.now-mini b {
+	font-family: var(--mono); font-size: 13px; font-weight: 650;
+	color: var(--t-strong); font-variant-numeric: tabular-nums;
+}
+
+/* 动作流：细窄横带 */
+.move-stream {
+	display: flex; flex-wrap: nowrap; align-items: center; gap: 4px;
+	margin-top: 12px; height: 23px; min-height: 23px; flex: none;
+	overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+}
+.move-stream::-webkit-scrollbar { display: none; }
+.move-stream .ctMoveChip {
+	flex: none; height: 21px; min-width: 26px;
+	display: inline-flex; align-items: center; justify-content: center;
+	padding: 0 6px; border-radius: 5px;
+	border: 1px solid var(--t-hair); background: var(--t-panel);
+	font: 600 10.5px var(--mono); color: var(--t-body);
+}
+.move-stream .ctMoveChip.latest { border-color: var(--accent); color: var(--accent); }
+.move-stream .ctMovesEmpty { font-size: 10.5px; color: var(--t-faint); white-space: nowrap; }
+
+/* 展开图：右栏里居中、贴纸小一档 */
+.net-wrap {
+	display: flex; justify-content: center;
+	margin-top: 12px; padding-top: 12px;
+	border-top: 1px solid var(--t-hair); flex: none;
+}
+.net-wrap .face { grid-template-columns: repeat(3, 15px); grid-template-rows: repeat(3, 15px); gap: 2px; }
+.net-wrap .sticker { border-radius: 3px; }
+
+/* 成绩列表 */
+.score-list {
+	display: flex; flex-direction: column; gap: 1px;
+	flex: 1 1 auto; min-height: 0;
+	overflow-y: auto; scrollbar-width: thin;
+}
+.score-row {
+	display: flex; align-items: baseline; gap: 10px;
+	padding: 5px 6px; border-radius: 6px; min-width: 0;
+}
+.score-row + .score-row { border-top: 1px solid var(--border-subtle); }
+.score-idx { flex: none; width: 26px; font-family: var(--mono); font-size: 10px; color: var(--t-faint); }
+.score-time {
+	flex: none; width: 68px;
+	font-family: var(--mono); font-size: 13px; font-weight: 650;
+	color: var(--t-strong); font-variant-numeric: tabular-nums;
+}
+.score-time[data-dnf="1"] { color: var(--danger); }
+.score-segs {
+	flex: 1 1 auto; min-width: 0;
+	font-family: var(--mono); font-size: 10.5px; color: var(--t-faint);
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.score-when { flex: none; font-size: 10px; color: var(--t-faint); }
+.score-empty {
+	padding: 16px 6px; text-align: center;
+	font-size: 11.5px; color: var(--t-faint);
+}
+
+/* 本次结果：停表后展开。它出现时整页允许再高一点（否则分段条会被挤出去），
+   但不参与「训练时定高」那条链 —— 训练区的尺寸保持稳定，字号才不会跳。 */
+.result-card { margin-top: 12px; flex: none; }
+.result-main {
+	display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+	padding-bottom: 12px; margin-bottom: 12px;
+	border-bottom: 1px solid var(--border-subtle);
+}
+.result-time { font: 700 30px/1 var(--mono); color: var(--accent); font-variant-numeric: tabular-nums; }
+.result-time[data-dnf="1"] { color: var(--danger); }
+.result-meta { font-family: var(--mono); font-size: 12px; color: var(--t-body); }
+.result-note { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--t-faint); text-align: right; }
+.result-splits { display: flex; gap: 8px; flex-wrap: wrap; }
+.result-split {
+	min-width: 118px; padding: 8px 11px; border-radius: var(--radius);
+	border: 1px solid var(--t-hair); background: var(--t-panel);
+}
+.result-split-label { font-family: var(--mono); font-size: 10px; color: var(--t-faint); }
+.result-split-value { margin-top: 2px; font-family: var(--mono); font-size: 14px; font-weight: 650; color: var(--t-strong); }
+.result-split-acc { font-family: var(--mono); font-size: 10px; color: var(--t-faint); }
+
+/* ============================================================================
+   说明弹层
+   ============================================================================ */
+.help-mask { position: fixed; inset: 0; background: rgba(5, 4, 12, .72); backdrop-filter: blur(4px); z-index: 9998; }
+.help-box {
+	position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+	width: min(520px, calc(100vw - 32px)); max-height: min(76vh, 640px); overflow: auto;
+	padding: 20px 22px; border-radius: var(--radius-lg);
+	border: 1px solid var(--card-border); background: var(--popover);
+	box-shadow: 0 24px 60px rgba(0, 0, 0, .48); z-index: 9999;
+}
+.help-title { margin: 0 0 12px; font-size: 16px; font-weight: 650; }
+.help-body { font-size: 12.5px; line-height: 1.7; color: var(--t-body); }
+.help-body h3 { margin: 14px 0 5px; font-size: 12px; font-weight: 650; letter-spacing: .05em; color: var(--t-strong); }
+.help-body p { margin: 0 0 7px; }
+.help-body b { color: var(--t-strong); }
+.help-body code, .help-body kbd {
+	font-family: var(--mono); font-size: 11.5px;
+	border: 1px solid var(--t-hair); background: var(--t-panel);
+	border-radius: 4px; padding: 1px 5px;
+}
+.help-foot { display: flex; justify-content: flex-end; margin-top: 16px; }
+
+/* ============================================================================
+   响应式
+   ----------------------------------------------------------------------------
+   原则不变：**始终一屏**。宽度变化只改栅格怎么折，不改变「页面高度 = 视口」这件事，
+   所以下面任何断点都不写 height / min-height 覆盖 —— 那正是上一版溢出与字号乱跳
+   的来源（每个断点各算一套高度，算错了就溢出）。
+   窄屏只做两件事：把并排改堆叠、把非必要的块藏起来。
+   ============================================================================ */
+@media (max-width: 1120px) {
+	/* 选段：图在上、侧栏折到图下面的三列。都不锁高，内容自然排 */
+	.pick-grid { grid-template-columns: minmax(0, 1fr); }
+	.pick-side { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	/* 训练：单栏时右栏折到下面，两块都按内容自然高度 */
+	.train-grid { grid-template-columns: minmax(0, 1fr); }
+	.train-side { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 880px) {
+	.pick-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.train-side { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 760px) {
+	.page-shell { width: min(100% - 16px, 1360px); padding: 8px 0 10px; gap: 8px; }
+	.page-head { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; padding-bottom: 10px; margin-bottom: 0; }
+	.page-title { font-size: 18px; }
+	.page-sub { font-size: 11.5px; margin-top: 4px; }
+	.device-button { min-height: 30px; padding: 0 11px; font-size: 12px; }
+	.quick-card { padding: 10px 12px; }
+	.pick-side { grid-template-columns: minmax(0, 1fr); max-height: 36vh; }
+	.timer-card { padding: 10px 12px 12px; }
+	.timer-sub { display: none; }
+	.timer-actions .btn { min-height: 32px; padding: 0 13px; font-size: 12.5px; }
+	.quick-row-drop .field { flex: 1 1 110px; }
+	.quick-row-drop .btn { width: 100%; }
+	.field-arrow { display: none; }
+	/* 分段条在手机上只显示一格高，横向滚 */
+	.seg-list .ctStageSeg { min-width: 72px; padding: 6px 8px; }
+	.seg-list .ctStageSegTime { font-size: 13px; }
+}
+
+/* 矮屏（笔记本横屏、分屏）：只收留白，不改任何高度口径 */
+@media (max-height: 700px) {
+	.page-shell { padding: 8px 0 10px; gap: 8px; }
+	.page-head { padding-bottom: 8px; }
+	.page-sub { display: none; }              /* 说明行在矮屏让位给内容 */
+	.quick-row + .quick-row { margin-top: 7px; padding-top: 7px; }
+	.timer-actions .btn { min-height: 32px; }
+	.stat-block-now .net-wrap { display: none; }
+	.stage-card { padding: 8px 12px 10px; }
+}

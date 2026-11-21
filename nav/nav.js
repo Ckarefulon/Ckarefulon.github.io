@@ -51,6 +51,9 @@
 		"cube/trainer": "Cube/Trainer",
 		"study": "Study",
 		"study/focus": "Study/Focus",
+		"study/merit": "Study/Merit",
+		"study/merit/beta-qwen": "Study/Merit/beta-Qwen",
+		"study/merit/beta-step": "Study/Merit/beta-step",
 		"study/question": "Study/Question",
 		"study/timer": "Study/Timer",
 		"tools": "Tools",
@@ -58,6 +61,8 @@
 		"tools/kgenesis": "Tools/KGenesis",
 		"tools/pulse": "Tools/Pulse",
 		"tools/relay": "Tools/Relay",
+		"tools/roster": "Tools/Roster",
+		"tools/speed": "Tools/Speed",
 		"jump/onedrive": "jump/OneDrive",
 		"feedback": "feedback"
 	};
@@ -90,6 +95,54 @@
 		if (!segs.length) return [];
 		var label = PATH_LABELS[segs.join("/").toLowerCase()];
 		return label ? label.split("/") : segs;
+	}
+
+	/**
+	 * 把一条网址路径还原成**站点里的真实大小写**。
+	 *
+	 * Netlify 会把 URL 强制小写（/Cube/Formula/ → /cube/formula/），任何照抄
+	 * location.pathname / document.referrer 的地方都会拿到小写。反馈广场的
+	 * 「来源页面」正是这类地方 —— 它拿到的是小写，和用户实际所在的页面名对不上。
+	 *
+	 * 逐段累进去查 PATH_LABELS，**最长命中优先**（/cube/formula/classic 先命中三段）；
+	 * 没登记的段原样保留（小写目录名保持小写），首尾斜杠原样保留。
+	 *
+	 * @param {string} [pathname] 默认取 window.location.pathname
+	 * @returns {string} 真实大小写的路径
+	 */
+	function trueCasePath(pathname) {
+		var input = String(pathname == null ? (window.location.pathname || "/") : pathname);
+		if (!input) return input;
+		var head = input.charAt(0) === "/" ? "/" : "";
+		var body = head ? input.slice(1) : input;
+		var trailing = /\/$/.test(body) ? "/" : "";
+		if (trailing) body = body.slice(0, -1);
+		if (!body) return head || "/";
+
+		var segs = body.split("/");
+		var resolved = [];
+		var i = 0;
+		while (i < segs.length) {
+			var found = null;
+			var foundLen = 0;
+			// 从最长的候选往回缩，保证 /cube/formula/classic 不会被拆成 cube/formula + classic
+			for (var len = segs.length - i; len >= 1; len--) {
+				var key = segs.slice(i, i + len).join("/").toLowerCase();
+				if (Object.prototype.hasOwnProperty.call(PATH_LABELS, key)) {
+					found = PATH_LABELS[key];
+					foundLen = len;
+					break;
+				}
+			}
+			if (found && foundLen > 0) {
+				resolved = resolved.concat(found.split("/"));
+				i += foundLen;
+			} else {
+				resolved.push(segs[i]);
+				i += 1;
+			}
+		}
+		return head + resolved.join("/") + trailing;
 	}
 
 	function escapeHtml(s) {
@@ -306,11 +359,11 @@
 		(function initFeedbackLink() {
 			var link = document.getElementById("siteFeedbackBtn");
 			if (!link) { return; }
-			// 取**浏览器地址栏里的那条路径**，大小写原样保留 —— 绝不 toLowerCase，
-			// 也不套 PATH_LABELS 的登记名（那会把 /Feedback/ 改写成 feedback）。
-			// 只做两件事：/xxx/index.html 收成 /xxx/（与 .htaccess 的 301 口径一致），
-			// 丢掉 query / hash（里面常有一次性参数，没必要送进反馈表）。
-			var from = String(window.location.pathname || "/").replace(/\/index\.html$/i, "/");
+			// 取**浏览器地址栏里的那条路径**，大小写原样保留 —— 绝不 toLowerCase。
+			// 只做三件事：/xxx/index.html 收成 /xxx/（与 .htaccess 的 301 口径一致），
+			// 丢掉 query / hash（里面常有一次性参数，没必要送进反馈表），
+			// 再用登记表把小写还原成真实大小写（Netlify 会把网址强制小写）。
+			var from = trueCasePath(String(window.location.pathname || "/").replace(/\/index\.html$/i, "/"));
 			link.setAttribute("href", "/feedback/?new=1&from=" + encodeURIComponent(from.slice(0, 300)));
 		})();
 
@@ -2079,6 +2132,8 @@
 
 	window.siteNav = {
 		init: init,
-		render: renderNav
+		render: renderNav,
+		// 供别处还原「真实大小写」用（反馈广场的「来源页面」等）；纯函数，无副作用
+		trueCasePath: trueCasePath
 	};
 })();

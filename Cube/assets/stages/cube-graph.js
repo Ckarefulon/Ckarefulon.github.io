@@ -21,7 +21,11 @@
 
 	var NS = "http://www.w3.org/2000/svg";
 	var POS_KEY = "cubeStageGraphPos.v1";
-	var W = 940, H = 520;
+	/* 画布尺寸：比「最远节点 + 边距」略大一点。
+	   W=1000 / H=500 是配合下面那套三行布局定的，别随手改 ——
+	   改小了最右边的「复原」或最下层的顶层四件会画到界外，
+	   改大了图会缩得更小、上下留白更多。 */
+	var W = 1000, H = 500;
 	var R = 26;
 
 	/* 布局约束（自动整理用）：
@@ -96,25 +100,120 @@
 	EDGES.forEach(function (e) { EDGE_SET[edgeKey(e[0], e[1])] = true; });
 	function hasEdge(a, b) { return !!EDGE_SET[edgeKey(a, b)]; }
 
+	/* ================= 有向判定：能不能「从 a 走到 b」 =================
+	 *
+	 * 上面 buildEdges 的规则**本来是有向的**（泳道内只许 index 递增），
+	 * 但 edgeKey 把 a|b 与 b|a 抹成了同一个键 —— 于是「画了线」变成了双向，
+	 * 判定「这一步接得上吗」就会把 F2L 4 → 十字 这种回退也放过去。
+	 *
+	 * 所以这里按**同一条规则的原始方向**重新算一遍，供「路径是否走得通」使用。
+	 * 注意与画线用的 EDGES 分工不同：
+	 *   · hasEdge   = 图上画了线没（无向，仅供渲染与「能连」的直觉）；
+	 *   · canStep   = 这个方向做得到吗（有向，路径合法性用这个）。
+	 *
+	 * 顶层五点（ollEdge / ollCorner / oll / pllEdge / pllCorner）彼此正交，
+	 * 任意先后都合法，所以它们之间双向都算通 —— 这正是「OLL 不必在 PLL 前面」。
+	 */
+	var STEP_SET = (function () {
+		var set = {};
+		function allow(a, b) {
+			if (!a || !b || a === b) { return; }
+			set[a + ">" + b] = true;
+		}
+		/* 1. 打乱 → 任何节点（起点是通用的） */
+		CS.NODES.forEach(function (n) {
+			if (n.id !== "scramble") { allow("scramble", n.id); }
+		});
+		/* 2. 泳道内只许往后 */
+		["cfop", "roux"].forEach(function (lane) {
+			var l = LANES[lane];
+			for (var i = 0; i < l.length; i++) {
+				for (var j = i + 1; j < l.length; j++) { allow(l[i], l[j]); }
+			}
+		});
+		/* 3. CFOP 泳道任意节点 → 顶层任意节点 */
+		LANES.cfop.forEach(function (a) {
+			LANES.top.forEach(function (b) { allow(a, b); });
+		});
+		/* 4. 顶层五点彼此**双向**：方向正交，谁先谁后都对 */
+		var top = LANES.top;
+		for (var i = 0; i < top.length; i++) {
+			for (var j = 0; j < top.length; j++) {
+				if (i !== j) { allow(top[i], top[j]); }
+			}
+		}
+		/* 5. 任意泳道节点 → 终点 */
+		LANES.cfop.concat(LANES.top, LANES.roux).forEach(function (a) {
+			TERMINAL.forEach(function (b) { allow(a, b); });
+		});
+		return set;
+	})();
+	function canStep(a, b) { return !!STEP_SET[a + ">" + b]; }
+
+	/* ================= 阶段序号（用来画「骨架边」） =================
+	 *
+	 * 骨架边 = 同一条泳道里前后相邻的两步。给每个节点一个「泳道 + 序号」，
+	 * **同泳道且序号差 1** 的才是骨架边。
+	 *
+	 * 序号按「复原流程的自然顺序」给：
+	 *   CFOP 主轴   scramble 0 → cross 1 → f2l1..4 2 → oll 3 → pll 4 → solved 5
+	 *   Roux 主轴   fb 1 → sb 2 → cmll 3 → lse 4
+	 *   顶层四件     与 OLL/PLL 同层、彼此正交，不属于任何一条主轴
+	 *
+	 * ⚠️ 泳道必须一起看：CFOP 的 cross 和 Roux 的 fb 都算「第 1 步」，
+	 * 只比序号会把两条泳道之间的跨接也当成骨架边，线又交叉回去了。
+	 */
+	var LANE_STEP = {
+		scramble: ["cfop", 0], cross: ["cfop", 1],
+		f2l1: ["cfop", 2], f2l2: ["cfop", 2], f2l3: ["cfop", 2], f2l4: ["cfop", 2],
+		oll: ["cfop", 3], pll: ["cfop", 4], solved: ["cfop", 5],
+		fb: ["roux", 1], sb: ["roux", 2], cmll: ["roux", 3], lse: ["roux", 4]
+	};
+	function laneIndex(id) { return LANE_STEP[id]; }
+	/* 顶层四件（方向/位置）彼此正交、任意先后，不属于任何一条主轴 */
+	function isTopFree(id) {
+		return id === "ollEdge" || id === "ollCorner" || id === "pllEdge" || id === "pllCorner";
+	}
+
 	/* ---------- 默认坐标 ---------- */
+	/* ================= 默认布局（三行流水线） =================
+	 *
+	 * 之前这套坐标是随手排的：CFOP 泳道挤在左下角、顶层挤在右上，
+	 * 中间一大片交叉线 —— 看起来像一团乱麻，其实节点是有明确结构的。
+	 *
+	 * 现在的排法按「复原流程从左到右」分成三条泳道，纵向也分三层：
+	 *   上层（ Roux ）   fb → sb → cmll → lse
+	 *   中层（ CFOP ）   scramble → cross → f2l1..f2l4 → oll → pll → solved
+	 *   下层（ 顶层 ）   ollEdge / ollCorner / pllEdge / pllCorner（可任意穿插）
+	 * 这样「同一阶段的东西挨在一起」，连线大部分是短的横线，不再交叉。
+	 *
+	 * 三行的纵向间距取得比较紧（130 / 250 / 368）。画布高 415，
+	 * 内容从 y=106 到 y=394 —— 上下留白 106 / 21，**不对称**。
+	 * 原因是三条泳道的重心不在画布正中（上 1 条 + 下 1 条，中间 1 条）。
+	 * 所以画布高度改成 500：106/106，正好上下对称，图看起来就稳了。
+	 */
 	var DEFAULT_POS = {
-		scramble:  [58, 262],
-		cross:     [178, 262],
-		f2l1:      [298, 384],
-		f2l2:      [418, 384],
-		f2l3:      [538, 384],
-		f2l4:      [538, 262],
-		ollEdge:   [658, 148],
-		ollCorner: [658, 214],
-		oll:       [658, 340],
-		pllEdge:   [790, 156],
-		pllCorner: [790, 232],
-		pll:       [790, 356],
-		solved:    [898, 262],
-		fb:        [178, 120],
-		sb:        [380, 96],
-		cmll:     [518, 148],
-		lse:       [880, 96]
+		/* 中层主轴：横向步长 108（比节点的直径 52 宽一倍多一点，
+		   连线短而清楚，不会像之前那样拉成一长条） */
+		scramble:  [66, 250],
+		cross:     [174, 250],
+		f2l1:      [282, 250],
+		f2l2:      [390, 250],
+		f2l3:      [498, 250],
+		f2l4:      [606, 250],
+		oll:       [714, 250],
+		pll:       [822, 250],
+		solved:    [930, 250],
+		/* 下层：顶层四件（方向 / 位置互相正交，任意先后） */
+		ollEdge:   [714, 368],
+		ollCorner: [606, 368],
+		pllEdge:   [822, 368],
+		pllCorner: [930, 368],
+		/* 上层：Roux 桥式 */
+		fb:        [174, 132],
+		sb:        [390, 132],
+		cmll:      [606, 132],
+		lse:       [822, 132]
 	};
 	/* 表里没列到的节点自动排一行兜底 */
 	function defaultPos(id, i) {
@@ -157,6 +256,60 @@
 		 * 任何自动排序都会把用户想要的交错顺序改掉，所以一律以点击顺序为准。 */
 		function orderedPath() {
 			return selected.slice();
+		}
+
+		/* 两个节点之间「图上自然要经过」的锚点序列，只用于「新加节点该落在哪」的判断。
+		 * 这不是排序规则，也不改路径 —— 它是一个**局部**判据：新节点如果落在某一对
+		 * 相邻节点的自然区间里，就把它插到那儿。
+		 *
+		 * 依据：节点图里已画出的边构成一张有向无环图（只许往后，不许回退）。
+		 * 用「从 a 能不能沿边走一段时间步数到达新节点」来判断新节点是否在 a 之后、
+		 * b 之前，比拿节点下标硬比更准（顶层那五个点彼此全通，下标没有意义）。 */
+		var ADJ = (function () {
+			var out = {};
+			EDGES.forEach(function (e) {
+				(out[e[0]] = out[e[0]] || []).push(e[1]);
+			});
+			return out;
+		})();
+		function edgeSteps(from, to, maxSteps) {
+			if (from === to) { return 0; }
+			var seen = {}, frontier = [from], depth = 0;
+			seen[from] = 1;
+			while (frontier.length && depth < (maxSteps || 3)) {
+				depth++;
+				var next = [];
+				for (var i = 0; i < frontier.length; i++) {
+					var list = ADJ[frontier[i]] || [];
+					for (var j = 0; j < list.length; j++) {
+						var n = list[j];
+						if (seen[n]) { continue; }
+						if (n === to) { return depth; }
+						seen[n] = 1;
+						next.push(n);
+					}
+				}
+				frontier = next;
+			}
+			return -1;
+		}
+		function insertIndexFor(node) {
+			var path = orderedPath();
+			if (path.length < 2) { return -1; }
+			var best = -1, bestScore = 1e9;
+			for (var i = 0; i + 1 < path.length; i++) {
+				var a = path[i], b = path[i + 1];
+				if (a === node || b === node) { continue; }
+				var ab = edgeSteps(a, b);
+				var an = edgeSteps(a, node);
+				var nb = edgeSteps(node, b);
+				/* 三者都要能走到，且加起来不比直连多太多（= 确实在这段区间里） */
+				if (ab < 0 || an < 0 || nb < 0) { continue; }
+				var extra = (an + nb) - ab;
+				if (extra > 2) { continue; }
+				if (extra < bestScore) { bestScore = extra; best = i + 1; }
+			}
+			return best;
 		}
 
 		function nodeIndex(id) {
@@ -410,38 +563,118 @@
 			return e;
 		}
 
+		/* ================= 缩放补偿（窄窗口下字不能糊） =================
+		 *
+		 * SVG 是等比缩放的：viewBox 1000 宽画在 780px 的容器里，缩放比只有 0.78，
+		 * 于是 11px 的标签在屏幕上只剩 9px —— 这正是「中等窗口字小得看不清」的原因。
+		 *
+		 * 解法不是把整张图改大（那会溢出），而是**在图内反向补偿**：
+		 * 量出当前真实缩放比 k，把节点半径与标签字号都除以 k，
+		 * 这样它们在屏幕上始终保持同一个物理大小（默认 11px 字、52px 圆）。
+		 * k > 1 时不再补偿 —— 宽屏上本来就够大，再放大反而挤。
+		 *
+		 * 补偿要受两个限制，取更严的那个：
+		 *   ① 圆最多胖到「刚好占满最小间距」：cap1 = MIN_SEP / (2R)；
+		 *   ② 胖了之后**真的不能跟邻居压上** —— 逐个邻居算一遍可用空隙
+		 *      cap2 = min(邻居圆心距) / (2R) - 一点余量。
+		 * 只做 ① 是不够的：默认布局里有些邻居本来就比 MIN_SEP 近，
+		 * 补偿一上来就压上了（实测 800px 下 f2l2 与 f2l4、oll 会挤到一起）。
+		 */
+		function viewScale() {
+			if (!svg) { return 1; }
+			var box = svg.getBoundingClientRect();
+			if (!box.width || !box.height) { return 1; }
+			/* 等比缩放取较小者，与 preserveAspectRatio="xMidYMid meet" 一致 */
+			return Math.min(box.width / W, box.height / H);
+		}
+		function scaleFactor() {
+			var k = viewScale();
+			if (!isFinite(k) || k <= 0) { return 1; }
+			if (k >= 1) { return 1; }
+			var cap1 = MIN_SEP / (R * 2);
+			/* ② 看离得最近的那一对，胖到那里就不能再胖了 */
+			var cap2 = Infinity;
+			var pts = {};
+			CS.NODES.forEach(function (n) { pts[n.id] = displayOf(n.id); });
+			var ids = Object.keys(pts);
+			for (var i = 0; i < ids.length; i++) {
+				for (var j = i + 1; j < ids.length; j++) {
+					var a = pts[ids[i]], b = pts[ids[j]];
+					var d = Math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
+					if (d > 0 && d / (R * 2) < cap2) { cap2 = d / (R * 2); }
+				}
+			}
+			/* 留 4% 余量，免得正好相切（相切在屏幕上看着就是挨上） */
+			cap2 = cap2 === Infinity ? Infinity : cap2 * 0.96;
+			var cap = Math.min(cap1, cap2);
+			if (!isFinite(cap) || cap < 1) { cap = 1; }
+			return Math.min(1 / k, cap);
+		}
+
 		function render() {
 			if (!svg) { return; }
 			linkLayer.innerHTML = "";
 			ghostLayer.innerHTML = "";
 			nodeLayer.innerHTML = "";
 
-			var path = orderedPath();
-			var activeLinks = {};
-			for (var i = 0; i + 1 < path.length; i++) { activeLinks[edgeKey(path[i], path[i + 1])] = true; }
+			/* 当前该用的补偿系数（窄窗口 > 1） */
+			var kf = scaleFactor();
+			var rUnit = R;            /* 圆心距、夹紧、连线裁切一律用**画布单位**的 R，
+			                             保证布局算法不受视觉补偿影响 */
+			var rDraw = R * kf;       /* 画出来的半径才乘补偿 */
 
-			var centers = {};
-			CS.NODES.forEach(function (n, i) { centers[n.id] = displayOf(n.id); });
+					/* 连线绘制策略（改过两次，第二次才好看）
+		 * ----------------------------------------------------------------------------
+		 * v1：把 103 条「能连的边」全画出来当底纹 —— 结果像一团乱麻，
+		 *     用户根本看不出主干在哪。
+		 * v2（现在）：**只画骨架边**，也就是「同一条泳道里前后相邻的那几步」。
+		 *     其余的跳转可能性不画，只在两种时候浮现：
+		 *       · 鼠标悬停在某个节点上 → 亮出与它相连的所有边（回答「从这能去哪」）；
+		 *       · 节点被选中 → 亮出路径上的边。
+		 *     这样图上一眼能看清「流程主干」，交互时又能问出「还有哪些选择」。
+		 */
+		var path = orderedPath();
+		var activeLinks = {};
+		for (var i = 0; i + 1 < path.length; i++) { activeLinks[edgeKey(path[i], path[i + 1])] = true; }
 
-			/* 连线：全部「不回退」的组合都画出来，但底色极淡（当作可选范围的底纹），
-			 * 只有①选中路径上的边 ②鼠标悬停节点时该节点的边 才亮起来。
-			 * 这样既如实表达「这些都能连」，又不会糊成一团看不清节点。 */
-			var linesByNode = {};
-			EDGES.forEach(function (e) {
-				var a = centers[e[0]], b = centers[e[1]];
-				if (!a || !b) { return; }
-				var t = trim(a, b, R);
-				var isActive = !!activeLinks[edgeKey(e[0], e[1])];
-				var line = svgEl("line", {
-					x1: t.x1, y1: t.y1, x2: t.x2, y2: t.y2,
-					"class": "gpLink" + (isActive ? " active" : "")
-				});
-				line.setAttribute("data-a", e[0]);
-				line.setAttribute("data-b", e[1]);
-				linkLayer.appendChild(line);
-				(linesByNode[e[0]] = linesByNode[e[0]] || []).push(line);
-				(linesByNode[e[1]] = linesByNode[e[1]] || []).push(line);
+		var centers = {};
+		CS.NODES.forEach(function (n, i) { centers[n.id] = displayOf(n.id); });
+
+		var linesByNode = {};
+		EDGES.forEach(function (e) {
+			var a = centers[e[0]], b = centers[e[1]];
+			if (!a || !b) { return; }
+			var t = trim(a, b, rDraw);
+			var isActive = !!activeLinks[edgeKey(e[0], e[1])];
+			/* 骨架边 = 同泳道相邻两步。其余的先藏着。
+			   顶层四件不属于任何主轴（laneIndex 为 undefined），它们之间的边
+			   以及它们与主轴的边都不是骨架 —— 这正对：顶层本来就任意穿插。 */
+			var la = laneIndex(e[0]), lb = laneIndex(e[1]);
+			var isSpine = !!la && !!lb && la[0] === lb[0] && Math.abs(la[1] - lb[1]) === 1;
+			var line = svgEl("line", {
+				x1: t.x1, y1: t.y1, x2: t.x2, y2: t.y2,
+				"class": "gpLink" + (isSpine ? " spine" : "") + (isActive ? " active" : "")
 			});
+			line.setAttribute("data-a", e[0]);
+			line.setAttribute("data-b", e[1]);
+			linkLayer.appendChild(line);
+			(linesByNode[e[0]] = linesByNode[e[0]] || []).push(line);
+			(linesByNode[e[1]] = linesByNode[e[1]] || []).push(line);
+		});
+
+		/* 顶层四件（OLL棱/OLL角/PLL棱/PLL角）是一组「可任意穿插」的小节点，
+		 * 给它们连一条淡底线，表明「这四个是一伙的」，而不是四棵孤树。
+		 * 这条线是纯装饰，不参与任何判定（TOP_GROUP 只是画着好看的）。 */
+		var topIds = ["ollCorner", "ollEdge", "pllEdge", "pllCorner"];
+		for (var ti = 0; ti + 1 < topIds.length; ti++) {
+			var ta = centers[topIds[ti]], tb = centers[topIds[ti + 1]];
+			if (!ta || !tb) { continue; }
+			var tt = trim(ta, tb, rDraw);
+			linkLayer.appendChild(svgEl("line", {
+				x1: tt.x1, y1: tt.y1, x2: tt.x2, y2: tt.y2,
+				"class": "gpLink group"
+			}));
+		}
 
 			/* 节点 */
 			CS.NODES.forEach(function (n, i) {
@@ -451,25 +684,41 @@
 				g.setAttribute("data-selected", inPath ? "1" : "0");
 
 				var grp = CS.groupById(n.group);
-				var circle = svgEl("circle", { cx: c.x, cy: c.y, r: R, "class": "gpNodeCircle" });
+				var circle = svgEl("circle", { cx: c.x, cy: c.y, r: rDraw, "class": "gpNodeCircle" });
 				circle.style.stroke = inPath ? "" : (grp ? grp.color : "");
 				g.appendChild(circle);
 
-				/* 分组色点（节点内小圆，标示归属） */
-				var dot = svgEl("circle", { cx: c.x, cy: c.y + R - 8, r: 3.5, "class": "gpNodeDot" });
+				/* 分组色点：贴在圆的下沿，不挡标签（位置也跟着补偿走） */
+				var dotR = 3.5;
+				var dot = svgEl("circle", {
+					cx: c.x, cy: c.y + rDraw - 8 * kf, r: dotR * kf, "class": "gpNodeDot"
+				});
 				dot.style.fill = grp ? grp.color : "";
 				g.appendChild(dot);
 
-				/* 路径序号 */
+				/* 路径序号：小号，压在圆的左上角，与居中的名字分开，
+				 * 免得「2 F2L 4」挤成一行看不清谁是序号谁是名字。 */
 				var idx = path.indexOf(n.id);
 				if (idx >= 0) {
-					var ord = svgEl("text", { x: c.x, y: c.y - 3, "class": "gpNodeOrder" });
-					ord.style.fill = "#0f0d18";
+					var badge = svgEl("circle", {
+						cx: c.x - rDraw * 0.62, cy: c.y - rDraw * 0.62, r: 8.5 * kf,
+						"class": "gpNodeOrderBg"
+					});
+					g.appendChild(badge);
+					var ord = svgEl("text", {
+						x: c.x - rDraw * 0.62, y: c.y - rDraw * 0.62, "class": "gpNodeOrder"
+					});
+					ord.setAttribute("dominant-baseline", "central");
+					/* 字号乘补偿：窄窗口下才能保持屏幕上的物理大小 */
+					ord.style.fontSize = (9.5 * kf).toFixed(2) + "px";
 					ord.textContent = String(idx + 1);
 					g.appendChild(ord);
 				}
 
-				var lab = svgEl("text", { x: c.x, y: c.y + 5, "class": "gpNodeLabel" });
+				var lab = svgEl("text", { x: c.x, y: c.y, "class": "gpNodeLabel" });
+				lab.setAttribute("dominant-baseline", "central");
+				/* 关键：标签字号乘补偿，屏幕上永远是同一个物理尺寸（≈11px） */
+				lab.style.fontSize = (11 * kf).toFixed(2) + "px";
 				lab.textContent = n.name;
 				g.appendChild(lab);
 
@@ -499,48 +748,103 @@
 			return n ? n.name : id;
 		}
 
+		/* 拖动改位置（记进 localStorage）。
+		 *
+		 * ⚠️ 这里的两个坑（都踩过，改了别再退回去）：
+		 *
+		 * ① **移动与松手必须挂在 window 上，不能挂在节点自己身上。**
+		 *    节点圆直径才 52 个 SVG 单位，鼠标一往外甩就出了元素的盒子，
+		 *    pointermove 就不再派发给它 —— 表现为「拖两下就断」。
+		 *    setPointerCapture 本来能救，但它在「没有活跃指针」的合成事件里会抛，
+		 *    旧代码 try/catch 把它吞掉了，于是静默失效。所以改成：
+		 *    按下时同时挂 window 的 move/up/cancel，松手立刻摘掉。
+		 *
+		 * ② **坐标换算要用 viewBox 的真实缩放比。**
+		 *    SVG 是 preserveAspectRatio 等比缩放的，box.width/box.height 与 viewBox
+		 *    的宽高比不一定一致（容器偏矮时左右会留白），
+		 *    用 width 与 height 各算一个比例就会拖歪。这里统一取较小的那个。 */
 		function enableDrag(g, id, center, centers) {
 			var dragging = false, startX = 0, startY = 0, origX = 0, origY = 0, moved = false;
-			function pt(ev) {
+			var pid = null;
+			/* 拖动后浏览器还会补发一个 click：用一个短窗口把它吞掉。
+			 * 不能只看 moved —— 松手时已经把 moved 清掉了。 */
+			var swallowClickUntil = 0;
+
+			function toLocal(ev) {
 				var box = svg.getBoundingClientRect();
-				var sx = W / box.width, sy = H / box.height;
-				var src = ev.touches && ev.touches[0] ? ev.touches[0] : ev;
-				return { x: (src.clientX - box.left) * sx, y: (src.clientY - box.top) * sy };
+				if (!box.width || !box.height) { return { x: center.x, y: center.y }; }
+				/* 等比缩放：取较小比例才是真实 1 单位 = 多少 px */
+				var s = Math.min(box.width / W, box.height / H);
+				var src = (ev.touches && ev.touches[0]) ? ev.touches[0] : ev;
+				/* 内容居中：把两侧留白减掉 */
+				var padX = (box.width - W * s) / 2;
+				var padY = (box.height - H * s) / 2;
+				return {
+					x: (src.clientX - box.left - padX) / s,
+					y: (src.clientY - box.top - padY) / s
+				};
 			}
-			g.addEventListener("pointerdown", function (ev) {
-				stopAnim();          /* 手动拖动优先，先终止进行中的自动动画 */
-				dragging = true; moved = false;
-				var p = pt(ev);
-				startX = p.x; startY = p.y;
-				origX = center.x; origY = center.y;
-				/* 合成事件可能没有活跃指针，捕获失败不影响拖动本身 */
-				try { g.setPointerCapture && g.setPointerCapture(ev.pointerId); } catch (e) {}
-			});
-			g.addEventListener("pointermove", function (ev) {
+
+			function onMove(ev) {
 				if (!dragging) { return; }
-				var p = pt(ev);
+				if (pid != null && ev.pointerId != null && ev.pointerId !== pid) { return; }
+				var p = toLocal(ev);
 				var dx = p.x - startX, dy = p.y - startY;
-				if (Math.abs(dx) > 3 || Math.abs(dy) > 3) { moved = true; }
+				if (!moved && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+					moved = true;
+					g.classList.add("dragging");
+				}
 				if (!moved) { return; }
+				ev.preventDefault();
 				var nx = Math.max(R + 4, Math.min(W - R - 4, origX + dx));
-				var ny = Math.max(R + 4, Math.min(H - R - 4, origY + dy));
-				/* 只改内存里的位置，拖动过程中不写 localStorage（60fps 下会明显卡） */
+				var ny = Math.max(R + 4, Math.min(H - R - 4, origY + dy));				/* 只改内存里的位置，拖动过程中不写 localStorage（60fps 下会明显卡） */
 				pos[id] = [Math.round(nx), Math.round(ny)];
 				delete disp[id];
 				var c2 = centers[id];
 				c2.x = nx; c2.y = ny;
 				render();
-			});
-			g.addEventListener("pointerup", function (ev) {
-				if (dragging && moved) {
+			}
+
+			function onUp(ev) {
+				if (!dragging) { return; }
+				if (pid != null && ev && ev.pointerId != null && ev.pointerId !== pid) { return; }
+				var wasMoved = moved;
+				dragging = false; moved = false; pid = null;
+				g.classList.remove("dragging");
+				window.removeEventListener("pointermove", onMove, true);
+				window.removeEventListener("pointerup", onUp, true);
+				window.removeEventListener("pointercancel", onUp, true);
+				if (wasMoved) {
 					savePos(pos);          /* 松手时落盘一次即可 */
-					/* 拖动结束时不要再触发 click 的选中切换 */
-					ev.preventDefault();
-					ev.stopPropagation();
+					swallowClickUntil = performance.now() + 400;
+					/* 拖动之后不要再触发 click 的选中切换 */
+					if (ev) { ev.preventDefault(); ev.stopPropagation(); }
 				}
-				dragging = false;
+			}
+
+			g.addEventListener("pointerdown", function (ev) {
+				if (ev.button != null && ev.button !== 0) { return; }
+				stopAnim();          /* 手动拖动优先，先终止进行中的自动动画 */
+				dragging = true; moved = false;
+				pid = ev.pointerId;
+				var p = toLocal(ev);
+				startX = p.x; startY = p.y;
+				origX = center.x; origY = center.y;
+				/* 能捕获就捕获（真实指针下最稳），捕获不到也不影响 ——
+				 * window 上的监听才是主通道。 */
+				try { g.setPointerCapture && g.setPointerCapture(ev.pointerId); } catch (e) {}
+				window.addEventListener("pointermove", onMove, true);
+				window.addEventListener("pointerup", onUp, true);
+				window.addEventListener("pointercancel", onUp, true);
+				ev.preventDefault();
 			});
-			g.addEventListener("click", function (ev) { if (moved) { ev.stopPropagation(); } }, true);
+
+			/* 拖动之后紧跟的 click 要吞掉，否则一拖就顺手选中了节点 */
+			g.addEventListener("click", function (ev) {
+				if (performance.now() < swallowClickUntil) {
+					ev.stopPropagation(); ev.preventDefault();
+				}
+			}, true);
 		}
 
 		/* ---------- 初始化 ---------- */
@@ -557,11 +861,42 @@
 
 		render();
 
+		/* 窗口尺寸变了 → 缩放比变了 → 图内字号/半径要重新补偿。
+		 * 用 ResizeObserver 盯住 svg 本身（比 window.resize 准：容器宽度也会被别的
+		 * 布局变化带动，比如侧栏折行），再过一帧重绘，避免 resize 期间狂算。 */
+		var refitRaf = 0;
+		function scheduleRedraw() {
+			if (refitRaf) { cancelAnimationFrame(refitRaf); }
+			refitRaf = requestAnimationFrame(function () {
+				refitRaf = 0;
+				render();
+			});
+		}
+		var ro = null;
+		if (typeof ResizeObserver !== "undefined") {
+			var lastW = 0;
+			ro = new ResizeObserver(function (entries) {
+				var w = Math.round(entries[0].contentRect.width);
+				if (Math.abs(w - lastW) < 2) { return; }   /* 亚像素抖动不算 */
+				lastW = w;
+				scheduleRedraw();
+			});
+			ro.observe(svg);
+		} else {
+			window.addEventListener("resize", scheduleRedraw);
+		}
+
 		return {
 			setPath: setPath,
 			path: orderedPath,
 			selected: function () { return selected.slice(); },
 			clear: function () { selected = []; emit(); },
+			destroy: function () {
+				if (ro) { ro.disconnect(); }
+				else { window.removeEventListener("resize", scheduleRedraw); }
+				if (refitRaf) { cancelAnimationFrame(refitRaf); }
+				stopAnim();
+			},
 			resetLayout: function () {
 				try { localStorage.removeItem(POS_KEY); } catch (e) {}
 				pos = {};
@@ -576,7 +911,12 @@
 			isAnimating: function () { return !!anim; },
 			render: render,
 			EDGES: EDGES,
-			hasEdge: hasEdge
+			hasEdge: hasEdge,
+			/* 「新加这个节点最该插到第几位」。返回 -1 表示图上找不到自然位置，
+			 * 调用方就按点击顺序留在末尾。**不改路径、不改点击顺序语义** ——
+			 * 只是把「这一段里补一步」的常见意图算出来，交给调用方决定。 */
+			insertIndexFor: insertIndexFor,
+			edgeSteps: edgeSteps
 		};
 	}
 
@@ -584,6 +924,8 @@
 		create: create,
 		EDGES: EDGES,
 		hasEdge: hasEdge,
+		/* 有向：这个方向做得到吗（路径合法性用这个，别用 hasEdge） */
+		canStep: canStep,
 		LANES: LANES,
 		POS_KEY: POS_KEY,
 		W: W, H: H, R: R

@@ -1,0 +1,258 @@
+name: Changelog → Issue 联动
+
+# 在 changelog.md 的条目里写 `Done #12` 这类反引号关键字，push 后自动处理对应 Issue：
+#
+#   `Done #N`      关闭（已完成）  + 在 Issue 评论条目
+#   `Partial #N`   只评论（部分完成）
+#   `Refs #N`      只评论（引用）
+#   `Wontfix #N`   关闭（不计划处理）+ 评论
+#   `Reopen #N`    重新打开        + 评论
+#   `Duplicate #N` 关闭（重复）    + 评论
+#   `Invalid #N`   关闭（不计划处理）+ 评论
+#
+# 只扫描「本次 push 新增的行」——用 git diff 对比 push 前后的提交范围，
+# 已发布的历史块不会被重复执行。
+#
+# 同一条目写多个关键字：按旧块→新块、块内从上到下依次执行，后者覆盖前者
+#（例如 `Reopen #19` 与 `Done #19` 同时存在，最终是关闭）。
+#
+# 评论正文用条目的分类标签 + 原文，例如「[Fixed] 修复了…」。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - changelog.md
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        description: '基线提交（留空则与父提交比较）'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 解析新增条目并处理 Issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { execSync } = require('child_process');
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+
+            // ---------- 取本次新增的 changelog 行 ----------
+            function sh(cmd) {
+              return execSync(cmd, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+            }
+
+            let base = '';
+            if (context.eventName === 'workflow_dispatch') {
+              base = String((context.payload.inputs && context.payload.inputs.base_sha) || '').trim();
+              if (!base) {
+                try { base = sh('git rev-parse HEAD^').trim(); } catch (e) { base = ''; }
+              }
+            } else {
+              base = String(context.payload.before || '').trim();
+              // 首次 push / before 全零，退回与父提交比较
+              if (!base || /^0+$/.test(base)) {
+                try { base = sh('git rev-parse HEAD^').trim(); } catch (e) { base = ''; }
+              }
+            }
+
+            let added = '';
+            if (base) {
+              const range = `${base}..HEAD`;
+              try {
+                // 只看新增行，并带行号（-U0 让 hunk 头给出新文件里的行号）
+                added = sh(`git diff -U0 --no-color "${range}" -- changelog.md`);
+              } catch (e) {
+                core.warning(`git diff 失败，回退为读取整个文件：${e.message}`);
+                added = '';
+              }
+            } else {
+              core.warning('拿不到基线提交，回退为读取整个 changelog.md（可能重复处理历史条目）。');
+            }
+
+            // 从 diff 中取出「新增到新文件」的行：以 + 开头但不是 +++
+            // 同时记住每段新增行的起始行号，用于定位它所属的版本块与分类。
+            const addedLines = [];   // { lineNo, text }
+            if (added) {
+              let curNew = 0;
+              for (const raw of added.split('\n')) {
+                const hunk = raw.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/);
+                if (hunk) { curNew = Number(hunk[1]); continue; }
+                if (raw.startsWith('+++') || raw.startsWith('---')) continue;
+                if (raw.startsWith('+')) {
+                  addedLines.push({ lineNo: curNew, text: raw.slice(1) });
+                  curNew += 1;
+                } else if (raw.startsWith(' ')) {
+                  curNew += 1;
+                }
+              }
+            }
+
+            // 全域兜底模式：没有 diff 就整文件当新增
+            const fileLines = fs.readFileSync('changelog.md', 'utf8').split(/\r?\n/);
+            const targets = addedLines.length
+              ? addedLines
+              : fileLines.map((t, i) => ({ lineNo: i + 1, text: t }));
+
+            if (!targets.length) {
+              core.info('本次 push 没有新增 changelog 行，结束。');
+              return;
+            }
+
+            // 给每条新增行补上「所属版本块起始行 + 所属分类」
+            // 关键字形如 `Done #12`（保留反引号）；每条扫描用独立正则，避免 lastIndex 互相干扰
+            const KW_SRC = '`(Done|Partial|Refs|Wontfix|Reopen|Duplicate|Invalid)\\s+#(\\d+)`';
+
+            function contextForLine(lineNo) {
+              let version = '';
+              let versionStart = 0;
+              let category = '';
+              for (let i = Math.min(lineNo - 1, fileLines.length - 1); i >= 0; i--) {
+                const l = fileLines[i];
+                if (!category) {
+                  const c = l.match(/^####\s+(.+)$/);
+                  if (c) category = c[1].trim();
+                }
+                const v = l.match(/^##\s+\[?([^\]\s]+)\]?/);
+                if (v) { version = v[1]; versionStart = i + 1; break; }
+              }
+              return { version, versionStart, category };
+            }
+
+            // 收集所有关键字命中
+            const hits = [];
+            for (const t of targets) {
+              const ctx = contextForLine(t.lineNo);
+              // 每条用一个全新的正则，避免 lastIndex 被别的操作打乱
+              const scan = new RegExp(KW_SRC, 'gi');
+              let m;
+              while ((m = scan.exec(t.text)) !== null) {
+                const clean = t.text
+                  .replace(/^\s*-\s*/, '')
+                  .replace(new RegExp(KW_SRC, 'gi'), '')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+                hits.push({
+                  keyword: m[1].toLowerCase(),
+                  issue: Number(m[2]),
+                  lineNo: t.lineNo,
+                  version: ctx.version,
+                  versionStart: ctx.versionStart,
+                  category: ctx.category,
+                  entry: clean,
+                });
+              }
+            }
+
+            if (!hits.length) {
+              core.info('新增行里没有关键字，结束。');
+              return;
+            }
+
+            // 执行顺序：旧块→新块（块起始行号大的先执行），同块内从上到下（行号小的先）
+            hits.sort((a, b) => {
+              if (a.versionStart !== b.versionStart) return b.versionStart - a.versionStart;
+              if (a.lineNo !== b.lineNo) return a.lineNo - b.lineNo;
+              return 0;
+            });
+
+            // ---------- 逐个执行 ----------
+            async function issueNodeId(num) {
+              const res = await github.graphql(
+                `query($o:String!,$r:String!,$n:Int){
+                   repository(owner:$o,name:$r){ issue(number:$n){ id number state stateReason title } }
+                 }`,
+                { o: owner, r: repo, n: num }
+              );
+              return res && res.repository ? res.repository.issue : null;
+            }
+
+            async function comment(num, body) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: num, body });
+            }
+
+            async function setClosed(num, reason) {
+              const node = await issueNodeId(num);
+              if (!node) { core.warning(`Issue #${num} 不存在，跳过。`); return false; }
+              if (node.state === 'CLOSED' && node.stateReason === reason) {
+                core.info(`Issue #${num} 已是 ${reason}，不重复关闭。`);
+                return true;
+              }
+              await github.graphql(
+                `mutation($id:ID!,$reason:IssueClosedStateReason!){
+                   closeIssue(input:{issueId:$id,stateReason:$reason}){ issue{ number state stateReason } }
+                 }`,
+                { id: node.id, reason }
+              );
+              core.info(`Issue #${num} 已关闭（${reason}）。`);
+              return true;
+            }
+
+            async function setOpen(num) {
+              const node = await issueNodeId(num);
+              if (!node) { core.warning(`Issue #${num} 不存在，跳过。`); return false; }
+              if (node.state === 'OPEN') {
+                core.info(`Issue #${num} 已是打开状态。`);
+                return true;
+              }
+              await github.graphql(
+                `mutation($id:ID!){ reopenIssue(input:{issueId:$id}){ issue{ number state } } }`,
+                { id: node.id }
+              );
+              core.info(`Issue #${num} 已重新打开。`);
+              return true;
+            }
+
+            const REASON = {
+              done: 'COMPLETED',
+              wontfix: 'NOT_PLANNED',
+              invalid: 'NOT_PLANNED',
+              duplicate: 'DUPLICATE',
+            };
+
+            let applied = 0;
+            for (const h of hits) {
+              // 评论标题形如 [Fixed in `21.12.2712`]；没有分类或版本时退化
+              const cat = h.category || '';
+              let label;
+              if (cat && h.version) label = `[${cat} in \`${h.version}\`] `;
+              else if (cat) label = `[${cat}] `;
+              else if (h.version) label = `[\`${h.version}\`] `;
+              else label = '';
+              const body = `${label}${h.entry}`;
+
+              try {
+                if (h.keyword === 'reopen') {
+                  await setOpen(h.issue);
+                  await comment(h.issue, body);
+                  applied += 1;
+                } else if (h.keyword === 'partial' || h.keyword === 'refs') {
+                  await comment(h.issue, body);
+                  applied += 1;
+                } else if (REASON[h.keyword]) {
+                  await setClosed(h.issue, REASON[h.keyword]);
+                  await comment(h.issue, body);
+                  applied += 1;
+                } else {
+                  core.warning(`未知关键字 ${h.keyword}，跳过。`);
+                }
+              } catch (e) {
+                core.warning(`处理 \`${h.keyword} #${h.issue}\` 失败：${e.message}`);
+              }
+            }
+            core.info(`共处理 ${applied} 个关键字。`);
