@@ -478,27 +478,45 @@
 	}
 
 	/**
+	 * 按**当前上下文**算出「来源页面」，不读任何历史存储。
+	 *
+	 * 优先级：
+	 *   ① URL 上的 ?from=（nav 图标在每一页就地拼好，最准）
+	 *   ② document.referrer（同源、且不是反馈页自己）
+	 *   ③ 兜底：浏览广场时点的「新建」⇒ /feedback/
+	 *
+	 * ⚠️ 这里**绝不**去看 localStorage 里存过的旧值。半小时内先在
+	 * /Cube/Formula/ 点过反馈、再回广场点「新建」，读旧值就会把
+	 * /Cube/Formula/ 又吐出来 —— 那正是「保留上次结果」。
+	 */
+	function currentFrom() {
+		var from = "";
+		try {
+			from = normalizeFrom(new URLSearchParams(window.location.search).get("from"));
+		} catch (e) {}
+		if (from) return from;
+		var ref = document.referrer || "";
+		if (ref) {
+			try {
+				var u = new URL(ref);
+				if (u.origin === window.location.origin && !isFeedbackPath(u.pathname)) {
+					from = normalizeFrom(u.pathname);
+				}
+			} catch (e) {}
+		}
+		if (from) return from;
+		// 直接打开 /feedback/ 点「新建」：来源就是广场本身
+		return isFeedbackPath(window.location.pathname) ? "/feedback/" : "";
+	}
+
+	/**
 	 * 记录来源页面。两个来源：
 	 *   ① URL 上的 ?from=（nav 图标在每一页就地拼好，最准）
 	 *   ② document.referrer（直接粘链接、或旧页面进来的兜底）
 	 * 拿到就存进 localStorage：草稿还没写完时刷新/换标签也不会丢。
 	 */
 	function captureFrom() {
-		var from = "";
-		try {
-			from = normalizeFrom(new URLSearchParams(window.location.search).get("from"));
-		} catch (e) {}
-		if (!from) {
-			var ref = document.referrer || "";
-			if (ref) {
-				try {
-					var u = new URL(ref);
-					if (u.origin === window.location.origin && !isFeedbackPath(u.pathname)) {
-						from = normalizeFrom(u.pathname);
-					}
-				} catch (e) {}
-			}
-		}
+		var from = currentFrom();
 		if (!from) return "";
 		try { localStorage.setItem(FROM_KEY, JSON.stringify({ from: from, at: Date.now() })); } catch (e) {}
 		return from;
@@ -517,13 +535,21 @@
 	}
 
 	/**
-	 * 把来源写进「来源页面」输入框。只填空值 —— 用户自己改过的、或草稿里存着的，
-	 * 一律不覆盖（否则他填完又被自动值盖掉，等于白填）。
+	 * 把来源写进「来源页面」输入框。
+	 *
+	 * `force = true`（打开新建对话框时用）：**无条件覆盖** —— 先清空再写当前算出来的值，
+	 *   这样上一次留下的路径不会赖在框里。
+	 * `force = false`（启动时用）：只在空值时才填，不覆盖任何已有内容。
 	 */
-	function applyFrom(value) {
-		var from = normalizeFrom(value) || storedFrom();
-		if (!from || !els.page) return "";
-		if (!els.page.value.trim()) els.page.value = from;
+	function applyFrom(value, force) {
+		if (!els.page) return "";
+		var from = normalizeFrom(value) || (force ? currentFrom() : storedFrom());
+		if (force && !from) {
+			els.page.value = "";
+			return "";
+		}
+		if (!from) return "";
+		if (force || !els.page.value.trim()) els.page.value = from;
 		var hint = $("fbPageHint");
 		if (hint) hint.textContent = "已自动填入进入反馈页前所在的页面，可改。「/feedback/」表示浏览广场时点的反馈。";
 		return from;
@@ -979,20 +1005,29 @@
 	function openModal(focusBody) {
 		if (!els.overlay) return;
 		modalOpen = true;
-		// 打开始终是空白表单：上次的内容留在 localStorage 当历史，
-		// 只有点「恢复上次内容」才灌回来（不自动填）。
+		// 打开始终是空白表单：每个字段都不保留上次的值（含来源页面），
+		// 来源页面按**当前**上下文重新算一遍，不沿用之前的任何结果。
+		// 只有点「恢复上次内容」才把历史灌回来。
 		// 清空期间暂停写盘，免得把正在清空的空值当成新草稿存回去。
 		restoring = true;
 		try {
 			if (els.title) els.title.value = "";
 			if (els.body) els.body.value = "";
 			if (els.contact) els.contact.value = "";
-			// 来源页面由 applyFrom / 「新建」入口自动填，这里不碰；
-			// 只把类型复位到默认，避免带上次的选项
+			if (els.page) els.page.value = "";
+			// 类型复位到默认，避免带上次的选项
 			setType("bug");
 		} finally {
 			restoring = false;
 		}
+		// 来源页面：按当前页重新计算并强制写入（force=true 会覆盖，不吃旧值）
+		applyFrom(currentFrom(), true);
+		// 状态栏也要清干净：上次「已恢复上次的内容」/「提交失败」之类的提示
+		// 不能跟着进新一次的表单，否则看着像这次操作的结果。
+		setStatus("");
+		// 按钮可见性按「此刻」的草稿重新判定 —— 草稿可能在 boot 之后才产生
+		// （用户写着写着就有了），不刷新就会一直停留在启动时的 hidden 状态。
+		refreshRestoreBtn();
 		els.overlay.classList.add("isVisible");
 		updateTypeHint();
 		if (focusBody !== false) {
@@ -1296,8 +1331,7 @@
 		// 新建
 		if (els.newBtn) {
 			els.newBtn.addEventListener("click", function () {
-				// 在广场上点「新建」：来源页面就是广场本身（浏览器返回也回到这儿）
-				if (els.page && !els.page.value.trim()) els.page.value = "/feedback/";
+				// 来源页面交给 openModal 按当前上下文统一算，这里不再自己填
 				openModal(true);
 			});
 		}
