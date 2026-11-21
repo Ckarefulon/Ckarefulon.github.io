@@ -174,7 +174,7 @@ jobs:
             // ---------- 逐个执行 ----------
             async function issueNodeId(num) {
               const res = await github.graphql(
-                `query($o:String!,$r:String!,$n:Int){
+                `query($o:String!,$r:String!,$n:Int!){
                    repository(owner:$o,name:$r){ issue(number:$n){ id number state stateReason title } }
                  }`,
                 { o: owner, r: repo, n: num }
