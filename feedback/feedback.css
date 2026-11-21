@@ -326,20 +326,19 @@
 .fbModalHead {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: 12px;
+	gap: 10px;
 	margin-bottom: 16px;
 }
 
-.fbModalHeadActions {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	flex: none;
+.fbModalTitle {
+	font-size: var(--dsk-text-lg);
+	font-weight: 600;
+	color: var(--dsk-foreground);
 }
 
-/* 上次内容不再自动填进来（#20），点这个按钮才恢复 */
+/* 「恢复上次内容」紧跟标题、居左；关闭键靠右 */
 .fbRestoreBtn {
+	margin-right: auto;
 	padding: 4px 10px;
 	border: 1px solid var(--dsk-border);
 	border-radius: var(--dsk-radius-full);
@@ -361,12 +360,6 @@
 
 .fbRestoreBtn[hidden] {
 	display: none;
-}
-
-.fbModalTitle {
-	font-size: var(--dsk-text-lg);
-	font-weight: 600;
-	color: var(--dsk-foreground);
 }
 
 .fbModalClose {

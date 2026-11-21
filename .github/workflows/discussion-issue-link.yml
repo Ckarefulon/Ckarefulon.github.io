@@ -60,6 +60,7 @@ jobs:
                      discussion(number:$n){
                        id
                        title
+                       closed
                        comments(first:100,after:$after){
                          nodes { body }
                          pageInfo { hasNextPage endCursor }
@@ -93,7 +94,90 @@ jobs:
                 bodies.push(...c.nodes.map(x => String(x.body || '')));
                 info = c.pageInfo;
               }
-              return { id: d.id, title: d.title, bodies };
+              return { id: d.id, title: d.title, closed: !!d.closed, bodies };
+            }
+
+            // 关闭 Discussion。原因映射：Issue 已完成 → RESOLVED；
+            // 不计划处理 → OUTDATED。已经是关闭状态就跳过。
+            //
+            // 关键保护：一条 Discussion 可能被多个 Issue 引用（例如 #5 同时被 #17、#18 引用）。
+            // 只有当引用它的 Issue「全部已关闭」时才关讨论；还有任一 OPEN 就留着。
+            // 关闭原因映射（与 Issue 侧一致）：
+            //   completed → RESOLVED（已完成）
+            //   not_planned → OUTDATED（不计划处理）
+            //   duplicate → DUPLICATE（重复）
+            const CLOSE_REASON = {
+              completed: 'RESOLVED',
+              not_planned: 'OUTDATED',
+              duplicate: 'DUPLICATE',
+            };
+
+            // 用 GitHub 搜索反查「正文里引用了 Discussion #N 的 Issue」
+            async function issuesReferencing(num) {
+              const q = `repo:${owner}/${repo} "Discussion #${num}" in:body`;
+              try {
+                const res = await github.rest.search.issuesAndPullRequests({ q, per_page: 100 });
+                return (res.data.items || [])
+                  .filter(it => !it.pull_request)
+                  .map(it => ({ number: it.number, state: String(it.state || '').toLowerCase() }));
+              } catch (e) {
+                core.warning(`反查 Discussion #${num} 的引用失败：${e.message}`);
+                return null;   // null = 查不清，保守起见不关
+              }
+            }
+
+            async function closeDiscussion(d, num, issueReason) {
+              const reason = CLOSE_REASON[issueReason] || 'RESOLVED';
+              if (d.closed) {
+                core.info(`Discussion #${num} 已是关闭状态，跳过。`);
+                return false;
+              }
+
+              // 还有别的 Issue 引用且未关闭 → 不能关
+              const refs = await issuesReferencing(num);
+              if (refs === null) {
+                core.info(`Discussion #${num} 引用关系查不清，保守跳过关闭。`);
+                return false;
+              }
+              const stillOpen = refs.filter(r => r.state !== 'closed');
+              if (stillOpen.length > 0) {
+                core.info(`Discussion #${num} 仍被未关闭的 Issue 引用（`
+                  + stillOpen.map(r => '#' + r.number).join(', ') + '），不关闭。');
+                return false;
+              }
+
+              try {
+                await github.graphql(
+                  `mutation($id:ID!,$reason:DiscussionCloseReason!){
+                     closeDiscussion(input:{discussionId:$id,reason:$reason}){ discussion{ id closed } }
+                   }`,
+                  { id: d.id, reason }
+                );
+                core.info(`Discussion #${num} 已关闭（${reason}）。`);
+                return true;
+              } catch (e) {
+                core.warning(`Discussion #${num} 关闭失败：${e.message}`);
+                return false;
+              }
+            }
+
+            // 重新打开 Discussion（Issue 被重开时用，两边状态保持一致）
+            async function reopenDiscussion(d, num) {
+              if (!d.closed) {
+                core.info(`Discussion #${num} 本来就是打开的，跳过。`);
+                return false;
+              }
+              try {
+                await github.graphql(
+                  `mutation($id:ID!){ reopenDiscussion(input:{discussionId:$id}){ discussion{ id closed } } }`,
+                  { id: d.id }
+                );
+                core.info(`Discussion #${num} 已重新打开。`);
+                return true;
+              } catch (e) {
+                core.warning(`Discussion #${num} 重开失败：${e.message}`);
+                return false;
+              }
             }
 
             // 留言；同一 Issue+Discussion+类别 只留一次
@@ -146,12 +230,31 @@ jobs:
                   const reason = issue.state_reason || '';
                   const what = reason === 'completed' ? '已完成'
                     : reason === 'not_planned' ? '已关闭（不计划处理）'
+                    : reason === 'duplicate' ? '已关闭（重复）'
                     : '已关闭';
                   ok = await commentOnDiscussion(issue, num, `closed-${reason}`, () =>
                     `${what}，详见 Issue #${issue.number}：${title}\n\n${url}`);
+                  // Issue 关闭后，Discussion 也一并关闭（三种原因都映射）：
+                  // completed → RESOLVED；not_planned → OUTDATED；duplicate → DUPLICATE。
+                  // 但若还有别的未关闭 Issue 引用它，则保留（见 closeDiscussion）。
+                  if (['completed', 'not_planned', 'duplicate'].includes(reason)) {
+                    try {
+                      const d = await loadDiscussion(num);
+                      if (d) await closeDiscussion(d, num, reason);
+                    } catch (e) {
+                      core.warning(`Discussion #${num} 关闭流程失败：${e.message}`);
+                    }
+                  }
                 } else if (action === 'reopened') {
                   ok = await commentOnDiscussion(issue, num, 'reopened', () =>
                     `Issue #${issue.number} 已重新打开：${title}\n\n${url}`);
+                  // Issue 重开 → Discussion 也跟着重开，两边状态保持一致
+                  try {
+                    const d = await loadDiscussion(num);
+                    if (d) await reopenDiscussion(d, num);
+                  } catch (e) {
+                    core.warning(`Discussion #${num} 重开流程失败：${e.message}`);
+                  }
                 }
                 if (ok) posted += 1;
               }

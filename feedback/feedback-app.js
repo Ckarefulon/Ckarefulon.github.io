@@ -305,10 +305,9 @@
 	}
 
 	/**
-	 * 草稿只在「表格已经开始被用户操作」之后才写。
+	 * 草稿只在「表单已经开始被用户操作」之后才写。
 	 * 启动时 setType() 会走一次 saveDraft，那时表单还是空的，
-	 * 放行就会把上一次的历史直接抹掉（#20 之后尤其明显：不再自动回填，
-	 * 也就没人把它写回来）。所以启动完成前一律不写盘。
+	 * 放行就会把上一次的历史直接抹掉。所以启动完成前一律不写盘。
 	 */
 	var draftReady = false;
 	/** 正在往表单里灌历史内容：这期间 setType() 引起的 saveDraft() 必须跳过 */
@@ -342,8 +341,8 @@
 	}
 
 	/**
-	 * 把上次的内容恢复进表单。**只在用户点按钮时调用** ——
-	 * 打开新建对话框不再自动填入（见 issue #20），但内容一直留着。
+	 * 把上次的内容恢复进表单。**只在用户点「恢复上次内容」时调用** ——
+	 * 打开新建对话框始终是空白的（见 issue #20），内容一直留着。
 	 */
 	function restoreDraft() {
 		var d = readDraft();
@@ -361,11 +360,10 @@
 		} finally {
 			restoring = false;
 		}
-		refreshRestoreBtn();
 		return true;
 	}
 
-	/** 标题旁的「恢复上次内容」：有历史才显示，没历史就藏起来 */
+	/** 「恢复上次内容」：有历史才显示，没历史就藏起来 */
 	function refreshRestoreBtn() {
 		if (!els.restoreBtn) return;
 		els.restoreBtn.hidden = !readDraft();
@@ -981,6 +979,20 @@
 	function openModal(focusBody) {
 		if (!els.overlay) return;
 		modalOpen = true;
+		// 打开始终是空白表单：上次的内容留在 localStorage 当历史，
+		// 只有点「恢复上次内容」才灌回来（不自动填）。
+		// 清空期间暂停写盘，免得把正在清空的空值当成新草稿存回去。
+		restoring = true;
+		try {
+			if (els.title) els.title.value = "";
+			if (els.body) els.body.value = "";
+			if (els.contact) els.contact.value = "";
+			// 来源页面由 applyFrom / 「新建」入口自动填，这里不碰；
+			// 只把类型复位到默认，避免带上次的选项
+			setType("bug");
+		} finally {
+			restoring = false;
+		}
 		els.overlay.classList.add("isVisible");
 		updateTypeHint();
 		if (focusBody !== false) {
@@ -1298,7 +1310,7 @@
 					return;
 				}
 				setStatus("已恢复上次的内容", "Success");
-				// 恢复完焦点落在正文，方便继续写
+				// 恢复完焦点落在正文，方便接着写
 				try { (els.body || els.title).focus({ preventScroll: true }); } catch (e) {}
 			});
 		}
@@ -1337,8 +1349,8 @@
 			if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); }
 		}, true);
 
-		// 初始类型。**不再自动回填草稿**（#20）：上次写过的内容留在
-		// localStorage 里当历史，由标题旁的「恢复上次内容」按钮按需取回。
+		// 初始类型。**不自动回填草稿**（#20）：打开对话框始终空白，
+		// 上次内容由标题旁的「恢复上次内容」按钮按需取回。
 		setType(currentType);
 
 		// 来源页面：先就地捕获（?from= / referrer），再补进输入框（只填空值）
