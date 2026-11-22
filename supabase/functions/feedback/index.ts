@@ -1598,6 +1598,27 @@ Deno.serve(async (req: Request) => {
 	/* ---------- 写之一：在已有讨论下回复 ---------- */
 	const action = (url.searchParams.get("action") || raw?.action || "").trim();
 
+	/* ---------- 单张图片上传（issue #11 二轮：选完立刻传，不等提交） ---------- */
+	if (action === "upload") {
+		// 前端在正文里插入占位符后立刻调这里，拿到 URL 再把占位符换成真图。
+		// 这样「点了图就开始传」，而不用等到点提交才动。
+		const asUser = uploadToken();
+		if (!asUser) {
+			return json({
+				success: false,
+				message: "图片上传需要一个用户身份的令牌（DISCUSSIONS_TOKEN），可先把图去掉再提交",
+			}, 503);
+		}
+		try {
+			const rc = await resolveRepo(token, repo);
+			const one = await uploadImage(asUser, rc.repoId, raw || {});
+			return json({ success: true, url: one.url, name: one.name });
+		} catch (err) {
+			const message = describe(err);
+			return json({ success: false, message }, 502);
+		}
+	}
+
 	/* ---------- 帖子操作与互动（issue #33） ---------- */
 	if (action === "edit" || action === "close" || action === "reopen"
 		|| action === "delete" || action === "reaction") {

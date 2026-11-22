@@ -92,13 +92,14 @@
 	var viewer = null;         // 站内当前查看者（是否登录）
 
 	/**
-	 * 待上传的图片（issue #11）。
-	 * 只在前端内存里，不进 localStorage：base64 动辄几 MB，塞草稿会直接把存储配额打爆。
-	 * 也因此「恢复上次内容」不恢复图片 —— 这是有意的取舍，不是遗漏。
+	 * 图片（issue #11 二轮）。
+	 * 现在是「选完即传、正文里内联插入」，不再有单独的待上传列表 ——
+	 * 图片的唯一真相就是正文文本本身（占位符 → 最终 Markdown）。
+	 * base64 也不进 localStorage：动辄几 MB，塞草稿会直接把存储配额打爆。
 	 */
-	var pendingImages = [];
 	var IMAGE_MAX = 4;
 	var IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+	var UPLOAD_TIMEOUT = 60000;   // 单张图上传给足时间（大图 + 冷启动）
 	var IMAGE_MIME = { "image/png": 1, "image/jpeg": 1, "image/gif": 1, "image/webp": 1 };
 
 	function $(id) { return document.getElementById(id); }
@@ -706,7 +707,23 @@
 		readAttach();
 	}
 
-	/* ---------------- 图片附件（issue #11） ---------------- */
+	/* ---------------- 图片（issue #11 二轮：内联插入 + 选完即传） ----------------
+	 *
+	 * 用户要的是 GitHub 那种手感：
+	 *   ① 图片插在正文的**光标位置**，不是另开一个附件区
+	 *   ② 一选完立刻开始上传，正文里先放一个「正在上传」的占位
+	 *   ③ 传完把占位换成真正的 `![](url)`
+	 *
+	 * 所以这里不再维护「待上传图片列表」——唯一的真相是**正文文本**。
+	 * 每张图上传完都把它的占位符替换成最终 Markdown；正文里留下占位符
+	 * 说明还在传或传失败了，提交时会拦住（不能把占位符发出去）。
+	 */
+
+	/** 占位符用一段不会和用户内容撞车的尖括号标记，提交前必须全部换掉 */
+	var UPLOAD_TOKEN = "«上传中:";
+	function placeholderFor(id) { return UPLOAD_TOKEN + id + "»"; }
+	var uploadSeq = 0;
+	var uploadingCount = 0;
 
 	/**
 	 * 读一个 File 成 dataURL，顺便校验类型与大小。
@@ -728,73 +745,139 @@
 		});
 	}
 
-	function addImageFiles(files) {
-		var list = [];
-		for (var i = 0; i < files.length; i++) list.push(files[i]);
-		if (!list.length) return;
-		if (pendingImages.length >= IMAGE_MAX) {
-			setStatus("最多 4 张图片", "Warning");
-			return;
-		}
-		var room = IMAGE_MAX - pendingImages.length;
-		var slice = list.slice(0, room);
-		var jobs = slice.map(readImageFile);
-		Promise.all(jobs.map(function (p) {
-			// 一张坏了不该让整批失败：单独 catch，逐张报告
-			return p.then(function (img) { return img; }, function (err) { return { error: err.message }; });
-		})).then(function (results) {
-			var rejected = [];
-			for (var i = 0; i < results.length; i++) {
-				if (results[i].error) rejected.push(results[i].error);
-				else pendingImages.push(results[i]);
-			}
-			renderImages();
-			if (rejected.length) {
-				setStatus(rejected.length === results.length ? rejected[0] : (results.length - rejected.length) + " 张已添加，" + rejected[0], "Warning");
-			} else {
-				setStatus("");
-			}
-			saveDraftMeta();
+	/** 在光标处插入一段文本，并把光标放到它后面 */
+	function insertAtCursor(text) {
+		var ta = els.body;
+		if (!ta) return;
+		var start = typeof ta.selectionStart === "number" ? ta.selectionStart : ta.value.length;
+		var end = typeof ta.selectionEnd === "number" ? ta.selectionEnd : start;
+		var before = ta.value.slice(0, start);
+		var after = ta.value.slice(end);
+		// 前后补空格，避免图片和正文黏在一行里影响 Markdown 解析
+		var pad = before && !/\n$/.test(before) ? "" : "";
+		ta.value = before + pad + text + after;
+		var pos = start + pad.length + text.length;
+		try { ta.selectionStart = ta.selectionEnd = pos; } catch (e) {}
+		if (draftReady) saveDraft();
+	}
+
+	/** 把正文里某个占位符换成最终 Markdown（或整段删掉） */
+	function replacePlaceholder(ph, next) {
+		var ta = els.body;
+		if (!ta) return;
+		if (ta.value.indexOf(ph) < 0) return;   // 用户已经手动删掉了
+		ta.value = ta.value.split(ph).join(next);
+		if (draftReady) saveDraft();
+	}
+
+	/**
+	 * 把一个 File 插入正文并立刻上传。
+	 * 占位符先出现在正文里（用户马上看到「正在上传」），
+	 * 上传成功后原地换成 `![名字](url)`，失败则换成一句提示并保留可读占位。
+	 */
+	function insertImage(file) {
+		if (!file) return;
+		var ph = placeholderFor(++uploadSeq);
+		uploadingCount++;
+		insertAtCursor(ph);
+		refreshUploadHint();
+
+		readImageFile(file).then(function (img) {
+			var url = endpoint();
+			if (!url) throw new Error("站点后端未配置，无法上传图片");
+			var payload = JSON.stringify({
+				action: "upload",
+				name: img.name,
+				data: img.data
+			});
+			return postJson(url, { method: "POST", headers: headers(), body: payload, cache: "no-store" }, UPLOAD_TIMEOUT)
+				.then(function (data) {
+					if (!data || !data.success || !data.url) {
+						throw new Error((data && data.message) || "上传失败");
+					}
+					// 用服务端给的安全名字做 alt（用户原名里的方括号会打断 Markdown）
+					var alt = String(data.name || img.name || "截图").replace(/[\[\]\\]/g, "");
+					replacePlaceholder(ph, "![" + alt + "](" + data.url + ")");
+					return data;
+				});
+		}).catch(function (err) {
+			// 失败：把占位换成一句说明，同时**不留半截图片语法**，用户可以直接删掉这段
+			replacePlaceholder(ph, "（图片上传失败：" + (err.message || "未知原因") + "）");
+			setStatus(err.message || "图片上传失败", "Warning");
+		}).then(function () {
+			uploadingCount--;
+			refreshUploadHint();
 		});
 	}
 
-	function removeImage(index) {
-		pendingImages.splice(index, 1);
-		renderImages();
+	function insertImageFiles(files) {
+		var list = [];
+		for (var i = 0; i < files.length; i++) list.push(files[i]);
+		if (!list.length) return;
+		if (list.length > IMAGE_MAX) {
+			setStatus("一次最多选 " + IMAGE_MAX + " 张，多出的已忽略", "Warning");
+			list = list.slice(0, IMAGE_MAX);
+		}
+		for (var j = 0; j < list.length; j++) insertImage(list[j]);
 	}
 
+	function refreshUploadHint() {
+		var hint = els.imageHint;
+		if (!hint) return;
+		hint.textContent = uploadingCount > 0
+			? "正在上传 " + uploadingCount + " 张…（可继续写，传完会自动换成图片）"
+			: "PNG / JPEG / GIF / WebP，单张 10 MB 以内；图片插入在光标处";
+	}
+
+	/** 正文里还有没有没换掉的占位符 */
+	function pendingUploadsIn(body) {
+		var m = String(body || "").match(/«上传中:\d+»/g);
+		return m ? m.length : 0;
+	}
+
+	/** 清空（关弹窗/提交成功后调用）：把正文里的占位符也抹掉，别留下垃圾 */
 	function clearImages() {
-		pendingImages = [];
-		renderImages();
+		uploadingCount = 0;
+		refreshUploadHint();
 	}
 
-	function renderImages() {
-		var host = els.imageList;
+	/* ---------------- Markdown 预览（新建表单） ---------------- */
+
+	var previewMode = false;
+
+	/**
+	 * 「写 / 预览」切换。
+	 *
+	 * 预览用的是详情页同一个 markdownLite（marked + DOMPurify），
+	 * 所以所见即所得 —— 预览里长什么样，发出去就是什么样。
+	 * 预览时把 textarea 藏起来而不是清空，切回来内容还在。
+	 */
+	function setPreviewMode(on) {
+		previewMode = !!on;
+		if (els.bodyWrite) els.bodyWrite.hidden = previewMode;
+		if (els.bodyPreview) els.bodyPreview.hidden = !previewMode;
+		if (els.tabWrite) {
+			els.tabWrite.classList.toggle("isActive", !previewMode);
+			els.tabWrite.setAttribute("aria-selected", String(!previewMode));
+		}
+		if (els.tabPreview) {
+			els.tabPreview.classList.toggle("isActive", previewMode);
+			els.tabPreview.setAttribute("aria-selected", String(previewMode));
+		}
+		if (previewMode) renderPreview();
+	}
+
+	function renderPreview() {
+		var host = els.bodyPreview;
 		if (!host) return;
-		if (!pendingImages.length) {
-			host.hidden = true;
-			host.innerHTML = "";
-			if (els.imageHint) els.imageHint.textContent = "PNG / JPEG / GIF / WebP，单张 10 MB 以内";
+		var text = els.body ? String(els.body.value || "") : "";
+		// 占位符在预览里换成一句提示，别让人以为预览坏了
+		text = text.replace(/«上传中:(\d+)»/g, function () { return "⏳ 图片上传中…"; });
+		if (!text.trim()) {
+			host.innerHTML = '<div class="fbPreviewEmpty">还没有内容，切回「写」开始输入。</div>';
 			return;
 		}
-		host.hidden = false;
-		var html = "";
-		for (var i = 0; i < pendingImages.length; i++) {
-			var img = pendingImages[i];
-			html += '<div class="fbImageItem">'
-				+ '<img class="fbImageThumb" src="' + escapeHtml(img.data) + '" alt="' + escapeHtml(img.name) + '">'
-				+ '<button class="fbImageDel" type="button" data-image="' + i + '" title="移除这张图" aria-label="移除这张图">&times;</button>'
-				+ "</div>";
-		}
-		host.innerHTML = html;
-		if (els.imageHint) {
-			els.imageHint.textContent = pendingImages.length + " / " + IMAGE_MAX + " 张，提交时一起上传";
-		}
-	}
-
-	/** 图片只是草稿的一部分：这里只刷新「有草稿」的判断，不把 base64 写进 localStorage */
-	function saveDraftMeta() {
-		if (draftReady) saveDraft();
+		host.innerHTML = markdownLite(text);
 	}
 
 	/* ---------------- 列表 ---------------- */
@@ -1950,8 +2033,9 @@
 			if (els.page) els.page.value = "";
 			// 附带项也回到默认：每次打开都是全新表单
 			resetAttach();
-			// 图片同理：不跨表单保留
+			// 图片同理：不跨表单保留；预览模式也回到「写」
 			clearImages();
+			setPreviewMode(false);
 			// 类型复位到默认，避免带上次的选项
 			setType("bug");
 		} finally {
@@ -2090,6 +2174,14 @@
 		p.title = filled.title;
 		p.body = filled.body;
 
+		// 图片还在传（或者传失败后留了占位）时不能提交：
+		// 否则 `«上传中:3»` 这种标记会原样发到 GitHub 上，别人看到的就是一堆乱码。
+		var waiting = pendingUploadsIn(p.body);
+		if (waiting > 0) {
+			setStatus("还有 " + waiting + " 张图片没传完，稍等一下再提交", "Warning");
+			return;
+		}
+
 		var url = endpoint();
 		if (!url) {
 			setStatus("站点后端未配置，已改用 GitHub 提交", "Warning");
@@ -2112,9 +2204,8 @@
 			hp: (els.hp && els.hp.value || "").trim(),
 			// 只有勾上的项才进这个串；一项没勾就是空串，正文里不会有环境信息块
 			meta: metaLines(),
-			page: p.page || window.location.pathname || "/feedback/",
-			// 图片（issue #11）：函数会先传到 GitHub 再把链接写进正文
-			images: pendingImages.map(function (img) { return { name: img.name, data: img.data }; })
+			page: p.page || window.location.pathname || "/feedback/"
+			// 图片不再是单独字段：它已经以 `![](url)` 的形式躺在正文里了
 		});
 		var options = {
 			method: "POST",
@@ -2258,11 +2349,14 @@
 			status: $("fbStatus"),
 			submit: $("fbSubmitBtn"),
 			github: $("fbGithubBtn"),
-			// 图片附件（issue #11）
+			// 图片（issue #11 二轮）：内联上传 + Markdown 预览
 			imageInput: $("fbImages"),
 			imagePick: $("fbImagePick"),
-			imageList: $("fbImageList"),
-			imageHint: $("fbImageHint")
+			imageHint: $("fbImageHint"),
+			tabWrite: $("fbTabWrite"),
+			tabPreview: $("fbTabPreview"),
+			bodyWrite: $("fbBodyWrite"),
+			bodyPreview: $("fbBodyPreview")
 		};
 
 		// 列表项：站内打开详情（新标签打开则是真链接，方便分享）
@@ -2370,34 +2464,49 @@
 			});
 		}
 
-		// 图片附件（issue #11）
+		// 图片（issue #11 二轮）：选完即传，插在光标处
 		if (els.imagePick && els.imageInput) {
 			els.imagePick.addEventListener("click", function () { els.imageInput.click(); });
 			els.imageInput.addEventListener("change", function () {
-				if (els.imageInput.files && els.imageInput.files.length) addImageFiles(els.imageInput.files);
+				if (els.imageInput.files && els.imageInput.files.length) insertImageFiles(els.imageInput.files);
 				// 清空 value：否则连续选同一个文件不会再触发 change
 				els.imageInput.value = "";
 			});
 		}
-		if (els.imageList) {
-			els.imageList.addEventListener("click", function (e) {
-				var btn = e.target && e.target.closest ? e.target.closest("[data-image]") : null;
-				if (!btn) return;
-				removeImage(Number(btn.getAttribute("data-image")));
-			});
-		}
-		// 拖图进弹窗也能加（和 GitHub 的输入框手感一致）
-		if (els.overlay) {
-			els.overlay.addEventListener("dragover", function (e) {
-				if (!modalOpen) return;
+		// 拖图 / 粘图进正文
+		if (els.body) {
+			els.body.addEventListener("dragover", function (e) {
+				if (!e.dataTransfer) return;
 				e.preventDefault();
+				e.dataTransfer.dropEffect = "copy";
 			});
-			els.overlay.addEventListener("drop", function (e) {
-				if (!modalOpen) return;
+			els.body.addEventListener("drop", function (e) {
 				var dt = e.dataTransfer;
 				if (!dt || !dt.files || !dt.files.length) return;
 				e.preventDefault();
-				addImageFiles(dt.files);
+				insertImageFiles(dt.files);
+			});
+			els.body.addEventListener("paste", function (e) {
+				var items = (e.clipboardData && e.clipboardData.items) || [];
+				var picked = [];
+				for (var i = 0; i < items.length; i++) {
+					if (items[i].kind === "file" && /^image\//.test(items[i].type)) {
+						var f = items[i].getAsFile();
+						if (f) picked.push(f);
+					}
+				}
+				if (!picked.length) return;   // 普通文本粘贴照旧
+				e.preventDefault();
+				insertImageFiles(picked);
+			});
+		}
+		// 写 / 预览
+		if (els.tabWrite) els.tabWrite.addEventListener("click", function () { setPreviewMode(false); });
+		if (els.tabPreview) els.tabPreview.addEventListener("click", function () { setPreviewMode(true); });
+		// 正文改动时若正处在预览，实时重渲染
+		if (els.body) {
+			els.body.addEventListener("input", function () {
+				if (previewMode) renderPreview();
 			});
 		}
 

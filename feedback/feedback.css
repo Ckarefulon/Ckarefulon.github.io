@@ -1046,68 +1046,176 @@
 	margin-top: 12px;
 }
 
-/* ---------- 图片附件（issue #11） ---------- */
+/* ---------- 正文区：写 / 预览（issue #11 二轮） ---------- */
 
-.fbImageBar {
+.fbFieldHead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 6px;
+}
+
+.fbFieldHead .fbLabel {
+	margin: 0;
+}
+
+.fbBodyTabs {
+	display: inline-flex;
+	gap: 2px;
+	padding: 2px;
+	border-radius: var(--dsk-radius-full);
+	background: var(--dsk-muted);
+}
+
+.fbBodyTab {
+	padding: 3px 12px;
+	border: 0;
+	border-radius: var(--dsk-radius-full);
+	background: transparent;
+	color: var(--dsk-foreground-muted);
+	font-size: var(--dsk-text-xs);
+	font-weight: 600;
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+}
+
+.fbBodyTab:hover {
+	color: var(--dsk-foreground);
+}
+
+.fbBodyTab.isActive {
+	background: var(--dsk-background);
+	color: var(--dsk-foreground);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.fbBodyFoot {
 	display: flex;
 	align-items: center;
 	gap: 10px;
 	flex-wrap: wrap;
+	margin-top: 8px;
 }
 
-.fbImageHint {
+.fbBodyTool {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+}
+
+/* 预览面板：外观与详情页正文一致，所见即所得 */
+.fbBodyPreview {
+	min-height: 168px;
+	padding: 10px 12px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px dashed var(--dsk-border);
+	background: var(--dsk-background);
+	font-size: var(--dsk-text-sm);
+	line-height: var(--dsk-leading-relaxed);
+	color: var(--dsk-foreground);
+	word-break: break-word;
+	overflow-wrap: anywhere;
+}
+
+.fbBodyPreview img {
+	max-width: 100%;
+	height: auto;
+	border-radius: var(--dsk-radius-md);
+	margin: 6px 0;
+}
+
+.fbBodyPreview pre {
+	margin: 10px 0;
+	padding: 12px 14px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-border);
+	background: var(--dsk-muted);
+	overflow-x: auto;
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-xs);
+	line-height: 1.6;
+	white-space: pre;
+}
+
+.fbBodyPreview code {
+	font-family: var(--dsk-font-mono);
+	font-size: 0.92em;
+}
+
+.fbBodyPreview :not(pre) > code {
+	padding: 1px 5px;
+	border-radius: 4px;
+	background: var(--dsk-muted);
+}
+
+.fbBodyPreview table {
+	width: auto;
+	max-width: 100%;
+	min-width: 0;
+	margin: 10px 0;
+	border-collapse: collapse;
+	display: block;
+	overflow-x: auto;
+}
+
+.fbBodyPreview th,
+.fbBodyPreview td {
+	padding: 6px 12px;
+	border: 1px solid var(--dsk-border);
+	text-align: left;
+	font-size: var(--dsk-text-xs);
+}
+
+.fbBodyPreview th {
+	position: static;
+	background: var(--dsk-muted);
+	font-weight: 600;
+	text-transform: none;
+	letter-spacing: 0;
+	white-space: nowrap;
+}
+
+.fbBodyPreview tbody tr,
+.fbBodyPreview tbody tr:hover {
+	cursor: auto;
+	background: none;
+}
+
+.fbBodyPreview blockquote {
+	margin: 10px 0;
+	padding: 2px 0 2px 12px;
+	border-left: 3px solid var(--dsk-border);
+	color: var(--dsk-muted-foreground);
+}
+
+.fbBodyPreview ul,
+.fbBodyPreview ol {
+	margin: 0 0 10px;
+	padding-left: 22px;
+}
+
+.fbBodyPreview li:has(> input[type="checkbox"]) {
+	list-style: none;
+	margin-left: -18px;
+}
+
+.fbPreviewEmpty {
+	color: var(--dsk-foreground-subtle);
+	font-size: var(--dsk-text-xs);
+}
+
+/* 正文里的上传占位：让用户一眼看到「这张图正在传」 */
+.fbBodyFoot .fbImageHint {
 	font-size: var(--dsk-text-xs);
 	color: var(--dsk-foreground-subtle);
 }
 
-.fbImageList {
-	display: flex;
-	gap: 10px;
-	flex-wrap: wrap;
-	margin-top: 10px;
-}
+/* ---------- 图片（issue #11 二轮：内联插入，不再有独立的缩略图列表） ---------- */
 
-/* 同上：给了 display:flex 就必须自己补 [hidden]，否则空列表也会撑出一块空白 */
-.fbImageList[hidden] {
-	display: none;
-}
-
-.fbImageItem {
-	position: relative;
-	width: 84px;
-	height: 84px;
-	border-radius: var(--dsk-radius-md);
-	border: 1px solid var(--dsk-border);
-	overflow: hidden;
-	background: var(--dsk-muted);
-}
-
-.fbImageThumb {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-	display: block;
-}
-
-.fbImageDel {
-	position: absolute;
-	top: 2px;
-	right: 2px;
-	width: 20px;
-	height: 20px;
-	line-height: 18px;
-	text-align: center;
-	padding: 0;
-	border: 0;
-	border-radius: 50%;
-	background: rgba(0, 0, 0, 0.62);
-	color: #fff;
-	font-size: 14px;
-	cursor: pointer;
-}
-
-.fbImageDel:hover {
-	background: rgba(0, 0, 0, 0.82);
+.fbImageHint {
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
 }
 
 /* 来源页面单独一行放在标题下（issue #18）：这一条最值得最先看到 */

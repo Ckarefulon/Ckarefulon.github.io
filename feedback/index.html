@@ -19,7 +19,7 @@
 
 	<link rel="stylesheet" href="/ui/colors_and_type.css">
 	<link rel="stylesheet" href="/nav/nav.css?v=2475">
-	<link rel="stylesheet" href="/feedback/feedback.css?v=2768">
+	<link rel="stylesheet" href="/feedback/feedback.css?v=2769">
 
 	<script src="/nav/nav.js?v=2712" defer></script>
 	<script src="/assets/services/core/site-scope.js?v=2255" defer></script>
@@ -30,9 +30,9 @@
 	<script src="/supabase/supabase-config.js?v=1877" defer></script>
 
 	<!-- 详情页完整 Markdown（issue #32）：marked 解析 + DOMPurify 消毒，均为本地 vendor -->
-	<script src="/assets/vendor/marked/marked.min.js?v=2767" defer></script>
-	<script src="/assets/vendor/dompurify/purify.min.js?v=2767" defer></script>
-	<script src="/feedback/feedback-app.js?v=2768" defer></script>
+	<script src="/assets/vendor/marked/marked.min.js?v=2769" defer></script>
+	<script src="/assets/vendor/dompurify/purify.min.js?v=2769" defer></script>
+	<script src="/feedback/feedback-app.js?v=2769" defer></script>
 
 	<title>反馈广场 — Ckarefulon</title>
 </head>
@@ -135,24 +135,31 @@
 				<div class="fbTypeHint" id="fbTypeHint"></div>
 			</div>
 
-			<div class="fbField">
-				<label class="fbLabel" for="fbBody">内容</label>
-				<textarea class="fbBody" id="fbBody" rows="7" maxlength="8000"
-					placeholder="想说什么都可以。如果是 Bug，尽量写下你在哪一页、点了什么、看到了什么。"></textarea>
-			</div>
-
 			<!--
-				图片附件（issue #11）：交给 GitHub 自己的资源通道上传，
-				图片存在 GitHub CDN 上，和网页里拖图发出来的是同一套东西。
+				内容区（issue #11 二轮 / Markdown 预览）：
+				图片走「写」「预览」两个标签页 —— 和 GitHub 一样，
+				选完图立刻上传，正文里先出现占位，传完自动换成图片。
 			-->
 			<div class="fbField">
-				<span class="fbLabel">图片<span class="fbOptional">选填，最多 4 张</span></span>
-				<input class="fbFileInput" id="fbImages" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
-				<div class="fbImageBar">
-					<button class="siteHeaderBtn fbImagePick" id="fbImagePick" type="button">选择图片</button>
-					<span class="fbImageHint" id="fbImageHint">PNG / JPEG / GIF / WebP，单张 10 MB 以内</span>
+				<div class="fbFieldHead">
+					<label class="fbLabel" for="fbBody">内容</label>
+					<div class="fbBodyTabs" role="tablist" aria-label="内容编辑与预览">
+						<button class="fbBodyTab isActive" id="fbTabWrite" type="button" role="tab" aria-selected="true">写</button>
+						<button class="fbBodyTab" id="fbTabPreview" type="button" role="tab" aria-selected="false">预览</button>
+					</div>
 				</div>
-				<div class="fbImageList" id="fbImageList" hidden></div>
+				<div id="fbBodyWrite">
+					<textarea class="fbBody" id="fbBody" rows="7" maxlength="8000"
+						placeholder="想说什么都可以。如果是 Bug，尽量写下你在哪一页、点了什么、看到了什么。支持 Markdown。"></textarea>
+					<div class="fbBodyFoot">
+						<input class="fbFileInput" id="fbImages" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
+						<button class="fbTool fbBodyTool" id="fbImagePick" type="button" title="也可以直接把图片拖进来或粘贴进来">
+							<span aria-hidden="true">🖼</span> 添加图片
+						</button>
+						<span class="fbImageHint" id="fbImageHint">PNG / JPEG / GIF / WebP，单张 10 MB 以内；图片会插在光标处</span>
+					</div>
+				</div>
+				<div class="fbBodyPreview" id="fbBodyPreview" hidden></div>
 			</div>
 
 			<div class="fbField">
