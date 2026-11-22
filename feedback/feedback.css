@@ -111,6 +111,112 @@
 	color: var(--dsk-primary-foreground);
 }
 
+/* ---------- 状态筛选（下拉，issue #37 / #29） ---------- */
+
+.fbStatesDrop {
+	position: relative;
+	flex: none;
+}
+
+.fbStatesBtn {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 5px 11px;
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-full);
+	background: transparent;
+	color: var(--dsk-foreground-muted);
+	font-family: inherit;
+	font-size: var(--dsk-text-xs);
+	font-weight: 500;
+	cursor: pointer;
+	transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.fbStatesBtn:hover,
+.fbStatesDrop.isOpen .fbStatesBtn {
+	color: var(--dsk-foreground);
+	border-color: var(--dsk-foreground-subtle);
+}
+
+/* 有筛选条件生效（不是默认那三项）时给个标记，别让人不知道被过滤过 */
+.fbStatesBtn[data-filtered="1"] {
+	border-color: var(--dsk-primary);
+	color: var(--dsk-primary);
+	background: color-mix(in srgb, var(--dsk-primary) 10%, transparent);
+}
+
+.fbStatesCaret {
+	transition: transform 0.16s ease;
+}
+
+.fbStatesDrop.isOpen .fbStatesCaret {
+	transform: rotate(180deg);
+}
+
+.fbStatesPanel {
+	position: absolute;
+	top: calc(100% + 6px);
+	left: 0;
+	z-index: 60;
+	min-width: 132px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 8px 10px;
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-md);
+	background: var(--dsk-card);
+	box-shadow: var(--dsk-shadow-lg);
+}
+
+.fbStatesPanel[hidden] {
+	display: none;
+}
+
+/* 勾选项：状态下拉与「一并提交」共用同一套 */
+.fbStateCheck {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 2px;
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-muted);
+	cursor: pointer;
+	user-select: none;
+	white-space: nowrap;
+}
+
+.fbStateCheck:hover {
+	color: var(--dsk-foreground);
+}
+
+.fbStateCheck input {
+	width: 13px;
+	height: 13px;
+	margin: 0;
+	accent-color: var(--dsk-primary);
+	cursor: pointer;
+}
+
+.fbStateCheck input:checked + span {
+	color: var(--dsk-foreground);
+	font-weight: 500;
+}
+
+/* 「一并提交」那组：平铺在表单里，不是下拉 */
+.fbAttach {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 16px;
+	padding: 2px 0;
+}
+
+.fbAttach .fbStateCheck {
+	padding: 0;
+}
+
 /* ---------- 列表 ---------- */
 
 .fbListStatus {
@@ -155,6 +261,23 @@
 	box-shadow: var(--dsk-shadow-md);
 }
 
+/*
+ * 标签列定宽（issue #34）。
+ *
+ * 以前徽标是自由宽度：Bug 比 Feature 窄，于是每一条后面的文字起点都不一样，
+ * 一列看下来参差不齐。现在整列固定 84px，徽标在里面左对齐，
+ * 标题/摘要的左边线在每一条上都对得齐。
+ */
+.fbItemTags {
+	flex: none;
+	width: 84px;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 5px;
+	margin-top: 2px;
+}
+
 .fbItemMain {
 	flex: 1;
 	min-width: 0;
@@ -190,8 +313,11 @@
 
 /* 分类徽标：五个类型各一色（都用令牌，深浅色都能看清） */
 .fbItemBadge {
-	flex: none;
-	margin-top: 2px;
+	box-sizing: border-box;
+	max-width: 100%;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
 	padding: 3px 9px;
 	border-radius: var(--dsk-radius-full);
 	border: 1px solid transparent;
@@ -199,6 +325,75 @@
 	font-weight: 600;
 	letter-spacing: 0.02em;
 	white-space: nowrap;
+	overflow: hidden;
+}
+
+/* 图标只在窄屏出现（issue #36），桌面显示完整文字 */
+.fbBadgeIcon {
+	display: none;
+	flex: none;
+}
+
+.fbBadgeText {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ---------- 状态徽标（issue #37） ---------- */
+
+.fbStateTag {
+	box-sizing: border-box;
+	max-width: 100%;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 8px;
+	border-radius: var(--dsk-radius-full);
+	border: 1px solid transparent;
+	font-size: 11px;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+.fbStateIcon {
+	flex: none;
+}
+
+.fbState-open {
+	background: color-mix(in srgb, var(--dsk-foreground-muted) 12%, transparent);
+	border-color: color-mix(in srgb, var(--dsk-foreground-muted) 30%, transparent);
+	color: var(--dsk-foreground-muted);
+}
+
+.fbState-followed {
+	background: color-mix(in srgb, var(--dsk-info) 15%, transparent);
+	border-color: color-mix(in srgb, var(--dsk-info) 36%, transparent);
+	color: var(--dsk-info);
+}
+
+.fbState-planned {
+	background: color-mix(in srgb, var(--dsk-primary) 15%, transparent);
+	border-color: color-mix(in srgb, var(--dsk-primary) 36%, transparent);
+	color: var(--dsk-primary);
+}
+
+.fbState-complete {
+	background: color-mix(in srgb, var(--dsk-success) 16%, transparent);
+	border-color: color-mix(in srgb, var(--dsk-success) 38%, transparent);
+	color: var(--dsk-success);
+}
+
+.fbState-duplicate {
+	background: color-mix(in srgb, var(--dsk-warning) 16%, transparent);
+	border-color: color-mix(in srgb, var(--dsk-warning) 38%, transparent);
+	color: var(--dsk-warning);
+}
+
+.fbState-not_planned {
+	background: color-mix(in srgb, var(--dsk-foreground-muted) 12%, transparent);
+	border-color: color-mix(in srgb, var(--dsk-foreground-muted) 28%, transparent);
+	color: var(--dsk-foreground-subtle);
 }
 
 .fbBadge-bug {
@@ -334,11 +529,19 @@
 	font-size: var(--dsk-text-lg);
 	font-weight: 600;
 	color: var(--dsk-foreground);
+	/* 吃掉剩余空白，把关闭键顶到最右；这样「恢复上次内容」隐藏时也不会跑位 */
+	margin-right: auto;
 }
 
-/* 「恢复上次内容」紧跟标题、居左；关闭键靠右 */
+/*
+ * 「恢复上次内容」紧跟标题、居左。
+ *
+ * ⚠️ 不能靠它自己的 `margin-right: auto` 把关闭键顶到右边：
+ * 这个按钮在「没有草稿」时是 hidden（display:none），那一行就只剩标题 + 关闭键，
+ * 关闭键会被挤到标题旁边、看着像居左了。所以由标题吃掉剩余的空白，
+ * 关闭键再用 `margin-left: auto` 兜一层 —— 有没有恢复按钮都靠右。
+ */
 .fbRestoreBtn {
-	margin-right: auto;
 	padding: 4px 10px;
 	border: 1px solid var(--dsk-border);
 	border-radius: var(--dsk-radius-full);
@@ -363,6 +566,8 @@
 }
 
 .fbModalClose {
+	flex: none;
+	margin-left: auto;
 	width: 28px;
 	height: 28px;
 	border: none;
@@ -620,6 +825,23 @@
 	font-family: var(--dsk-font-mono);
 }
 
+/* 来源页面单独一行放在标题下（issue #18）：这一条最值得最先看到 */
+.fbPostFrom {
+	margin: 0 0 12px;
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+}
+
+.fbPostFrom code {
+	padding: 1px 6px;
+	border-radius: 4px;
+	background: var(--dsk-muted);
+	font-family: var(--dsk-font-mono);
+	font-size: 0.95em;
+	color: var(--dsk-foreground-muted);
+	word-break: break-all;
+}
+
 .fbPostTitle {
 	margin: 0 0 12px;
 	font-size: var(--dsk-text-xl);
@@ -751,6 +973,19 @@
 	font-size: 11px;
 	font-weight: 600;
 	color: var(--dsk-foreground-muted);
+}
+
+/* 管理员（issue #38）：维护者本人的发言，与普通用户分开 */
+.fbAuthorAdmin {
+	margin-left: 5px;
+	padding: 1px 7px;
+	border-radius: var(--dsk-radius-full);
+	border: 1px solid color-mix(in srgb, var(--dsk-primary) 40%, transparent);
+	background: color-mix(in srgb, var(--dsk-primary) 15%, transparent);
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--dsk-primary);
+	vertical-align: 1px;
 }
 
 .fbAuthorNote {
@@ -890,7 +1125,35 @@
 	.fbModalActions .siteHeaderBtn {
 		width: 100%;
 	}
-	.fbItemBadge {
+	/*
+	 * 窄屏不显示分类标签文字，只留一个小图标（issue #36）。
+	 * 完整单词在手机上会把标题挤成两三行，但一个标签都不给又分不出类型。
+	 */
+	.fbItemTags {
+		width: 26px;
+		gap: 7px;
+	}
+	.fbItemBadge,
+	.fbStateTag {
+		padding: 4px;
+		border-radius: 7px;
+		gap: 0;
+	}
+	.fbBadgeIcon,
+	.fbStateIcon {
+		display: block;
+		width: 15px;
+		height: 15px;
+	}
+	.fbBadgeText,
+	.fbStateText {
 		display: none;
+	}
+	/* 状态下拉在窄屏也跟着类型胶囊一排，别换行占两行 */
+	.fbStatesBtn {
+		padding: 5px 9px;
+	}
+	.fbStatesPanel {
+		min-width: 124px;
 	}
 }

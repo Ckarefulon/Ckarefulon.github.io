@@ -27,19 +27,68 @@
 		{ type: "others", label: "Others", github: "Other", hint: "不属于以上几类的其他内容" }
 	];
 
+	/**
+	 * 窄屏分类图标（issue #36）。桌面显示文字，窄屏只留图标 ——
+	 * 完整单词在手机上会把标题挤没，但完全不给标签又分不出类型。
+	 * 统一 24 网格、stroke 走 currentColor，颜色由各自的 fbBadge-* 决定。
+	 */
+	var TYPE_ICONS = {
+		bug: '<circle cx="12" cy="13" r="4"/><path d="M12 9V6"/><path d="M8.5 11.5 5 9.5"/><path d="M15.5 11.5 19 9.5"/><path d="M8.5 15 5 17"/><path d="M15.5 15 19 17"/>',
+		feature: '<path d="M12 4l1.7 4.8L18.5 10l-4.8 1.7L12 16.5l-1.7-4.8L5.5 10l4.8-1.2z"/>',
+		question: '<path d="M9.2 9.3a2.9 2.9 0 1 1 4.1 2.6c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.6" r="1"/>',
+		chat: '<path d="M20 15a2 2 0 0 1-2 2H9l-5 3V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/>',
+		others: '<circle cx="6.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="17.5" cy="12" r="1.2"/>'
+	};
+
+	/**
+	 * 跟进状态（issue #37 / #29）。顺序即界面上复选框的顺序。
+	 *
+	 * 判定在后端做（只有它能读到评论作者），前端只负责显示与筛选；
+	 * key 必须与 supabase/functions/feedback 里的 FollowState 一字不差。
+	 */
+	var STATES = [
+		{ key: "open", label: "已反馈", hint: "还没人跟进的原始反馈",
+			icon: '<circle cx="12" cy="12" r="7"/>' },
+		{ key: "followed", label: "已跟进", hint: "维护者已经在评论里回复过",
+			icon: '<path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.6"/>' },
+		{ key: "planned", label: "已计划", hint: "维护者已把它链接到某个 Issue",
+			icon: '<rect x="4" y="5.5" width="16" height="14" rx="2"/><path d="M8 3.5v4M16 3.5v4M8.5 14l2.5 2.5 4-4.5"/>' },
+		{ key: "complete", label: "已完成", hint: "已完成的反馈，讨论已关闭",
+			icon: '<path d="M4.5 12.5l4.5 4.5L19.5 6.5"/>' },
+		{ key: "duplicate", label: "重复", hint: "与已有讨论重复，已关闭",
+			icon: '<rect x="8.5" y="3.5" width="12" height="12" rx="2"/><path d="M15.5 15.5v3a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h3"/>' },
+		{ key: "not_planned", label: "不计划", hint: "暂不打算做，已关闭",
+			icon: '<circle cx="12" cy="12" r="7.5"/><path d="M8.5 12h7"/>' }
+	];
+
+	/** 默认只看还没了结的三种；已关闭的默认折叠起来 */
+	var DEFAULT_STATES = { open: true, followed: true, planned: true, complete: false, duplicate: false, not_planned: false };
+
+	var PAGE_SIZE_FIRST = 20;   // 首屏一次性拉 20 条
+	var PAGE_SIZE_MORE = 20;    // 之后每批也是 20 条
+	var AUTO_FILL_MAX = 4;      // 筛选后一条都没有时，最多再自动补拉几页
+
 	var els = {};
 	var currentType = "bug";
 	var currentFilter = "all";
+	var activeStates = null;    // key → 是否勾选（null 表示还没从 DOM 读）
 	var allDiscussions = [];
 	var nextCursor = null;
 	var typeMap = {};          // type → 仓库里实际分类名
 	var prewarmed = false;
 	var submitting = false;
+	/**
+	 * 每次打开弹窗 +1。提交请求可能跨越「关掉→重新打开」：
+	 * 回调回来时如果这个号变了，说明它属于上一份表单，结果和提示一律丢弃 ——
+	 * 否则「已提交，谢谢！」会写进用户刚打开的新表单里。
+	 */
+	var modalSession = 0;
 	var modalOpen = false;
 	var detailNumber = null;   // 当前打开的讨论编号（null = 列表视图）
 	var currentDetail = null;
 	var replying = false;
 	var listIdentity = null;   // 后端告诉我们当前用的是 App(bot) 还是 PAT
+	var listMaintainer = null; // 后端下发的维护者登录名（用于「管理员」标签与状态口径）
 	var viewer = null;         // 站内当前查看者（是否登录）
 
 	function $(id) { return document.getElementById(id); }
@@ -300,7 +349,8 @@
 			title: (els.title && els.title.value || "").trim(),
 			body: (els.body && els.body.value || "").trim(),
 			contact: (els.contact && els.contact.value || "").trim(),
-			page: (els.page && els.page.value || "").trim()
+			page: (els.page && els.page.value || "").trim(),
+			attach: attachSnapshot()
 		};
 	}
 
@@ -355,6 +405,8 @@
 			if (d.body && els.body) els.body.value = d.body;
 			if (d.contact && els.contact) els.contact.value = d.contact;
 			if (d.page && els.page) els.page.value = d.page;
+			// 附带项也跟着回来：上次特意取消勾选的，恢复时不该又勾上
+			applyAttach(d.attach);
 			// 最后再定类型：此时表单已有内容，setType 顺手存回去也是对的
 			if (d.type) setType(d.type);
 		} finally {
@@ -557,21 +609,91 @@
 
 	/* ---------------- 环境信息 ---------------- */
 
+	/**
+	 * 「一并提交」勾选项（issue #18）。
+	 *
+	 * 以前是全都塞进去，用户没法选 —— 有人不想暴露浏览器或屏幕，也有人觉得噪音太大。
+	 * 现在每一项独立勾选，勾上的才出现在正文的「环境信息」折叠块里。
+	 * 来源页面**不在这里**：它写在表单最上面那个框里，并且一定放在正文顶部。
+	 */
+	var ATTACH = [
+		{ key: "viewport", label: "视口与屏幕" },
+		{ key: "ua", label: "浏览器标识" },
+		{ key: "page", label: "完整页面地址" },
+		{ key: "theme", label: "当前主题" },
+		{ key: "referrer", label: "来源网址" }
+	];
+
+	var attachPicked = null;
+
+	/** 读一遍勾选状态；没渲染出来时按「全默认」处理 */
+	function readAttach() {
+		var out = {};
+		var box = els.attach;
+		if (box) {
+			var inputs = box.querySelectorAll("input[data-attach]");
+			for (var i = 0; i < inputs.length; i++) {
+				out[inputs[i].getAttribute("data-attach")] = !!inputs[i].checked;
+			}
+		} else {
+			for (var j = 0; j < ATTACH.length; j++) out[ATTACH[j].key] = true;
+		}
+		attachPicked = out;
+		return out;
+	}
+
+	/**
+	 * 按勾选拼环境信息。**一行都不勾就返回空串** ——
+	 * 后端拿到的 meta 为空时，正文里连 `环境信息` 折叠块都不会出现。
+	 */
 	function metaLines() {
+		var picked = attachPicked || readAttach();
 		var nav = window.navigator || {};
-		var from = (els.page && els.page.value || "").trim();
-		var screenSize = (window.screen && window.screen.width && window.screen.height)
-			? window.screen.width + "x" + window.screen.height : "?";
-		return [
-			"页面: " + (window.location.href || ""),
-			"来源页面: " + (from || "（未记录）"),
-			"来源: " + (document.referrer || "（直接打开）"),
-			"视口: " + (window.innerWidth || 0) + "x" + (window.innerHeight || 0)
-				+ " @dpr " + (window.devicePixelRatio || 1) + "（屏幕 " + screenSize + "）",
-			"UA: " + (nav.userAgent || "?"),
-			"语言: " + (nav.language || "?"),
-			"主题: " + (document.documentElement.dataset.theme || "light")
-		].join("\n");
+		var lines = [];
+		if (picked.page) lines.push("页面: " + (window.location.href || ""));
+		if (picked.referrer) lines.push("来源: " + (document.referrer || "（直接打开）"));
+		if (picked.viewport) {
+			var screenSize = (window.screen && window.screen.width && window.screen.height)
+				? window.screen.width + "x" + window.screen.height : "?";
+			lines.push("视口: " + (window.innerWidth || 0) + "x" + (window.innerHeight || 0)
+				+ " @dpr " + (window.devicePixelRatio || 1) + "（屏幕 " + screenSize + "）");
+		}
+		if (picked.ua) lines.push("UA: " + (nav.userAgent || "?"));
+		if (picked.ua) lines.push("语言: " + (nav.language || "?"));
+		if (picked.theme) lines.push("主题: " + (document.documentElement.dataset.theme || "light"));
+		return lines.join("\n");
+	}
+
+	/** 把当前的附带项选择记进草稿，重开页面还能记住上一次的勾法 */
+	function attachSnapshot() {
+		var picked = readAttach();
+		var out = {};
+		for (var k in picked) if (Object.prototype.hasOwnProperty.call(picked, k)) out[k] = picked[k];
+		return out;
+	}
+
+	function applyAttach(saved) {
+		if (!saved) return;
+		var box = els.attach;
+		if (!box) return;
+		var inputs = box.querySelectorAll("input[data-attach]");
+		for (var i = 0; i < inputs.length; i++) {
+			var key = inputs[i].getAttribute("data-attach");
+			if (key in saved) inputs[i].checked = !!saved[key];
+		}
+		readAttach();
+	}
+
+	/** 复位到默认勾选（打开新建弹窗时用，与「每次打开都是空白表单」一致） */
+	function resetAttach() {
+		var box = els.attach;
+		if (!box) return;
+		var inputs = box.querySelectorAll("input[data-attach]");
+		for (var i = 0; i < inputs.length; i++) {
+			var key = inputs[i].getAttribute("data-attach");
+			inputs[i].checked = key === "viewport" || key === "ua" || key === "page";
+		}
+		readAttach();
 	}
 
 	/* ---------------- 列表 ---------------- */
@@ -613,20 +735,72 @@
 		return "others";
 	}
 
-	/** 作者显示：bot 身份（站点代发）与真人分开标注，不冒用账号名 */
+	/** 状态定义；后端给了不认识的值就当「已反馈」，别把条目凭空藏掉 */
+	function stateDef(key) {
+		for (var i = 0; i < STATES.length; i++) if (STATES[i].key === key) return STATES[i];
+		return STATES[0];
+	}
+
+	/**
+	 * 讨论的跟进状态。
+	 *
+	 * 后端算好的值是唯一权威（只有它读得到评论作者）。但**后端还没升级时没有 state 字段**，
+	 * 这里不能静默当成「已反馈」—— 那正是「明明有维护者回复、还标已反馈」的成因。
+	 * 所以：
+	 *   · 有 state → 用；
+	 *   · 没有 state 但知道 closed → 至少能分出已关闭（按 complete 显示）；
+	 *   · 什么都没有 → 返回 null，调用方不画状态标签，也不让它被状态筛选误伤。
+	 */
+	function stateOf(d) {
+		if (d && typeof d.state === "string" && d.state) {
+			for (var i = 0; i < STATES.length; i++) if (STATES[i].key === d.state) return STATES[i].key;
+		}
+		if (d && typeof d.closed === "boolean") return d.closed ? "complete" : null;
+		return null;
+	}
+
+	/**
+	 * 后端到底给没给状态。整个列表一条都没有 state 字段 ⇒ 是旧的函数版本
+	 * （或者自己算不出来），这时状态筛选应当整体失效，而不是把条目全过滤掉。
+	 */
+	function statesAvailable() {
+		for (var i = 0; i < allDiscussions.length; i++) {
+			if (typeof allDiscussions[i].state === "string" && allDiscussions[i].state) return true;
+		}
+		return false;
+	}
+
+	/** 维护者登录名：后端下发，拿不到就用默认值，与函数端保持同一口径 */
+	function maintainerLogin() {
+		return listMaintainer || "Ckarefulon";
+	}
+
+	/**
+	 * 作者显示：bot（站点代发）、维护者（管理员）与真人分开标注，不冒用账号名。
+	 *
+	 * 管理员标签（issue #38）只认登录名，不认「这个人回得多」之类的推断 ——
+	 * 名字来自后端 FEEDBACK_MAINTAINER，换人不用改前端。
+	 */
 	function authorLabel(author, identity) {
 		// 列表里作者是字符串（login），详情里是 {login, avatarUrl}
 		var login = typeof author === "string" ? author : (author && author.login ? author.login : "");
 		if (!login) return "匿名";
+		var admin = isMaintainer(login)
+			? '<span class="fbAuthorAdmin" title="该站点的维护者">管理员</span>' : "";
 		// GitHub App 的 bot 账号名形如 "xxx[bot]"
 		if (/\[bot\]$/.test(login)) {
-			return '<span class="fbAuthorBot">站点代发</span>';
+			return '<span class="fbAuthorBot">站点代发</span>' + admin;
 		}
 		if (identity && identity.mode === "pat") {
 			// 用 PAT 时所有提交都挂在维护者名下 —— 标注出来，别让人以为是提交者本人
-			return escapeHtml("@" + login) + '<span class="fbAuthorNote">（维护者账号代发）</span>';
+			return escapeHtml("@" + login) + admin + '<span class="fbAuthorNote">（维护者账号代发）</span>';
 		}
-		return escapeHtml("@" + login);
+		return escapeHtml("@" + login) + admin;
+	}
+
+	/** 是不是维护者本人（大小写不敏感，GitHub 登录名本身也不区分大小写） */
+	function isMaintainer(login) {
+		return String(login || "").toLowerCase() === String(maintainerLogin()).toLowerCase();
 	}
 
 	/* ---------------- 详情视图 ---------------- */
@@ -679,6 +853,9 @@
 					return;
 				}
 				if (data.identity) listIdentity = data.identity;
+				// 详情也带维护者名：直接点开深链接（?d=3）时列表可能还没回来，
+				// 不接这一份「管理员」标签就不显示
+				if (data.maintainer) listMaintainer = String(data.maintainer);
 				currentDetail = data;
 				renderDetail(data);
 				if (typeof onDone === "function") onDone();
@@ -692,25 +869,39 @@
 		var d = data.discussion;
 		var identity = data.identity || null;
 		var type = slugToType(d.category && d.category.slug);
+		var state = stateOf(d);
+		var body = stripMeta(d.body);
+		// 来源页面已经从正文里剥出去了，单独在头部展示（issue #18）
+		var from = extractFrom(d.body);
 
 		els.detailBody.innerHTML = ''
 			+ '<article class="fbPost">'
 			+ '	<header class="fbPostHead">'
-			+ '		<span class="fbItemBadge fbBadge-' + escapeHtml(type) + '">' + escapeHtml(d.category ? d.category.name : "未分类") + "</span>"
+			+ badgeHtml(type, d.category ? d.category.name : "未分类")
+			+ stateBadgeHtml(state)
 			+ '		<span class="fbPostMeta">#' + escapeHtml(d.number) + " · " + authorLabel(d.author, identity)
 			+ " · " + escapeHtml(fmtDate(d.createdAt)) + "</span>"
 			+ "	</header>"
 			+ '	<h1 class="fbPostTitle">' + escapeHtml(d.title) + "</h1>"
-			+ '	<div class="fbPostBody">' + markdownLite(stripMeta(d.body)) + "</div>"
+			+ (from ? '	<div class="fbPostFrom">来源页面：<code>' + escapeHtml(from) + "</code></div>" : "")
+			+ '	<div class="fbPostBody">' + markdownLite(body) + "</div>"
 			+ "</article>"
 			+ '<h2 class="fbCommentsTitle">回复 <span class="fbCommentsCount">' + escapeHtml(data.totalComments || 0) + "</span></h2>"
 			+ '<div class="fbComments">' + renderComments(data.comments || [], identity) + "</div>"
 			+ renderReplyForm(identity);
 	}
 
+	/** 从正文顶部取出 `**来源页面**：/xxx/`（issue #18 起写在正文最上面） */
+	function extractFrom(body) {
+		var m = String(body || "").match(/^\s*\*\*来源页面\*\*[：:]\s*(\S+)/);
+		return m ? m[1] : "";
+	}
+
 	/** 去掉我们附加的环境信息与签名，正文只留用户写的内容 */
 	function stripMeta(body) {
 		var text = String(body || "");
+		// 来源页面是我们加在最上面的一行，已由 extractFrom 单独展示，正文里去掉
+		text = text.replace(/^\s*\*\*来源页面\*\*[：:][^\n]*(\r?\n)+/, "");
 		var env = text.indexOf("<details><summary>环境信息");
 		if (env > 0) text = text.slice(0, env);
 		var sign = text.lastIndexOf("> 由站点反馈广场提交");
@@ -882,13 +1073,131 @@
 		return paras.join("");
 	}
 
-	function renderList() {
-		if (!els.list) return;
+	/** 当前勾选的状态集合；没读过 DOM 时按默认三项 */
+	function readStates() {
+		if (activeStates) return activeStates;
+		var box = els.statesPanel;
+		if (!box) { activeStates = copyStates(DEFAULT_STATES); return activeStates; }
+		var out = {};
+		var inputs = box.querySelectorAll("input[data-state]");
+		for (var i = 0; i < inputs.length; i++) {
+			out[inputs[i].getAttribute("data-state")] = !!inputs[i].checked;
+		}
+		activeStates = out;
+		return out;
+	}
+
+	function copyStates(src) {
+		var out = {};
+		for (var k in src) if (Object.prototype.hasOwnProperty.call(src, k)) out[k] = !!src[k];
+		return out;
+	}
+
+	/** 一项都没勾时不应该「什么都看不见」，而是提示一下 */
+	function noStateChecked() {
+		var s = readStates();
+		for (var k in s) if (Object.prototype.hasOwnProperty.call(s, k) && s[k]) return false;
+		return true;
+	}
+
+	/**
+	 * 状态筛选是否真的在起作用。
+	 * 后端一条 state 都没给（旧函数版本）时整体失效 —— 否则每条都 `stateOf()===null`，
+	 * 会被过滤成「一条都没有」，看着像广场空了。
+	 */
+	function stateFilterActive() {
+		if (noStateChecked()) return false;
+		if (!statesAvailable()) return false;
+		return true;
+	}
+
+	/** 过一个筛选：类型 + 状态两道都过才算 */
+	function filterItems() {
 		var items = allDiscussions;
 		if (currentFilter !== "all") {
 			items = items.filter(function (d) {
 				return slugToType(d.category && d.category.slug) === currentFilter;
 			});
+		}
+		if (stateFilterActive()) {
+			var states = readStates();
+			items = items.filter(function (d) { return !!states[stateOf(d)]; });
+		}
+		return items;
+	}
+
+	/**
+	 * 状态筛选用下拉框装着（issue #37 / #29）：六项横铺一屏太占地方，
+	 * 而它又不是每次都要动的东西。点外面、按 Esc 都收起。
+	 */
+	function openStatesDrop() {
+		if (!els.statesBtn || !els.statesPanel) return;
+		els.statesPanel.hidden = false;
+		els.statesBtn.setAttribute("aria-expanded", "true");
+		if (els.statesDrop) els.statesDrop.classList.add("isOpen");
+	}
+
+	function closeStatesDrop() {
+		if (!els.statesBtn || !els.statesPanel) return;
+		els.statesPanel.hidden = true;
+		els.statesBtn.setAttribute("aria-expanded", "false");
+		if (els.statesDrop) els.statesDrop.classList.remove("isOpen");
+	}
+
+	function toggleStatesDrop() {
+		if (!els.statesPanel) return;
+		if (els.statesPanel.hidden) openStatesDrop(); else closeStatesDrop();
+	}
+
+	/** 按钮上写「状态」还是「状态 3/6」：让人一眼知道被过滤过 */
+	function refreshStatesBtn() {
+		if (!els.statesBtn || !els.statesBtnText) return;
+		var picked = readStates();
+		var total = 0;
+		var on = 0;
+		for (var k in picked) {
+			if (!Object.prototype.hasOwnProperty.call(picked, k)) continue;
+			total += 1;
+			if (picked[k]) on += 1;
+		}
+		// 后端没给 state 时筛选其实不生效，就别装作在筛选
+		if (!statesAvailable() || on === total) {
+			els.statesBtnText.textContent = "状态";
+			els.statesBtn.removeAttribute("data-filtered");
+			return;
+		}
+		els.statesBtnText.textContent = on === 0 ? "状态 0/" + total : "状态 " + on + "/" + total;
+		els.statesBtn.setAttribute("data-filtered", "1");
+	}
+
+	/** 空列表时说什么：分了三种情况，别一句「这里还没有内容」糊弄过去 */
+	function emptyHint() {
+		// 还有没拉过的讨论：说明只是这一屏没命中，指路「加载更多」
+		if (nextCursor) return "已载入的这部分里没有符合的，点「加载更多」继续往后找。";
+		// 一条讨论都没有：真的空
+		if (!allDiscussions.length) return "你是第一个，点「新建」说点什么吧。";
+		// 全都拉完了还是没有：是筛选的问题，告诉他换个筛选
+		if (currentFilter !== "all" || activeStates) {
+			return "已载入的 " + allDiscussions.length + " 条里没有符合当前筛选的，换个分类或把状态勾全试试。";
+		}
+		return "这个分类下暂时没有讨论。";
+	}
+
+	function renderList() {
+		if (!els.list) return;
+		var items = filterItems();
+		refreshStatesBtn();
+
+		// 只在「状态筛选真的能起作用」时才提示「没勾任何状态」。
+		// 后端没给 state 时筛选整体失效，这里不该弹这句话吓人。
+		if (noStateChecked() && statesAvailable()) {
+			els.list.innerHTML = "";
+			var none = document.createElement("div");
+			none.className = "fbEmpty";
+			none.innerHTML = '<div class="fbEmptyTitle">没有选中任何状态</div>'
+				+ '<div class="fbEmptyText">状态筛选里全部取消了勾选，随便勾一个就能看到对应的反馈。</div>';
+			els.list.appendChild(none);
+			return;
 		}
 
 		if (!items.length) {
@@ -896,8 +1205,7 @@
 			var empty = document.createElement("div");
 			empty.className = "fbEmpty";
 			empty.innerHTML = '<div class="fbEmptyTitle">这里还没有内容</div>'
-				+ '<div class="fbEmptyText">' + (currentFilter === "all"
-					? "你是第一个，点「新建」说点什么吧。" : "这个分类下暂时没有讨论。") + "</div>";
+				+ '<div class="fbEmptyText">' + emptyHint() + "</div>";
 			els.list.appendChild(empty);
 			return;
 		}
@@ -915,12 +1223,38 @@
 		});
 	}
 
+	/** 分类徽标：桌面是彩色胶囊 + 文字，窄屏靠 CSS 换成图标（issue #36） */
+	function badgeHtml(type, catName) {
+		var icon = TYPE_ICONS[type] || TYPE_ICONS.others;
+		return '<span class="fbItemBadge fbBadge-' + escapeHtml(type) + '" title="' + escapeHtml(catName) + '">'
+			+ '<svg class="fbBadgeIcon" viewBox="0 0 24 24" width="14" height="14" fill="none" '
+			+ 'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" '
+			+ 'aria-hidden="true">' + icon + "</svg>"
+			+ '<span class="fbBadgeText">' + escapeHtml(catName) + "</span>"
+			+ "</span>";
+	}
+
+	/** 状态徽标：桌面文字 + 图标，窄屏只留图标（title 里仍有全称）；没有状态就不画 */
+	function stateBadgeHtml(key) {
+		if (!key) return "";
+		var def = stateDef(key);
+		return '<span class="fbStateTag fbState-' + escapeHtml(def.key) + '" title="' + escapeHtml(def.hint) + '">'
+			+ '<svg class="fbStateIcon" viewBox="0 0 24 24" width="13" height="13" fill="none" '
+			+ 'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" '
+			+ 'aria-hidden="true">' + def.icon + "</svg>"
+			+ '<span class="fbStateText">' + escapeHtml(def.label) + "</span>"
+			+ "</span>";
+	}
+
 	function renderItem(d) {
 		var type = slugToType(d.category && d.category.slug);
 		var catName = d.category ? d.category.name : "未分类";
 		return ''
 			+ '<a class="fbItem" href="?d=' + escapeHtml(d.number) + '" data-number="' + escapeHtml(d.number) + '">'
-			+ '	<span class="fbItemBadge fbBadge-' + escapeHtml(type) + '">' + escapeHtml(catName) + "</span>"
+			+ '	<span class="fbItemTags">'
+			+ badgeHtml(type, catName)
+			+ stateBadgeHtml(stateOf(d))
+			+ "	</span>"
 			+ '	<span class="fbItemMain">'
 			+ '		<span class="fbItemTitle">' + escapeHtml(d.title) + "</span>"
 			+ (d.excerpt ? '	<span class="fbItemExcerpt">' + escapeHtml(d.excerpt) + "</span>" : "")
@@ -934,6 +1268,15 @@
 			+ "</a>";
 	}
 
+	/**
+	 * 拉列表。
+	 *
+	 * 首屏只要 7 条（issue #39）—— 一进页面就等三十条渲染完，手机上很肉；
+	 * 而且绝大多数人只看最上面几条。之后每次多拉一些，靠「加载更多」往后。
+	 *
+	 * 但「筛选之后一条都不剩」不能只显示一句空的：那会让人以为真没有。
+	 * 所以 `ensureFiltered()` 会自动再往后翻，直到筛出内容或者翻完为止。
+	 */
 	function loadList(reset) {
 		if (reset) {
 			allDiscussions = [];
@@ -943,23 +1286,25 @@
 		if (!url) {
 			setListStatus("站点后端未配置，无法加载列表；可直接到 GitHub 查看", "Error");
 			renderList();
-			return Promise.resolve();
+			return Promise.resolve(false);
 		}
 
 		setListStatus(allDiscussions.length ? "正在加载更多…" : "正在加载…", "");
 		if (els.loadMore) els.loadMore.disabled = true;
 
-		var listUrl = url + "?action=list&first=30" + (nextCursor ? "&after=" + encodeURIComponent(nextCursor) : "");
+		var first = allDiscussions.length ? PAGE_SIZE_MORE : PAGE_SIZE_FIRST;
+		var listUrl = url + "?action=list&first=" + first
+			+ (nextCursor ? "&after=" + encodeURIComponent(nextCursor) : "");
 		return getJson(listUrl, 20000).then(function (data) {
 			if (data && data.configure) {
 				setListStatus("反馈服务尚未配置，可直接到 GitHub Discussions 查看", "Warning");
 				renderList();
-				return;
+				return false;
 			}
 			if (!data || !data.success) {
 				setListStatus((data && data.message) || "加载失败，请稍后再试", "Error");
 				renderList();
-				return;
+				return false;
 			}
 
 			if (Array.isArray(data.types)) {
@@ -972,23 +1317,53 @@
 			}
 			if (data.identity) listIdentity = data.identity;
 			if (data.viewer) viewer = data.viewer;
+			if (data.maintainer) listMaintainer = String(data.maintainer);
 
-			allDiscussions = allDiscussions.concat(data.discussions || []);
+			var added = data.discussions || [];
+			allDiscussions = allDiscussions.concat(added);
 			nextCursor = data.pageInfo && data.pageInfo.hasNextPage ? data.pageInfo.endCursor : null;
-			setListStatus(allDiscussions.length
-				? "共 " + allDiscussions.length + " 条" + (nextCursor ? "（还有更多）" : "")
-				: "", "");
+			setListStatus(listStatusText());
 			renderList();
 			if (els.loadMore) {
 				els.loadMore.hidden = !nextCursor;
 				els.loadMore.disabled = false;
 			}
+			return added.length > 0;
 		}).catch(function () {
 			// 中继和直连都没通：说清楚是网络问题，并给重试
 			setListStatus("连不上反馈服务（网络异常）。可以点「重试」，或直接到 GitHub Discussions 查看。", "Error");
 			renderList();
 			showRetryButton();
+			return false;
 		});
+	}
+
+	function listStatusText() {
+		var shown = filterItems().length;
+		if (!allDiscussions.length) return "";
+		var base = "共 " + allDiscussions.length + " 条";
+		if (shown !== allDiscussions.length) base = "已载入 " + allDiscussions.length + " 条，符合筛选 " + shown + " 条";
+		return base + (nextCursor ? "（还有更多）" : "");
+	}
+
+	/**
+	 * 筛选后是空的，但后面还有没拉过的讨论 → 自动继续翻几页。
+	 *
+	 * 上限 AUTO_FILL_MAX 页，避免「筛选一个冷门组合 + 几百条讨论」时
+	 * 一口气把 GitHub 接口打爆；翻到上限就交给「加载更多」。
+	 */
+	var autoFilling = false;
+	function ensureFiltered(depth) {
+		if (autoFilling) return Promise.resolve();
+		if (!nextCursor) return Promise.resolve();
+		if (filterItems().length > 0) return Promise.resolve();
+		if (noStateChecked()) return Promise.resolve();
+		if ((depth || 0) >= AUTO_FILL_MAX) return Promise.resolve();
+		autoFilling = true;
+		return loadList(false).then(function (got) {
+			autoFilling = false;
+			if (got) return ensureFiltered((depth || 0) + 1);
+		}, function () { autoFilling = false; });
 	}
 
 	/** 列表加载失败时给一个「重试」按钮，别让用户只能刷新整页 */
@@ -1005,6 +1380,14 @@
 	function openModal(focusBody) {
 		if (!els.overlay) return;
 		modalOpen = true;
+		// 新一次表单：作废还在飞的提交/恢复回调（见 modalSession 的说明）
+		modalSession += 1;
+		// 上一次提交可能还在飞：它的按钮状态不能带到这一份表单上
+		submitting = false;
+		if (els.submit) {
+			els.submit.disabled = false;
+			els.submit.textContent = els.submitFallbackText || "提交";
+		}
 		// 打开始终是空白表单：每个字段都不保留上次的值（含来源页面），
 		// 来源页面按**当前**上下文重新算一遍，不沿用之前的任何结果。
 		// 只有点「恢复上次内容」才把历史灌回来。
@@ -1015,6 +1398,8 @@
 			if (els.body) els.body.value = "";
 			if (els.contact) els.contact.value = "";
 			if (els.page) els.page.value = "";
+			// 附带项也回到默认：每次打开都是全新表单
+			resetAttach();
 			// 类型复位到默认，避免带上次的选项
 			setType("bug");
 		} finally {
@@ -1025,6 +1410,8 @@
 		// 状态栏也要清干净：上次「已恢复上次的内容」/「提交失败」之类的提示
 		// 不能跟着进新一次的表单，否则看着像这次操作的结果。
 		setStatus("");
+		// 收起状态下拉，别让上一份表单的选择浮在这一次上面
+		closeStatesDrop();
 		// 按钮可见性按「此刻」的草稿重新判定 —— 草稿可能在 boot 之后才产生
 		// （用户写着写着就有了），不刷新就会一直停留在启动时的 hidden 状态。
 		refreshRestoreBtn();
@@ -1043,6 +1430,17 @@
 	function closeModal() {
 		if (!els.overlay) return;
 		modalOpen = false;
+		// 关掉就作废这一次表单：还在飞的提交回调回来时会被丢弃，
+		// 不会把「已提交，谢谢！」写进下一次打开的空白表单里。
+		modalSession += 1;
+		submitting = false;
+		// 提示条、按钮文案、下拉都归位。不归位的话，下次打开会看见上次的残影。
+		setStatus("");
+		if (els.submit) {
+			els.submit.disabled = false;
+			els.submit.textContent = els.submitFallbackText || "提交";
+		}
+		closeStatesDrop();
 		els.overlay.classList.remove("isVisible");
 		// 从 nav 图标进来的：关掉弹窗就把 URL 上的 ?new=1 去掉，避免刷新又弹
 		if (history.replaceState) {
@@ -1061,9 +1459,10 @@
 	}
 
 	/**
-	 * 讨论标题。与函数端 defaultTitle / buildTitle 严格同口径，列表里立刻显示不跳字：
+	 * 讨论标题。与函数端 completeTitleBody / buildTitle 严格同口径，列表里立刻显示不跳字：
 	 *   · 用户填了标题 → 补上「[类型] 」前缀（已经自己写了 [xxx] 的不重复加）
 	 *   · 没填 → 退回「[类型] 内容首行」（超 60 字截断）
+	 * 前提是标题与正文已经互补过（见 completeTitleBody）。
 	 */
 	function buildTitle(payload) {
 		var def = typeDef(payload.type);
@@ -1074,15 +1473,30 @@
 		return "[" + def.github + "] " + line;
 	}
 
+	/**
+	 * 标题与正文互补（issue #31）。
+	 * 只填了标题时，把标题当正文用 —— 而不是用「内容太短」把人挡回去。
+	 * 两者都空返回 null。
+	 */
+	function completeTitleBody(payload) {
+		var title = String(payload.title || "").trim();
+		var body = String(payload.body || "").trim();
+		if (!title && !body) return null;
+		if (!body) body = title;
+		return { title: title, body: body };
+	}
+
 	function githubUrl(payload) {
 		var def = typeDef(payload.type);
 		var base = "https://github.com/" + REPO + "/discussions/new";
 		var params = ["category=" + encodeURIComponent(typeMap[payload.type] || def.github)];
 		params.push("title=" + encodeURIComponent(buildTitle(payload)));
 		var body = payload.body;
+		// 来源页面放最上面（issue #18）：与函数端 buildBody 同一顺序
 		if (payload.page) body = "**来源页面**：" + payload.page + "\n\n" + body;
 		if (payload.contact) body += "\n\n**联系方式**：" + payload.contact;
-		body += "\n\n<details><summary>环境信息</summary>\n\n```\n" + metaLines() + "\n```\n\n</details>";
+		var meta = metaLines();
+		if (meta) body += "\n\n<details><summary>环境信息</summary>\n\n```\n" + meta + "\n```\n\n</details>";
 		params.push("body=" + encodeURIComponent(body));
 		return base + "?" + params.join("&");
 	}
@@ -1095,7 +1509,11 @@
 
 	function openGithub() {
 		var p = payloadDraft();
-		if (p.body.length < 4) { setStatus("请再多写几个字", "Error"); return; }
+		var filled = completeTitleBody(p);
+		if (!filled) { setStatus("标题和内容至少填一个", "Error"); if (els.body) els.body.focus(); return; }
+		if (filled.body.length < 4) { setStatus("请再多写几个字", "Error"); if (els.body) els.body.focus(); return; }
+		p.title = filled.title;
+		p.body = filled.body;
 		// 「新建」类链接只能在真 GitHub 上做（镜像站登录不了）—— 直接打开即可；
 		// 打不开也不影响：站内「提交」走的是 Supabase，草稿还在本机。
 		openGithubUrl(githubUrl(p));
@@ -1105,11 +1523,20 @@
 		if (submitting) return;
 		var p = payloadDraft();
 
-		if (p.body.length < 4) {
+		// 标题与正文互相补齐（issue #31）：只有一个也能提交
+		var filled = completeTitleBody(p);
+		if (!filled) {
+			setStatus("标题和内容至少填一个", "Error");
+			if (els.body) els.body.focus();
+			return;
+		}
+		if (filled.body.length < 4) {
 			setStatus("请再多写几个字", "Error");
 			if (els.body) els.body.focus();
 			return;
 		}
+		p.title = filled.title;
+		p.body = filled.body;
 
 		var url = endpoint();
 		if (!url) {
@@ -1119,6 +1546,7 @@
 		}
 
 		submitting = true;
+		var session = modalSession;   // 记下这次提交属于哪一份表单
 		if (els.submit) { els.submit.disabled = true; els.submit.textContent = "提交中…"; }
 		setStatus("正在提交…", "");
 
@@ -1130,6 +1558,7 @@
 			body: p.body,
 			contact: p.contact,
 			hp: (els.hp && els.hp.value || "").trim(),
+			// 只有勾上的项才进这个串；一项没勾就是空串，正文里不会有环境信息块
 			meta: metaLines(),
 			page: p.page || window.location.pathname || "/feedback/"
 		});
@@ -1144,24 +1573,29 @@
 		postJson(url, options, SUBMIT_TIMEOUT).then(function (data) {
 			if (timer) clearTimeout(timer);
 			finish();
+			// 提交期间用户可能已经关掉弹窗、又开了新的一份：这一份的结果不该出现。
+			// 内容其实已经提交成功了，所以只丢弃「提示与字段清空」，不重试、不报错。
+			var stale = session !== modalSession;
 
 			if (data && data.success) {
-				clearDraft();
-				if (els.title) els.title.value = "";
-				if (els.body) els.body.value = "";
-				if (els.contact) els.contact.value = "";
-				if (els.page) els.page.value = "";
-				setStatus("已提交，谢谢！", "Success");
-				if (data.url) {
-					var a = document.createElement("a");
-					a.className = "fbOpenLink";
-					a.href = data.url;
-					a.target = "_blank";
-					a.rel = "noopener noreferrer";
-					a.textContent = " 查看讨论" + (data.number ? " #" + data.number : "") + " ↗";
-					if (els.status) els.status.appendChild(a);
+				if (!stale) {
+					clearDraft();
+					if (els.title) els.title.value = "";
+					if (els.body) els.body.value = "";
+					if (els.contact) els.contact.value = "";
+					if (els.page) els.page.value = "";
+					setStatus("已提交，谢谢！", "Success");
+					if (data.url) {
+						var a = document.createElement("a");
+						a.className = "fbOpenLink";
+						a.href = data.url;
+						a.target = "_blank";
+						a.rel = "noopener noreferrer";
+						a.textContent = " 查看讨论" + (data.number ? " #" + data.number : "") + " ↗";
+						if (els.status) els.status.appendChild(a);
+					}
 				}
-				// 列表里立刻跟上这条（不等重新拉取）
+				// 列表里立刻跟上这条（不等重新拉取）：这一条对列表是无害的，无论是否 stale
 				if (data.number) {
 					allDiscussions.unshift({
 						number: data.number,
@@ -1173,6 +1607,8 @@
 						author: null,
 						comments: 0,
 						upvotes: 0,
+						closed: false,
+						state: "open",
 						excerpt: firstLine(p.body)
 					});
 					renderList();
@@ -1181,14 +1617,18 @@
 			}
 
 			if (data && data.configure) {
-				setStatus("自动提交未配置，已改用 GitHub 提交", "Warning");
-				openGithub();
+				if (!stale) {
+					setStatus("自动提交未配置，已改用 GitHub 提交", "Warning");
+					openGithub();
+				}
 				return;
 			}
-			setStatus((data && data.message) || "提交失败，请稍后再试", "Error");
+			if (!stale) setStatus((data && data.message) || "提交失败，请稍后再试", "Error");
 		}).catch(function (err) {
 			if (timer) clearTimeout(timer);
 			finish();
+			// 同上：这份表单已经不在了，错误提示也不该落到新表单上
+			if (session !== modalSession) return;
 			var aborted = err && err.name === "AbortError";
 			// 草稿一直在本机，重试不会丢字
 			setStatus(aborted
@@ -1198,7 +1638,9 @@
 
 		function finish() {
 			submitting = false;
-			if (els.submit) { els.submit.disabled = false; els.submit.textContent = "提交"; }
+			// 按钮属于「当前这份表单」才复位；否则会把新表单的按钮从「提交中…」改回来
+			if (session !== modalSession) return;
+			if (els.submit) { els.submit.disabled = false; els.submit.textContent = els.submitFallbackText || "提交"; }
 		}
 	}
 
@@ -1217,6 +1659,7 @@
 				}
 				updateTypeHint();
 			}
+			if (data && data.maintainer) listMaintainer = String(data.maintainer);
 			if (data && data.configure) {
 				if (els.submit) els.submit.textContent = "在 GitHub 中提交";
 			}
@@ -1237,6 +1680,11 @@
 			listStatus: $("fbListStatus"),
 			loadMore: $("fbLoadMore"),
 			filters: $("fbFilters"),
+			statesDrop: $("fbStatesDrop"),
+			statesBtn: $("fbStatesBtn"),
+			statesBtnText: $("fbStatesBtnText"),
+			statesPanel: $("fbStatesPanel"),
+			attach: $("fbAttach"),
 			newBtn: $("fbNewBtn"),
 			overlay: $("fbOverlay"),
 			modalClose: $("fbComposeClose"),
@@ -1309,7 +1757,42 @@
 					items[i].classList.toggle("isActive", active);
 					items[i].setAttribute("aria-selected", active ? "true" : "false");
 				}
+				setListStatus(listStatusText());
 				renderList();
+				// 这个分类在已载入的部分里没有 → 自动往后翻，别让人对着空屏猜
+				ensureFiltered(0);
+			});
+		}
+
+		// 状态筛选（issue #37 / #29）：下拉，勾选变了就地重渲染，不重新请求
+		if (els.statesBtn) {
+			els.statesBtn.addEventListener("click", function (e) {
+				e.stopPropagation();
+				toggleStatesDrop();
+			});
+		}
+		if (els.statesPanel) {
+			els.statesPanel.addEventListener("change", function (e) {
+				var input = e.target;
+				if (!input || !input.getAttribute || !input.getAttribute("data-state")) return;
+				// 失效缓存，下次读 DOM
+				activeStates = null;
+				readStates();
+				setListStatus(listStatusText());
+				renderList();
+				ensureFiltered(0);
+			});
+			// 点面板内部不该把面板关掉
+			els.statesPanel.addEventListener("click", function (e) { e.stopPropagation(); });
+		}
+		// 点别处 / 按 Esc 收起下拉
+		document.addEventListener("click", function () { closeStatesDrop(); });
+
+		// 附带信息勾选（issue #18）：只关系到提交内容，顺手存进草稿
+		if (els.attach) {
+			els.attach.addEventListener("change", function () {
+				readAttach();
+				saveDraft();
 			});
 		}
 
@@ -1378,6 +1861,11 @@
 		if (els.github) els.github.addEventListener("click", openGithub);
 
 		document.addEventListener("keydown", function (e) {
+			if (e.key === "Escape" && els.statesPanel && !els.statesPanel.hidden) {
+				e.stopPropagation();
+				closeStatesDrop();
+				return;
+			}
 			if (!modalOpen) return;
 			if (e.key === "Escape") { e.stopPropagation(); closeModal(); return; }
 			if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); }
@@ -1386,6 +1874,11 @@
 		// 初始类型。**不自动回填草稿**（#20）：打开对话框始终空白，
 		// 上次内容由标题旁的「恢复上次内容」按钮按需取回。
 		setType(currentType);
+
+		// 状态筛选：先从 DOM 读一遍（默认勾选写在 HTML 上），保证内存与界面一致
+		readStates();
+		// 附带信息勾选：同样读一遍
+		readAttach();
 
 		// 来源页面：先就地捕获（?from= / referrer），再补进输入框（只填空值）
 		var captured = captureFrom();

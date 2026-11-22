@@ -19,7 +19,7 @@
 
 	<link rel="stylesheet" href="/ui/colors_and_type.css">
 	<link rel="stylesheet" href="/nav/nav.css?v=2475">
-	<link rel="stylesheet" href="/feedback/feedback.css?v=2723">
+	<link rel="stylesheet" href="/feedback/feedback.css?v=2765">
 
 	<script src="/nav/nav.js?v=2712" defer></script>
 	<script src="/assets/services/core/site-scope.js?v=2255" defer></script>
@@ -29,7 +29,7 @@
 	       以前这里连配置都没有，于是整个广场拿不到后端地址。 -->
 	<script src="/supabase/supabase-config.js?v=1877" defer></script>
 
-	<script src="/feedback/feedback-app.js?v=2723" defer></script>
+	<script src="/feedback/feedback-app.js?v=2765" defer></script>
 
 	<title>反馈广场 — Ckarefulon</title>
 </head>
@@ -53,6 +53,29 @@
 			</header>
 
 			<div class="fbFilters" id="fbFilters" role="tablist" aria-label="按类型筛选">
+				<!--
+					跟进状态筛选（issue #37 / #29）：收进一个下拉框放在最前面，
+					不再把六项横着铺一屏。默认只看「已反馈 / 已跟进 / 已计划」。
+				-->
+				<div class="fbStatesDrop" id="fbStatesDrop">
+					<button class="fbStatesBtn" id="fbStatesBtn" type="button"
+						aria-haspopup="true" aria-expanded="false" aria-controls="fbStatesPanel">
+						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+							stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 5 21 5 14 13 14 20 10 18 10 13"/></svg>
+						<span class="fbStatesBtnText" id="fbStatesBtnText">状态</span>
+						<svg class="fbStatesCaret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"
+							stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+					</button>
+					<div class="fbStatesPanel" id="fbStatesPanel" role="group" aria-label="按跟进状态筛选" hidden>
+						<label class="fbStateCheck"><input type="checkbox" data-state="open" checked><span>已反馈</span></label>
+						<label class="fbStateCheck"><input type="checkbox" data-state="followed" checked><span>已跟进</span></label>
+						<label class="fbStateCheck"><input type="checkbox" data-state="planned" checked><span>已计划</span></label>
+						<label class="fbStateCheck"><input type="checkbox" data-state="complete"><span>已完成</span></label>
+						<label class="fbStateCheck"><input type="checkbox" data-state="duplicate"><span>重复</span></label>
+						<label class="fbStateCheck"><input type="checkbox" data-state="not_planned"><span>不计划</span></label>
+					</div>
+				</div>
+
 				<button class="fbFilter isActive" type="button" data-filter="all" role="tab" aria-selected="true">全部</button>
 				<button class="fbFilter" type="button" data-filter="bug" role="tab" aria-selected="false">Bug</button>
 				<button class="fbFilter" type="button" data-filter="feature" role="tab" aria-selected="false">Feature</button>
@@ -94,7 +117,7 @@
 				<label class="fbLabel" for="fbTitle">标题</label>
 				<input class="fbContact fbTitleInput" id="fbTitle" type="text" maxlength="120"
 					placeholder="一句话概括，例如「窄屏下顶栏图标会错位」" autocomplete="off">
-				<div class="fbFieldHint">留空则自动取内容第一行。</div>
+				<div class="fbFieldHint">标题与内容留空任意一个，提交时会自动用另一个补上。</div>
 			</div>
 
 			<div class="fbField">
@@ -125,7 +148,23 @@
 				<label class="fbLabel" for="fbPage">来源页面<span class="fbOptional">自动填写</span></label>
 				<input class="fbContact fbPageInput" id="fbPage" type="text" maxlength="300"
 					placeholder="例如 /Cube/Formula/" autocomplete="off">
-				<div class="fbFieldHint" id="fbPageHint">从顶栏反馈图标进来时会自动填上你所在的那一页。</div>
+				<div class="fbFieldHint" id="fbPageHint">从顶栏反馈图标进来时会自动填上你所在的那一页，提交后会写在帖子最上面。</div>
+			</div>
+
+			<!--
+				附带信息（issue #18）：以前这些一律强行塞进正文，用户没法选。
+				现在只剩「来源页面」必带（它已经写在上面那个框里），其余按勾选。
+			-->
+			<div class="fbField">
+				<span class="fbLabel">一并提交</span>
+				<div class="fbAttach" id="fbAttach">
+					<label class="fbStateCheck"><input type="checkbox" data-attach="viewport" checked><span>视口与屏幕</span></label>
+					<label class="fbStateCheck"><input type="checkbox" data-attach="ua" checked><span>浏览器标识</span></label>
+					<label class="fbStateCheck"><input type="checkbox" data-attach="page" checked><span>完整页面地址</span></label>
+					<label class="fbStateCheck"><input type="checkbox" data-attach="theme"><span>当前主题</span></label>
+					<label class="fbStateCheck"><input type="checkbox" data-attach="referrer"><span>来源网址</span></label>
+				</div>
+				<div class="fbFieldHint">勾上的会放进帖子里的「环境信息」折叠块，随时可点开。</div>
 			</div>
 
 			<input class="fbHp" id="fbHp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">

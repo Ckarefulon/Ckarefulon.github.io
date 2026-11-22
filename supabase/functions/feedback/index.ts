@@ -4,7 +4,7 @@
  * 一个函数干两件事（共用同一份 PAT 与同一份 ID 缓存，少一次冷启动）：
  *
  *   GET  /functions/v1/feedback            预热：解析仓库/分类 ID，返回分类可用情况
- *   GET  /functions/v1/feedback?action=list 广场：列出讨论（分页）
+ *   GET  /functions/v1/feedback?action=list 广场：列出讨论（分页，带跟进状态）
  *   POST /functions/v1/feedback            新建：按 type 选分类，建一条 Discussion
  *
  * 分类口径（五个 type，与 GitHub 里的 Category 名逐一对应）：
@@ -16,6 +16,8 @@
  * 配置（Supabase → Edge Functions → Secrets）：
  *   DISCUSSIONS_TOKEN        必填。GitHub PAT，需能读+写 Discussion
  *   FEEDBACK_REPO            选填，默认 Ckarefulon/Ckarefulon.github.io
+ *   FEEDBACK_MAINTAINER      选填，默认 Ckarefulon。列表里据此判断「已跟进 / 已计划」，
+ *                            并给这个账号打「管理员」标签
  *   DISCUSSIONS_CATEGORIES   选填，type → 仓库分类名的 JSON
  *   APP_ID / APP_PRIVATE_KEY / APP_INSTALLATION_ID
  *                            选填。配了就走 GitHub App（作者显示为 xxx[bot]），
@@ -719,8 +721,20 @@ function describeTypes(rc: RepoCache) {
 
 /* ---------------- 正文拼装 / 摘要 ---------------- */
 
-function buildBody(input: { body: string; contact: string; meta: string }): string {
-	const parts: string[] = [input.body];
+/**
+ * 拼 GitHub 正文。
+ *
+ * 顺序有讲究（issue #18）：**来源页面放最上面** ——
+ * 一条反馈「在哪一页出的问题」比什么都重要，现在它只是详情页里一个字段，
+ * 读到讨论的人看不见。所以正文第一段就是它。
+ *
+ * 环境信息仍然是 <details> 折叠块，并且由前端按用户勾选决定要不要发过来；
+ * 联系方式只在这个人自己填了的时候才有。
+ */
+function buildBody(input: { body: string; contact: string; meta: string; page?: string }): string {
+	const parts: string[] = [];
+	if (input.page) parts.push(`**来源页面**：${input.page}`);
+	parts.push(input.body);
 	if (input.contact) parts.push(`**联系方式**：${input.contact}`);
 	if (input.meta) {
 		parts.push(`<details><summary>环境信息</summary>\n\n\`\`\`\n${input.meta}\n\`\`\`\n\n</details>`);
@@ -735,8 +749,7 @@ function buildBody(input: { body: string; contact: string; meta: string }): stri
  * GitHub Discussions **必须有标题**（GraphQL 的 createDiscussion 不接受空 title，
  * 少于 4 个字符也会被拒），所以标题不能靠「可选」：
  *   · 用户填了 → 用用户的，补上「[类型] 」前缀（自己已经写了 [xxx] 的不重复加）
- *   · 没填     → 退回「[类型] 内容首行」—— 以前只有这条，正文第一行是什么标题就是什么，
- *              长句子会被硬截，看着像没标题
+ *   · 没填     → 退回「[类型] 内容首行」（超 60 字截断）
  *
  * 前端 feedback-app.js 的 buildTitle 与这里逐字同口径，列表里立刻插入的那条不会跳字。
  */
@@ -758,6 +771,27 @@ function buildTitle(type: string, rawTitle: unknown, body: string): string {
 	return `${prefix} ${head}`;
 }
 
+/**
+ * 标题与正文互补（issue #31）。
+ *
+ * 两个都填了 → 各用各的。
+ * 只填了正文   → 标题留空，交给 buildTitle 取正文首行（老行为）。
+ * 只填了标题   → 正文就用标题内容顶上，而不是拿「正文太短」把这次反馈打回去。
+ *
+ * 返回 null 表示两者都空，调用方按 400 处理。
+ */
+function completeTitleBody(
+	rawTitle: unknown,
+	rawBody: unknown,
+): { title: string; body: string } | null {
+	const title = clip(rawTitle, 120);
+	const body = clip(rawBody, 8000);
+	if (!title && !body) return null;
+	if (body) return { title, body };
+	// 只有标题：正文顶上去
+	return { title, body: title };
+}
+
 /** 兼容旧入口：只给类型与正文时的标题 */
 function defaultTitle(type: string, body: string): string {
 	return buildTitle(type, "", body);
@@ -766,13 +800,15 @@ function defaultTitle(type: string, body: string): string {
 /** 列表摘要：去掉我们附加的环境信息块，压掉多余空白 */
 function excerpt(bodyText: unknown, max = 180): string {
 	let text = typeof bodyText === "string" ? bodyText : "";
-	// 按我们固定附加的段落切：<details> 整块 → 签名行 → 联系方式行
+	// 按我们固定附加的段落切：<details> 整块 → 签名行 → 联系方式行 → 来源页面行
 	const detailsAt = text.indexOf("<details>");
 	if (detailsAt > 0) text = text.slice(0, detailsAt);
 	const quote = text.lastIndexOf("> 由站点反馈广场提交");
 	if (quote > 0) text = text.slice(0, quote);
 	const contact = text.indexOf("**联系方式**");
 	if (contact > 0) text = text.slice(0, contact);
+	// 来源页面是我们加在正文最上面的一行（issue #18），摘要里不重复它
+	text = text.replace(/^\s*\*\*来源页面\*\*[：:].*(\r?\n)+/, "");
 	text = text.replace(/```[\s\S]*?```/g, " ")
 		.replace(/<[^>]*>/g, " ")
 		.replace(/\s+/g, " ")
@@ -786,6 +822,7 @@ const DETAIL_QUERY = `query($owner:String!,$name:String!,$number:Int!,$first:Int
   repository(owner:$owner,name:$name){
     discussion(number:$number){
       id number title url body bodyText createdAt updatedAt upvoteCount
+      closed stateReason
       category{name slug}
       author{login avatarUrl}
       comments(first:$first, after:$after){
@@ -879,6 +916,16 @@ async function fetchDiscussion(
 			createdAt: node.createdAt || "",
 			updatedAt: node.updatedAt || "",
 			upvotes: typeof node.upvoteCount === "number" ? node.upvoteCount : 0,
+			closed: !!node.closed,
+			// 详情页也显示状态标签，与列表同一套判定
+			state: followState(
+				!!node.closed,
+				node.stateReason,
+				(comments.nodes || []).filter((c: any) => c).map((c: any) => ({
+					author: c.author, body: c.body,
+				})),
+				maintainerLogin(),
+			),
 			category: node.category ? { name: node.category.name, slug: node.category.slug } : null,
 			author: node.author
 				? { login: String(node.author.login || ""), avatarUrl: String(node.author.avatarUrl || "") }
@@ -924,6 +971,56 @@ async function addComment(token: string, repo: string, number: number, body: str
 	return { id: String(comment.id || ""), url: comment.url || "", createdAt: comment.createdAt || "" };
 }
 
+/* ---------------- 跟进状态（列表标签 / 筛选） ---------------- */
+
+/**
+ * 维护者登录名。列表里据此判断「已跟进 / 已计划」，前端也用它给这个账号
+ * 打「管理员」标签 —— 两边口径必须同一个来源，不能各写一份。
+ */
+function maintainerLogin(): string {
+	return (Deno.env.get("FEEDBACK_MAINTAINER") || "Ckarefulon").trim() || "Ckarefulon";
+}
+
+/** 六种状态；前端按这个顺序渲染标签与筛选框 */
+type FollowState = "open" | "followed" | "planned" | "complete" | "duplicate" | "not_planned";
+
+/**
+ * 一条讨论的跟进状态，规则按 issue #37：
+ *   · 维护者在评论里出现过            → 已跟进（followed）
+ *   · 其中还有「已链接到 Issue」的评论 → 已计划（planned，覆盖 followed）
+ *   · 讨论已关闭                      → 按关闭原因 complete / duplicate / not_planned
+ *
+ * 关闭优先于评论：已关闭的讨论再看「有没有维护者留言」没有意义，
+ * 而且关闭后自动留言里本身就带维护者名字，会把状态骗成「已跟进」。
+ */
+function followState(
+	closed: boolean,
+	stateReason: unknown,
+	comments: Array<{ author?: { login?: string } | null; body?: string }>,
+	maintainer: string,
+): FollowState {
+	if (closed) {
+		const reason = String(stateReason || "").toUpperCase();
+		if (reason === "DUPLICATE") return "duplicate";
+		if (reason === "OUTDATED") return "not_planned";
+		// RESOLVED / REOPENED / 没给原因：都算完成（GitHub 关闭 Discussion 默认 RESOLVED）
+		return "complete";
+	}
+	const needle = maintainer.toLowerCase();
+	let followed = false;
+	let planned = false;
+	for (const c of comments) {
+		const login = c && c.author ? String(c.author.login || "") : "";
+		if (!login || login.toLowerCase() !== needle) continue;
+		followed = true;
+		// 与 .github/workflows/discussion-issue-link.yml 留言格式一致
+		if (/已链接到\s*Issue/i.test(String(c.body || ""))) { planned = true; break; }
+	}
+	if (planned) return "planned";
+	if (followed) return "followed";
+	return "open";
+}
+
 /* ---------------- 列表查询 ---------------- */
 
 const LIST_QUERY = `query($owner:String!,$name:String!,$first:Int!,$after:String){
@@ -932,9 +1029,13 @@ const LIST_QUERY = `query($owner:String!,$name:String!,$first:Int!,$after:String
       pageInfo{hasNextPage endCursor}
       nodes{
         number title url createdAt updatedAt bodyText upvoteCount
+        closed stateReason
         category{name slug}
         author{login}
-        comments{totalCount}
+        comments(first:50){
+          totalCount
+          nodes{ author{login} body }
+        }
       }
     }
   }
@@ -951,20 +1052,26 @@ async function fetchDiscussions(token: string, repo: string, first: number, afte
 		throw new Error((result.errors && result.errors[0] && result.errors[0].message) || "读取讨论失败");
 	}
 
+	const maintainer = maintainerLogin();
 	const discussions = (node.discussions?.nodes || [])
 		.filter((d: any) => d)
-		.map((d: any) => ({
-			number: d.number,
-			title: d.title || "",
-			url: d.url,
-			createdAt: d.createdAt,
-			updatedAt: d.updatedAt,
-			category: d.category ? { name: d.category.name, slug: d.category.slug } : null,
-			author: d.author ? d.author.login : null,
-			comments: d.comments ? d.comments.totalCount : 0,
-			upvotes: typeof d.upvoteCount === "number" ? d.upvoteCount : 0,
-			excerpt: excerpt(d.bodyText),
-		}));
+		.map((d: any) => {
+			const closed = !!d.closed;
+			return {
+				number: d.number,
+				title: d.title || "",
+				url: d.url,
+				createdAt: d.createdAt,
+				updatedAt: d.updatedAt,
+				category: d.category ? { name: d.category.name, slug: d.category.slug } : null,
+				author: d.author ? d.author.login : null,
+				comments: d.comments ? d.comments.totalCount : 0,
+				upvotes: typeof d.upvoteCount === "number" ? d.upvoteCount : 0,
+				excerpt: excerpt(d.bodyText),
+				closed,
+				state: followState(closed, d.stateReason, (d.comments?.nodes || []).filter((c: any) => c), maintainer),
+			};
+		});
 
 	return {
 		discussions,
@@ -1065,6 +1172,8 @@ Deno.serve(async (req: Request) => {
 					identity: who,
 					types: describeTypes(rc),
 					missing: rc.missing,
+					// 维护者登录名：前端据此给这个账号打「管理员」标签（issue #38）
+					maintainer: maintainerLogin(),
 					discussions: page.discussions.map((d: any) => (
 						mine[String(d.number)] ? { ...d, mine: true } : d
 					)),
@@ -1090,7 +1199,14 @@ Deno.serve(async (req: Request) => {
 				const firstRaw = Number(url.searchParams.get("first") || 40);
 				const first = Math.min(Math.max(Number.isFinite(firstRaw) ? firstRaw : 40, 1), 60);
 				const detail = await fetchDiscussion(token, repo, number, first, url.searchParams.get("after"));
-				return json({ success: true, repo, identity: who, types: describeTypes(rc), ...detail }, 200, {
+				return json({
+					success: true,
+					repo,
+					identity: who,
+					types: describeTypes(rc),
+					maintainer: maintainerLogin(),
+					...detail,
+				}, 200, {
 					// 详情相对稳定，让浏览器存 15 秒，来回点不重复拉
 					"Cache-Control": "public, max-age=15, stale-while-revalidate=45",
 				});
@@ -1103,6 +1219,7 @@ Deno.serve(async (req: Request) => {
 				identity: who,
 				types: describeTypes(rc),
 				missing: rc.missing,
+				maintainer: maintainerLogin(),
 				cachedAt: rc.at,
 			});
 		} catch (err) {
@@ -1172,14 +1289,20 @@ Deno.serve(async (req: Request) => {
 	// 默认 Bug（与前端弹窗的默认选中一致）：类型没传或不认识时按 bug 处理，
 	// 而不是悄悄落到 Others —— 那会让 Bug 报告漂到「其他」分类里没人看。
 	const type = TYPES.some((t) => t.type === raw?.type) ? String(raw.type) : "bug";
-	const bodyText = clip(raw?.body, 8000);
+
+	// 标题与正文互相补齐（issue #31）：正文 ≤4 字 / 标题被截断 / 两者都空 的判定都收在这里
+	const filled = completeTitleBody(raw?.title, raw?.body);
+	if (!filled) return json({ success: false, message: "请再多写几个字" }, 400);
+	const { title: rawTitle, body: bodyText } = filled;
 	if (bodyText.length < 4) return json({ success: false, message: "请再多写几个字" }, 400);
 
-	const title = buildTitle(type, raw?.title, bodyText);
+	const title = buildTitle(type, rawTitle, bodyText);
 	const contact = clip(raw?.contact, 140);
 	const meta = clip(raw?.meta, 1200);
-	// 来源页面：前端从 ?from= 自动带上（从哪一页点的顶栏反馈），也允许用户自己改
+	// 来源页面：前端从 ?from= 自动带上（从哪一页点的顶栏反馈），也允许用户自己改。
+	// 它现在会写进 GitHub 正文顶部（issue #18），所以再兜一层：不是站内路径就不写。
 	const page = clip(raw?.page, 300);
+	const pageForBody = /^[\w\-./%#?=&~]*$/.test(page) && page.length > 0 ? page : "";
 
 	if (duplicated(`${type}\u0000${title}\u0000${bodyText}`, now)) {
 		return json({ success: false, message: "同样的内容刚提交过了" }, 409);
@@ -1197,7 +1320,7 @@ Deno.serve(async (req: Request) => {
 				repoId: rc.repoId,
 				categoryId: category.id,
 				title,
-				body: buildBody({ body: bodyText, contact, meta }),
+				body: buildBody({ body: bodyText, contact, meta, page: pageForBody }),
 			},
 		);
 
