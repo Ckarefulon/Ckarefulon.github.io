@@ -1020,6 +1020,23 @@ interface UploadedImage {
 }
 
 /**
+ * 图片上传**必须用一个用户身份**的 token。
+ *
+ * ⚠️ 这是实测踩出来的：user-attachments 端点对 **GitHub App 的 installation token
+ * 一律返回 404**，同一个仓库、同一个请求，把 token 换成人的 PAT 就成功。
+ * 原因不难猜 —— 这个端点建立的是「某个用户上传的附件」，而 App 没有用户身份。
+ *
+ * 所以这里不复用 resolveIdentity() 的结果，而是专门挑一个「人」：
+ *   · 优先 DISCUSSIONS_TOKEN（就是维护者本人的 PAT）
+ *   · 只有 App 没配 PAT 时，才拿 App token 试一次
+ *     （将来的 GitHub 版本放宽了就成了，成不了也只是图片失败，正文照发）
+ */
+function uploadToken(): string | null {
+	const pat = (Deno.env.get("DISCUSSIONS_TOKEN") || "").trim();
+	return pat || null;
+}
+
+/**
  * 把一张 base64 图片传到 GitHub 的附件通道，返回可在 Markdown 里引用的 URL。
  *
  * 入参约定（前端负责把 File 读成 dataURL）：
@@ -1102,6 +1119,11 @@ async function collectImages(
 	const list = Array.isArray(raw?.images) ? raw.images.slice(0, MAX_IMAGES) : [];
 	if (!list.length) return { images: [], error: null };
 
+	// 附件通道只认用户身份（见 uploadToken 的说明）。没有 PAT 就直接说清楚，
+	// 不要拿 App token 去撞一个必然 404 的请求 —— 那样只会给出一句看不懂的报错。
+	const asUser = uploadToken();
+	if (!asUser) return { images: [], error: "图片上传需要一个用户身份的令牌（DISCUSSIONS_TOKEN）" };
+
 	let totalChars = 0;
 	for (const item of list) totalChars += String(item?.data || "").length;
 	if (totalChars > MAX_IMAGE_B64) {
@@ -1112,7 +1134,7 @@ async function collectImages(
 	const images: UploadedImage[] = [];
 	for (let i = 0; i < list.length; i++) {
 		try {
-			images.push(await uploadImage(token, rc.repoId, list[i]));
+			images.push(await uploadImage(asUser, rc.repoId, list[i]));
 		} catch (err) {
 			// 这里给用户看的必须是「能读懂的一句话」，不能把内部错误码抛出去
 			const why = describe(err);
@@ -1727,6 +1749,7 @@ function describe(err: unknown): string {
 	if (message === "IMAGE_INVALID") return "图片格式无法识别";
 	if (message === "IMAGE_TYPE") return "只支持 PNG / JPEG / GIF / WebP";
 	if (message === "IMAGE_TOO_LARGE") return "单张图片不能超过 10 MB";
+	if (/HTTP 404/.test(message) && /图片上传/.test(message)) return "图片上传不被接受（附件接口需要用户身份，App 身份会被拒）";
 	if (/rate limit/i.test(message)) return "GitHub 接口限流，请稍后再试";
 	return message;
 }
