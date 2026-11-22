@@ -121,32 +121,30 @@ POST https://uploads.github.com/user-attachments/assets
 
 | 事实 | 影响 |
 | --- | --- |
-| **只认用户 PAT，且必须是 classic + `repo` scope** | App installation token、Actions 的 `GITHUB_TOKEN` 一律 **404** |
-| 更准确地说：端点要求 token 对目标仓库有 **push 权限** | 权限不足时报 **404 而不是 403**，看起来像「仓库不存在」，极难排查 |
+| **`repository_id` 必须是数字 id**（`659772435`） | 传 GraphQL 的 node id（`R_kg…`）会 **404**，看起来像没权限 |
+| 只认用户 PAT 或 App installation token 里**对仓库有写权限**的那个 | 只读 token 也 404；App token 实测可用 |
 | 只认 png / jpeg / gif / webp | SVG、PDF、txt 全部 422，前端也一并拦掉 |
 | **资源在被帖子引用之前是 404** | 所以顺序必须是「先上传 → 再创建/编辑帖子」，反了会得到死链 |
 | 引用之后变成 302 → S3 CDN | 这就是正常状态，不是出错 |
 | 单张上限 10 MB | 前端先校验，不用等服务端 422 |
-| 上传不可撤销、资源无法删除 | 只是在正文定稿时才传的旧策略；现在改成边写边传，接受不可撤销 |
+| 上传不可撤销、资源无法删除 | 所以改成边写边传后，删掉正文里的图不会回收资源 |
 
-**因为这个端点没文档，所以它随时可能变。** 代码里给每种失败都准备了可读提示，
-并且**不阻断正文提交** —— 用户那段字不能因为图而丢掉。
+### ⚠️ 一个曾经误判很久的坑：仓库 id 的形式
 
-### ⚠️ 部署要求：DISCUSSIONS_TOKEN 必须有 repo scope
+这里记一笔，因为排查成本很高：
 
-函数当前默认用 GitHub App 发帖（作者显示为 `xxx[bot]`），但**图片上传不能用 App 身份** ——
-所以 `uploadToken()` 会单独去拿 `DISCUSSIONS_TOKEN`。
+- 代码早期把 GraphQL 的 `repository.id`（形态是 `R_kgDOJ1NUEw`）当 `repository_id` 传。
+- 附件接口回 **404**，而它的行为是「没权限也返回 404」，
+  于是被判断成「App 身份不被接受」，还专门写了降级提示、绕去用 PAT。
+- 真正的修法只有一行：GraphQL 查询里多取一个 **`databaseId`**（数字），改用它。
 
-要求这个 PAT 是 **classic token 且勾了 `repo`**（只勾 Discussions 不够）。
-来源：[实测记录](https://githubhelp.com/drogers0/gh-image/issues/48)、[同一结论](https://socket.dev/npm/package/gh-media-attach)。
+**判据**：如果上传 404，先打印实际传出去的 `repository_id` ——
+是 `R_kg…` 这种字符串就一定错了，必须是纯数字。
 
-如果它不满足，界面上会看到「图片上传不被接受（附件接口需要用户身份，App 身份会被拒）」，
-而正文依然能正常提交。要修就换一个带 `repo` 的 classic PAT 重新下发：
-
-```bash
-supabase secrets set DISCUSSIONS_TOKEN=ghp_xxx
-```
-
+对齐过的事实（都实测）：
+- App installation token **可以**上传（前提是它对仓库有写权限、且 id 形式正确）
+- classic PAT 带 `repo` 也可以
+- 现在代码按 `DISCUSSIONS_TOKEN` → App token 的顺序依次尝试，任一个成功即用
 ### 图片在正文里的位置
 
 `buildBody` 里图片排在**正文之后、环境信息之前**。这个顺序不能改：
