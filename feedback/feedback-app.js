@@ -897,27 +897,45 @@
 				+ ' referrerpolicy="no-referrer">';
 		}
 		// 没有头像地址就画个首字母块，别留空
-		var initial = (login || "?").replace(/\[bot\]$/, "").charAt(0).toUpperCase() || "?";
+		var initial = isBotLogin(login)
+			? "机"
+			: ((login || "?").replace(/\[bot\]$/i, "").charAt(0).toUpperCase() || "?");
 		return '<span class="' + cls + ' fbAvatarFallback">' + escapeHtml(initial) + "</span>";
+	}
+
+	/**
+	 * 这个登录名是不是「站点代发的 App」。
+	 *
+	 * GraphQL 返回的 login **不带** `[bot]` 后缀（是 `ckarefulon-feedback`），
+	 * 只有别处显示时才写成 `ckarefulon-feedback[bot]`。所以只靠 `/\[bot\]$/` 判不出来，
+	 * 会把机器人账号当成真人名字摆在页面上。这里把后端下发的 identity.bot 也纳入口径。
+	 */
+	function isBotLogin(login) {
+		var name = String(login || "");
+		if (!name) return false;
+		if (/\[bot\]$/i.test(name)) return true;
+		var bot = listIdentity && listIdentity.bot ? String(listIdentity.bot) : "";
+		if (!bot) return false;
+		return bot.replace(/\[bot\]$/i, "").toLowerCase() === name.toLowerCase();
 	}
 
 	/** 作者名字 + 标签（不含 @ 符号） */
 	function authorNameHtml(author, opts) {
 		opts = opts || {};
 		var login = typeof author === "string" ? author : (author && author.login ? author.login : "");
-		var isBot = /\[bot\]$/.test(login);
+		var bot = isBotLogin(login);
 		var out = "";
-		if (isBot) {
-			// bot 账号名就是 "xxx[bot]"，显示成站点代发，不露它的登录名
-			out += '<span class="fbAuthorName">站点代发</span>';
+		if (bot) {
+			// 机器人账号不露它的登录名，直接说明是站点代发
+			out += '<span class="fbAuthorName">站点代发</span><span class="fbAuthorBotTag">机器人</span>';
 		} else if (login) {
 			out += '<span class="fbAuthorName">' + escapeHtml(login) + "</span>";
 		} else {
 			out += '<span class="fbAuthorName">匿名</span>';
 		}
 		if (opts.isAuthor) out += '<span class="fbAuthorTag fbAuthorTagOp">楼主</span>';
-		if (!isBot && isMaintainer(login)) out += '<span class="fbAuthorTag fbAuthorTagAdmin">管理员</span>';
-		if (opts.patDeputy && !isBot) out += '<span class="fbAuthorNote">（维护者账号代发）</span>';
+		if (!bot && isMaintainer(login)) out += '<span class="fbAuthorTag fbAuthorTagAdmin">管理员</span>';
+		if (opts.patDeputy && !bot) out += '<span class="fbAuthorNote">（维护者账号代发）</span>';
 		return out;
 	}
 
@@ -927,8 +945,7 @@
 	 */
 	function authorLabel(author, identity) {
 		var login = typeof author === "string" ? author : (author && author.login ? author.login : "");
-		var isBot = /\[bot\]$/.test(login);
-		var patDeputy = !!(identity && identity.mode === "pat") && !isBot;
+		var patDeputy = !!(identity && identity.mode === "pat") && !isBotLogin(login);
 		return '<span class="fbAuthorInline">'
 			+ avatarHtml(author, false)
 			+ authorNameHtml(author, { patDeputy: patDeputy })
@@ -1099,7 +1116,8 @@
 		var commentId = (opts && opts.commentId) || "";
 		var counts = (node && node.reactions) || {};
 		var mine = reactionMine(kind, commentId);
-		var html = '<div class="fbReactionBar' + (small ? " fbReactionBarSmall" : "") + '">';
+		var html = "";
+		var shown = 0;
 
 		// ① 只画真的有人点过的（自己刚点的、服务端还没回来的，先按 1 显示）
 		for (var i = 0; i < REACTIONS.length; i++) {
@@ -1108,6 +1126,7 @@
 			var isMine = mine.indexOf(r.key) >= 0;
 			if (n <= 0 && !isMine) continue;
 			if (n <= 0) n = 1;
+			shown++;
 			html += '<button class="fbReactionChip' + (isMine ? " isMine" : "") + '" type="button"'
 				+ ' data-reaction="' + r.key + '"'
 				+ (commentId ? ' data-comment-id="' + escapeHtml(commentId) + '"' : "")
@@ -1137,8 +1156,10 @@
 				+ "</div>"
 				+ "</div>";
 		}
-		html += "</div>";
-		return html;
+
+		// 一个胶囊都没有、也没有入口 ⇒ 整个表情栏不占位（别留一条空白）
+		if (!html) return "";
+		return '<div class="fbReactionBar' + (small ? " fbReactionBarSmall" : "") + '">' + html + "</div>";
 	}
 
 	/** GitHub 那个「添加表情」用的笑脸，与七种表情区分开 */

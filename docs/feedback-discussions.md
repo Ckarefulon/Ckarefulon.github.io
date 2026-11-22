@@ -155,7 +155,7 @@ supabase secrets set DISCUSSIONS_TOKEN=ghp_xxx
 ```
 
 - **只显示被点过的**：服务端在 `reactions` 字段给出每种表情的人数，前端据此决定画哪几个。
-  一个都没有时，整行只剩那个笑脸入口。
+  一个都没有、访客又没权限点的时候，**整个表情栏都不渲染**（不留一条空白）。
 - **数量来自服务端**：点完之后重新拉一次详情，而不是本地加减 —— 界面跟着真实数据走。
 - **「我点过没有」记在前端会话里**：GitHub 的 `viewerHasReacted` 是按「谁在查询」算的，
   而函数用的是 bot/PAT 身份，那个字段反映的不是页面上这个访客。所以用 `myReactions`
@@ -180,7 +180,11 @@ supabase secrets set DISCUSSIONS_TOKEN=ghp_xxx
 - **标签**：
   - `楼主` —— 该条回复的作者 == 主帖作者（大小写不敏感）
   - `管理员` —— 登录名等于 `FEEDBACK_MAINTAINER`
-  - `站点代发` —— 作者是 GitHub App 的 `xxx[bot]`
+  - `站点代发` + `机器人` —— 作者是站点自己的 GitHub App
+
+⚠️ **判断「是不是机器人」不能只看 `[bot]` 后缀**：GraphQL 返回的 login 是
+`ckarefulon-feedback`（不带后缀），只有别处拼接展示时才写成 `xxx[bot]`。
+所以要同时比对后端下发的 `identity.bot`，否则机器人账号会被当成真人名字摆在页面上。
 
 ### 「支持（upvote）」为什么没做
 
