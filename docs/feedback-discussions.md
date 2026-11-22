@@ -97,7 +97,8 @@ POST https://uploads.github.com/user-attachments/assets
 
 | 事实 | 影响 |
 | --- | --- |
-| App installation token 与 PAT 都能用 | 不需要浏览器 cookie |
+| **只认用户 PAT，且必须是 classic + `repo` scope** | App installation token、Actions 的 `GITHUB_TOKEN` 一律 **404** |
+| 更准确地说：端点要求 token 对目标仓库有 **push 权限** | 权限不足时报 **404 而不是 403**，看起来像「仓库不存在」，极难排查 |
 | 只认 png / jpeg / gif / webp | SVG、PDF、txt 全部 422，前端也一并拦掉 |
 | **资源在被帖子引用之前是 404** | 所以顺序必须是「先上传 → 再创建/编辑帖子」，反了会得到死链 |
 | 引用之后变成 302 → S3 CDN | 这就是正常状态，不是出错 |
@@ -106,6 +107,21 @@ POST https://uploads.github.com/user-attachments/assets
 
 **因为这个端点没文档，所以它随时可能变。** 代码里的应对是：上传失败**不阻断提交** ——
 正文照发，只把「第 N 张图没能上传（原因）」如实回给前端。用户那段字不能因为图而丢掉。
+
+### ⚠️ 部署要求：DISCUSSIONS_TOKEN 必须有 repo scope
+
+函数当前默认用 GitHub App 发帖（作者显示为 `xxx[bot]`），但**图片上传不能用 App 身份** ——
+所以 `uploadToken()` 会单独去拿 `DISCUSSIONS_TOKEN`。
+
+要求这个 PAT 是 **classic token 且勾了 `repo`**（只勾 Discussions 不够）。
+来源：[实测记录](https://githubhelp.com/drogers0/gh-image/issues/48)、[同一结论](https://socket.dev/npm/package/gh-media-attach)。
+
+如果它不满足，界面上会看到「图片上传不被接受（附件接口需要用户身份，App 身份会被拒）」，
+而正文依然能正常提交。要修就换一个带 `repo` 的 classic PAT 重新下发：
+
+```bash
+supabase secrets set DISCUSSIONS_TOKEN=ghp_xxx
+```
 
 ### 图片在正文里的位置
 
