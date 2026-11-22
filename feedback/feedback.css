@@ -825,6 +825,177 @@
 	font-family: var(--dsk-font-mono);
 }
 
+/* ---------- 帖子操作与表情（issue #33） ---------- */
+
+.fbPostTools {
+	display: flex;
+	gap: 6px;
+	margin-left: auto;
+	flex-wrap: wrap;
+}
+
+.fbTool {
+	padding: 3px 10px;
+	border-radius: var(--dsk-radius-full);
+	border: 1px solid var(--dsk-border);
+	background: var(--dsk-background);
+	color: var(--dsk-foreground-muted);
+	font-size: var(--dsk-text-xs);
+	cursor: pointer;
+	transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.fbTool:hover {
+	border-color: var(--dsk-primary);
+	color: var(--dsk-primary);
+}
+
+.fbToolDanger:hover {
+	border-color: var(--dsk-danger, #d9534f);
+	color: var(--dsk-danger, #d9534f);
+}
+
+.fbReactions {
+	display: flex;
+	gap: 4px;
+	margin-top: 14px;
+	flex-wrap: wrap;
+}
+
+.fbReactionsSmall {
+	margin-top: 8px;
+}
+
+.fbReaction {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 32px;
+	height: 30px;
+	padding: 0 6px;
+	border-radius: var(--dsk-radius-full);
+	border: 1px solid transparent;
+	background: var(--dsk-muted);
+	cursor: pointer;
+	transition: border-color 0.15s, background 0.15s, transform 0.1s;
+	/* 图标上不叠任何文字（用户明确要求）：这里只放 emoji 本身 */
+	font-size: 15px;
+	line-height: 1;
+}
+
+.fbReaction:hover {
+	border-color: var(--dsk-border);
+	background: var(--dsk-background);
+}
+
+.fbReaction:active {
+	transform: scale(0.94);
+}
+
+.fbReaction.isActive {
+	border-color: var(--dsk-primary);
+	background: var(--dsk-primary-subtle, color-mix(in srgb, var(--dsk-primary) 14%, transparent));
+}
+
+.fbReaction:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.fbReactionIcon {
+	pointer-events: none;
+}
+
+.fbReactionsSmall .fbReaction {
+	min-width: 26px;
+	height: 24px;
+	font-size: 12px;
+}
+
+/* 就地编辑框 */
+.fbEditBox {
+	margin-top: 14px;
+	padding: 14px;
+	border: 1px solid var(--dsk-border);
+	border-radius: var(--dsk-radius-md);
+	background: var(--dsk-muted);
+}
+
+.fbEditBox .fbLabel {
+	display: block;
+	margin: 10px 0 6px;
+}
+
+.fbEditBox .fbLabel:first-child {
+	margin-top: 0;
+}
+
+.fbEditActions {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+	margin-top: 12px;
+}
+
+/* ---------- 图片附件（issue #11） ---------- */
+
+.fbImageBar {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+.fbImageHint {
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+}
+
+.fbImageList {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+	margin-top: 10px;
+}
+
+.fbImageItem {
+	position: relative;
+	width: 84px;
+	height: 84px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-border);
+	overflow: hidden;
+	background: var(--dsk-muted);
+}
+
+.fbImageThumb {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+.fbImageDel {
+	position: absolute;
+	top: 2px;
+	right: 2px;
+	width: 20px;
+	height: 20px;
+	line-height: 18px;
+	text-align: center;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: rgba(0, 0, 0, 0.62);
+	color: #fff;
+	font-size: 14px;
+	cursor: pointer;
+}
+
+.fbImageDel:hover {
+	background: rgba(0, 0, 0, 0.82);
+}
+
 /* 来源页面单独一行放在标题下（issue #18）：这一条最值得最先看到 */
 .fbPostFrom {
 	margin: 0 0 12px;
@@ -901,6 +1072,215 @@
 	background: var(--dsk-muted);
 	font-family: var(--dsk-font-mono);
 	font-size: 0.92em;
+}
+
+/* ---------- Markdown 正文（issue #32）----------
+   marked 会把 GitHub 上能出现的元素全解析出来，这里逐类给样式，
+   保证在反馈页里不会被全局样式打歪（尤其是 table 会继承站点表格的宽和边框）。 */
+
+.fbPostBody h1,
+.fbPostBody h2,
+.fbPostBody h3,
+.fbPostBody h4,
+.fbPostBody h5,
+.fbPostBody h6,
+.fbCommentBody h1,
+.fbCommentBody h2,
+.fbCommentBody h3,
+.fbCommentBody h4,
+.fbCommentBody h5,
+.fbCommentBody h6 {
+	margin: 18px 0 8px;
+	font-weight: 650;
+	line-height: 1.35;
+	color: var(--dsk-foreground);
+}
+
+.fbPostBody > *:first-child,
+.fbCommentBody > *:first-child {
+	margin-top: 0;
+}
+
+.fbPostBody h1,
+.fbCommentBody h1 {
+	font-size: 1.45em;
+}
+
+.fbPostBody h2,
+.fbCommentBody h2 {
+	font-size: 1.25em;
+	padding-bottom: 5px;
+	border-bottom: 1px solid var(--dsk-border);
+}
+
+.fbPostBody h3,
+.fbCommentBody h3 {
+	font-size: 1.1em;
+}
+
+.fbPostBody h4,
+.fbPostBody h5,
+.fbPostBody h6,
+.fbCommentBody h4,
+.fbCommentBody h5,
+.fbCommentBody h6 {
+	font-size: 1em;
+}
+
+.fbPostBody ul,
+.fbPostBody ol,
+.fbCommentBody ul,
+.fbCommentBody ol {
+	margin: 0 0 10px;
+	padding-left: 22px;
+}
+
+.fbPostBody li,
+.fbCommentBody li {
+	margin: 3px 0;
+}
+
+.fbPostBody li > ul,
+.fbPostBody li > ol,
+.fbCommentBody li > ul,
+.fbCommentBody li > ol {
+	margin: 3px 0;
+}
+
+/* GFM 任务列表：marked 输出 <li><input type=checkbox disabled>。
+   ⚠️ marked v15 不再给 li 加 `task-list-item` 类（早期版本会加），
+   所以只能用「li 里有 checkbox」这个结构选择器定位；同时去掉默认圆点，
+   ���则勾选框前面还会多顶一个点。 */
+.fbPostBody li:has(> input[type="checkbox"]),
+.fbCommentBody li:has(> input[type="checkbox"]) {
+	list-style: none;
+	margin-left: -18px;
+}
+
+.fbPostBody li > input[type="checkbox"],
+.fbCommentBody li > input[type="checkbox"] {
+	margin-right: 6px;
+	vertical-align: middle;
+}
+
+/* 不支持 :has 的浏览器（老 Chromium）退回按 marked 旧类名处理；两者都命不中时
+   也还能正常读，只是前面多个点，不是致命问题。 */
+.fbPostBody li.task-list-item,
+.fbCommentBody li.task-list-item {
+	list-style: none;
+	margin-left: -18px;
+}
+
+.fbPostBody li.task-list-item input,
+.fbCommentBody li.task-list-item input {
+	margin-right: 6px;
+	vertical-align: middle;
+}
+
+.fbPostBody blockquote,
+.fbCommentBody blockquote {
+	margin: 10px 0;
+	padding: 2px 0 2px 12px;
+	border-left: 3px solid var(--dsk-border);
+	color: var(--dsk-muted-foreground);
+}
+
+.fbPostBody blockquote > :last-child,
+.fbCommentBody blockquote > :last-child {
+	margin-bottom: 0;
+}
+
+.fbPostBody hr,
+.fbCommentBody hr {
+	margin: 16px 0;
+	border: 0;
+	border-top: 1px solid var(--dsk-border);
+}
+
+/* 表格：站点全局给 table 设了 min-width:680px，反馈正文里必须盖掉，
+   否则窄屏整段横向溢出。 */
+.fbPostBody table,
+.fbCommentBody table {
+	width: auto;
+	max-width: 100%;
+	min-width: 0;
+	margin: 10px 0;
+	border-collapse: collapse;
+	display: block;
+	overflow-x: auto;
+}
+
+.fbPostBody th,
+.fbPostBody td,
+.fbCommentBody th,
+.fbCommentBody td {
+	padding: 6px 12px;
+	border: 1px solid var(--dsk-border);
+	text-align: left;
+	font-size: var(--dsk-text-xs);
+}
+
+.fbPostBody th,
+.fbCommentBody th {
+	position: static;
+	background: var(--dsk-muted);
+	color: var(--dsk-foreground);
+	font-weight: 600;
+	text-transform: none;
+	letter-spacing: 0;
+	white-space: nowrap;
+}
+
+.fbPostBody tbody tr,
+.fbCommentBody tbody tr {
+	cursor: auto;
+}
+
+.fbPostBody tbody tr:hover,
+.fbCommentBody tbody tr:hover {
+	background: none;
+}
+
+.fbPostBody img,
+.fbCommentBody img {
+	max-width: 100%;
+	height: auto;
+	border-radius: var(--dsk-radius-md);
+	margin: 6px 0;
+}
+
+.fbPostBody del,
+.fbCommentBody del {
+	opacity: 0.7;
+}
+
+/* 代码块。⚠️ marked 输出的是裸 <pre><code>，不带任何类名，
+   老版手写 markdownLite 用的是 .fbCode —— 只写 .fbCode 的话新解析器下的代码块
+   会完全没有背景和边框，直接糊在正文里（实测）。所以两种选择器都要给。 */
+.fbPostBody pre,
+.fbCommentBody pre {
+	margin: 10px 0;
+	padding: 12px 14px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-border);
+	background: var(--dsk-muted);
+	overflow-x: auto;
+	font-family: var(--dsk-font-mono);
+	font-size: var(--dsk-text-xs);
+	line-height: 1.6;
+	color: var(--dsk-foreground);
+	white-space: pre;
+}
+
+/* 代码块里的语言标签不显示，但保留 marked 输出的 <code class="language-xxx"> */
+.fbPostBody pre code,
+.fbCommentBody pre code {
+	background: none;
+	padding: 0;
+	border: 0;
+	font-size: inherit;
+	color: inherit;
+	white-space: pre;
 }
 
 /* ---------- 回复列表 ---------- */

@@ -33,6 +33,36 @@
 const GITHUB_GRAPHQL = "https://api.github.com/graphql";
 const DEFAULT_REPO = "Ckarefulon/Ckarefulon.github.io";
 
+/**
+ * 图片上传走 GitHub 自己的 user-attachments 通道（issue #11）。
+ *
+ * ⚠️ 这是一个**未文档化**的端点：GitHub 到今天都没有公开
+ * 「给 issue / PR / discussion 上传附件」的 REST 或 GraphQL API，
+ * 网页里拖图走的就是这个域名，而且用的是浏览器 session cookie。
+ *
+ * 实测（2026-11-22）：
+ *   · 用 App installation token 或 PAT 直接打，**能成功**，返回
+ *     { url: "https://github.com/user-attachments/assets/<uuid>" }
+ *   · 允许的类型只有 png / jpeg / gif / webp；svg 与 pdf/txt 一律 422
+ *   · 上传后、**被帖子引用之前**，这个 URL 是 404；一旦写进正文就变成 302 → S3 CDN。
+ *     所以顺序必须是「先上传 → 再创建/编辑帖子」，不能反过来。
+ *   · 单张上限 10 MB
+ *
+ * 因为它未文档化，随时可能变。所以：上传失败时**不阻断提交** ——
+ * 正文照发，只是把「图片没传上去」如实告诉前端，让人还能用 GitHub 手动补图。
+ */
+const GITHUB_UPLOAD = "https://uploads.github.com/user-attachments/assets";
+const IMAGE_TYPES: Record<string, string> = {
+	"image/png": "png",
+	"image/jpeg": "jpg",
+	"image/gif": "gif",
+	"image/webp": "webp",
+};
+const MAX_IMAGES = 4;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+/** 上传接口只收二进制，所以图片改用 base64 从前端传过来；4 张 × 10MB 的 base64 太大，收窄到 12M 字符 */
+const MAX_IMAGE_B64 = 12 * 1024 * 1024;
+
 const CORS_HEADERS: Record<string, string> = {
 	"Access-Control-Allow-Origin": "*",
 	"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -731,10 +761,21 @@ function describeTypes(rc: RepoCache) {
  * 环境信息仍然是 <details> 折叠块，并且由前端按用户勾选决定要不要发过来；
  * 联系方式只在这个人自己填了的时候才有。
  */
-function buildBody(input: { body: string; contact: string; meta: string; page?: string }): string {
+function buildBody(input: {
+	body: string;
+	contact: string;
+	meta: string;
+	page?: string;
+	images?: UploadedImage[];
+}): string {
 	const parts: string[] = [];
 	if (input.page) parts.push(`**来源页面**：${input.page}`);
 	parts.push(input.body);
+	// 图片贴在正文后面、附加信息前面。
+	// ⚠️ 位置很关键：前端的 stripMeta 是在「> 由站点反馈广场提交」那一行截断的，
+	// 图如果排在签名之后就会被当成附加信息整段剥掉，详情页里一张也看不见。
+	const imgs = imageMarkdown(input.images || []);
+	if (imgs) parts.push(imgs.trim());
 	if (input.contact) parts.push(`**联系方式**：${input.contact}`);
 	if (input.meta) {
 		parts.push(`<details><summary>环境信息</summary>\n\n\`\`\`\n${input.meta}\n\`\`\`\n\n</details>`);
@@ -971,6 +1012,243 @@ async function addComment(token: string, repo: string, number: number, body: str
 	return { id: String(comment.id || ""), url: comment.url || "", createdAt: comment.createdAt || "" };
 }
 
+/* ---------------- 图片上传（issue #11） ---------------- */
+
+interface UploadedImage {
+	url: string;
+	name: string;
+}
+
+/**
+ * 把一张 base64 图片传到 GitHub 的附件通道，返回可在 Markdown 里引用的 URL。
+ *
+ * 入参约定（前端负责把 File 读成 dataURL）：
+ *   { name: "截图.png", data: "data:image/png;base64,...." }
+ * 只认 IMAGE_TYPES 里的类型；其它一律拒绝，避免把 GitHub 不支持的东西发过去再吃 422。
+ */
+async function uploadImage(
+	token: string,
+	repoId: string,
+	image: { name?: unknown; data?: unknown },
+): Promise<UploadedImage> {
+	const dataUrl = String(image?.data || "");
+	const m = /^data:([\w/+.-]+);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
+	if (!m) throw new Error("IMAGE_INVALID");
+	const mime = m[1].toLowerCase();
+	const ext = IMAGE_TYPES[mime];
+	if (!ext) throw new Error("IMAGE_TYPE");
+
+	// base64 → 二进制。atob 比手写表快，且 Deno 自带
+	let bytes: Uint8Array;
+	try {
+		const binary = atob(m[2]);
+		bytes = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+	} catch {
+		throw new Error("IMAGE_INVALID");
+	}
+	if (!bytes.length) throw new Error("IMAGE_INVALID");
+	if (bytes.length > MAX_IMAGE_BYTES) throw new Error("IMAGE_TOO_LARGE");
+
+	// 文件名只用来给 URL 定扩展名，不参与展示；用户给的名字可能带奇怪字符，统一重命名
+	const safeName = `feedback-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+	const qs = new URLSearchParams({
+		repository_id: repoId,
+		name: safeName,
+		content_type: mime,
+	});
+
+	const res = await fetch(`${GITHUB_UPLOAD}?${qs.toString()}`, {
+		method: "POST",
+		headers: {
+			"Authorization": `bearer ${token}`,
+			"Accept": "application/vnd.github+json",
+			"Content-Type": mime,
+			"User-Agent": "ckarefulon-feedback",
+		},
+		body: bytes,
+	});
+	const text = await res.text();
+	let payload: any = null;
+	try { payload = JSON.parse(text); } catch { payload = null; }
+	if (!res.ok || !payload || typeof payload.url !== "string") {
+		const why = payload && payload.errors && payload.errors[0] && payload.errors[0].message;
+		throw new Error(why ? `图片上传失败：${why}` : `图片上传失败（HTTP ${res.status}）`);
+	}
+
+	// 保留用户给的原名，用作 Markdown 的 alt（读屏与图片加载失败时能看到）
+	const label = clip(image?.name, 80).replace(/[\[\]\\]/g, "") || "截图";
+	return { url: payload.url, name: label };
+}
+
+/** 把图片拼成 Markdown 块，附在正文末尾 */
+function imageMarkdown(images: UploadedImage[]): string {
+	if (!images.length) return "";
+	return "\n\n" + images.map((img) => `![${img.name}](${img.url})`).join("\n\n");
+}
+
+/**
+ * 收集并上传本次提交带的图片。
+ *
+ * 设计原则：**图片失败不能连累正文**。用户写的那段字才是主体，
+ * 图没传上去只该降级提示，不该让他整条都发不出去。
+ * 所以这里返回 { images, error }，而不是抛异常。
+ */
+async function collectImages(
+	token: string,
+	raw: any,
+	repo: string,
+): Promise<{ images: UploadedImage[]; error: string | null }> {
+	const list = Array.isArray(raw?.images) ? raw.images.slice(0, MAX_IMAGES) : [];
+	if (!list.length) return { images: [], error: null };
+
+	let totalChars = 0;
+	for (const item of list) totalChars += String(item?.data || "").length;
+	if (totalChars > MAX_IMAGE_B64) {
+		return { images: [], error: "图片总大小超出限制" };
+	}
+
+	const rc = await resolveRepo(token, repo);
+	const images: UploadedImage[] = [];
+	for (let i = 0; i < list.length; i++) {
+		try {
+			images.push(await uploadImage(token, rc.repoId, list[i]));
+		} catch (err) {
+			// 这里给用户看的必须是「能读懂的一句话」，不能把内部错误码抛出去
+			const why = describe(err);
+			return { images, error: `第 ${i + 1} 张图没能上传（${why}）` };
+		}
+	}
+	return { images, error: null };
+}
+
+/* ---------------- 帖子操作与互动（issue #33） ---------------- */
+
+/**
+ * 编辑 / 关闭 / 删除 / 表情。
+ *
+ * 「支持（upvote）」在 GitHub 上没有实现路径：addUpvote 按**凭证类型**拒绝，
+ * 只要是 App 或 token 身份一律 FORBIDDEN（Resource not accessible by integration），
+ * 没有任何权限能解锁，只有真人用浏览器点才有效。所以这里不做 upvote，
+ * 只做 addReaction —— 表情本身（👍 等）用 token 是能正常加的。
+ */
+
+const DISCUSSION_ID_BY_NUMBER = `query($owner:String!,$name:String!,$number:Int!){
+  repository(owner:$owner,name:$name){
+    discussion(number:$number){ id closed title body }
+  }
+}`;
+
+async function discussionNode(token: string, repo: string, number: number) {
+	const slash = repo.indexOf("/");
+	const result = await gh(token, DISCUSSION_ID_BY_NUMBER, {
+		owner: repo.slice(0, slash),
+		name: repo.slice(slash + 1),
+		number,
+	});
+	const node = result.data?.repository?.discussion;
+	if (!node) {
+		const first = result.errors && result.errors[0];
+		if (first && /not found/i.test(String(first.message || ""))) throw new Error("NOT_FOUND");
+		throw new Error((first && first.message) || "找不到讨论");
+	}
+	return node as { id: string; closed: boolean; title: string; body: string };
+}
+
+const UPDATE_DISCUSSION = `mutation($id:ID!,$title:String,$body:String){
+  updateDiscussion(input:{discussionId:$id, title:$title, body:$body}){
+    discussion{ id title body updatedAt }
+  }
+}`;
+
+async function editDiscussion(
+	token: string,
+	repo: string,
+	number: number,
+	input: { title?: string; body?: string },
+) {
+	const node = await discussionNode(token, repo, number);
+	const result = await gh(token, UPDATE_DISCUSSION, {
+		id: node.id,
+		title: input.title ?? null,
+		body: input.body ?? null,
+	});
+	const updated = result.data?.updateDiscussion?.discussion;
+	if (!updated) {
+		const first = result.errors && result.errors[0];
+		throw new Error((first && first.message) || "修改失败");
+	}
+	return { title: updated.title || "", body: updated.body || "", updatedAt: updated.updatedAt || "" };
+}
+
+const CLOSE_DISCUSSION = `mutation($id:ID!,$reason:DiscussionCloseReason!){
+  closeDiscussion(input:{discussionId:$id, reason:$reason}){ discussion{ id closed stateReason } }
+}`;
+const REOPEN_DISCUSSION = `mutation($id:ID!){
+  reopenDiscussion(input:{discussionId:$id}){ discussion{ id closed stateReason } }
+}`;
+
+async function setDiscussionClosed(token: string, repo: string, number: number, closed: boolean) {
+	const node = await discussionNode(token, repo, number);
+	const result = closed
+		? await gh(token, CLOSE_DISCUSSION, { id: node.id, reason: "RESOLVED" })
+		: await gh(token, REOPEN_DISCUSSION, { id: node.id });
+	const out = closed
+		? result.data?.closeDiscussion?.discussion
+		: result.data?.reopenDiscussion?.discussion;
+	if (!out) {
+		const first = result.errors && result.errors[0];
+		throw new Error((first && first.message) || (closed ? "关闭失败" : "重开失败"));
+	}
+	return { closed: !!out.closed, stateReason: out.stateReason || null };
+}
+
+const DELETE_DISCUSSION = `mutation($id:ID!){ deleteDiscussion(input:{id:$id}){ clientMutationId } }`;
+
+async function deleteDiscussion(token: string, repo: string, number: number) {
+	const node = await discussionNode(token, repo, number);
+	const result = await gh(token, DELETE_DISCUSSION, { id: node.id });
+	if (result.errors && result.errors.length) {
+		throw new Error(result.errors[0].message || "删除失败");
+	}
+	return { deleted: true };
+}
+
+/** GitHub 支持的七种表情；前端只开放这几个，别的名字直接拒掉（别让上游替我们校验） */
+const REACTIONS = new Set([
+	"THUMBS_UP", "THUMBS_DOWN", "LAUGH", "HOORAY", "HEART", "ROCKET", "EYES",
+]);
+
+const ADD_REACTION = `mutation($subjectId:ID!,$content:ReactionContent!){
+  addReaction(input:{subjectId:$subjectId, content:$content}){ reaction{ content } }
+}`;
+const REMOVE_REACTION = `mutation($subjectId:ID!,$content:ReactionContent!){
+  removeReaction(input:{subjectId:$subjectId, content:$content}){ reaction{ content } }
+}`;
+
+async function toggleReaction(
+	token: string,
+	subjectId: string,
+	content: string,
+	remove: boolean,
+) {
+	if (!REACTIONS.has(content)) throw new Error("表情类型无效");
+	const result = await gh(token, remove ? REMOVE_REACTION : ADD_REACTION, { subjectId, content });
+	if (result.errors && result.errors.length) {
+		throw new Error(result.errors[0].message || (remove ? "取消表情失败" : "添加表情失败"));
+	}
+	return { content, active: !remove };
+}
+
+/** 详情里一条评论（或回复）的 node id → 用来给评论加表情 */
+const COMMENT_ID_QUERY = `query($id:ID!){ node(id:$id){ ... on DiscussionComment { id } } }`;
+
+async function assertComment(token: string, id: string) {
+	const result = await gh(token, COMMENT_ID_QUERY, { id });
+	if (!result.data?.node?.id) throw new Error("找不到这条回复");
+	return String(result.data.node.id);
+}
+
 /* ---------------- 跟进状态（列表标签 / 筛选） ---------------- */
 
 /**
@@ -1199,16 +1477,26 @@ Deno.serve(async (req: Request) => {
 				const firstRaw = Number(url.searchParams.get("first") || 40);
 				const first = Math.min(Math.max(Number.isFinite(firstRaw) ? firstRaw : 40, 1), 60);
 				const detail = await fetchDiscussion(token, repo, number, first, url.searchParams.get("after"));
+				// 谁能看到「编辑/关闭/删除」（issue #33）。
+				// ⚠️ 不能拿站点用户名去比 GitHub 登录名 —— 两者可以不一样（user_profiles.username
+				// 与 GitHub 账号名没有强绑定）。真正可信的判断在服务端：这里已经验过 JWT、
+				// 也知道维护者是谁，只有两者对得上才给 true。这只是「别把按钮摊给所有人」的
+				// UI 开关，真正的写权限仍然由 token 本身决定。
+				const detailViewer = await resolveSubmitter(req);
+				const canManage = !!detailViewer && !!detailViewer.username
+					&& detailViewer.username.toLowerCase() === maintainerLogin().toLowerCase();
 				return json({
 					success: true,
 					repo,
 					identity: who,
 					types: describeTypes(rc),
 					maintainer: maintainerLogin(),
+					canManage,
 					...detail,
 				}, 200, {
 					// 详情相对稳定，让浏览器存 15 秒，来回点不重复拉
-					"Cache-Control": "public, max-age=15, stale-while-revalidate=45",
+					// ⚠️ 带了 canManage 就不能再 public 缓存：那是按人变化的
+					"Cache-Control": "private, max-age=15",
 				});
 			}
 
@@ -1258,6 +1546,67 @@ Deno.serve(async (req: Request) => {
 
 	/* ---------- 写之一：在已有讨论下回复 ---------- */
 	const action = (url.searchParams.get("action") || raw?.action || "").trim();
+
+	/* ---------- 帖子操作与互动（issue #33） ---------- */
+	if (action === "edit" || action === "close" || action === "reopen"
+		|| action === "delete" || action === "reaction") {
+		const number = Number(raw?.number || 0);
+		if (!Number.isInteger(number) || number <= 0) {
+			return json({ success: false, message: "讨论编号无效" }, 400);
+		}
+		try {
+			if (action === "edit") {
+				const title = clip(raw?.title, 300);
+				const body = clip(raw?.body, 8000);
+				if (!title && !body) return json({ success: false, message: "没有要修改的内容" }, 400);
+				if (title && title.length < 2) return json({ success: false, message: "标题太短" }, 400);
+				// 编辑也允许带新图：先上传，再拼进正文。
+				// 编辑传上来的 body 是前端剥过附加信息的纯正文，所以图片直接接在后面即可。
+				const pending = await collectImages(token, raw, repo);
+				const withImages = body + imageMarkdown(pending.images);
+				const updated = await editDiscussion(token, repo, number, {
+					title: title || undefined,
+					body: withImages ? withImages : undefined,
+				});
+				return json({
+					success: true,
+					number,
+					discussion: updated,
+					images: pending.images,
+					imageError: pending.error,
+				});
+			}
+			if (action === "close" || action === "reopen") {
+				const out = await setDiscussionClosed(token, repo, number, action === "close");
+				return json({ success: true, number, ...out });
+			}
+			if (action === "delete") {
+				// 删除不可逆：前端必须显式传 confirm=true，挡掉误触
+				if (raw?.confirm !== true) {
+					return json({ success: false, message: "删除需要二次确认" }, 400);
+				}
+				const out = await deleteDiscussion(token, repo, number);
+				return json({ success: true, number, ...out });
+			}
+			// reaction：帖子本身或某条评论/回复
+			const content = String(raw?.content || "").trim().toUpperCase();
+			const remove = raw?.remove === true;
+			let subjectId: string;
+			if (raw?.commentId) {
+				subjectId = await assertComment(token, String(raw.commentId));
+			} else {
+				subjectId = (await discussionNode(token, repo, number)).id;
+			}
+			const out = await toggleReaction(token, subjectId, content, remove);
+			return json({ success: true, number, ...out });
+		} catch (err) {
+			const message = describe(err);
+			const status = message === "TOKEN_INVALID" ? 401
+				: (message === "讨论不存在" || message === "找不到这条回复" ? 404 : 502);
+			return json({ success: false, message }, status);
+		}
+	}
+
 	if (action === "comment") {
 		const number = Number(raw?.number || 0);
 		if (!Number.isInteger(number) || number <= 0) {
@@ -1313,6 +1662,10 @@ Deno.serve(async (req: Request) => {
 		// 该 type 没有对应分类时，落到第一个可用分类（前端会提示）
 		const category = rc.byType[type] || rc.categories[0];
 
+		// 图片先上传：资源必须**先存在、再被正文引用**才会变成可访问，
+		// 顺序反过来会得到一个 404 的链接（实测）。
+		const pending = await collectImages(token, raw, repo);
+
 		const result = await gh(
 			token,
 			`mutation($repoId:ID!,$categoryId:ID!,$title:String!,$body:String!){createDiscussion(input:{repositoryId:$repoId,categoryId:$categoryId,title:$title,body:$body}){discussion{number url category{name}}}}`,
@@ -1320,7 +1673,7 @@ Deno.serve(async (req: Request) => {
 				repoId: rc.repoId,
 				categoryId: category.id,
 				title,
-				body: buildBody({ body: bodyText, contact, meta, page: pageForBody }),
+				body: buildBody({ body: bodyText, contact, meta, page: pageForBody, images: pending.images }),
 			},
 		);
 
@@ -1354,6 +1707,9 @@ Deno.serve(async (req: Request) => {
 			// 站内关联：登录用户提交时会记下用户名；游客为 null
 			submitter: submitter ? { loggedIn: true, username: submitter.username } : { loggedIn: false, username: null },
 			linked: recorded,
+			// 图片结果：帖子已经发出去了，图没跟上时要让用户知道
+			images: pending.images,
+			imageError: pending.error,
 		});
 	} catch (err) {
 		const message = describe(err);
@@ -1368,6 +1724,9 @@ function describe(err: unknown): string {
 	if (message === "CATEGORY_MISSING") return "仓库没有可用的讨论分类";
 	if (message === "REPO_INVALID") return "FEEDBACK_REPO 配置有误";
 	if (message === "NOT_FOUND") return "讨论不存在";
+	if (message === "IMAGE_INVALID") return "图片格式无法识别";
+	if (message === "IMAGE_TYPE") return "只支持 PNG / JPEG / GIF / WebP";
+	if (message === "IMAGE_TOO_LARGE") return "单张图片不能超过 10 MB";
 	if (/rate limit/i.test(message)) return "GitHub 接口限流，请稍后再试";
 	return message;
 }

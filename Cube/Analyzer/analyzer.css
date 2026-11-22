@@ -137,6 +137,11 @@ body[data-workspace="analysis"] .training-only{display:none}.workspace-panel{dis
 .replay-stage-wrap{position:relative;border:1px solid var(--border-subtle);border-radius:var(--radius-lg);background:var(--background);overflow:hidden;min-height:300px}
 .replay-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:grab;touch-action:none}
 .replay-stage.dragging{cursor:grabbing}
+/* twisty 会在容器里塞一张 3×3 的 touchcube 表格（用来吃掉触摸事件）。
+   它自己不带样式，于是继承了本页全局的 `th,td{padding:10px 12px;border-bottom:1px solid}`
+   —— 九个格子画出三条横向分隔线，压在魔方上方，就是反馈里说的「窗口上面几条黑线」。 */
+.replay-stage .touchcube{position:absolute;inset:0;width:100%!important;height:100%!important;border-collapse:collapse;background:none;color:transparent;opacity:0;pointer-events:none;table-layout:fixed}
+.replay-stage .touchcube td{border:0!important;padding:0!important;background:none!important}
 .replay-stage-hint{position:absolute;left:10px;bottom:8px;font-size:10px;color:var(--text-subtle);pointer-events:none}
 .replay-side{display:grid;grid-template-rows:auto minmax(0,1fr);gap:10px;min-height:0}
 .replay-metrics{display:grid;grid-template-columns:1fr 1fr;gap:7px}

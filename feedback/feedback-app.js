@@ -91,6 +91,16 @@
 	var listMaintainer = null; // 后端下发的维护者登录名（用于「管理员」标签与状态口径）
 	var viewer = null;         // 站内当前查看者（是否登录）
 
+	/**
+	 * 待上传的图片（issue #11）。
+	 * 只在前端内存里，不进 localStorage：base64 动辄几 MB，塞草稿会直接把存储配额打爆。
+	 * 也因此「恢复上次内容」不恢复图片 —— 这是有意的取舍，不是遗漏。
+	 */
+	var pendingImages = [];
+	var IMAGE_MAX = 4;
+	var IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+	var IMAGE_MIME = { "image/png": 1, "image/jpeg": 1, "image/gif": 1, "image/webp": 1 };
+
 	function $(id) { return document.getElementById(id); }
 
 	/* ---------------- 后端地址 ---------------- */
@@ -696,6 +706,97 @@
 		readAttach();
 	}
 
+	/* ---------------- 图片附件（issue #11） ---------------- */
+
+	/**
+	 * 读一个 File 成 dataURL，顺便校验类型与大小。
+	 * 校验放在前端做，是为了在用户松手的那一刻就给出反馈 ——
+	 * 等服务端 422 回来再说，用户已经等了一个来回。
+	 */
+	function readImageFile(file) {
+		return new Promise(function (resolve, reject) {
+			if (!file) return reject(new Error("没有文件"));
+			var type = String(file.type || "").toLowerCase();
+			if (!IMAGE_MIME[type]) return reject(new Error("只支持 PNG / JPEG / GIF / WebP"));
+			if (file.size > IMAGE_MAX_BYTES) return reject(new Error("单张不能超过 10 MB"));
+			var reader = new FileReader();
+			reader.onload = function () {
+				resolve({ name: file.name || "截图", size: file.size, data: String(reader.result || "") });
+			};
+			reader.onerror = function () { reject(new Error("读取失败")); };
+			reader.readAsDataURL(file);
+		});
+	}
+
+	function addImageFiles(files) {
+		var list = [];
+		for (var i = 0; i < files.length; i++) list.push(files[i]);
+		if (!list.length) return;
+		if (pendingImages.length >= IMAGE_MAX) {
+			setStatus("最多 4 张图片", "Warning");
+			return;
+		}
+		var room = IMAGE_MAX - pendingImages.length;
+		var slice = list.slice(0, room);
+		var jobs = slice.map(readImageFile);
+		Promise.all(jobs.map(function (p) {
+			// 一张坏了不该让整批失败：单独 catch，逐张报告
+			return p.then(function (img) { return img; }, function (err) { return { error: err.message }; });
+		})).then(function (results) {
+			var rejected = [];
+			for (var i = 0; i < results.length; i++) {
+				if (results[i].error) rejected.push(results[i].error);
+				else pendingImages.push(results[i]);
+			}
+			renderImages();
+			if (rejected.length) {
+				setStatus(rejected.length === results.length ? rejected[0] : (results.length - rejected.length) + " 张已添加，" + rejected[0], "Warning");
+			} else {
+				setStatus("");
+			}
+			saveDraftMeta();
+		});
+	}
+
+	function removeImage(index) {
+		pendingImages.splice(index, 1);
+		renderImages();
+	}
+
+	function clearImages() {
+		pendingImages = [];
+		renderImages();
+	}
+
+	function renderImages() {
+		var host = els.imageList;
+		if (!host) return;
+		if (!pendingImages.length) {
+			host.hidden = true;
+			host.innerHTML = "";
+			if (els.imageHint) els.imageHint.textContent = "PNG / JPEG / GIF / WebP，单张 10 MB 以内";
+			return;
+		}
+		host.hidden = false;
+		var html = "";
+		for (var i = 0; i < pendingImages.length; i++) {
+			var img = pendingImages[i];
+			html += '<div class="fbImageItem">'
+				+ '<img class="fbImageThumb" src="' + escapeHtml(img.data) + '" alt="' + escapeHtml(img.name) + '">'
+				+ '<button class="fbImageDel" type="button" data-image="' + i + '" title="移除这张图" aria-label="移除这张图">&times;</button>'
+				+ "</div>";
+		}
+		host.innerHTML = html;
+		if (els.imageHint) {
+			els.imageHint.textContent = pendingImages.length + " / " + IMAGE_MAX + " 张，提交时一起上传";
+		}
+	}
+
+	/** 图片只是草稿的一部分：这里只刷新「有草稿」的判断，不把 base64 写进 localStorage */
+	function saveDraftMeta() {
+		if (draftReady) saveDraft();
+	}
+
 	/* ---------------- 列表 ---------------- */
 
 	function setListStatus(text, kind) {
@@ -881,27 +982,230 @@
 			+ stateBadgeHtml(state)
 			+ '		<span class="fbPostMeta">#' + escapeHtml(d.number) + " · " + authorLabel(d.author, identity)
 			+ " · " + escapeHtml(fmtDate(d.createdAt)) + "</span>"
+			+ (canManage()
+				? '		<div class="fbPostTools">'
+					+ '			<button class="fbTool" type="button" data-post-act="edit" title="编辑标题与内容">编辑</button>'
+					+ (d.closed
+						? '			<button class="fbTool" type="button" data-post-act="reopen" title="重新打开这条讨论">重新打开</button>'
+						: '			<button class="fbTool" type="button" data-post-act="close" title="关闭这条讨论">关闭</button>')
+					+ '			<button class="fbTool fbToolDanger" type="button" data-post-act="delete" title="删除这条讨论">删除</button>'
+					+ "		</div>"
+				: "")
 			+ "	</header>"
 			+ '	<h1 class="fbPostTitle">' + escapeHtml(d.title) + "</h1>"
 			+ (from ? '	<div class="fbPostFrom">来源页面：<code>' + escapeHtml(from) + "</code></div>" : "")
 			+ '	<div class="fbPostBody">' + markdownLite(body) + "</div>"
+			+ renderReactionBar(d)
+			+ '	<div class="fbEditBox" id="fbEditBox" hidden></div>'
 			+ "</article>"
 			+ '<h2 class="fbCommentsTitle">回复 <span class="fbCommentsCount">' + escapeHtml(data.totalComments || 0) + "</span></h2>"
 			+ '<div class="fbComments">' + renderComments(data.comments || [], identity) + "</div>"
-			+ renderReplyForm(identity);
+			+ renderReplyForm(identity)
+			+ '<div class="fbStatus" id="fbPostStatus"></div>';
+	}
+
+	/* ---------------- 帖子操作与互动（issue #33） ---------------- */
+
+	/**
+	 * 谁能看到「编辑 / 关闭 / 删除」。
+	 *
+	 * 由后端给结论（data.canManage），前端不自己比对用户名 ——
+	 * 站点用户名（user_profiles.username）和 GitHub 登录名可以不一样，
+	 * 前端拿后者去比前者会永远比不中，按钮就永远不出现。
+	 * 这只是 UI 开关，真正的写权限在 token 那侧。
+	 */
+	function canManage() {
+		return !!(currentDetail && currentDetail.canManage);
+	}
+
+	/** GitHub 支持的七种表情。按用户要求：只显示图标，图标上不叠文字。 */
+	var REACTIONS = [
+		{ key: "THUMBS_UP", char: "👍", label: "赞" },
+		{ key: "HEART", char: "❤️", label: "喜欢" },
+		{ key: "HOORAY", char: "🎉", label: "庆祝" },
+		{ key: "ROCKET", char: "🚀", label: "火箭" },
+		{ key: "EYES", char: "👀", label: "在看" },
+		{ key: "LAUGH", char: "😄", label: "开心" },
+		{ key: "THUMBS_DOWN", char: "👎", label: "不赞" }
+	];
+
+	function reactionCount(d) {
+		// upvoteCount 读得到但写不了（见文档），所以只做展示参考；表情数才是我方可控的
+		return typeof d.upvotes === "number" ? d.upvotes : 0;
+	}
+
+	function renderReactionBar(d) {
+		var html = '<div class="fbReactions" data-reaction-bar="' + escapeHtml(d.number) + '">';
+		for (var i = 0; i < REACTIONS.length; i++) {
+			var r = REACTIONS[i];
+			html += '<button class="fbReaction" type="button" data-reaction="' + r.key + '"'
+				+ ' title="' + escapeHtml(r.label) + '" aria-label="' + escapeHtml(r.label) + '">'
+				+ '<span class="fbReactionIcon">' + r.char + "</span>"
+				+ "</button>";
+		}
+		html += "</div>";
+		return html;
+	}
+
+	/** 给某条回复也挂一排表情（仅维护者可见，与帖子同一套判断） */
+	function renderCommentReactions(c) {
+		if (!canManage()) return "";
+		var html = '<div class="fbReactions fbReactionsSmall">';
+		for (var i = 0; i < REACTIONS.length; i++) {
+			var r = REACTIONS[i];
+			html += '<button class="fbReaction" type="button" data-comment-reaction="' + r.key + '"'
+				+ ' data-comment-id="' + escapeHtml(c.id || "") + '"'
+				+ ' title="' + escapeHtml(r.label) + '" aria-label="' + escapeHtml(r.label) + '">'
+				+ '<span class="fbReactionIcon">' + r.char + "</span>"
+				+ "</button>";
+		}
+		html += "</div>";
+		return html;
+	}
+
+	function postAction(number, payload) {
+		var url = endpoint();
+		if (!url) return Promise.reject(new Error("站点后端未配置"));
+		var body = JSON.stringify(payload);
+		return postJson(url, { method: "POST", headers: headers(), body: body, cache: "no-store" }, 20000)
+			.then(function (data) {
+				if (!data || !data.success) throw new Error((data && data.message) || "操作失败");
+				return data;
+			});
+	}
+
+	function setPostStatus(text, kind) {
+		var el = $("fbPostStatus");
+		if (!el) return;
+		el.textContent = text || "";
+		el.className = "fbStatus" + (kind ? " is" + kind : "");
+	}
+
+	/** 点表情：同一个图标再点一次就是取消 */
+	function toggleReaction(btn, number) {
+		if (!btn || btn.disabled) return;
+		// ⚠️ 帖子和回复用的是两个不同的属性名（data-reaction / data-comment-reaction），
+		// 只读前者会让回复的表情发出去 content 是 null，被后端按「表情类型无效」拒掉。
+		var content = btn.getAttribute("data-reaction") || btn.getAttribute("data-comment-reaction");
+		var commentId = btn.getAttribute("data-comment-id") || "";
+		var active = btn.classList.contains("isActive");
+		btn.disabled = true;
+		var payload = { action: "reaction", number: Number(number), content: content };
+		if (commentId) payload.commentId = commentId;
+		if (active) payload.remove = true;
+		postAction(number, payload).then(function () {
+			btn.classList.toggle("isActive", !active);
+			setPostStatus(active ? "已取消" : "已添加", "Success");
+			setTimeout(function () { setPostStatus(""); }, 1600);
+		}).catch(function (err) {
+			setPostStatus(err.message || "操作失败", "Error");
+		}).then(function () { btn.disabled = false; });
+	}
+
+	/** 编辑：直接在详情页里就地展开标题与正文 */
+	function openEditor(number) {
+		var box = $("fbEditBox");
+		var d = currentDetail && currentDetail.discussion;
+		if (!box || !d) return;
+		var body = stripMeta(d.body);
+		var title = d.title || "";
+		box.hidden = false;
+		box.innerHTML = ''
+			+ '<label class="fbLabel" for="fbEditTitle">标题</label>'
+			+ '<input class="fbContact fbTitleInput" id="fbEditTitle" type="text" maxlength="120" value="' + escapeHtml(title) + '">'
+			+ '<label class="fbLabel" for="fbEditBody">内容</label>'
+			+ '<textarea class="fbBody" id="fbEditBody" rows="7" maxlength="8000">' + escapeHtml(body) + "</textarea>"
+			+ '<div class="fbEditActions">'
+			+ '	<button class="fbTool" type="button" data-edit-act="cancel">取消</button>'
+			+ '	<button class="siteHeaderBtn loginBtnPrimary" type="button" data-edit-act="save">保存</button>'
+			+ "</div>";
+		var ta = $("fbEditBody");
+		if (ta) ta.focus();
+	}
+
+	function saveEditor(number) {
+		var titleEl = $("fbEditTitle");
+		var bodyEl = $("fbEditBody");
+		var saveBtn = document.querySelector('[data-edit-act="save"]');
+		var title = titleEl ? titleEl.value.trim() : "";
+		var body = bodyEl ? bodyEl.value.trim() : "";
+		if (!title && !body) { setPostStatus("标题和内容不能都空着", "Error"); return; }
+		if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "保存中…"; }
+		postAction(number, { action: "edit", number: Number(number), title: title, body: body })
+			.then(function () {
+				setPostStatus("已保存", "Success");
+				loadDetail(Number(number));
+			})
+			.catch(function (err) {
+				setPostStatus(err.message || "保存失败", "Error");
+				if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "保存"; }
+			});
+	}
+
+	function closeOrReopen(number, close) {
+		var verb = close ? "关闭" : "重新打开";
+		postAction(number, { action: close ? "close" : "reopen", number: Number(number) })
+			.then(function () {
+				setPostStatus("已" + verb, "Success");
+				loadDetail(Number(number));
+			})
+			.catch(function (err) { setPostStatus(err.message || (verb + "失败"), "Error"); });
+	}
+
+	function deletePost(number) {
+		// 删除不可逆，必须二次确认；确认框里把编号写出来，防止点错条目
+		var ok = window.confirm("确定删除讨论 #" + number + " 吗？\n\n这条讨论和它的全部回复都会被永久删除，无法恢复。");
+		if (!ok) return;
+		postAction(number, { action: "delete", number: Number(number), confirm: true })
+			.then(function () {
+				closeDetail();
+				loadList(true);
+			})
+			.catch(function (err) { setPostStatus(err.message || "删除失败", "Error"); });
+	}
+
+	/** 详情页里的各类点击统一在这里分派，避免给每次渲染都重新绑一堆监听 */
+	function onDetailClick(e) {
+		var t = e.target;
+		if (!t || !t.closest) return;
+		var number = detailNumber;
+		if (!number) return;
+
+		var react = t.closest("[data-reaction]");
+		if (react) { toggleReaction(react, number); return; }
+
+		var creact = t.closest("[data-comment-reaction]");
+		if (creact) { toggleReaction(creact, number); return; }
+
+		var act = t.closest("[data-post-act]");
+		if (act) {
+			var kind = act.getAttribute("data-post-act");
+			if (kind === "edit") openEditor(number);
+			else if (kind === "close") closeOrReopen(number, true);
+			else if (kind === "reopen") closeOrReopen(number, false);
+			else if (kind === "delete") deletePost(number);
+			return;
+		}
+
+		var editAct = t.closest("[data-edit-act]");
+		if (editAct) {
+			if (editAct.getAttribute("data-edit-act") === "save") saveEditor(number);
+			else { var box = $("fbEditBox"); if (box) { box.hidden = true; box.innerHTML = ""; } }
+		}
 	}
 
 	/** 从正文顶部取出 `**来源页面**：/xxx/`（issue #18 起写在正文最上面） */
-	function extractFrom(body) {
-		var m = String(body || "").match(/^\s*\*\*来源页面\*\*[：:]\s*(\S+)/);
+	function extractFrom(body) {		var m = String(body || "").match(/^\s*\*\*来源页面\*\*[：:]\s*(\S+)/);
 		return m ? m[1] : "";
 	}
 
 	/** 去掉我们附加的环境信息与签名，正文只留用户写的内容 */
 	function stripMeta(body) {
 		var text = String(body || "");
-		// 来源页面是我们加在最上面的一行，已由 extractFrom 单独展示，正文里去掉
-		text = text.replace(/^\s*\*\*来源页面\*\*[：:][^\n]*(\r?\n)+/, "");
+		// 来源页面是我们加在最上面的一行，已由 extractFrom 单独展示，正文里去掉。
+		// 用 m 里行首匹配，而不是 `^\s*`：正文是几段拼起来的，这一行后面常跟着空行，
+		// `^\s*` 遇到换行就匹配不上了（编辑框里会把这行当成用户正文带进去）。
+		text = text.replace(/^[ \t]*\*\*来源页面\*\*[：:][^\n]*(\r?\n)*/m, "");
 		var env = text.indexOf("<details><summary>环境信息");
 		if (env > 0) text = text.slice(0, env);
 		var sign = text.lastIndexOf("> 由站点反馈广场提交");
@@ -924,7 +1228,8 @@
 				+ '<span class="fbCommentDate">' + escapeHtml(fmtDate(c.createdAt)) + "</span>"
 				+ (c.isAnswer ? '<span class="fbAnswerTag">已采纳</span>' : "")
 				+ "</div>"
-				+ '<div class="fbCommentBody">' + markdownLite(c.body) + "</div>";
+				+ '<div class="fbCommentBody">' + markdownLite(c.body) + "</div>"
+				+ renderCommentReactions(c);
 			if (c.replies && c.replies.length) {
 				html += '<div class="fbReplies">';
 				for (var j = 0; j < c.replies.length; j++) {
@@ -1054,10 +1359,80 @@
 		window.open(url, "_blank", "noopener,noreferrer");
 	}
 
-	/** 极简 Markdown：够用即可（代码块、行内代码、粗体、链接、换行） */
+	/**
+	 * 完整 Markdown（issue #32）。
+	 *
+	 * 以前这里是手写的「极简版」：只认代码块、行内代码、粗体、链接。
+	 * GitHub Discussion 的正文/回复里实际会出现标题、任务列表、引用、表格、
+	 * 嵌套列表、删除线、图片……这些以前全被当成纯文本糊成一段。
+	 *
+	 * 现在用 marked 全量解析 + DOMPurify 消毒，口径对齐 GitHub：
+	 *   · marked 负责语法（GFM：表格、任务列表、删除线、自动链接）
+	 *   · DOMPurify 负责安全（去掉 <script>、on* 事件、javascript: 协议）
+	 *
+	 * 两个库都在 assets/vendor/ 里本地引入，不依赖 CDN —— 站点是纯静态托管，
+	 * 引 CDN 会让反馈页在断网/被墙时整体不可用（而且 HTML 里也得能离线打开）。
+	 *
+	 * 库没加载成功时退回旧的极简实现：宁可少渲染，也不能把整页打挂。
+	 */
+	var mdParser = null;
+	var mdPurify = null;
+
+	function markdownRenderer() {
+		var M = window.marked;
+		var P = window.DOMPurify;
+		if (!M || !P) return null;
+		if (mdParser) return mdParser;
+		M.use({
+			gfm: true,
+			breaks: true,          // 单个换行也换行：跟 GitHub 的评论框一致
+			headerIds: false,
+			mangle: false,
+		});
+		// 外链一律新窗口打开，并补 rel —— DOMPurify 只放行协议与属性，不改行为
+		var renderer = new M.Renderer();
+		var linkFn = renderer.link.bind(renderer);
+		renderer.link = function (href, title, text) {
+			var html = linkFn(href, title, text);
+			return html.replace(/^<a /, '<a target="_blank" rel="noopener noreferrer" ');
+		};
+		mdPurify = { parser: M, renderer: renderer };
+		mdParser = {
+			parse: function (text) {
+				return P.sanitize(mdPurify.parser.parse(String(text || ""), { renderer: mdPurify.renderer }), {
+					ADD_ATTR: ["target", "rel", "disabled", "type", "checked"],
+					// 反馈正文里不会有表单/脚本，直接禁掉这些标签，连解析机会都不给。
+					// input 例外：GFM 任务列表的勾选框就是 <input type=checkbox disabled>，
+					// 全禁掉会让 `- [x] 已完成` 只剩一个空格（实测）。
+					// 这里用 ALLOWED_ATTR 白名单 + 下面的 hook 把 input 限死成禁用的勾选框。
+					FORBID_TAGS: ["script", "style", "iframe", "form", "button", "object", "embed", "textarea", "select"],
+					FORBID_ATTR: ["onerror", "onload", "onclick", "onfocus", "onmouseover"],
+				});
+			}
+		};
+		// 只留「禁用的 checkbox」，其它 input（文本框、提交按钮）一律不许进来
+		P.addHook("uponSanitizeElement", function (node) {
+			if (!node || node.nodeName !== "INPUT") return;
+			if (String(node.getAttribute && node.getAttribute("type")).toLowerCase() !== "checkbox") {
+				if (node.parentNode) node.parentNode.removeChild(node);
+				return;
+			}
+			node.setAttribute("disabled", "");
+		});
+		return mdParser;
+	}
+
 	function markdownLite(text) {
+		var renderer = markdownRenderer();
+		if (renderer) {
+			try { return renderer.parse(text); } catch (e) { /* 退回极简实现 */ }
+		}
+		return markdownFallback(text);
+	}
+
+	/** 库不可用时的兜底：足够把内容读出来，不追求语法完整 */
+	function markdownFallback(text) {
 		var html = escapeHtml(String(text || ""));
-		// ```code```
 		html = html.replace(/```([\s\S]*?)```/g, function (_m, code) {
 			return '<pre class="fbCode">' + code.replace(/^\n+|\n+$/g, "") + "</pre>";
 		});
@@ -1065,7 +1440,6 @@
 		html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
 		html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
 			'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-		// 段落：两个换行分段，单换行成 <br>
 		var paras = html.split(/\n{2,}/).map(function (p) {
 			if (/^<pre/.test(p.trim())) return p;
 			return "<p>" + p.replace(/\n/g, "<br>") + "</p>";
@@ -1400,6 +1774,8 @@
 			if (els.page) els.page.value = "";
 			// 附带项也回到默认：每次打开都是全新表单
 			resetAttach();
+			// 图片同理：不跨表单保留
+			clearImages();
 			// 类型复位到默认，避免带上次的选项
 			setType("bug");
 		} finally {
@@ -1560,7 +1936,9 @@
 			hp: (els.hp && els.hp.value || "").trim(),
 			// 只有勾上的项才进这个串；一项没勾就是空串，正文里不会有环境信息块
 			meta: metaLines(),
-			page: p.page || window.location.pathname || "/feedback/"
+			page: p.page || window.location.pathname || "/feedback/",
+			// 图片（issue #11）：函数会先传到 GitHub 再把链接写进正文
+			images: pendingImages.map(function (img) { return { name: img.name, data: img.data }; })
 		});
 		var options = {
 			method: "POST",
@@ -1584,7 +1962,12 @@
 					if (els.body) els.body.value = "";
 					if (els.contact) els.contact.value = "";
 					if (els.page) els.page.value = "";
+					clearImages();
 					setStatus("已提交，谢谢！", "Success");
+					// 图片没跟上的话必须说清楚：帖子已经发出去了，但图不在里面
+					if (data.imageError) {
+						setStatus("已提交，但" + data.imageError + "。可以到 GitHub 里手动补图。", "Warning");
+					}
 					if (data.url) {
 						var a = document.createElement("a");
 						a.className = "fbOpenLink";
@@ -1698,7 +2081,12 @@
 			hp: $("fbHp"),
 			status: $("fbStatus"),
 			submit: $("fbSubmitBtn"),
-			github: $("fbGithubBtn")
+			github: $("fbGithubBtn"),
+			// 图片附件（issue #11）
+			imageInput: $("fbImages"),
+			imagePick: $("fbImagePick"),
+			imageList: $("fbImageList"),
+			imageHint: $("fbImageHint")
 		};
 
 		// 列表项：站内打开详情（新标签打开则是真链接，方便分享）
@@ -1720,6 +2108,8 @@
 		// 详情里的回复表单是动态插入的，用事件委托
 		if (els.detailBody) {
 			els.detailBody.addEventListener("click", function (e) {
+				// 帖子操作 / 表情 / 编辑框（issue #33）先拦一道
+				onDetailClick(e);
 				var submit = e.target && e.target.closest ? e.target.closest("#fbReplySubmitBtn") : null;
 				if (submit) { postReply(); return; }
 				var gh = e.target && e.target.closest ? e.target.closest("#fbReplyGithubBtn") : null;
@@ -1793,6 +2183,37 @@
 			els.attach.addEventListener("change", function () {
 				readAttach();
 				saveDraft();
+			});
+		}
+
+		// 图片附件（issue #11）
+		if (els.imagePick && els.imageInput) {
+			els.imagePick.addEventListener("click", function () { els.imageInput.click(); });
+			els.imageInput.addEventListener("change", function () {
+				if (els.imageInput.files && els.imageInput.files.length) addImageFiles(els.imageInput.files);
+				// 清空 value：否则连续选同一个文件不会再触发 change
+				els.imageInput.value = "";
+			});
+		}
+		if (els.imageList) {
+			els.imageList.addEventListener("click", function (e) {
+				var btn = e.target && e.target.closest ? e.target.closest("[data-image]") : null;
+				if (!btn) return;
+				removeImage(Number(btn.getAttribute("data-image")));
+			});
+		}
+		// 拖图进弹窗也能加（和 GitHub 的输入框手感一致）
+		if (els.overlay) {
+			els.overlay.addEventListener("dragover", function (e) {
+				if (!modalOpen) return;
+				e.preventDefault();
+			});
+			els.overlay.addEventListener("drop", function (e) {
+				if (!modalOpen) return;
+				var dt = e.dataTransfer;
+				if (!dt || !dt.files || !dt.files.length) return;
+				e.preventDefault();
+				addImageFiles(dt.files);
 			});
 		}
 
@@ -1904,6 +2325,10 @@
 			if (detailNumber) showDetail();
 		}
 	}
+
+	// 自检钩子（.tests/feedback-markdown.test.js 与手工排查用）：只读/纯函数，不参与正式流程
+	window.__fbMarkdown = markdownLite;
+	window.__fbMarkdownFallback = markdownFallback;
 
 	if (document.readyState === "loading") {
 		document.addEventListener("DOMContentLoaded", boot);

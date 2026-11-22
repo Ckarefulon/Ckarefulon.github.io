@@ -214,12 +214,14 @@
     if (!scene || !window.THREE) return;
     try {
       if (typeof scene.setViewState === 'function') {
-        const prev = scene.getViewState ? scene.getViewState() : null;
+        // ⚠️ 拖动量必须取 R.view，不能取 scene.getViewState()。
+        // 瞬时定位会重建场景（hardResetScene），新对象的 dragTheta/dragPhi 一定是 0 ——
+        // 用它的值等于每次拖动进度条/单步都把用户转好的视角掰回正面。
         scene.setViewState({
           baseCameraOffset: cameraOffset(VIEW_THETA, VIEW_PHI),
           baseCameraUp: new window.THREE.Vector3(0, 1, 0),
-          dragTheta: prev ? prev.dragTheta : 0,
-          dragPhi: prev ? prev.dragPhi : 0,
+          dragTheta: R.view.yaw,
+          dragPhi: R.view.pitch,
         });
       }
       const twisty = scene.getTwisty && scene.getTwisty();
@@ -321,6 +323,9 @@
     animSpeed: null,        // 当前为动画设置的 vrcSpeed（非 null 表示回放改过它）
     baseVrcSpeed: '90',     // 打开回放时的 vrcSpeed 原值，退出时还原
     settleTimer: 0,         // 暂停后等待动画跑空再钉状态的定时器
+    // 用户当前看到的视角（yaw/pitch）。hardResetScene 会重建场景，twisty 内部的
+    // 拖动量随对象一起丢掉，所以必须在这里单独记着，重建后原样还回去。
+    view: { yaw: 0, pitch: 0 },
   };
 
   function moveTimeBefore(model, idx) { return idx <= 0 ? 0 : Number(model.times[idx - 1]) || 0; }
@@ -357,14 +362,52 @@
     if (!model || !R.stage) return;
     R.scene = createScene(R.stage);
     if (!R.scene) return;
-    R.scene.setViewDragClamped?.(true);
+    // 与 Cross 的录像回放同一口径：关掉 twisty 的 ±45° 限幅。
+    // 那是给主魔方「微调视角」用的，回放里拖两下就顶死，看着就像「拖不动」。
+    R.scene.setViewDragClamped?.(false);
     resizeScene(R.scene, R.stage);
+  }
+
+  /* 没有权威贴纸快照时的兜底：把「打乱 + 前 idx 个动作」直接结算到魔方上。
+   *
+   * 为什么需要：极老的记录 / 导入时丢了 snapshots 时，model.states 为空。
+   * 老代码在这种情况下只把 cursor 改掉、魔方一动不动（停在复原态），
+   * 于是用户看到的现象就是 issue #35 里的「一拖就变成复原态」。
+   *
+   * ⚠️ hardResetScene 建出来的场景永远是复原态，所以必须自己补上打乱前缀 ——
+   * 只重放解法等于从复原态开始拧，画面会整体错位。
+   * 表达不了的动作（M/E/S、x/y/z）跳过，画面只能近似，由 stageHint 如实标注。 */
+  function replayMovesTo(idx) {
+    const model = R.model, scene = R.scene;
+    if (!model || !scene) return false;
+    const cmds = [];
+    const scramble = String(model.solve.scramble || '').trim();
+    if (scramble) {
+      for (const t of scramble.split(/\s+/)) {
+        const cmd = twistyCommand(t);
+        if (cmd) cmds.push(cmd);
+      }
+    }
+    for (let i = 0; i < idx && i < model.n; i++) {
+      const cmd = twistyCommand(model.moves[i]);
+      if (cmd) cmds.push(cmd);
+    }
+    if (!cmds.length) return false;
+    try {
+      scene.applyMoves(cmds);
+      scene.render?.();
+      return true;
+    } catch (e) {
+      console.warn('[Replay] 动作重放失败', e);
+      return false;
+    }
   }
 
   /* 瞬时定位到「已完成 idx 个动作」的状态。
    *
    * 步骤：硬重置（twisty 内部会 stopAnimation + 清空 moveQueue/currentMove/缓存，
-   * 于是「动画队列非空」这条不变量被恢复）→ 用权威贴纸快照 setFacelet 摆过去。
+   * 于是「动画队列非空」这条不变量被恢复）→ 用权威贴纸快照 setFacelet 摆过去；
+   * 没有快照则退回「重放动作」，再不行才停在复原态并如实标注。
    * 这是拖动进度条、单步、跳到阶段、点动作列表、循环回到起点共用的路径。
    *
    * keepPlaying: 播放内部用（处理 kara 动作/循环），跳完不停播放。
@@ -375,9 +418,13 @@
     if (R.playing && !keepPlaying) pause();
     hardResetScene();
     const want = Math.max(0, Math.min(model.n, Math.round(idx)));
-    // 没有权威快照时（极端的老记录）只能停在复原态，并明确标记起点不可信
-    if (!model.states || !model.states.length) { R.cursor = want; return; }
-    snapToState(want);
+    if (model.states && model.states.length) {
+      snapToState(want);
+    } else {
+      // 无权威快照：按动作重放。连一条面转都没有（整把都是切片/旋转）时
+      // 画面只能停在复原态，此时由 stageHint 明确告知，不假装正常。
+      replayMovesTo(want);
+    }
     R.cursor = want;
   }
 
@@ -505,6 +552,26 @@
     host.innerHTML = rows.join('');
   }
 
+  /* 舞台左下角的提示语。三种情况分开说清楚，不要含糊成一句「缺少起点状态」：
+   *   · 正常：可以拖视角
+   *   · 有起点、但整把没有逐步快照：进度条能走，但魔方只能靠动作重放近似（含切片/旋转时会偏）
+   *   · 连起点都没有：魔方停在复原态，进度条只动计数 —— 必须明说，否则像 bug */
+  function overlayHint() {
+    const el = R.el.stageHint;
+    if (!el) return;
+    const model = R.model;
+    if (!model) { el.textContent = ''; return; }
+    if (R.startReady && model.states.length) {
+      el.textContent = '拖动魔方可旋转视角';
+      return;
+    }
+    if (R.startReady) {
+      el.textContent = '⚠ 这条记录没有逐步快照，画面按动作重放（含切片/旋转时可能略有偏差）';
+      return;
+    }
+    el.textContent = '⚠ 这条记录缺少起点状态，魔方从复原态开始显示';
+  }
+
   function painter() {
     const model = R.model;
     if (!model || !R.open) return;
@@ -571,6 +638,15 @@
    *     画面就与计数脱节了。
    * 所以所有瞬时定位都先 hardResetScene()（twisty 内部会 stopAnimation 并清空队列），
    * 保证「队列要么在跑动画、要么为空」这条不变量。
+   *
+   * ⚠️ hardResetScene 的副作用（2026-11-22 修 issue #35 时踩到）：
+   * 它**重建整个场景对象**，twisty 内部的拖动量（cameraDragTheta/Phi）随旧对象一起
+   * 没了。所以用户转好的视角不能只靠 scene 记，必须另存一份到 R.view，重建后在
+   * applyFaceView 里还回去 —— 否则每拖一次进度条，视角就弹回正面。
+   *
+   * 同理，重建出来的魔方永远是**复原态**，所以：
+   *   · 有权威快照 → setFacelet 摆过去（精确）
+   *   · 没快照 → 必须连打乱一起重放（只重放解法会整体错位，实测差得离谱）
    *
    * 计数与画面严格同步：cursor 只由动画结束回调（moveListener step=2）推进，
    * 时间轴跑得再快也不会让计数超过画面。
@@ -936,6 +1012,16 @@
   }
 
   // 视角拖动
+  // 与 Cross 录像回放同一口径：twisty 的 setViewDrag 限幅已关掉，范围自己管 ——
+  // 绕竖轴可以一直转（360°），俯仰限在 ±85°（到极点 up 向量退化，画面会翻）。
+  // 拖动量同时写进 R.view：瞬时定位重建场景后要原样还回去，否则一拖进度条视角就回正。
+  const PITCH_LIMIT = Math.PI / 2 - 0.0873;   // ≈85°
+  function wrapAngle(a) {
+    const turn = Math.PI * 2;
+    a = a % turn;
+    return a < -Math.PI ? a + turn : a > Math.PI ? a - turn : a;
+  }
+
   function bindDrag() {
     const stage = R.el.stage;
     if (!stage) return;
@@ -944,14 +1030,23 @@
       if (e.button !== 0 || !R.scene?.setViewDrag) return;
       drag.active = true; drag.x = e.clientX; drag.y = e.clientY;
       const vs = R.scene.getViewState ? R.scene.getViewState() : { dragTheta: 0, dragPhi: 0 };
-      drag.yaw = vs.dragTheta; drag.pitch = vs.dragPhi;
-      stage.setPointerCapture?.(e.pointerId);
+      drag.yaw = vs.dragTheta || 0; drag.pitch = vs.dragPhi || 0;
+      // 指针捕获失败不该让整段拖动挂掉（合成事件、已释放的指针都会抛 NotFoundError）
+      try { stage.setPointerCapture?.(e.pointerId); } catch (_) {}
       stage.classList.add('dragging');
     });
     stage.addEventListener('pointermove', e => {
       if (!drag.active || !R.scene?.setViewDrag) return;
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-      R.scene.setViewDrag(drag.yaw + dx / 160, drag.pitch + dy / 160);
+      const span = Math.max(120, stage.getBoundingClientRect().width || 320);
+      const scale = (Math.PI / 2) / span;
+      const yaw = wrapAngle(drag.yaw - dx * scale);
+      let pitch = drag.pitch + dy * scale;
+      pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch));
+      R.view.yaw = yaw;
+      R.view.pitch = pitch;
+      R.scene.setViewDrag(yaw, pitch);
+      e.preventDefault();
     });
     const stop = () => { drag.active = false; stage.classList.remove('dragging'); };
     stage.addEventListener('pointerup', stop);
@@ -991,6 +1086,7 @@
     R.lastPaintedIdx = -1;
     R.autoScroll = true;
     R.animSpeed = null;
+    R.view = { yaw: 0, pitch: 0 };
     // 记下当前的 twisty 动画速度，播放会临时改它，退出时还原
     R.baseVrcSpeed = (window.kernel && kernel.getProp) ? String(kernel.getProp('vrcSpeed', '90')) : '90';
     pause();
@@ -1008,17 +1104,13 @@
       if (!R.open) return;
       R.scene = createScene(R.stage);
       if (!R.scene) { notify('3D 魔方初始化失败'); return; }
-      R.scene.setViewDragClamped?.(true);
+      R.scene.setViewDragClamped?.(false);
       resizeScene(R.scene, R.stage);
       bindDrag();
       // 起点 = 记录里的权威起点状态（贴纸快照，与 mathlib 逐字一致）
       applyStartState();
       R.cursor = 0;
-      if (R.el.stageHint) {
-        R.el.stageHint.textContent = R.startReady
-          ? '拖动魔方可旋转视角'
-          : '⚠ 这条记录缺少起点状态，魔方从复原态开始显示';
-      }
+      overlayHint();
       renderSegments();
       renderMoveList();
       painter();

@@ -75,6 +75,78 @@ Supabase Edge Function `feedback`
 不是留个空块。勾法会跟草稿一起存，点「恢复上次内容」连勾选状态一起回来；
 但每次新开弹窗都复位成默认。
 
+## 图片附件（issue #11）
+
+新建和编辑都能带图，最多 4 张、单张 10 MB，格式限 **PNG / JPEG / GIF / WebP**。
+可以点「选择图片」，也可以直接把图拖进弹窗。
+
+图片存在 **GitHub 自己的附件通道**上，和你在网页里往 Discussion 拖一张图完全一样，
+不占 Supabase 存储、不用建桶。正文里落成普通的 `![名字](url)`。
+
+### 为什么用的是未文档化端点
+
+GitHub 至今没有公开「给 issue / PR / discussion 上传附件」的 REST 或 GraphQL API
+（社区提了近六年，官方标 not planned）。网页拖图走的是：
+
+```
+POST https://uploads.github.com/user-attachments/assets
+     ?repository_id=<数字 id>&name=<文件名>&content_type=<MIME>
+```
+
+实测（2026-11-22，本机跑通）的几条边界：
+
+| 事实 | 影响 |
+| --- | --- |
+| App installation token 与 PAT 都能用 | 不需要浏览器 cookie |
+| 只认 png / jpeg / gif / webp | SVG、PDF、txt 全部 422，前端也一并拦掉 |
+| **资源在被帖子引用之前是 404** | 所以顺序必须是「先上传 → 再创建/编辑帖子」，反了会得到死链 |
+| 引用之后变成 302 → S3 CDN | 这就是正常状态，不是出错 |
+| 单张上限 10 MB | 前端先校验，不用等服务端 422 |
+| 上传不可撤销、资源无法删除 | 只在正文定稿时才传 |
+
+**因为这个端点没文档，所以它随时可能变。** 代码里的应对是：上传失败**不阻断提交** ——
+正文照发，只把「第 N 张图没能上传（原因）」如实回给前端。用户那段字不能因为图而丢掉。
+
+### 图片在正文里的位置
+
+`buildBody` 里图片排在**正文之后、环境信息之前**。这个顺序不能改：
+前端详情页的 `stripMeta` 是在 `> 由站点反馈广场提交` 那一行截断的，
+图排在签名之后会被当成附加信息整段剥掉，详情页里一张也看不见。
+
+### 一个取舍
+
+图片只在内存里，**不进 localStorage**。base64 动辄几 MB，塞进草稿会直接把存储配额打爆。
+所以「恢复上次内容」不恢复图片 —— 这是有意的，不是漏了。
+
+## 帖子操作与互动（issue #33）
+
+详情页对维护者显示「编辑 / 关闭（或重新打开）/ 删除」，帖子和每条回复下面各有一排表情。
+
+| 操作 | GraphQL | 备注 |
+| --- | --- | --- |
+| 编辑 | `updateDiscussion` | 就地展开编辑框，标题与正文分开改 |
+| 关闭 / 重新打开 | `closeDiscussion` / `reopenDiscussion` | 关闭原因固定 `RESOLVED` |
+| 删除 | `deleteDiscussion` | 前端二次确认，后端也强制要求 `confirm:true` |
+| 表情 | `addReaction` / `removeReaction` | 七种，同一图标再点一次即取消 |
+
+### 「支持（upvote）」为什么没做
+
+GitHub 的 `addUpvote` **按凭证类型拒绝**：只要是以 GitHub App 或 token 身份发起的，
+一律 `FORBIDDEN`（Resource not accessible by integration），没有任何权限能解锁，
+换成 user-to-server token 也一样。只有真人用浏览器点那个箭头才有效。
+
+所以这里不做 upvote，只做表情。按用户要求，表情按钮**只显示图标本身，图标上不叠文字**。
+`upvoteCount` 仍然读得到，但它是个改不动的数字 —— 别把它做成按钮。
+
+### canManage 为什么由后端给
+
+前端**不能**拿站点用户名去比 GitHub 登录名：`user_profiles.username` 与 GitHub 账号名
+没有强绑定，比不中按钮就永远不出现。所以详情接口在服务端验完 JWT 后直接回一个
+`canManage` 布尔值，前端只照着显隐。
+
+它只是 UI 开关，不是安全边界 —— 真正的写权限在 token 那侧，函数里每个写动作都要过
+`resolveIdentity()`。副作用：详情响应因此改成 `Cache-Control: private`（按人变化，不能公共缓存）。
+
 ## 弹窗的几个易错细节
 
 - **关闭叉必须贴在右上角**。它靠 `.fbModalTitle { margin-right: auto }` 把位置顶开，
@@ -174,6 +246,38 @@ GitHub 上的人只能看到一个 bot，站内却查得到来源。
   {"bug":"故障","feature":"想法"}
   ```
 - 某个分类没建 → 自动落到第一个可用分类，响应里 `degraded: true`，界面会提示。
+
+## Markdown 渲染（issue #32）
+
+详情页与回复都用**完整 GFM**解析，口径对齐 GitHub：标题、有序/无序/嵌套列表、任务列表、
+引用、表格、代码块（带语言）、行内代码、粗体/斜体/删除线、图片、链接、分隔线。
+
+实现是本地引入的两个库，**不走 CDN**：
+
+| 库 | 版本 | 位置 | 职责 |
+| --- | --- | --- | --- |
+| marked | 15.0.7 | `assets/vendor/marked/` | 语法解析（GFM） |
+| DOMPurify | 3.2.4 | `assets/vendor/dompurify/` | XSS 消毒 |
+
+几个必须知道的细节：
+
+- **为什么不用 CDN**：反馈页恰恰是「站点出问题时用来报问题」的页面，不能把它的可用性
+  绑在第三方域名的可达性上。体积代价 39 KB + 22 KB。
+- **任务列表的勾选框**：marked 输出 `<input type=checkbox disabled>`。DOMPurify 默认会
+  把 `input` 当危险标签删掉 —— 那样 `- [x] 已完成` 只剩一个空格。所以 `FORBID_TAGS`
+  里**故意不写 `input`**，改用 `uponSanitizeElement` 钩子把 input 限死成「禁用勾选框」，
+  其它类型的 input（文本框、提交按钮）仍然当场删除。
+- **marked v15 不再给任务项加 `task-list-item` 类**，CSS 只能用 `li:has(> input[type="checkbox"])`
+  定位；老类名的规则保留着，给不支持 `:has` 的老浏览器兜底。
+- **代码块是裸 `<pre><code>`**，不带任何类名。老的手写实现用的是 `.fbCode`，
+  只写 `.fbCode` 会让新解析器下的代码块完全没有背景和边框 —— 所以 `.fbPostBody pre`
+  这一层必须给样式。
+- **表格要压掉站点全局样式**：全局给 `table` 设了 `min-width:680px` 和 sticky 表头，
+  Markdown 表格不改就会在窄屏整段横向溢出。规则里 `min-width:0` + `display:block` 覆盖掉。
+- **库没加载成功时**自动退回旧的极简渲染（只认粗体/行内代码/代码块/链接），
+  宁可少渲染也不能把整页打挂。
+
+自检钩子：`window.__fbMarkdown(text)`（正式渲染）与 `window.__fbMarkdownFallback(text)`。
 
 ## 配置
 
@@ -296,10 +400,10 @@ Edge Function 现场去 `api.github.com/graphql` 往返。
 ## 自检
 
 ```bash
-# 函数逻辑（69 项，不联网，GitHub/Supabase 都是桩）：
+# 函数逻辑（86 项，不联网，GitHub/Supabase 都是桩）：
 #   含「标题优先用用户填的 / 留空退回首行 / 只有一个就互相补」
 #       「来源页面写在正文最上面」「六种跟进状态」「维护者可配置」
-#       「type 缺省为 bug」
+#       「type 缺省为 bug」「编辑/关闭/重开/删除/表情」「图片上传与失败降级」
 node .tests/feedback-function.test.js
 
 # 同源中继（23 项，不联网，fetch 打桩）：白名单、方法限制、路径穿越、失败回退信号
@@ -309,8 +413,8 @@ node .tests/sb-relay.test.js
 # 专抓「路径写错 → 404」「预检失败」这类只有真网络才暴露的问题。
 TEST_CDP_PORT=9337 node .tests/feedback-http.test.js
 
-# 广场交互（含首屏 7 条 / 状态标签与筛选 / 管理员标签 / 标签列对齐 /
-#   窄屏图标 / 附带项勾选 / 标题正文互补）：
+# 广场交互（含首屏 20 条 / 状态标签与筛选 / 管理员标签 / 标签列对齐 /
+#   窄屏图标 / 附带项勾选 / 标题正文互补 / Markdown 库与消毒）：
 #   先起调试浏览器：
 #   msedge --headless=new --remote-debugging-port=9337 --user-data-dir=%TEMP%\edge-fb about:blank
 TEST_CDP_PORT=9337 node .tests/feedback-page.test.js
