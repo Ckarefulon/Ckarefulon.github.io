@@ -89,7 +89,16 @@ interface Category {
 
 interface RepoCache {
 	repo: string;
+	/** GraphQL node id（`R_kg…`）——createDiscussion 要这个 */
 	repoId: string;
+	/**
+	 * **数字** 仓库 id（`659772435`）。
+	 *
+	 * ⚠️ 附件上传接口 `uploads.github.com/user-attachments/assets?repository_id=`
+	 * 只认这个数字 id；传 GraphQL 的 node id 会得到 404 ——
+	 * 看起来像「没权限 / 仓库不存在」，其实只是 id 形式不对。
+	 */
+	repoDbId: string;
 	categories: Category[];
 	/** type → 实际使用的分类；仓库里没有对应分类时为 null */
 	byType: Record<string, Category | null>;
@@ -740,7 +749,7 @@ async function resolveRepo(token: string, repo: string): Promise<RepoCache> {
 
 	const result = await gh(
 		token,
-		`query($owner:String!,$name:String!){repository(owner:$owner,name:$name){id hasDiscussionsEnabled discussionCategories(first:50){nodes{id name slug}}}}`,
+		`query($owner:String!,$name:String!){repository(owner:$owner,name:$name){id databaseId hasDiscussionsEnabled discussionCategories(first:50){nodes{id name slug}}}}`,
 		{ owner, name },
 	);
 
@@ -779,6 +788,7 @@ async function resolveRepo(token: string, repo: string): Promise<RepoCache> {
 	const built: RepoCache = {
 		repo,
 		repoId: String(node.id),
+		repoDbId: node.databaseId != null ? String(node.databaseId) : "",
 		categories,
 		byType,
 		missing,
@@ -1119,6 +1129,25 @@ function uploadToken(): string | null {
 }
 
 /**
+ * 附件接口要的候选 token，按优先级排列。
+ *
+ * ⚠️ 纠正一个早先的错误结论：这个接口**不是只认人**。
+ * 之前一直报 404，真正的原因是 `repository_id` 传错了 ——
+ * 它要**数字**仓库 id（`659772435`），而代码传的是 GraphQL 的 node id（`R_kg…`）。
+ * 文档里写着「`gh repo view --json id` 返回 node id，在这里会失败」，我漏了这行。
+ *
+ * 现在按顺序试：PAT → App installation token。
+ * 谁成功就用谁；全都 404/403 时把每个的失败原因都带回去，方便一眼看出是权限还是 id 问题。
+ */
+function uploadTokens(appToken: string | null): string[] {
+	const out: string[] = [];
+	const pat = (Deno.env.get("DISCUSSIONS_TOKEN") || "").trim();
+	if (pat) out.push(pat);
+	if (appToken && appToken !== pat) out.push(appToken);
+	return out;
+}
+
+/**
  * 把一张 base64 图片传到 GitHub 的附件通道，返回可在 Markdown 里引用的 URL。
  *
  * 入参约定（前端负责把 File 读成 dataURL）：
@@ -1126,8 +1155,8 @@ function uploadToken(): string | null {
  * 只认 IMAGE_TYPES 里的类型；其它一律拒绝，避免把 GitHub 不支持的东西发过去再吃 422。
  */
 async function uploadImage(
-	token: string,
-	repoId: string,
+	tokens: string[],
+	repoDbId: string,
 	image: { name?: unknown; data?: unknown },
 ): Promise<UploadedImage> {
 	const dataUrl = String(image?.data || "");
@@ -1148,36 +1177,46 @@ async function uploadImage(
 	}
 	if (!bytes.length) throw new Error("IMAGE_INVALID");
 	if (bytes.length > MAX_IMAGE_BYTES) throw new Error("IMAGE_TOO_LARGE");
+	if (!repoDbId || !/^\d+$/.test(repoDbId)) throw new Error("REPO_DB_ID_MISSING");
 
 	// 文件名只用来给 URL 定扩展名，不参与展示；用户给的名字可能带奇怪字符，统一重命名
 	const safeName = `feedback-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 	const qs = new URLSearchParams({
-		repository_id: repoId,
+		repository_id: repoDbId,
 		name: safeName,
 		content_type: mime,
 	});
 
-	const res = await fetch(`${GITHUB_UPLOAD}?${qs.toString()}`, {
-		method: "POST",
-		headers: {
-			"Authorization": `bearer ${token}`,
-			"Accept": "application/vnd.github+json",
-			"Content-Type": mime,
-			"User-Agent": "ckarefulon-feedback",
-		},
-		body: bytes,
-	});
-	const text = await res.text();
-	let payload: any = null;
-	try { payload = JSON.parse(text); } catch { payload = null; }
-	if (!res.ok || !payload || typeof payload.url !== "string") {
+	const failures: string[] = [];
+	for (const token of tokens) {
+		const res = await fetch(`${GITHUB_UPLOAD}?${qs.toString()}`, {
+			method: "POST",
+			headers: {
+				"Authorization": `bearer ${token}`,
+				"Accept": "application/vnd.github+json",
+				"Content-Type": mime,
+				"User-Agent": "ckarefulon-feedback",
+			},
+			body: bytes,
+		});
+		const text = await res.text();
+		let payload: any = null;
+		try { payload = JSON.parse(text); } catch { payload = null; }
+		if (res.ok && payload && typeof payload.url === "string") {
+			// 保留用户给的原名，用作 Markdown 的 alt（读屏与图片加载失败时能看到）
+			const label = clip(image?.name, 80).replace(/[\[\]\\]/g, "") || "截图";
+			return { url: payload.url, name: label };
+		}
+		// 记下这次的失败原因，继续试下一个 token
 		const why = payload && payload.errors && payload.errors[0] && payload.errors[0].message;
-		throw new Error(why ? `图片上传失败：${why}` : `图片上传失败（HTTP ${res.status}）`);
+		failures.push(`HTTP ${res.status}${why ? "：" + why : ""}`);
 	}
 
-	// 保留用户给的原名，用作 Markdown 的 alt（读屏与图片加载失败时能看到）
-	const label = clip(image?.name, 80).replace(/[\[\]\\]/g, "") || "截图";
-	return { url: payload.url, name: label };
+	// 全失败：把原因汇总成一句话，别只丢一个状态码
+	const hint = failures.some((f) => f.includes("404"))
+		? "（附件接口要求 token 对仓库有写权限；classic PAT 需勾 repo）"
+		: "";
+	throw new Error(`图片上传失败 ${failures.join(" / ")}${hint}`);
 }
 
 /** 把图片拼成 Markdown 块，附在正文末尾 */
@@ -1201,10 +1240,8 @@ async function collectImages(
 	const list = Array.isArray(raw?.images) ? raw.images.slice(0, MAX_IMAGES) : [];
 	if (!list.length) return { images: [], error: null };
 
-	// 附件通道只认用户身份（见 uploadToken 的说明）。没有 PAT 就直接说清楚，
-	// 不要拿 App token 去撞一个必然 404 的请求 —— 那样只会给出一句看不懂的报错。
-	const asUser = uploadToken();
-	if (!asUser) return { images: [], error: "图片上传需要一个用户身份的令牌（DISCUSSIONS_TOKEN）" };
+	const tokens = uploadTokens(token);
+	if (!tokens.length) return { images: [], error: "还没有配置上传用的令牌（DISCUSSIONS_TOKEN）" };
 
 	let totalChars = 0;
 	for (const item of list) totalChars += String(item?.data || "").length;
@@ -1216,7 +1253,7 @@ async function collectImages(
 	const images: UploadedImage[] = [];
 	for (let i = 0; i < list.length; i++) {
 		try {
-			images.push(await uploadImage(asUser, rc.repoId, list[i]));
+			images.push(await uploadImage(tokens, rc.repoDbId, list[i]));
 		} catch (err) {
 			// 这里给用户看的必须是「能读懂的一句话」，不能把内部错误码抛出去
 			const why = describe(err);
@@ -1659,16 +1696,16 @@ Deno.serve(async (req: Request) => {
 	if (action === "upload") {
 		// 前端在正文里插入占位符后立刻调这里，拿到 URL 再把占位符换成真图。
 		// 这样「点了图就开始传」，而不用等到点提交才动。
-		const asUser = uploadToken();
-		if (!asUser) {
+		const tokens = uploadTokens(ident.token);
+		if (!tokens.length) {
 			return json({
 				success: false,
-				message: "图片上传需要一个用户身份的令牌（DISCUSSIONS_TOKEN），可先把图去掉再提交",
+				message: "还没有配置上传用的令牌（DISCUSSIONS_TOKEN），可先把图去掉再提交",
 			}, 503);
 		}
 		try {
 			const rc = await resolveRepo(token, repo);
-			const one = await uploadImage(asUser, rc.repoId, raw || {});
+			const one = await uploadImage(tokens, rc.repoDbId, raw || {});
 			return json({ success: true, url: one.url, name: one.name });
 		} catch (err) {
 			const message = describe(err);
@@ -1856,7 +1893,8 @@ function describe(err: unknown): string {
 	if (message === "IMAGE_INVALID") return "图片格式无法识别";
 	if (message === "IMAGE_TYPE") return "只支持 PNG / JPEG / GIF / WebP";
 	if (message === "IMAGE_TOO_LARGE") return "单张图片不能超过 10 MB";
-	if (/HTTP 404/.test(message) && /图片上传/.test(message)) return "图片上传不被接受（附件接口需要用户身份，App 身份会被拒）";
+	if (message === "REPO_DB_ID_MISSING") return "拿不到仓库的数字 id，图片无法上传";
+	if (/^图片上传失败 /.test(message)) return message.replace(/^图片上传失败 /, "图片上传失败：");
 	if (/rate limit/i.test(message)) return "GitHub 接口限流，请稍后再试";
 	return message;
 }
