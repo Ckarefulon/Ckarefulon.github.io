@@ -657,6 +657,100 @@ async function lookupAuthorProfile(discussionNumber: number): Promise<{
 	}
 }
 
+/**
+ * 记下「这条回复是哪个站内用户写的」。
+ *
+ * 为什么需要：GitHub 上的回复一律由站点 App 代发，作者都是 bot，
+ * 光看 GitHub 数据分不出谁写的，也就判不出「楼主」是谁。
+ * 失败只记日志，不让回复本身失败 —— 归属信息是锦上添花，不能挡住发言。
+ */
+async function recordCommentAuthor(input: {
+	commentId: string;
+	number: number;
+	submitter: Submitter;
+}): Promise<boolean> {
+	const base = supabaseBase();
+	const key = serviceKey();
+	if (!base || !key) return false;
+	if (!input.commentId) return false;
+	try {
+		const res = await fetch(`${base}/rest/v1/feedback_comment_authors`, {
+			method: "POST",
+			headers: {
+				"apikey": key,
+				"Authorization": `Bearer ${key}`,
+				"Content-Type": "application/json",
+				"Prefer": "resolution=merge-duplicates,return=minimal",
+			},
+			body: JSON.stringify({
+				comment_id: input.commentId,
+				discussion_number: input.number,
+				user_id: input.submitter.userId,
+				username: input.submitter.username,
+			}),
+		});
+		return res.ok;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * 批量取一批回复的站内作者（含头像）。
+ *
+ * 只查登录用户写过的那些；游客回复不在表里，返回的 map 里就没有它们，
+ * 前端据此显示「匿名」。
+ */
+async function lookupCommentAuthors(
+	commentIds: string[],
+): Promise<Record<string, { username: string; avatarUrl: string | null }>> {
+	const base = supabaseBase();
+	const key = serviceKey();
+	const ids = commentIds.filter((id) => typeof id === "string" && id).slice(0, 200);
+	if (!base || !key || !ids.length) return {};
+	try {
+		const list = ids.map((id) => `"${id.replace(/"/g, "")}"`).join(",");
+		const q = `${base}/rest/v1/feedback_comment_authors?comment_id=in.(${list})`
+			+ `&select=comment_id,user_id,username`;
+		const res = await fetch(q, { headers: { "apikey": key, "Authorization": `Bearer ${key}` } });
+		if (!res.ok) return {};
+		const rows = await res.json();
+		if (!Array.isArray(rows) || !rows.length) return {};
+
+		// 一次性把这些用户的头像路径查出来（避免 N 次往返）
+		const userIds = [...new Set(rows.map((r: any) => r && r.user_id).filter(Boolean))];
+		const avatars: Record<string, string> = {};
+		if (userIds.length) {
+			try {
+				const inList = userIds.map((u) => `"${String(u).replace(/"/g, "")}"`).join(",");
+				const pq = `${base}/rest/v1/user_profiles?user_id=in.(${inList})`
+					+ `&select=user_id,avatar_path,updated_at`;
+				const pr = await fetch(pq, { headers: { "apikey": key, "Authorization": `Bearer ${key}` } });
+				if (pr.ok) {
+					const prows = await pr.json();
+					for (const p of Array.isArray(prows) ? prows : []) {
+						if (!p || typeof p.avatar_path !== "string" || !p.avatar_path) continue;
+						let url = `${base}/storage/v1/object/public/avatars/${p.avatar_path}`;
+						if (p.updated_at) url += `?v=${encodeURIComponent(String(p.updated_at))}`;
+						avatars[String(p.user_id)] = url;
+					}
+				}
+			} catch { /* 头像拿不到不影响显示名字 */ }
+		}
+
+		const out: Record<string, { username: string; avatarUrl: string | null }> = {};
+		for (const r of rows) {
+			if (!r || typeof r.comment_id !== "string") continue;
+			const username = typeof r.username === "string" ? r.username.trim() : "";
+			if (!username) continue;
+			out[r.comment_id] = { username, avatarUrl: avatars[String(r.user_id)] || null };
+		}
+		return out;
+	} catch {
+		return {};
+	}
+}
+
 /** 解析当前该用哪个身份；配了 App 就先换 installation token */
 async function resolveIdentity(repo: string): Promise<Identity | null> {
 	const appId = (Deno.env.get("APP_ID") || "").trim();
@@ -1629,6 +1723,12 @@ Deno.serve(async (req: Request) => {
 				// 站内身份（issue 三轮）：提交者如果是本站登录用户，就显示他自己的名字与头像，
 				// 而不是「站点代发」。拿不到（游客 / 老记录）时为 null，前端显示「匿名」。
 				const siteAuthor = await lookupAuthorProfile(number);
+				// 回复也要能显示成本人：GitHub 上都是 bot 代发，作者归属只能在站内表里查。
+				const commentIds = (detail.comments || []).map((c: any) => c.id);
+				const commentAuthors = await lookupCommentAuthors(commentIds);
+				const commentsWithAuthor = (detail.comments || []).map((c: any) => (
+					commentAuthors[c.id] ? { ...c, siteAuthor: commentAuthors[c.id] } : c
+				));
 				return json({
 					success: true,
 					repo,
@@ -1638,6 +1738,7 @@ Deno.serve(async (req: Request) => {
 					canManage,
 					siteAuthor,
 					...detail,
+					comments: commentsWithAuthor,
 				}, 200, {
 					// 详情相对稳定，让浏览器存 15 秒，来回点不重复拉
 					// ⚠️ 带了 canManage 就不能再 public 缓存：那是按人变化的
@@ -1787,11 +1888,21 @@ Deno.serve(async (req: Request) => {
 		}
 		try {
 			const created = await addComment(token, repo, number, commentBody);
+			// 记下这条回复的真实作者（登录用户才有）——回复在 GitHub 上仍是 bot 代发，
+			// 但站内要能显示成本人，并据此判断谁是楼主。
+			const commenter = await resolveSubmitter(req);
+			let linked = false;
+			if (commenter && created.id) {
+				linked = await recordCommentAuthor({ commentId: created.id, number, submitter: commenter });
+			}
 			return json({
 				success: true,
 				number,
 				comment: created,
 				identity: { mode: ident.mode, bot: ident.botName },
+				commenter: commenter
+					? { loggedIn: true, username: commenter.username, linked }
+					: { loggedIn: false, username: null, linked: false },
 			});
 		} catch (err) {
 			const message = describe(err);

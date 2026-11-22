@@ -1039,13 +1039,14 @@
 	/**
 	 * 站内身份（issue #33 三轮）：提交者是本站登录用户时，直接显示他自己的名字。
 	 *
-	 * 用户要求：**不要标签** —— 既不打「站点代发」，也不给此帖打「楼主」。
-	 * 名字本身就是他的，再标一遍反而啰嗦。
+	 * 用户要求：匿名 → 写「匿名」，不打标签；
+	 * 登录用户发的帖 → 名字后面带「楼主」（他自己就是这帖的楼主）。
 	 */
-	function siteAuthorNameHtml(site) {
+	function siteAuthorNameHtml(site, isOp) {
 		var name = String((site && site.username) || "").trim();
 		if (!name) return '<span class="fbAuthorName">匿名</span>';
-		return '<span class="fbAuthorName">' + escapeHtml(name) + "</span>";
+		return '<span class="fbAuthorName">' + escapeHtml(name) + "</span>"
+			+ (isOp ? '<span class="fbAuthorTag fbAuthorTagOp">楼主</span>' : "");
 	}
 
 	/**
@@ -1151,7 +1152,7 @@
 			+ '		' + (who ? avatarHtml(who, true) : avatarHtml(d.author, true))
 			+ '		<div class="fbPostHeadMain">'
 			+ '			<div class="fbPostAuthorLine">'
-			+ (site ? siteAuthorNameHtml(site) : authorNameHtml(d.author, { patDeputy: patDeputy }))
+			+ (site ? siteAuthorNameHtml(site, true) : authorNameHtml(d.author, { patDeputy: patDeputy }))
 			+ "			</div>"
 			+ '			<div class="fbPostMeta">#' + escapeHtml(d.number)
 			+ " · " + escapeHtml(fmtDate(d.createdAt)) + "</div>"
@@ -1176,7 +1177,7 @@
 			+ '	<div class="fbEditBox" id="fbEditBox" hidden></div>'
 			+ "</article>"
 			+ '<h2 class="fbCommentsTitle">回复 <span class="fbCommentsCount">' + escapeHtml(data.totalComments || 0) + "</span></h2>"
-			+ '<div class="fbComments">' + renderComments(data.comments || [], identity, who || d.author) + "</div>"
+			+ '<div class="fbComments">' + renderComments(data.comments || [], identity, site) + "</div>"
 			+ renderReplyForm(identity)
 			+ '<div class="fbStatus" id="fbPostStatus"></div>';
 	}
@@ -1557,40 +1558,56 @@
 	}
 
 	/**
-	 * 回复列表（issue #33 三轮）：每条回复也用「头像 + 名字」的头，
-	 * 名字与正文分开；楼主（== 主帖作者）打「楼主」标签。
+	 * 回复列表（issue #33 四轮）：每条回复「头像 + 名字」，名字与正文分开。
 	 *
-	 * postAuthor 有两层含义要分清：
-	 *   · 站内身份存在时（siteAuthor），「楼主」按**站内用户名**判 —— 因为帖子上显示的就是那个名字；
-	 *   · 否则按 GitHub 登录名判。
+	 * 「楼主」判定规则（这是之前做错的地方，说明白）：
+	 *   · 只看**站内身份**。GitHub 上所有回复都是站点 bot 代发，
+	 *     拿 bot 登录名去比「谁是楼主」会得出「每条回复都是楼主」的荒唐结果。
+	 *   · 匿名帖（postSite 为 null）⇒ 整条帖子**一个楼主标签都不出现**：
+	 *     大家都匿名，标了也没有区分意义。
+	 *   · 有站内作者的帖 ⇒ 只有当回复的站内作者与帖主是**同一个人**时才标楼主。
+	 *
+	 * @param postSite 主帖的站内作者 { username, avatarUrl } 或 null（匿名）
 	 */
-	function renderComments(comments, identity, postAuthor) {
+	function renderComments(comments, identity, postSite) {
 		if (!comments.length) {
 			return '<div class="fbNoComments">还没有回复。</div>';
 		}
-		var postLogin = typeof postAuthor === "string"
-			? postAuthor
-			: (postAuthor && postAuthor.login ? postAuthor.login : "");
 		var patDeputy = !!(identity && identity.mode === "pat");
-		function who(author) {
-			var login = typeof author === "string" ? author : (author && author.login ? author.login : "");
-			var isAuthor = !!postLogin && !!login && login.toLowerCase() === postLogin.toLowerCase();
-			return { isAuthor: isAuthor, patDeputy: patDeputy };
+		var opName = postSite && postSite.username ? String(postSite.username).toLowerCase() : "";
+
+		/** 这一条回复是不是楼主发的（匿名帖一律 false） */
+		function isOp(comment) {
+			if (!opName) return false;
+			var site = comment && comment.siteAuthor;
+			if (!site || !site.username) return false;
+			return String(site.username).toLowerCase() === opName;
 		}
+
+		/** 一条回复的头部：有站内身份就用本人的名字与头像，否则匿名 */
+		function headHtml(node) {
+			var site = node && node.siteAuthor;
+			var display = site && site.username
+				? { login: site.username, avatarUrl: site.avatarUrl || "" }
+				: node.author;
+			var line = site && site.username
+				? siteAuthorNameHtml(site, isOp(node))
+				: authorNameHtml(node.author, { patDeputy: patDeputy });
+			return '<div class="fbCommentHead">'
+				+ avatarHtml(display, false)
+				+ '<div class="fbCommentHeadMain">'
+				+ '<div class="fbCommentAuthorLine">' + line + "</div>"
+				+ '<div class="fbCommentDate">' + escapeHtml(fmtDate(node.createdAt)) + "</div>"
+				+ "</div>"
+				+ "</div>";
+		}
+
 		var html = "";
 		for (var i = 0; i < comments.length; i++) {
 			var c = comments[i];
 			html += '<div class="fbComment">'
-				+ '<div class="fbCommentHead">'
-				+ avatarHtml(c.author, false)
-				+ '<div class="fbCommentHeadMain">'
-				+ '<div class="fbCommentAuthorLine">'
-				+ authorNameHtml(c.author, who(c.author))
+				+ headHtml(c)
 				+ (c.isAnswer ? '<span class="fbAnswerTag">已采纳</span>' : "")
-				+ "</div>"
-				+ '<div class="fbCommentDate">' + escapeHtml(fmtDate(c.createdAt)) + "</div>"
-				+ "</div>"
-				+ "</div>"
 				+ '<div class="fbCommentBody markdown-body">' + markdownLite(c.body) + "</div>"
 				+ renderCommentReactions(c);
 			if (c.replies && c.replies.length) {
@@ -1598,15 +1615,7 @@
 				for (var j = 0; j < c.replies.length; j++) {
 					var r = c.replies[j];
 					html += '<div class="fbReply">'
-						+ '<div class="fbCommentHead">'
-						+ avatarHtml(r.author, false)
-						+ '<div class="fbCommentHeadMain">'
-						+ '<div class="fbCommentAuthorLine">'
-						+ authorNameHtml(r.author, who(r.author))
-						+ "</div>"
-						+ '<div class="fbCommentDate">' + escapeHtml(fmtDate(r.createdAt)) + "</div>"
-						+ "</div>"
-						+ "</div>"
+						+ headHtml(r)
 						+ '<div class="fbCommentBody markdown-body">' + markdownLite(r.body) + "</div>"
 						+ renderCommentReactions(r)
 						+ "</div>";
