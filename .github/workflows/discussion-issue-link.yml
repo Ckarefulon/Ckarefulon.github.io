@@ -113,8 +113,10 @@ jobs:
             };
 
             // 用 GitHub 搜索反查「正文里引用了 Discussion #N 的 Issue」
+            // 注意：search API 要求查询里必须带 is:issue 或 is:pull-request，
+            // 否则直接报 "Query must include 'is:issue' or 'is:pull-request'"。
             async function issuesReferencing(num) {
-              const q = `repo:${owner}/${repo} "Discussion #${num}" in:body`;
+              const q = `repo:${owner}/${repo} is:issue "Discussion #${num}" in:body`;
               try {
                 const res = await github.rest.search.issuesAndPullRequests({ q, per_page: 100 });
                 return (res.data.items || [])
