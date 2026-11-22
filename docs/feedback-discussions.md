@@ -143,7 +143,44 @@ supabase secrets set DISCUSSIONS_TOKEN=ghp_xxx
 | 编辑 | `updateDiscussion` | 就地展开编辑框，标题与正文分开改 |
 | 关闭 / 重新打开 | `closeDiscussion` / `reopenDiscussion` | 关闭原因固定 `RESOLVED` |
 | 删除 | `deleteDiscussion` | 前端二次确认，后端也强制要求 `confirm:true` |
-| 表情 | `addReaction` / `removeReaction` | 七种，同一图标再点一次即取消 |
+| 表情 | `addReaction` / `removeReaction` | 七种，同一胶囊再点一次即取消 |
+
+### 表情：照 GitHub 官方的样子
+
+不做「七个表情平铺一排」：
+
+```
+[👍 2] [❤️ 1] [😀]      ← 只有真的被点过的才有胶囊；末尾笑脸是入口
+                 ↑ 点开 → 小浮层里七个表情可选
+```
+
+- **只显示被点过的**：服务端在 `reactions` 字段给出每种表情的人数，前端据此决定画哪几个。
+  一个都没有时，整行只剩那个笑脸入口。
+- **数量来自服务端**：点完之后重新拉一次详情，而不是本地加减 —— 界面跟着真实数据走。
+- **「我点过没有」记在前端会话里**：GitHub 的 `viewerHasReacted` 是按「谁在查询」算的，
+  而函数用的是 bot/PAT 身份，那个字段反映的不是页面上这个访客。所以用 `myReactions`
+  在内存里记着，点过就把胶囊打亮一圈；刷新后复位。这不影响「有几个人点过」这个数字。
+- ⚠️ **给了 `display:flex` 的浮层必须自己补 `[hidden]{display:none}`**：
+  浏览器默认的 `[hidden]` 优先级比类选择器低，一旦类里写了 `display:flex`，
+  收起时 DOM 是 `hidden` 但画面照样在。这个坑踩过两次（表情浮层、图片列表）。
+
+### 作者展示：头像 + 名字 + 标签
+
+帖子头部和每条回复用同一套结构：
+
+```
+[头像] 用户名 [楼主] [管理员]
+       · 时间 / #编号
+```
+
+- **不用 `@用户名`**，改用 GitHub 头像 + 登录名。
+- **楼主放最上面单独一行**，不再挤在彩色类型标签旁边的浅色小字里。
+- **名字与正文分开展示**：名字加粗、单独一行，时间在它下面一行浅色小字里 ——
+  以前名字和正文同字号同颜色，读起来分不清哪是作者哪是内容。
+- **标签**：
+  - `楼主` —— 该条回复的作者 == 主帖作者（大小写不敏感）
+  - `管理员` —— 登录名等于 `FEEDBACK_MAINTAINER`
+  - `站点代发` —— 作者是 GitHub App 的 `xxx[bot]`
 
 ### 「支持（upvote）」为什么没做
 
@@ -151,7 +188,7 @@ GitHub 的 `addUpvote` **按凭证类型拒绝**：只要是以 GitHub App 或 t
 一律 `FORBIDDEN`（Resource not accessible by integration），没有任何权限能解锁，
 换成 user-to-server token 也一样。只有真人用浏览器点那个箭头才有效。
 
-所以这里不做 upvote，只做表情。按用户要求，表情按钮**只显示图标本身，图标上不叠文字**。
+所以这里不做 upvote，只做表情。
 `upvoteCount` 仍然读得到，但它是个改不动的数字 —— 别把它做成按钮。
 
 ### canManage 为什么由后端给

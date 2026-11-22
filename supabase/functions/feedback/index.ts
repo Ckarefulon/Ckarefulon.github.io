@@ -866,16 +866,19 @@ const DETAIL_QUERY = `query($owner:String!,$name:String!,$number:Int!,$first:Int
       closed stateReason
       category{name slug}
       author{login avatarUrl}
+      reactions(first:100){ nodes{ content user{login} } }
       comments(first:$first, after:$after){
         totalCount
         pageInfo{hasNextPage endCursor}
         nodes{
           id body bodyText createdAt upvoteCount isAnswer
           author{login avatarUrl}
+          reactions(first:100){ nodes{ content user{login} } }
           replies(first:20){
             nodes{
               id bodyText createdAt isAnswer
               author{login avatarUrl}
+              reactions(first:100){ nodes{ content user{login} } }
             }
           }
         }
@@ -884,6 +887,25 @@ const DETAIL_QUERY = `query($owner:String!,$name:String!,$number:Int!,$first:Int
   }
 }`;
 
+/**
+ * 把 GraphQL 的 reactions 节点压成「每种表情几个人」。
+ *
+ * 为什么读全文而不是只读汇总：GraphQL 的 reactionGroups 需要 viewer 身份才有意义
+ * （viewerHasReacted 是按「谁在查」算的），而函数用的是 bot/PAT 身份，
+ * 那个字段反映的不是页面上这个访客。所以这里只统计**总数**，
+ * 「我自己点没点」由前端在前端侧自己记（点过就打亮，刷新后复位）。
+ */
+function tallyReactions(react: any): Record<string, number> {
+	const out: Record<string, number> = {};
+	const nodes = react && Array.isArray(react.nodes) ? react.nodes : [];
+	for (const n of nodes) {
+		if (!n || typeof n.content !== "string") continue;
+		out[n.content] = (out[n.content] || 0) + 1;
+	}
+	return out;
+}
+
+
 interface CommentNode {
 	id: string;
 	body: string;
@@ -891,12 +913,15 @@ interface CommentNode {
 	author: { login: string; avatarUrl: string } | null;
 	isAnswer: boolean;
 	upvotes: number;
+	/** 每种表情有几个人点过：{ THUMBS_UP: 2, HEART: 1 } */
+	reactions: Record<string, number>;
 	replies: Array<{
 		id: string;
 		body: string;
 		createdAt: string;
 		author: { login: string; avatarUrl: string } | null;
 		isAnswer: boolean;
+		reactions: Record<string, number>;
 	}>;
 }
 
@@ -910,6 +935,7 @@ function shapeComment(c: any): CommentNode {
 			: null,
 		isAnswer: !!c.isAnswer,
 		upvotes: typeof c.upvoteCount === "number" ? c.upvoteCount : 0,
+		reactions: tallyReactions(c.reactions),
 		replies: (c.replies?.nodes || []).filter((r: any) => r).map((r: any) => ({
 			id: String(r.id || ""),
 			body: typeof r.bodyText === "string" ? r.bodyText : "",
@@ -918,6 +944,7 @@ function shapeComment(c: any): CommentNode {
 				? { login: String(r.author.login || ""), avatarUrl: String(r.author.avatarUrl || "") }
 				: null,
 			isAnswer: !!r.isAnswer,
+			reactions: tallyReactions(r.reactions),
 		})),
 	};
 }
@@ -957,6 +984,8 @@ async function fetchDiscussion(
 			createdAt: node.createdAt || "",
 			updatedAt: node.updatedAt || "",
 			upvotes: typeof node.upvoteCount === "number" ? node.upvoteCount : 0,
+			// 真实的表情统计（issue #33 二轮）：前端据此只显示「真的有人点过」的那几个
+			reactions: tallyReactions(node.reactions),
 			closed: !!node.closed,
 			// 详情页也显示状态标签，与列表同一套判定
 			state: followState(

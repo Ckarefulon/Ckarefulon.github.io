@@ -816,7 +816,31 @@
 	align-items: center;
 	gap: 10px;
 	flex-wrap: wrap;
-	margin-bottom: 10px;
+	margin-bottom: 4px;
+}
+
+/* 楼主信息占满中间，工具按钮靠右 */
+.fbPostHeadMain {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.fbPostAuthorLine {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+/* 彩色标签（类型 + 状态）单独一行，不再和作者挤在一起 */
+.fbPostTags {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+	margin: 6px 0 10px;
 }
 
 .fbPostMeta {
@@ -855,61 +879,146 @@
 	color: var(--dsk-danger, #d9534f);
 }
 
-.fbReactions {
+/* ---------- 表情（issue #33 三轮）----------
+   照 GitHub 官方那种样子：小圆角胶囊「表情 + 数字」，末尾一个笑脸胶囊，
+   点笑脸才弹出小浮层选表情。只有真被点过的表情才有胶囊。 */
+
+.fbReactionBar {
 	display: flex;
+	align-items: center;
 	gap: 4px;
 	margin-top: 14px;
 	flex-wrap: wrap;
 }
 
-.fbReactionsSmall {
+.fbReactionBarSmall {
 	margin-top: 8px;
 }
 
-.fbReaction {
+/* 胶囊：与 GitHub 的 reaction pill 同款观感 */
+.fbReactionChip {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-width: 32px;
-	height: 30px;
-	padding: 0 6px;
+	gap: 4px;
+	height: 26px;
+	padding: 0 8px;
 	border-radius: var(--dsk-radius-full);
-	border: 1px solid transparent;
-	background: var(--dsk-muted);
-	cursor: pointer;
-	transition: border-color 0.15s, background 0.15s, transform 0.1s;
-	/* 图标上不叠任何文字（用户明确要求）：这里只放 emoji 本身 */
-	font-size: 15px;
-	line-height: 1;
-}
-
-.fbReaction:hover {
-	border-color: var(--dsk-border);
+	border: 1px solid var(--dsk-border);
 	background: var(--dsk-background);
+	color: var(--dsk-foreground-muted);
+	font-family: var(--dsk-font-mono);
+	font-size: 11px;
+	line-height: 1;
+	cursor: pointer;
+	transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s;
 }
 
-.fbReaction:active {
-	transform: scale(0.94);
-}
-
-.fbReaction.isActive {
+.fbReactionChip:hover {
 	border-color: var(--dsk-primary);
-	background: var(--dsk-primary-subtle, color-mix(in srgb, var(--dsk-primary) 14%, transparent));
+	background: var(--dsk-muted);
 }
 
-.fbReaction:disabled {
-	opacity: 0.5;
+.fbReactionChip:active {
+	transform: scale(0.96);
+}
+
+/* 自己点过的那一个：描边 + 淡底，和 GitHub 一致 */
+.fbReactionChip.isMine {
+	border-color: color-mix(in srgb, var(--dsk-primary) 62%, transparent);
+	background: color-mix(in srgb, var(--dsk-primary) 14%, transparent);
+	color: var(--dsk-primary);
+}
+
+.fbReactionChip:disabled {
+	opacity: 0.55;
 	cursor: default;
 }
 
 .fbReactionIcon {
 	pointer-events: none;
+	font-family: system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
+	font-size: 13px;
 }
 
-.fbReactionsSmall .fbReaction {
-	min-width: 26px;
-	height: 24px;
-	font-size: 12px;
+.fbReactionCount {
+	pointer-events: none;
+	font-weight: 650;
+}
+
+/* 笑脸入口：空胶囊，只放一个 emoji */
+.fbReactionAddWrap {
+	position: relative;
+	display: inline-flex;
+}
+
+.fbReactionAdd {
+	padding: 0 7px;
+	color: var(--dsk-foreground-subtle);
+}
+
+.fbReactionAddWrap.isOpen .fbReactionAdd {
+	border-color: var(--dsk-primary);
+	color: var(--dsk-primary);
+}
+
+/* 展开的浮层：一排七个表情，位置贴在笑脸下方。
+   ⚠️ 必须补 `[hidden]{display:none}` —— 这里给了 display:flex，
+   而浏览器默认的 `[hidden]` 只有 `display:none` 且优先级更低，
+   于是「收起」时浮层照样显示（DOM 是 hidden，画面还在，很难查）。 */
+.fbReactionPanel {
+	position: absolute;
+	top: calc(100% + 6px);
+	left: 0;
+	z-index: 30;
+	display: flex;
+	gap: 2px;
+	padding: 6px;
+	border-radius: var(--dsk-radius-md);
+	border: 1px solid var(--dsk-border);
+	background: var(--dsk-card);
+	box-shadow: var(--dsk-shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.28));
+}
+
+.fbReactionPanel[hidden] {
+	display: none;
+}
+
+.fbReactionOption {
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--dsk-radius-sm, 6px);
+	background: transparent;
+	font-size: 16px;
+	line-height: 1;
+	cursor: pointer;
+	transition: background 0.12s, transform 0.1s;
+	/* 图标上不叠文字（用户要求）：这里只有 emoji 本身 */
+	font-family: system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
+}
+
+.fbReactionOption:hover {
+	background: var(--dsk-muted);
+	transform: scale(1.12);
+}
+
+/* 回复里的表情胶囊更小一号，别抢正文的注意力 */
+.fbReactionBarSmall .fbReactionChip {
+	height: 22px;
+	padding: 0 6px;
+	font-size: 10px;
+}
+
+.fbReactionBarSmall .fbReactionIcon {
+	font-size: 11px;
+}
+
+.fbReactionBarSmall .fbReactionOption {
+	width: 26px;
+	height: 26px;
+	font-size: 14px;
 }
 
 /* 就地编辑框 */
@@ -956,6 +1065,11 @@
 	gap: 10px;
 	flex-wrap: wrap;
 	margin-top: 10px;
+}
+
+/* 同上：给了 display:flex 就必须自己补 [hidden]，否则空列表也会撑出一块空白 */
+.fbImageList[hidden] {
+	display: none;
 }
 
 .fbImageItem {
@@ -1317,16 +1431,24 @@
 
 .fbCommentHead {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: 8px;
 	margin-bottom: 8px;
-	flex-wrap: wrap;
 }
 
-.fbCommentAuthor {
-	font-size: var(--dsk-text-sm);
-	font-weight: 550;
-	color: var(--dsk-foreground);
+/* 名字与时间竖排，和正文按行分开 —— 以前名字和正文一样是普通文字，看着像正文的一部分 */
+.fbCommentHeadMain {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+}
+
+.fbCommentAuthorLine {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
 }
 
 .fbCommentDate {
@@ -1344,8 +1466,72 @@
 	font-weight: 600;
 }
 
-/* bot 代发：明确标出来，不伪装成真人发言 */
-.fbAuthorBot {
+/* ---------- 作者展示（issue #33 三轮）----------
+   用户要求：不要「@用户名」，改成【头像】+ 用户名；
+   楼主放到最上面单独一行；名字要和正文明显区分开；除管理员外加「楼主」标签。 */
+
+.fbAvatar {
+	flex: none;
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	object-fit: cover;
+	background: var(--dsk-muted);
+	border: 1px solid var(--dsk-border);
+}
+
+.fbAvatarBig {
+	width: 40px;
+	height: 40px;
+}
+
+.fbAvatarFallback {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 13px;
+	font-weight: 650;
+	color: var(--dsk-foreground-muted);
+	line-height: 1;
+}
+
+/* 列表里那种一行式作者（头像 + 名字 + 标签） */
+.fbAuthorInline {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	vertical-align: middle;
+}
+
+.fbAuthorName {
+	font-size: var(--dsk-text-sm);
+	font-weight: 600;
+	color: var(--dsk-foreground);
+}
+
+/* 名字的几种标签：楼主 / 管理员 / 站点代发 */
+.fbAuthorTag {
+	padding: 1px 7px;
+	border-radius: var(--dsk-radius-full);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.5;
+}
+
+.fbAuthorTagOp {
+	border: 1px solid color-mix(in srgb, var(--dsk-primary) 42%, transparent);
+	background: color-mix(in srgb, var(--dsk-primary) 16%, transparent);
+	color: var(--dsk-primary);
+}
+
+.fbAuthorTagAdmin {
+	border: 1px solid color-mix(in srgb, var(--dsk-success) 42%, transparent);
+	background: color-mix(in srgb, var(--dsk-success) 15%, transparent);
+	color: var(--dsk-success);
+}
+
+/* bot 代发：名字本身就是「站点代发」，另给一点灰底以示与真人不同 */
+.fbAuthorBotTag {
 	padding: 1px 7px;
 	border-radius: var(--dsk-radius-full);
 	border: 1px solid color-mix(in srgb, var(--dsk-foreground-muted) 34%, transparent);
@@ -1353,19 +1539,6 @@
 	font-size: 11px;
 	font-weight: 600;
 	color: var(--dsk-foreground-muted);
-}
-
-/* 管理员（issue #38）：维护者本人的发言，与普通用户分开 */
-.fbAuthorAdmin {
-	margin-left: 5px;
-	padding: 1px 7px;
-	border-radius: var(--dsk-radius-full);
-	border: 1px solid color-mix(in srgb, var(--dsk-primary) 40%, transparent);
-	background: color-mix(in srgb, var(--dsk-primary) 15%, transparent);
-	font-size: 11px;
-	font-weight: 600;
-	color: var(--dsk-primary);
-	vertical-align: 1px;
 }
 
 .fbAuthorNote {
