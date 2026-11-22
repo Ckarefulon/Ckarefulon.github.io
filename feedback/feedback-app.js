@@ -1002,24 +1002,42 @@
 		return bot.replace(/\[bot\]$/i, "").toLowerCase() === name.toLowerCase();
 	}
 
-	/** 作者名字 + 标签（不含 @ 符号） */
+	/**
+	 * 作者名字 + 标签（不含 @ 符号）。
+	 *
+	 * 口径（三轮）：
+	 *   · 站内登录用户提交的 → 由 siteAuthorNameHtml 处理，**不打任何标签**
+	 *   · 走机器人的（游客提交）→ 显示「匿名」，**不打标签**
+	 *   · 只有真人名字才可能带「管理员」
+	 *   · 「楼主」标签只给回复用，帖子本身不标（siteAuthorNameHtml 的注释里说了原因）
+	 */
 	function authorNameHtml(author, opts) {
 		opts = opts || {};
 		var login = typeof author === "string" ? author : (author && author.login ? author.login : "");
 		var bot = isBotLogin(login);
 		var out = "";
-		if (bot) {
-			// 机器人账号不露它的登录名，直接说明是站点代发
-			out += '<span class="fbAuthorName">站点代发</span><span class="fbAuthorBotTag">机器人</span>';
-		} else if (login) {
-			out += '<span class="fbAuthorName">' + escapeHtml(login) + "</span>";
-		} else {
+		if (bot || !login) {
+			// 游客提交：GitHub 那边挂的是站点机器人，站内又没有身份 ⇒ 就是匿名
 			out += '<span class="fbAuthorName">匿名</span>';
+		} else {
+			out += '<span class="fbAuthorName">' + escapeHtml(login) + "</span>";
 		}
 		if (opts.isAuthor) out += '<span class="fbAuthorTag fbAuthorTagOp">楼主</span>';
-		if (!bot && isMaintainer(login)) out += '<span class="fbAuthorTag fbAuthorTagAdmin">管理员</span>';
+		if (!bot && login && isMaintainer(login)) out += '<span class="fbAuthorTag fbAuthorTagAdmin">管理员</span>';
 		if (opts.patDeputy && !bot) out += '<span class="fbAuthorNote">（维护者账号代发）</span>';
 		return out;
+	}
+
+	/**
+	 * 站内身份（issue #33 三轮）：提交者是本站登录用户时，直接显示他自己的名字。
+	 *
+	 * 用户要求：**不要标签** —— 既不打「站点代发」，也不给此帖打「楼主」。
+	 * 名字本身就是他的，再标一遍反而啰嗦。
+	 */
+	function siteAuthorNameHtml(site) {
+		var name = String((site && site.username) || "").trim();
+		if (!name) return '<span class="fbAuthorName">匿名</span>';
+		return '<span class="fbAuthorName">' + escapeHtml(name) + "</span>";
 	}
 
 	/**
@@ -1111,16 +1129,21 @@
 		// 来源页面已经从正文里剥出去了，单独在头部展示（issue #18）
 		var from = extractFrom(d.body);
 		var patDeputy = !!(identity && identity.mode === "pat");
+		// 站内身份（三轮）：提交者是本站登录用户时，用他自己的名字与头像，
+		// 不用「站点代发」，也不打任何标签。
+		var site = data.siteAuthor || null;
+		var who = site
+			? { login: site.username, avatarUrl: site.avatarUrl || "" }
+			: null;
 
 		els.detailBody.innerHTML = ''
 			+ '<article class="fbPost">'
-			// 楼主放最上面单独一行（issue #33 三轮）：头像 + 名字 + 标签，
-			// 不再挤在彩色标签旁边当浅色小字。
+			// 楼主放最上面单独一行（issue #33 三轮）：头像 + 名字
 			+ '	<header class="fbPostHead">'
-			+ '		' + avatarHtml(d.author, true)
+			+ '		' + (who ? avatarHtml(who, true) : avatarHtml(d.author, true))
 			+ '		<div class="fbPostHeadMain">'
 			+ '			<div class="fbPostAuthorLine">'
-			+ authorNameHtml(d.author, { isAuthor: true, patDeputy: patDeputy })
+			+ (site ? siteAuthorNameHtml(site) : authorNameHtml(d.author, { patDeputy: patDeputy }))
 			+ "			</div>"
 			+ '			<div class="fbPostMeta">#' + escapeHtml(d.number)
 			+ " · " + escapeHtml(fmtDate(d.createdAt)) + "</div>"
@@ -1135,7 +1158,9 @@
 					+ "		</div>"
 				: "")
 			+ "	</header>"
-			+ '	<div class="fbPostTags">' + badgeHtml(type, d.category ? d.category.name : "未分类") + stateBadgeHtml(state) + "</div>"
+			+ '	<div class="fbPostTags">' + badgeHtml(type, d.category ? d.category.name : "未分类")
+			// Chat 类不该有跟进状态（三轮）：它只是闲聊，没有「已完成 / 已计划」可言
+			+ (type === "chat" ? "" : stateBadgeHtml(state)) + "</div>"
 			+ '	<h1 class="fbPostTitle">' + escapeHtml(d.title) + "</h1>"
 			+ (from ? '	<div class="fbPostFrom">来源页面：<code>' + escapeHtml(from) + "</code></div>" : "")
 			+ '	<div class="fbPostBody">' + markdownLite(body) + "</div>"
@@ -1143,7 +1168,7 @@
 			+ '	<div class="fbEditBox" id="fbEditBox" hidden></div>'
 			+ "</article>"
 			+ '<h2 class="fbCommentsTitle">回复 <span class="fbCommentsCount">' + escapeHtml(data.totalComments || 0) + "</span></h2>"
-			+ '<div class="fbComments">' + renderComments(data.comments || [], identity, d.author) + "</div>"
+			+ '<div class="fbComments">' + renderComments(data.comments || [], identity, who || d.author) + "</div>"
 			+ renderReplyForm(identity)
 			+ '<div class="fbStatus" id="fbPostStatus"></div>';
 	}
@@ -1162,16 +1187,35 @@
 		return !!(currentDetail && currentDetail.canManage);
 	}
 
-	/** GitHub 支持的七种表情。按用户要求：只显示图标，图标上不叠文字。 */
+	/**
+	 * GitHub 支持的**八种**表情（三轮补上 CONFUSED）。
+	 * 按用户要求：只显示图标，图标上不叠文字。
+	 */
 	var REACTIONS = [
 		{ key: "THUMBS_UP", char: "👍", label: "赞" },
-		{ key: "HEART", char: "❤️", label: "喜欢" },
-		{ key: "HOORAY", char: "🎉", label: "庆祝" },
-		{ key: "ROCKET", char: "🚀", label: "火箭" },
-		{ key: "EYES", char: "👀", label: "在看" },
+		{ key: "THUMBS_DOWN", char: "👎", label: "不赞" },
 		{ key: "LAUGH", char: "😄", label: "开心" },
-		{ key: "THUMBS_DOWN", char: "👎", label: "不赞" }
+		{ key: "HOORAY", char: "🎉", label: "庆祝" },
+		{ key: "CONFUSED", char: "😕", label: "疑惑" },
+		{ key: "HEART", char: "❤️", label: "喜欢" },
+		{ key: "ROCKET", char: "🚀", label: "火箭" },
+		{ key: "EYES", char: "👀", label: "在看" }
 	];
+
+	/**
+	 * 「添加表情」用的自绘图标（三轮）。
+	 *
+	 * 用户要求：不能是一个 emoji，要一个画出来的图标，并且放在**最右边**。
+	 * 这里用内联 SVG（笑脸 + 加号），stroke 走 currentColor，跟主题色自动同步。
+	 */
+	var ADD_REACTION_ICON = '<svg class="fbReactionAddIcon" viewBox="0 0 16 16" width="16" height="16"'
+		+ ' fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"'
+		+ ' aria-hidden="true">'
+		+ '<circle cx="8" cy="8" r="6.2"/>'
+		+ '<path d="M5.3 9.4a3.4 3.4 0 0 0 5.4 0"/>'
+		+ '<circle cx="5.9" cy="6.4" r="0.85" fill="currentColor" stroke="none"/>'
+		+ '<circle cx="10.1" cy="6.4" r="0.85" fill="currentColor" stroke="none"/>'
+		+ "</svg>";
 
 	function reactionCount(d) {
 		// upvoteCount 读得到但写不了（见文档），所以只做展示参考；表情数才是我方可控的
@@ -1200,7 +1244,6 @@
 		var counts = (node && node.reactions) || {};
 		var mine = reactionMine(kind, commentId);
 		var html = "";
-		var shown = 0;
 
 		// ① 只画真的有人点过的（自己刚点的、服务端还没回来的，先按 1 显示）
 		for (var i = 0; i < REACTIONS.length; i++) {
@@ -1209,7 +1252,6 @@
 			var isMine = mine.indexOf(r.key) >= 0;
 			if (n <= 0 && !isMine) continue;
 			if (n <= 0) n = 1;
-			shown++;
 			html += '<button class="fbReactionChip' + (isMine ? " isMine" : "") + '" type="button"'
 				+ ' data-reaction="' + r.key + '"'
 				+ (commentId ? ' data-comment-id="' + escapeHtml(commentId) + '"' : "")
@@ -1220,33 +1262,33 @@
 				+ "</button>";
 		}
 
-		// ② 末尾的笑脸入口 + 浮层（浮层默认收起）
-		if (canManage()) {
-			html += '<div class="fbReactionAddWrap">'
-				+ '<button class="fbReactionChip fbReactionAdd" type="button"'
-				+ (commentId ? ' data-comment-id="' + escapeHtml(commentId) + '"' : "")
-				+ ' title="添加表情" aria-label="添加表情" aria-expanded="false">'
-				+ '<span class="fbReactionIcon">' + SMILE + "</span>"
-				+ "</button>"
-				+ '<div class="fbReactionPanel" hidden>'
-				+ REACTIONS.map(function (r) {
-					return '<button class="fbReactionOption" type="button" data-reaction="' + r.key + '"'
-						+ (commentId ? ' data-comment-id="' + escapeHtml(commentId) + '"' : "")
-						+ ' title="' + escapeHtml(r.label) + '" aria-label="' + escapeHtml(r.label) + '">'
-						+ r.char
-						+ "</button>";
-				}).join("")
-				+ "</div>"
-				+ "</div>";
-		}
+		// ② 末尾的图标入口 + 浮层（浮层默认收起）。
+		//    用自绘 SVG 图标（不是一个 emoji），靠 margin-left:auto 顶到最右边。
+		//
+		// ⚠️ 这里**不按 canManage() 收起来**：表情是后端用站点自己的 token 加的，
+		// 任何访客都能点。以前跟着管理权限一起藏，结果页面上一张图都没有时
+		// 连入口都不出现，等于表情功能对所有人不可见。
+		html += '<div class="fbReactionAddWrap">'
+			+ '<button class="fbReactionChip fbReactionAdd" type="button"'
+			+ (commentId ? ' data-comment-id="' + escapeHtml(commentId) + '"' : "")
+			+ ' title="添加表情" aria-label="添加表情" aria-expanded="false">'
+			+ ADD_REACTION_ICON
+			+ "</button>"
+			+ '<div class="fbReactionPanel" hidden>'
+			+ REACTIONS.map(function (r) {
+				return '<button class="fbReactionOption" type="button" data-reaction="' + r.key + '"'
+					+ (commentId ? ' data-comment-id="' + escapeHtml(commentId) + '"' : "")
+					+ ' title="' + escapeHtml(r.label) + '" aria-label="' + escapeHtml(r.label) + '">'
+					+ r.char
+					+ "</button>";
+			}).join("")
+			+ "</div>"
+			+ "</div>";
 
 		// 一个胶囊都没有、也没有入口 ⇒ 整个表情栏不占位（别留一条空白）
 		if (!html) return "";
 		return '<div class="fbReactionBar' + (small ? " fbReactionBarSmall" : "") + '">' + html + "</div>";
 	}
-
-	/** GitHub 那个「添加表情」用的笑脸，与七种表情区分开 */
-	var SMILE = "😀";
 
 	/** 本次会话里「我点过哪些表情」，键是 post 或 comment:<id> */
 	var myReactions = {};
@@ -1263,9 +1305,8 @@
 		else if (!active && at >= 0) list.splice(at, 1);
 	}
 
-	/** 给某条回复（或二级回复）挂上同一套表情栏 */
+	/** 给某条回复（或二级回复）挂上同一套表情栏（所有人可见，理由同上） */
 	function renderCommentReactions(c) {
-		if (!canManage()) return "";
 		return renderReactionBar(c, { small: true, kind: "comment", commentId: c.id || "" });
 	}
 
@@ -1287,31 +1328,88 @@
 		el.className = "fbStatus" + (kind ? " is" + kind : "");
 	}
 
-	/** 点表情胶囊：已经有就打亮，再点一次取消；没点过就加上 */
+	/**
+	 * 点表情胶囊：已经有就打亮，再点一次取消；没点过就加上。
+	 *
+	 * ⚠️ 数字必须**立刻变**（三轮）：以前是等重新拉完详情才变，用户点完半天看不到反应，
+	 * 像是没点上。现在先本地 +1/-1（乐观更新），再用服务端的真实数据覆盖；
+	 * 失败了回滚并提示。
+	 */
 	function toggleReaction(btn, number) {
 		if (!btn || btn.disabled) return;
 		var content = btn.getAttribute("data-reaction");
 		var commentId = btn.getAttribute("data-comment-id") || "";
 		var isComment = !!commentId;
+		var kind = isComment ? "comment" : "post";
 		// 「我点过没有」以本次会话记录为准：服务端算不出「这个访客」
-		var mine = reactionMine(isComment ? "comment" : "post", commentId);
+		var mine = reactionMine(kind, commentId);
 		var active = mine.indexOf(content) >= 0;
 		btn.disabled = true;
+
+		// ① 先本地更新：数字立刻变，浮层收起
+		var bar = btn.closest(".fbReactionBar");
+		bumpChip(bar, content, active ? -1 : 1, commentId);
+		closeReactionPanels();
+
 		var payload = { action: "reaction", number: Number(number), content: content };
 		if (commentId) payload.commentId = commentId;
 		if (active) payload.remove = true;
 		postAction(number, payload).then(function () {
-			markMine(isComment ? "comment" : "post", commentId, content, !active);
-			// 收起浮层，然后**重新拉一次详情**：胶囊上显示哪些表情、各几个，
-			// 都是服务端算出来的，让界面跟着真实数据走，而不是本地瞎加减。
-			closeReactionPanels();
+			markMine(kind, commentId, content, !active);
+			// ② 服务端回来了：重新拉一次详情，用真实数字覆盖本地估算
 			loadDetail(Number(number));
 			setPostStatus(active ? "已取消" : "已添加", "Success");
 			setTimeout(function () { setPostStatus(""); }, 1600);
 		}).catch(function (err) {
+			// ③ 失败：把刚才那一下撤回去
+			bumpChip(bar, content, active ? 1 : -1, commentId);
 			setPostStatus(err.message || "操作失败", "Error");
 			if (btn) btn.disabled = false;
 		});
+	}
+
+	/**
+	 * 就地调整某个表情胶囊的数字（delta = +1 / -1）。
+	 *
+	 * 三种情况：
+	 *   · 胶囊已存在 → 改数字；减到 0 就把胶囊删掉
+	 *   · 胶囊不存在且是 +1 → 新建一个（自己刚点的那个马
+	 *     上就该出现，并打亮）
+	 *   · 其它 → 什么都不做
+	 */
+	function bumpChip(bar, content, delta, commentId) {
+		if (!bar) return;
+		var chip = bar.querySelector('.fbReactionChip[data-reaction="' + content + '"]');
+		var meta = null;
+		for (var i = 0; i < REACTIONS.length; i++) {
+			if (REACTIONS[i].key === content) { meta = REACTIONS[i]; break; }
+		}
+		if (!meta) return;
+
+		if (chip) {
+			var shown = chip.querySelector(".fbReactionCount");
+			var now = Number(shown && shown.textContent) || 0;
+			var next = now + delta;
+			if (next <= 0) { chip.parentNode.removeChild(chip); return; }
+			if (shown) shown.textContent = String(next);
+			chip.classList.toggle("isMine", delta > 0);
+			return;
+		}
+		if (delta <= 0) return;
+
+		// 新建：插在「添加表情」入口之前，保持入口永远在最右
+		var wrap = bar.querySelector(".fbReactionAddWrap");
+		var el = document.createElement("button");
+		el.className = "fbReactionChip isMine";
+		el.type = "button";
+		el.setAttribute("data-reaction", content);
+		if (commentId) el.setAttribute("data-comment-id", commentId);
+		el.setAttribute("title", meta.label + " · 再点一次取消");
+		el.setAttribute("aria-label", meta.label + " 1");
+		el.innerHTML = '<span class="fbReactionIcon">' + meta.char + "</span>"
+			+ '<span class="fbReactionCount">1</span>';
+		if (wrap) bar.insertBefore(el, wrap);
+		else bar.appendChild(el);
 	}
 
 	/** 点笑脸：展开/收起表情浮层；同一时刻只开一个 */
@@ -1451,8 +1549,12 @@
 	}
 
 	/**
-	 * 回复列表（issue #33 三轮）：每条回复也用「头像 + 名字 + 标签」的头，
-	 * 名字不再是正文那样的普通文字；楼主（== 主帖作者）打「楼主」标签。
+	 * 回复列表（issue #33 三轮）：每条回复也用「头像 + 名字」的头，
+	 * 名字与正文分开；楼主（== 主帖作者）打「楼主」标签。
+	 *
+	 * postAuthor 有两层含义要分清：
+	 *   · 站内身份存在时（siteAuthor），「楼主」按**站内用户名**判 —— 因为帖子上显示的就是那个名字；
+	 *   · 否则按 GitHub 登录名判。
 	 */
 	function renderComments(comments, identity, postAuthor) {
 		if (!comments.length) {
@@ -1464,7 +1566,7 @@
 		var patDeputy = !!(identity && identity.mode === "pat");
 		function who(author) {
 			var login = typeof author === "string" ? author : (author && author.login ? author.login : "");
-			var isAuthor = !!postLogin && login.toLowerCase() === postLogin.toLowerCase();
+			var isAuthor = !!postLogin && !!login && login.toLowerCase() === postLogin.toLowerCase();
 			return { isAuthor: isAuthor, patDeputy: patDeputy };
 		}
 		var html = "";
@@ -1892,7 +1994,9 @@
 			+ '		<span class="fbItemTitle">' + escapeHtml(d.title) + "</span>"
 			+ (d.excerpt ? '	<span class="fbItemExcerpt">' + escapeHtml(d.excerpt) + "</span>" : "")
 			+ '		<span class="fbItemMeta">'
-			+ "			#" + escapeHtml(d.number) + " · " + authorLabel(d.author, listIdentity)
+			// 作者放最前面，编号往后挪（三轮）：先看清是谁提的，再看编号
+			+ "			" + authorLabel(d.author, listIdentity)
+			+ " · #" + escapeHtml(d.number)
 			+ " · " + escapeHtml(fmtDate(d.updatedAt || d.createdAt))
 			+ (d.comments ? " · " + d.comments + " 条回复" : "")
 			+ (d.mine ? '<span class="fbMineTag">我提的</span>' : "")

@@ -595,6 +595,59 @@ async function lookupSubmissions(numbers: number[]): Promise<Record<string, { us
 	}
 }
 
+/**
+ * 取「这条讨论是哪个站内用户提的」—— 含头像。
+ *
+ * 为什么要在服务端做：头像存在 Supabase Storage 的 `avatars` 桶里，
+ * 路径是 `user_profiles.avatar_path`，公开 URL 要用项目 Storage 地址拼出来。
+ * 前端自己拼也可以，但它拿不到 user_id（GitHub 那边是 bot 匿名），
+ * 所以这里用 service key 反查一次，把 { username, avatarUrl } 一起给前端。
+ *
+ * 拿不到（游客提交 / 老记录）时返回 null，前端就显示「匿名」。
+ */
+async function lookupAuthorProfile(discussionNumber: number): Promise<{
+	username: string;
+	avatarUrl: string | null;
+} | null> {
+	const base = supabaseBase();
+	const key = serviceKey();
+	if (!base || !key) return null;
+	try {
+		const q = `${base}/rest/v1/feedback_submissions?discussion_number=eq.${discussionNumber}`
+			+ `&select=user_id,username&limit=1`;
+		const res = await fetch(q, { headers: { "apikey": key, "Authorization": `Bearer ${key}` } });
+		if (!res.ok) return null;
+		const rows = await res.json();
+		const row = Array.isArray(rows) ? rows[0] : null;
+		if (!row) return null;
+		const username = typeof row.username === "string" && row.username.trim() ? row.username.trim() : "";
+		if (!username) return null;
+
+		// 再查一次资料表拿头像路径（feedback_submissions 里没存它）
+		let avatarUrl: string | null = null;
+		if (row.user_id) {
+			try {
+				const pq = `${base}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(row.user_id)}`
+					+ `&select=avatar_path,updated_at&limit=1`;
+				const pr = await fetch(pq, { headers: { "apikey": key, "Authorization": `Bearer ${key}` } });
+				if (pr.ok) {
+					const prows = await pr.json();
+					const prof = Array.isArray(prows) ? prows[0] : null;
+					if (prof && typeof prof.avatar_path === "string" && prof.avatar_path) {
+						// 与前端 profileManager.getAvatarUrl 同一口径：公开桶 + 可选版本号
+						avatarUrl = `${base}/storage/v1/object/public/avatars/${prof.avatar_path}`;
+						const ver = prof.updated_at ? encodeURIComponent(String(prof.updated_at)) : "";
+						if (ver) avatarUrl += `?v=${ver}`;
+					}
+				}
+			} catch { /* 头像拿不到不影响显示名字 */ }
+		}
+		return { username, avatarUrl };
+	} catch {
+		return null;
+	}
+}
+
 /** 解析当前该用哪个身份；配了 App 就先换 installation token */
 async function resolveIdentity(repo: string): Promise<Identity | null> {
 	const appId = (Deno.env.get("APP_ID") || "").trim();
@@ -1536,6 +1589,9 @@ Deno.serve(async (req: Request) => {
 				const detailViewer = await resolveSubmitter(req);
 				const canManage = !!detailViewer && !!detailViewer.username
 					&& detailViewer.username.toLowerCase() === maintainerLogin().toLowerCase();
+				// 站内身份（issue 三轮）：提交者如果是本站登录用户，就显示他自己的名字与头像，
+				// 而不是「站点代发」。拿不到（游客 / 老记录）时为 null，前端显示「匿名」。
+				const siteAuthor = await lookupAuthorProfile(number);
 				return json({
 					success: true,
 					repo,
@@ -1543,6 +1599,7 @@ Deno.serve(async (req: Request) => {
 					types: describeTypes(rc),
 					maintainer: maintainerLogin(),
 					canManage,
+					siteAuthor,
 					...detail,
 				}, 200, {
 					// 详情相对稳定，让浏览器存 15 秒，来回点不重复拉

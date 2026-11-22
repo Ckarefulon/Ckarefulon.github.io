@@ -946,15 +946,26 @@
 	font-weight: 650;
 }
 
-/* 笑脸入口：空胶囊，只放一个 emoji */
+/* 「添加表情」入口（三轮）：自绘 SVG 图标，推到最右边 */
 .fbReactionAddWrap {
 	position: relative;
 	display: inline-flex;
+	/* 把入口顶到整行最右：胶囊再多也不会把它挤到中间 */
+	margin-left: auto;
 }
 
 .fbReactionAdd {
-	padding: 0 7px;
+	padding: 0 8px;
 	color: var(--dsk-foreground-subtle);
+	gap: 0;
+}
+
+/* 自绘图标（不是 emoji）：尺寸与胶囊内的文字对齐 */
+.fbReactionAddIcon {
+	display: block;
+	pointer-events: none;
+	width: 15px;
+	height: 15px;
 }
 
 .fbReactionAddWrap.isOpen .fbReactionAdd {
@@ -962,14 +973,13 @@
 	color: var(--dsk-primary);
 }
 
-/* 展开的浮层：一排七个表情，位置贴在笑脸下方。
-   ⚠️ 必须补 `[hidden]{display:none}` —— 这里给了 display:flex，
-   而浏览器默认的 `[hidden]` 只有 `display:none` 且优先级更低，
-   于是「收起」时浮层照样显示（DOM 是 hidden，画面还在，很难查）。 */
+/* 展开的浮层：八种表情一排，贴在入口图标下方。
+   入口在最右边，所以浮层要**向左展开**（right:0），否则会冲出容器。 */
 .fbReactionPanel {
 	position: absolute;
 	top: calc(100% + 6px);
-	left: 0;
+	right: 0;
+	left: auto;
 	z-index: 30;
 	display: flex;
 	gap: 2px;
