@@ -979,9 +979,11 @@
 			return '<img class="' + cls + '" src="' + escapeHtml(url) + '" alt="" loading="lazy"'
 				+ ' referrerpolicy="no-referrer">';
 		}
-		// 没有头像地址就画个首字母块，别留空
+		// 没有头像地址就画个首字母块，别留空。
+		// 匿名（站点机器人代发）用「匿」，比原来的「机」更贴字样 ——
+		// 那个字符会紧挨着名字显示，写成「机匿名」读起来很怪。
 		var initial = isBotLogin(login)
-			? "机"
+			? "匿"
 			: ((login || "?").replace(/\[bot\]$/i, "").charAt(0).toUpperCase() || "?");
 		return '<span class="' + cls + ' fbAvatarFallback">' + escapeHtml(initial) + "</span>";
 	}
