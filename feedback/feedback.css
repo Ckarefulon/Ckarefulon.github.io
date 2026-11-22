@@ -1114,100 +1114,14 @@
 	gap: 5px;
 }
 
-/* 预览面板：外观与详情页正文一致，所见即所得 */
+/* 预览面板：容器外观 + GitHub 官方 Markdown 样式（容器同时带 .markdown-body） */
 .fbBodyPreview {
 	min-height: 168px;
 	padding: 10px 12px;
 	border-radius: var(--dsk-radius-md);
 	border: 1px dashed var(--dsk-border);
 	background: var(--dsk-background);
-	font-size: var(--dsk-text-sm);
-	line-height: var(--dsk-leading-relaxed);
-	color: var(--dsk-foreground);
-	word-break: break-word;
 	overflow-wrap: anywhere;
-}
-
-.fbBodyPreview img {
-	max-width: 100%;
-	height: auto;
-	border-radius: var(--dsk-radius-md);
-	margin: 6px 0;
-}
-
-.fbBodyPreview pre {
-	margin: 10px 0;
-	padding: 12px 14px;
-	border-radius: var(--dsk-radius-md);
-	border: 1px solid var(--dsk-border);
-	background: var(--dsk-muted);
-	overflow-x: auto;
-	font-family: var(--dsk-font-mono);
-	font-size: var(--dsk-text-xs);
-	line-height: 1.6;
-	white-space: pre;
-}
-
-.fbBodyPreview code {
-	font-family: var(--dsk-font-mono);
-	font-size: 0.92em;
-}
-
-.fbBodyPreview :not(pre) > code {
-	padding: 1px 5px;
-	border-radius: 4px;
-	background: var(--dsk-muted);
-}
-
-.fbBodyPreview table {
-	width: auto;
-	max-width: 100%;
-	min-width: 0;
-	margin: 10px 0;
-	border-collapse: collapse;
-	display: block;
-	overflow-x: auto;
-}
-
-.fbBodyPreview th,
-.fbBodyPreview td {
-	padding: 6px 12px;
-	border: 1px solid var(--dsk-border);
-	text-align: left;
-	font-size: var(--dsk-text-xs);
-}
-
-.fbBodyPreview th {
-	position: static;
-	background: var(--dsk-muted);
-	font-weight: 600;
-	text-transform: none;
-	letter-spacing: 0;
-	white-space: nowrap;
-}
-
-.fbBodyPreview tbody tr,
-.fbBodyPreview tbody tr:hover {
-	cursor: auto;
-	background: none;
-}
-
-.fbBodyPreview blockquote {
-	margin: 10px 0;
-	padding: 2px 0 2px 12px;
-	border-left: 3px solid var(--dsk-border);
-	color: var(--dsk-muted-foreground);
-}
-
-.fbBodyPreview ul,
-.fbBodyPreview ol {
-	margin: 0 0 10px;
-	padding-left: 22px;
-}
-
-.fbBodyPreview li:has(> input[type="checkbox"]) {
-	list-style: none;
-	margin-left: -18px;
 }
 
 .fbPreviewEmpty {
@@ -1306,213 +1220,51 @@
 	font-size: 0.92em;
 }
 
-/* ---------- Markdown 正文（issue #32）----------
-   marked 会把 GitHub 上能出现的元素全解析出来，这里逐类给样式，
-   保证在反馈页里不会被全局样式打歪（尤其是 table 会继承站点表格的宽和边框）。 */
+/* ---------- Markdown 正文：用 GitHub 官方样式 ----------
+   渲染样式来自 assets/vendor/github-markdown/github-markdown.css（GFM 官方那套），
+   容器上挂 .markdown-body。这里只做几处**必要的适配**，不改它的排版：
 
-.fbPostBody h1,
-.fbPostBody h2,
-.fbPostBody h3,
-.fbPostBody h4,
-.fbPostBody h5,
-.fbPostBody h6,
-.fbCommentBody h1,
-.fbCommentBody h2,
-.fbCommentBody h3,
-.fbCommentBody h4,
-.fbCommentBody h5,
-.fbCommentBody h6 {
-	margin: 18px 0 8px;
-	font-weight: 650;
-	line-height: 1.35;
-	color: var(--dsk-foreground);
+   ① 去掉它自带的白/黑底色和外边距 —— 我们已经有卡片背景，再叠一层会出双色块
+   ② 压掉站点全局给 table 设的 min-width:680px，否则表格在窄屏整段溢出
+   ③ 正文首尾元素不留外边距，避免卡片里出现多余空隙 */
+
+.fbPostBody.markdown-body,
+.fbCommentBody.markdown-body,
+.fbBodyPreview.markdown-body {
+	background: transparent;
+	margin: 0;
+	padding: 0;
+	word-break: break-word;
 }
 
-.fbPostBody > *:first-child,
-.fbCommentBody > *:first-child {
+.fbPostBody.markdown-body > *:first-child,
+.fbCommentBody.markdown-body > *:first-child,
+.fbBodyPreview.markdown-body > *:first-child {
 	margin-top: 0;
 }
 
-.fbPostBody h1,
-.fbCommentBody h1 {
-	font-size: 1.45em;
-}
-
-.fbPostBody h2,
-.fbCommentBody h2 {
-	font-size: 1.25em;
-	padding-bottom: 5px;
-	border-bottom: 1px solid var(--dsk-border);
-}
-
-.fbPostBody h3,
-.fbCommentBody h3 {
-	font-size: 1.1em;
-}
-
-.fbPostBody h4,
-.fbPostBody h5,
-.fbPostBody h6,
-.fbCommentBody h4,
-.fbCommentBody h5,
-.fbCommentBody h6 {
-	font-size: 1em;
-}
-
-.fbPostBody ul,
-.fbPostBody ol,
-.fbCommentBody ul,
-.fbCommentBody ol {
-	margin: 0 0 10px;
-	padding-left: 22px;
-}
-
-.fbPostBody li,
-.fbCommentBody li {
-	margin: 3px 0;
-}
-
-.fbPostBody li > ul,
-.fbPostBody li > ol,
-.fbCommentBody li > ul,
-.fbCommentBody li > ol {
-	margin: 3px 0;
-}
-
-/* GFM 任务列表：marked 输出 <li><input type=checkbox disabled>。
-   ⚠️ marked v15 不再给 li 加 `task-list-item` 类（早期版本会加），
-   所以只能用「li 里有 checkbox」这个结构选择器定位；同时去掉默认圆点，
-   ���则勾选框前面还会多顶一个点。 */
-.fbPostBody li:has(> input[type="checkbox"]),
-.fbCommentBody li:has(> input[type="checkbox"]) {
-	list-style: none;
-	margin-left: -18px;
-}
-
-.fbPostBody li > input[type="checkbox"],
-.fbCommentBody li > input[type="checkbox"] {
-	margin-right: 6px;
-	vertical-align: middle;
-}
-
-/* 不支持 :has 的浏览器（老 Chromium）退回按 marked 旧类名处理；两者都命不中时
-   也还能正常读，只是前面多个点，不是致命问题。 */
-.fbPostBody li.task-list-item,
-.fbCommentBody li.task-list-item {
-	list-style: none;
-	margin-left: -18px;
-}
-
-.fbPostBody li.task-list-item input,
-.fbCommentBody li.task-list-item input {
-	margin-right: 6px;
-	vertical-align: middle;
-}
-
-.fbPostBody blockquote,
-.fbCommentBody blockquote {
-	margin: 10px 0;
-	padding: 2px 0 2px 12px;
-	border-left: 3px solid var(--dsk-border);
-	color: var(--dsk-muted-foreground);
-}
-
-.fbPostBody blockquote > :last-child,
-.fbCommentBody blockquote > :last-child {
+.fbPostBody.markdown-body > *:last-child,
+.fbCommentBody.markdown-body > *:last-child,
+.fbBodyPreview.markdown-body > *:last-child {
 	margin-bottom: 0;
 }
 
-.fbPostBody hr,
-.fbCommentBody hr {
-	margin: 16px 0;
-	border: 0;
-	border-top: 1px solid var(--dsk-border);
-}
-
-/* 表格：站点全局给 table 设了 min-width:680px，反馈正文里必须盖掉，
-   否则窄屏整段横向溢出。 */
-.fbPostBody table,
-.fbCommentBody table {
-	width: auto;
-	max-width: 100%;
+/* 表格：站点全局给 table 设了 min-width，GitHub 的样式不会覆盖它，必须自己压掉 */
+.fbPostBody.markdown-body table,
+.fbCommentBody.markdown-body table,
+.fbBodyPreview.markdown-body table {
 	min-width: 0;
-	margin: 10px 0;
-	border-collapse: collapse;
+	max-width: 100%;
 	display: block;
 	overflow-x: auto;
+	width: max-content;
 }
 
-.fbPostBody th,
-.fbPostBody td,
-.fbCommentBody th,
-.fbCommentBody td {
-	padding: 6px 12px;
-	border: 1px solid var(--dsk-border);
-	text-align: left;
-	font-size: var(--dsk-text-xs);
-}
-
-.fbPostBody th,
-.fbCommentBody th {
-	position: static;
-	background: var(--dsk-muted);
-	color: var(--dsk-foreground);
-	font-weight: 600;
-	text-transform: none;
-	letter-spacing: 0;
-	white-space: nowrap;
-}
-
-.fbPostBody tbody tr,
-.fbCommentBody tbody tr {
-	cursor: auto;
-}
-
-.fbPostBody tbody tr:hover,
-.fbCommentBody tbody tr:hover {
-	background: none;
-}
-
-.fbPostBody img,
-.fbCommentBody img {
-	max-width: 100%;
-	height: auto;
+/* 图片：与卡片圆角一致，别顶到边 */
+.fbPostBody.markdown-body img,
+.fbCommentBody.markdown-body img,
+.fbBodyPreview.markdown-body img {
 	border-radius: var(--dsk-radius-md);
-	margin: 6px 0;
-}
-
-.fbPostBody del,
-.fbCommentBody del {
-	opacity: 0.7;
-}
-
-/* 代码块。⚠️ marked 输出的是裸 <pre><code>，不带任何类名，
-   老版手写 markdownLite 用的是 .fbCode —— 只写 .fbCode 的话新解析器下的代码块
-   会完全没有背景和边框，直接糊在正文里（实测）。所以两种选择器都要给。 */
-.fbPostBody pre,
-.fbCommentBody pre {
-	margin: 10px 0;
-	padding: 12px 14px;
-	border-radius: var(--dsk-radius-md);
-	border: 1px solid var(--dsk-border);
-	background: var(--dsk-muted);
-	overflow-x: auto;
-	font-family: var(--dsk-font-mono);
-	font-size: var(--dsk-text-xs);
-	line-height: 1.6;
-	color: var(--dsk-foreground);
-	white-space: pre;
-}
-
-/* 代码块里的语言标签不显示，但保留 marked 输出的 <code class="language-xxx"> */
-.fbPostBody pre code,
-.fbCommentBody pre code {
-	background: none;
-	padding: 0;
-	border: 0;
-	font-size: inherit;
-	color: inherit;
-	white-space: pre;
 }
 
 /* ---------- 回复列表 ---------- */
@@ -1611,6 +1363,24 @@
 	font-weight: 650;
 	color: var(--dsk-foreground-muted);
 	line-height: 1;
+}
+
+/* 匿名/无头像：几何人头剪影（用户要求统一用这个，不再用首字母） */
+.fbAvatarSilhouette {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	background: var(--dsk-muted);
+	color: var(--dsk-foreground-subtle);
+	padding: 3px;
+	box-sizing: border-box;
+}
+
+.fbAvatarSilhouette svg {
+	display: block;
+	width: 100%;
+	height: 100%;
 }
 
 /* 列表里那种一行式作者（头像 + 名字 + 标签） */

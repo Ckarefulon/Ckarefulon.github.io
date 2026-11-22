@@ -204,11 +204,13 @@ POST https://uploads.github.com/user-attachments/assets
   头像来自 `user_profiles.avatar_path` → Supabase Storage 的公开 `avatars` 桶，
   由**服务端**拼 URL（前端拿不到 user_id，GitHub 那边是 bot 匿名）。
 - **匿名提交的**：直接写「匿名」，**不打任何标签**，也不给这条打「楼主」。
-  早期会显示「站点代发 · 机器人」，用户要求去掉。
+- **匿名/无头像统一用「几何人头」剪影图标**（自绘 SVG，`AVATAR_SILHOUETTE`），
+  不用首字母、也不用「匿」字 —— 那个字符紧挨着名字会读成「匿匿名」。
 - **标签规则**：
   - `楼主` —— 回复的作者 == 主帖作者。**只给回复用**，帖子本身不标。
   - `管理员` —— 登录名等于 `FEEDBACK_MAINTAINER`。
 - **Chat 类不显示跟进状态**：闲聊没有「已完成 / 已计划」可言，只留类型标签。
+  列表与详情共用 `showStateTag(type)` 一个判断，别两边各写一份。
 
 ⚠️ **判断「是不是机器人」不能只看 `[bot]` 后缀**：GraphQL 返回的 login 是
 `ckarefulon-feedback`（不带后缀），只有别处拼接展示时才写成 `xxx[bot]`。
@@ -334,35 +336,48 @@ GitHub 上的人只能看到一个 bot，站内却查得到来源。
 
 ## Markdown 渲染（issue #32）
 
-详情页与回复都用**完整 GFM**解析，口径对齐 GitHub：标题、有序/无序/嵌套列表、任务列表、
-引用、表格、代码块（带语言）、行内代码、粗体/斜体/删除线、图片、链接、分隔线。
+详情页与回复都用**完整 GFM**解析 + **GitHub 官方渲染样式**，口径与 GitHub 一致。
 
-实现是本地引入的两个库，**不走 CDN**：
+| 部分 | 用什么 | 位置 |
+| --- | --- | --- |
+| 语法解析 | marked 15.0.7（`gfm: true`、`breaks: true`） | `assets/vendor/marked/` |
+| 安全过滤 | DOMPurify 3.2.4 | `assets/vendor/dompurify/` |
+| 渲染样式 | github-markdown-css 5.8.1 | `assets/vendor/github-markdown/` |
 
-| 库 | 版本 | 位置 | 职责 |
-| --- | --- | --- | --- |
-| marked | 15.0.7 | `assets/vendor/marked/` | 语法解析（GFM） |
-| DOMPurify | 3.2.4 | `assets/vendor/dompurify/` | XSS 消毒 |
+**走 GitHub 那套视觉**的原因：自己写一套 Markdown 排版永远和 GitHub 有出入（标题字号、
+列表缩进、代码块底色、表格边框、引用条……），而用户看到的帖子本来就是在 GitHub 上。
+直接搬官方样式，所见即所得。
 
-几个必须知道的细节：
+用法：容器上加 `class="markdown-body"`（`.fbPostBody` / `.fbCommentBody` / `.fbBodyPreview` 都有）。
 
-- **为什么不用 CDN**：反馈页恰恰是「站点出问题时用来报问题」的页面，不能把它的可用性
-  绑在第三方域名的可达性上。体积代价 39 KB + 22 KB。
-- **任务列表的勾选框**：marked 输出 `<input type=checkbox disabled>`。DOMPurify 默认会
-  把 `input` 当危险标签删掉 —— 那样 `- [x] 已完成` 只剩一个空格。所以 `FORBID_TAGS`
-  里**故意不写 `input`**，改用 `uponSanitizeElement` 钩子把 input 限死成「禁用勾选框」，
-  其它类型的 input（文本框、提交按钮）仍然当场删除。
-- **marked v15 不再给任务项加 `task-list-item` 类**，CSS 只能用 `li:has(> input[type="checkbox"])`
-  定位；老类名的规则保留着，给不支持 `:has` 的老浏览器兜底。
-- **代码块是裸 `<pre><code>`**，不带任何类名。老的手写实现用的是 `.fbCode`，
-  只写 `.fbCode` 会让新解析器下的代码块完全没有背景和边框 —— 所以 `.fbPostBody pre`
-  这一层必须给样式。
-- **表格要压掉站点全局样式**：全局给 `table` 设了 `min-width:680px` 和 sticky 表头，
-  Markdown 表格不改就会在窄屏整段横向溢出。规则里 `min-width:0` + `display:block` 覆盖掉。
+### 样式怎么适配本站主题
+
+上游给了 light / dark 两份，但**都**以 `.markdown-body` 为根选择器，而本站主题是
+`html[data-theme="dark"]` 控制的，不是 `prefers-color-scheme`。
+
+`build-github-markdown-css.mjs` 的做法：
+- light 原样保留
+- dark 的**每个选择器**前加 `[data-theme="dark"] `，靠特异性压过 light（0,1,1 > 0,1,0）
+
+⚠️ **两个坑**：
+1. 生成时要**先剥掉注释**再处理。文件开头是 `/* dark */` 紧跟第一条规则，
+   不剥的话正则会生成 `[data-theme="dark"] /* dark */{…}` 这种废规则（首次生成就踩了）。
+2. `github-markdown.css` 必须排在 `feedback.css` **之前**。我们那几条适配规则
+   （去掉它自带的底色/外边距、压掉站点全局给 table 的 `min-width`）特异性与它相同，
+   同特异性下靠源顺序决定胜负 —— 排在后面才能压住，否则卡片底色会被它盖成纯黑/纯白。
+
+### 几个必须知道的细节
+
+- **本页不自己写 Markdown 排版**。以前逐类写了一套 h1~h6 / ul / table / pre 的规则，
+  现在全部删掉，只留三条适配（透明底、首尾外边距归零、表格不继承站点 `min-width`）。
+- **任务列表的勾选框**：DOMPurify 默认会把 `input` 当危险标签删掉 —— 那样 `- [x] 已完成`
+  只剩一个空格。所以 `FORBID_TAGS` 里**故意不写 `input`**，改用 `uponSanitizeElement`
+  钩子把 input 限死成「禁用勾选框」，其它类型的 input 仍然当场删除。
+- **代码块是裸 `<pre><code>`**，不带类名；旧的 `.fbCode` 现在只给兜底渲染器用。
 - **库没加载成功时**自动退回旧的极简渲染（只认粗体/行内代码/代码块/链接），
   宁可少渲染也不能把整页打挂。
 
-自检钩子：`window.__fbMarkdown(text)`（正式渲染）与 `window.__fbMarkdownFallback(text)`。
+自检钩子：`window.__fbMarkdown(text)`（正式解析）与 `window.__fbMarkdownFallback(text)`。
 
 ## 配置
 

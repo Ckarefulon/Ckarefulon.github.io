@@ -975,18 +975,24 @@
 		var url = author && author.avatarUrl ? String(author.avatarUrl) : "";
 		var login = typeof author === "string" ? author : (author && author.login ? author.login : "");
 		var cls = "fbAvatar" + (big ? " fbAvatarBig" : "");
-		if (url) {
+		if (url && !isBotLogin(login)) {
 			return '<img class="' + cls + '" src="' + escapeHtml(url) + '" alt="" loading="lazy"'
 				+ ' referrerpolicy="no-referrer">';
 		}
-		// 没有头像地址就画个首字母块，别留空。
-		// 匿名（站点机器人代发）用「匿」，比原来的「机」更贴字样 ——
-		// 那个字符会紧挨着名字显示，写成「机匿名」读起来很怪。
-		var initial = isBotLogin(login)
-			? "匿"
-			: ((login || "?").replace(/\[bot\]$/i, "").charAt(0).toUpperCase() || "?");
-		return '<span class="' + cls + ' fbAvatarFallback">' + escapeHtml(initial) + "</span>";
+		// 没有头像（或匿名/站点代发）→ 统一用「几何人头」剪影图标。
+		// 用户要求匿名统一用这个图标；顺带解决了以前用首字母/「匿」字看着像名字前缀的问题。
+		return '<span class="' + cls + ' fbAvatarSilhouette" aria-hidden="true">' + AVATAR_SILHOUETTE + "</span>";
 	}
+
+	/**
+	 * 几何人头剪影（自绘 SVG）。
+	 * 与 GitHub 的默认头像观感一致：圆角底 + 圆头 + 半圆肩，颜色跟随当前主题的文字色。
+	 */
+	var AVATAR_SILHOUETTE = '<svg viewBox="0 0 32 32" width="100%" height="100%"'
+		+ ' fill="currentColor" aria-hidden="true">'
+		+ '<circle cx="16" cy="12" r="5.6"/>'
+		+ '<path d="M16 19.6c-5.6 0-10.1 3.3-10.9 7.7a1.5 1.5 0 0 0 1.5 1.7h18.8a1.5 1.5 0 0 0 1.5-1.7c-.8-4.4-5.3-7.7-10.9-7.7z"/>'
+		+ "</svg>";
 
 	/**
 	 * 这个登录名是不是「站点代发的 App」。
@@ -1162,10 +1168,10 @@
 			+ "	</header>"
 			+ '	<div class="fbPostTags">' + badgeHtml(type, d.category ? d.category.name : "未分类")
 			// Chat 类不该有跟进状态（三轮）：它只是闲聊，没有「已完成 / 已计划」可言
-			+ (type === "chat" ? "" : stateBadgeHtml(state)) + "</div>"
+			+ (showStateTag(type) ? stateBadgeHtml(state) : "") + "</div>"
 			+ '	<h1 class="fbPostTitle">' + escapeHtml(d.title) + "</h1>"
 			+ (from ? '	<div class="fbPostFrom">来源页面：<code>' + escapeHtml(from) + "</code></div>" : "")
-			+ '	<div class="fbPostBody">' + markdownLite(body) + "</div>"
+			+ '	<div class="fbPostBody markdown-body">' + markdownLite(body) + "</div>"
 			+ renderReactionBar(d)
 			+ '	<div class="fbEditBox" id="fbEditBox" hidden></div>'
 			+ "</article>"
@@ -1585,7 +1591,7 @@
 				+ '<div class="fbCommentDate">' + escapeHtml(fmtDate(c.createdAt)) + "</div>"
 				+ "</div>"
 				+ "</div>"
-				+ '<div class="fbCommentBody">' + markdownLite(c.body) + "</div>"
+				+ '<div class="fbCommentBody markdown-body">' + markdownLite(c.body) + "</div>"
 				+ renderCommentReactions(c);
 			if (c.replies && c.replies.length) {
 				html += '<div class="fbReplies">';
@@ -1601,7 +1607,7 @@
 						+ '<div class="fbCommentDate">' + escapeHtml(fmtDate(r.createdAt)) + "</div>"
 						+ "</div>"
 						+ "</div>"
-						+ '<div class="fbCommentBody">' + markdownLite(r.body) + "</div>"
+						+ '<div class="fbCommentBody markdown-body">' + markdownLite(r.body) + "</div>"
 						+ renderCommentReactions(r)
 						+ "</div>";
 				}
@@ -1983,6 +1989,16 @@
 			+ "</span>";
 	}
 
+	/**
+	 * 这个类型要不要显示跟进状态标签。
+	 *
+	 * Chat 类只是闲聊，没有「已完成 / 已计划 / 重复」可言 —— 挂上去只会误导。
+	 * 列表和详情共用一个判断，避免两边各写一份、改一处漏一处。
+	 */
+	function showStateTag(type) {
+		return type !== "chat";
+	}
+
 	function renderItem(d) {
 		var type = slugToType(d.category && d.category.slug);
 		var catName = d.category ? d.category.name : "未分类";
@@ -1990,7 +2006,8 @@
 			+ '<a class="fbItem" href="?d=' + escapeHtml(d.number) + '" data-number="' + escapeHtml(d.number) + '">'
 			+ '	<span class="fbItemTags">'
 			+ badgeHtml(type, catName)
-			+ stateBadgeHtml(stateOf(d))
+			// Chat 类不挂跟进状态（闲聊没有「已完成 / 已计划」可言），与详情页同一口径
+			+ (showStateTag(type) ? stateBadgeHtml(stateOf(d)) : "")
 			+ "	</span>"
 			+ '	<span class="fbItemMain">'
 			+ '		<span class="fbItemTitle">' + escapeHtml(d.title) + "</span>"

@@ -2,6 +2,11 @@
 
 ### feedback
 
+#### Changed
+- 匿名作者的头像统一换成几何人头图标。 `Partial #33`
+- 反馈正文与预览改用 GitHub 官方的 Markdown 渲染样式。 `Partial #32`
+- Chat 类在列表与详情里都不再显示跟进状态标签。 `Partial #33`
+
 #### Fixed
 - 修复反馈里的图片一直上传失败的问题。 `Partial #11`
 
