@@ -188,7 +188,7 @@
 		var h = { "Content-Type": "application/json" };
 		if (cfg.publishableKey) h.apikey = cfg.publishableKey;
 
-		var token = currentAccessToken();
+		var token = authState.token;
 		if (token) {
 			h.Authorization = "Bearer " + token;
 		} else if (cfg.publishableKey) {
@@ -198,39 +198,190 @@
 	}
 
 	/**
-	 * 取当前 access_token。**不依赖 window.supabaseClient**：
-	 * 本页不再首屏加载 Supabase（顶栏登录由 nav.js 按需拉），
-	 * 所以这里直接从 localStorage 里读 supabase-js 存下的会话，
-	 * 既省一次初始化，也让「游客提出来的能认得回来」这件事照旧成立。
+	 * 当前登录态（issue #45）。
+	 *
+	 * 以前这里每次发请求都去 localStorage 里「扫一个形如 sb-*-auth-token 的键」，
+	 * 有四个能出问题的地方：
+	 *   1. 扫到的可能是 `…-auth-token-code-verifier` 这种同前缀的别的键，
+	 *      JSON.parse 失败 → 直接当成没登录；
+	 *   2. 拿到的是**过期**的 access_token。本页首屏不加载 supabase-js，
+	 *      没人替它刷新；用户昨天登录的会话今天还躺在存储里，服务端一律 401；
+	 *   3. 过期/坏会话一律「静默当游客」，用户完全看不出是身份丢了；
+	 *   4. 用户其实登录着，只是这次请求没带上令牌 —— 页面照样说「已提交，谢谢」。
+	 * 结果就是 issue #45 的现象：登录了，发出来还是「匿名」。
+	 *
+	 * 现在：先问 supabase-js（有客户端时它自带自动刷新），
+	 * 没有客户端就直接用 refresh_token 换一张新的，仍然不行才当游客，
+	 * 并且把「为什么当游客」记下来，界面上明说。
 	 */
-	function currentAccessToken() {
+	var authState = {
+		token: null,
+		refreshToken: null,
+		expiresAt: 0,
+		source: "none",   // client / storage / refresh / none
+		reason: "",       // 拿不到身份的原因（给用户看）
+		primed: false
+	};
+
+	/** 会话还剩多少秒（没有 expires_at 时按「未知」处理） */
+	function sessionLeftSec(session) {
+		var at = session && (session.expires_at || 0);
+		if (!at) return null;
+		return Math.round(at - Date.now() / 1000);
+	}
+
+	/**
+	 * 从 localStorage 里找 supabase-js 存的会话。
+	 *
+	 * 键名形如 `sb-<ref>-auth-token`（supabase-js 用 URL 的主机名拼的）。
+	 * **必须精确匹配结尾**：`…-auth-token-code-verifier` 也是这个前缀，
+	 * 但它的值只是一串随机字符，解析出来不是会话。
+	 */
+	function readStoredSession() {
+		var best = null;
 		try {
-			// 1) supabase-js 已加载并已登录：最可信
-			var auth = window.authManager;
-			if (auth && typeof auth.isLoggedIn === "function" && auth.isLoggedIn()) {
-				var client = window.supabaseClient;
-				if (!client) return null;
+			for (var i = 0; i < localStorage.length; i++) {
+				var key = localStorage.key(i);
+				if (!key || key.indexOf("sb-") !== 0 || !/-auth-token$/.test(key)) continue;
+				var raw = localStorage.getItem(key);
+				if (!raw) continue;
+				var parsed = null;
+				try { parsed = JSON.parse(raw); } catch (e) { continue; }
+				var session = null;
+				if (parsed && parsed.access_token) session = parsed;
+				else if (parsed && parsed.currentSession && parsed.currentSession.access_token) session = parsed.currentSession;
+				if (!session) continue;
+				// 多个项目/多个账号时取「最晚过期」的那份
+				var at = session.expires_at || 0;
+				if (!best || at > (best.session.expires_at || 0)) best = { key: key, session: session };
 			}
-			// 2) 从存储里找 sb-<ref>-auth-token（有 token 就说明是登录态）
-			var raw = null;
-			var parsed = null;
-			try {
-				for (var i = 0; i < localStorage.length; i++) {
-					var key = localStorage.key(i);
-					if (!key || key.indexOf("sb-") !== 0 || key.indexOf("-auth-token") < 0) continue;
-					raw = localStorage.getItem(key);
-					if (raw) break;
+		} catch (e) {
+			return null;
+		}
+		return best;
+	}
+
+	/** 用 refresh_token 换一张新 access_token（走与接口同一条链路：中继优先） */
+	function refreshAccessToken(refreshToken) {
+		var base = transport === "relay" ? relayBase() : directBase();
+		var cfg = window.CK_SUPABASE_CONFIG || {};
+		if (!base || !refreshToken) return Promise.resolve(null);
+		return fetch(base + "/auth/v1/token?grant_type=refresh_token", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"apikey": cfg.publishableKey || "",
+			},
+			body: JSON.stringify({ refresh_token: refreshToken })
+		}).then(function (res) {
+			if (!res.ok) return null;
+			return res.json().then(function (data) {
+				if (!data || !data.access_token) return null;
+				return data;
+			});
+		}).catch(function () { return null; });
+	}
+
+	/**
+	 * 确定「这次请求该用谁的令牌」。
+	 *
+	 * @param {boolean} force 强制重新判定（提交/回复前用，避免拿到十分钟前的结论）
+	 * @returns {Promise<{token: string|null, reason: string}>}
+	 */
+	function primeAuth(force) {
+		if (authState.primed && !force) {
+			return Promise.resolve({ token: authState.token, reason: authState.reason });
+		}
+		authState.primed = true;
+
+		// ① supabase-js 在页面上（用户刚点过登录/刚加载过）：最可信，且它会自动续期
+		var client = window.supabaseClient;
+		if (client && client.auth && typeof client.auth.getSession === "function") {
+			return client.auth.getSession().then(function (result) {
+				var session = result && result.data ? result.data.session : null;
+				if (session && session.access_token) {
+					authState.token = session.access_token;
+					authState.refreshToken = session.refresh_token || null;
+					authState.expiresAt = session.expires_at || 0;
+					authState.source = "client";
+					authState.reason = "";
+					return { token: authState.token, reason: "" };
 				}
-			} catch (e) { return null; }
-			if (!raw) return null;
-			try { parsed = JSON.parse(raw); } catch (e) { return null; }
-			// 结构可能是 {access_token} 或 {currentSession:{access_token}}
-			if (parsed && parsed.access_token) return parsed.access_token;
-			if (parsed && parsed.currentSession && parsed.currentSession.access_token) {
-				return parsed.currentSession.access_token;
+				return finishPrime();
+			}).catch(function () { return finishPrime(); });
+		}
+		return finishPrime();
+
+		function finishPrime() {
+			var stored = readStoredSession();
+			if (!stored) {
+				authState.token = null;
+				authState.refreshToken = null;
+				authState.source = "none";
+				authState.reason = "not-logged-in";
+				return Promise.resolve({ token: null, reason: authState.reason });
 			}
-		} catch (e) {}
-		return null;
+			var left = sessionLeftSec(stored.session);
+			authState.refreshToken = stored.session.refresh_token || null;
+			// 还剩 60 秒以上就直接用；否则先续期 —— 过期令牌发过去服务端只会当游客
+			if (left === null || left > 60) {
+				authState.token = stored.session.access_token;
+				authState.expiresAt = stored.session.expires_at || 0;
+				authState.source = "storage";
+				authState.reason = "";
+				return Promise.resolve({ token: authState.token, reason: "" });
+			}
+			return refreshAccessToken(authState.refreshToken).then(function (fresh) {
+				if (fresh) {
+					authState.token = fresh.access_token;
+					authState.refreshToken = fresh.refresh_token || authState.refreshToken;
+					authState.expiresAt = fresh.expires_at || 0;
+					authState.source = "refresh";
+					authState.reason = "";
+					return { token: authState.token, reason: "" };
+				}
+				// 续期失败：带着过期令牌也没用，明确告诉用户「登录已过期」
+				authState.token = null;
+				authState.source = "expired";
+				authState.reason = "expired";
+				return { token: null, reason: authState.reason };
+			});
+		}
+	}
+
+	/** 记下「登录着、但这次没能带上身份」，提交后要如实告诉用户 */
+	function authNoticeAfterWrite(data) {
+		var loggedIn = !!(authState.token);
+		if (!loggedIn) return "";
+		var ok = data && (data.submitter
+			? data.submitter.loggedIn === true
+			: (data && data.commenter ? data.commenter.loggedIn === true : false));
+		if (ok) return "";
+		return "已提交，但站点没认出你的登录身份（这条会显示为匿名）";
+	}
+
+	/**
+	 * 跟着顶栏的登录动作走（issue #45）。
+	 *
+	 * 顶栏登录是**按需加载** supabase 的：用户在本页点「登录」之后，
+	 * window.authManager 才出现。之前页面不知道这件事，列表与提交用的还是
+	 * 「打开页面那一刻」的登录态，于是刚登录完就提交，仍被当成游客。
+	 * 这里挂一次监听：登录/退出后重新判定身份，并刷新提示文案。
+	 */
+	var authHookBound = false;
+	function hookAuthManager() {
+		var auth = window.authManager;
+		if (!auth || typeof auth.onAuthStateChange !== "function") return false;
+		if (authHookBound) return true;
+		authHookBound = true;
+		auth.onAuthStateChange(function () {
+			primeAuth(true).then(function () {
+				updateTypeHint();
+				// 登录态变了，「我提的」标记也该跟着变：重拉一页列表
+				if (els.list && allDiscussions.length) loadList(true);
+			}).catch(function () {});
+		});
+		return true;
 	}
 
 	/**
@@ -343,8 +494,14 @@
 		var parts = [def.hint];
 		if (real) parts.push("提交到「" + real + "」");
 		// 隐私口径要写清楚：GitHub 上是匿名 bot，站内才会记住是谁
-		if (viewer && viewer.loggedIn) {
+		// （issue #45）登录状态有三种，别都用一句「未登录」糊过去：
+		//   · 有令牌 → 会记录
+		//   · 令牌过期且续不上 → 明说「登录已过期」，否则用户以为登录还是好的
+		//   · 从没登录 → 未登录
+		if (authState.token) {
 			parts.push("站内会记录是你提交的（GitHub 上不显示）");
+		} else if (authState.reason === "expired") {
+			parts.push("登录已过期：去顶栏重新登录一次才会记录你");
 		} else {
 			parts.push("未登录：GitHub 上匿名，站内也不留痕");
 		}
@@ -1050,6 +1207,22 @@
 	}
 
 	/**
+	 * 列表里「自己提的」那几条：用站内身份（头像 + 名字）渲染（issue #45）。
+	 *
+	 * 为什么要单独一个：GitHub 数据里作者一律是站点机器人，光看它只能是「匿名」，
+	 * 于是「我明明登录了」和「页面写着匿名」同时成立 —— 这正是 #45 报的现象。
+	 * 后端现在会把本人的名字与头像随列表一起下发，这里按与 authorLabel 相同的结构画。
+	 */
+	function siteAuthorLabel(site) {
+		var name = String((site && site.username) || "").trim();
+		if (!name) return authorLabel(null, listIdentity);
+		return '<span class="fbAuthorInline">'
+			+ avatarHtml({ login: "", avatarUrl: site.avatarUrl }, false)
+			+ '<span class="fbAuthorName">' + escapeHtml(name) + "</span>"
+			+ "</span>";
+	}
+
+	/**
 	 * 列表、详情里零散用的「作者一句话」版本（保留原函数名，别处还在用）。
 	 * 头像 + 名字 + 标签，拼成一行。
 	 */
@@ -1679,46 +1852,54 @@
 		if (btn) { btn.disabled = true; btn.textContent = "发布中…"; }
 		setStatus("正在发布…", "");
 
-		var controller = typeof AbortController === "function" ? new AbortController() : null;
-		var timer = controller ? setTimeout(function () { controller.abort(); }, SUBMIT_TIMEOUT) : null;
-		var options = {
-			method: "POST",
-			headers: headers(),
-			body: JSON.stringify({
-				action: "comment",
-				number: detailNumber,
-				body: body,
-				hp: (hp && hp.value || "").trim()
-			}),
-			cache: "no-store"
-		};
-		if (controller) options.signal = controller.signal;
+		// 发之前先确认登录态（issue #45）：令牌可能已经过期，
+		// 不带身份发出去就会显示成匿名，且事后无法补救。
+		primeAuth(true).then(function () {
+			var controller = typeof AbortController === "function" ? new AbortController() : null;
+			var timer = controller ? setTimeout(function () { controller.abort(); }, SUBMIT_TIMEOUT) : null;
+			var options = {
+				method: "POST",
+				headers: headers(),
+				body: JSON.stringify({
+					action: "comment",
+					number: detailNumber,
+					body: body,
+					hp: (hp && hp.value || "").trim()
+				}),
+				cache: "no-store"
+			};
+			if (controller) options.signal = controller.signal;
 
-		postJson(url, options, SUBMIT_TIMEOUT).then(function (data) {
-			if (timer) clearTimeout(timer);
+			postJson(url, options, SUBMIT_TIMEOUT).then(function (data) {
+				if (timer) clearTimeout(timer);
+				done();
+				if (data && data.success) {
+					if (box) box.value = "";
+					// 重新拉详情会重建整块 DOM，提示要等重建之后再落回去
+					var notice = authNoticeAfterWrite(data);
+					loadDetail(detailNumber, function () {
+						var s = $("fbReplyStatus");
+						if (!s) return;
+						s.textContent = notice || "已发布，谢谢！";
+						s.className = "fbStatus " + (notice ? "isWarning" : "isSuccess");
+					});
+					return;
+				}
+				if (data && data.configure) {
+					setStatus("自动回复未配置，已改用 GitHub", "Warning");
+					openGithubForReply(body);
+					return;
+				}
+				setStatus((data && data.message) || "发布失败，请稍后再试", "Error");
+			}).catch(function (err) {
+				if (timer) clearTimeout(timer);
+				done();
+				var aborted = err && err.name === "AbortError";
+				setStatus(aborted ? "发布超时，可稍后重试" : "网络异常：连不上反馈服务，可稍后重试", "Error");
+			});
+		}).catch(function () {
 			done();
-			if (data && data.success) {
-				if (box) box.value = "";
-				// 重新拉详情会重建整块 DOM，提示要等重建之后再落回去
-				loadDetail(detailNumber, function () {
-					var s = $("fbReplyStatus");
-					if (!s) return;
-					s.textContent = "已发布，谢谢！";
-					s.className = "fbStatus isSuccess";
-				});
-				return;
-			}
-			if (data && data.configure) {
-				setStatus("自动回复未配置，已改用 GitHub", "Warning");
-				openGithubForReply(body);
-				return;
-			}
-			setStatus((data && data.message) || "发布失败，请稍后再试", "Error");
-		}).catch(function (err) {
-			if (timer) clearTimeout(timer);
-			done();
-			var aborted = err && err.name === "AbortError";
-			setStatus(aborted ? "发布超时，可稍后重试" : "网络异常：连不上反馈服务，可稍后重试", "Error");
+			setStatus("读取登录状态失败，请刷新后重试", "Error");
 		});
 
 		function done() {
@@ -2023,7 +2204,11 @@
 			+ (d.excerpt ? '	<span class="fbItemExcerpt">' + escapeHtml(d.excerpt) + "</span>" : "")
 			+ '		<span class="fbItemMeta">'
 			// 作者放最前面，编号往后挪（三轮）：先看清是谁提的，再看编号
-			+ "			" + authorLabel(d.author, listIdentity)
+			// 自己提的用**站内名字与头像**（issue #45）：GitHub 那边一律是站点机器人，
+			// 只看它就只能是「匿名」，用户会以为登录没生效。
+			+ "			" + (d.siteAuthor
+				? siteAuthorLabel(d.siteAuthor)
+				: authorLabel(d.author, listIdentity))
 			+ " · #" + escapeHtml(d.number)
 			+ " · " + escapeHtml(fmtDate(d.updatedAt || d.createdAt))
 			+ (d.comments ? " · " + d.comments + " 条回复" : "")
@@ -2185,6 +2370,13 @@
 		refreshRestoreBtn();
 		els.overlay.classList.add("isVisible");
 		updateTypeHint();
+		// 打开表单时重新确认一次身份（issue #45）：
+		// 用户可能刚在顶栏登录/退出，也可能令牌正好过期。
+		// 有 authManager 就顺手挂上状态监听，之后登录完成提示也会跟着更新。
+		hookAuthManager();
+		primeAuth(true).then(function () {
+			updateTypeHint();
+		}).catch(function () {});
 		if (focusBody !== false) {
 			setTimeout(function () {
 				// 标题是第一个字段：空着就先落在标题上（写标题的顺序也在前），
@@ -2326,96 +2518,113 @@
 		if (els.submit) { els.submit.disabled = true; els.submit.textContent = "提交中…"; }
 		setStatus("正在提交…", "");
 
-		var controller = typeof AbortController === "function" ? new AbortController() : null;
-		var timer = controller ? setTimeout(function () { controller.abort(); }, SUBMIT_TIMEOUT) : null;
-		var postBody = JSON.stringify({
-			type: p.type,
-			title: p.title,
-			body: p.body,
-			contact: p.contact,
-			hp: (els.hp && els.hp.value || "").trim(),
-			// 只有勾上的项才进这个串；一项没勾就是空串，正文里不会有环境信息块
-			meta: metaLines(),
-			page: p.page || window.location.pathname || "/feedback/"
-			// 图片不再是单独字段：它已经以 `![](url)` 的形式躺在正文里了
-		});
-		var options = {
-			method: "POST",
-			headers: headers(),
-			body: postBody,
-			cache: "no-store"
-		};
-		if (controller) options.signal = controller.signal;
+		// 提交前重新确认一次登录态（issue #45）：过期令牌发上去只会被当成游客，
+		// 而帖子一旦发出就没法补身份了 —— 宁可多等一次 refresh。
+		primeAuth(true).then(function () {
+			var controller = typeof AbortController === "function" ? new AbortController() : null;
+			var timer = controller ? setTimeout(function () { controller.abort(); }, SUBMIT_TIMEOUT) : null;
+			var postBody = JSON.stringify({
+				type: p.type,
+				title: p.title,
+				body: p.body,
+				contact: p.contact,
+				hp: (els.hp && els.hp.value || "").trim(),
+				// 只有勾上的项才进这个串；一项没勾就是空串，正文里不会有环境信息块
+				meta: metaLines(),
+				page: p.page || window.location.pathname || "/feedback/"
+				// 图片不再是单独字段：它已经以 `![](url)` 的形式躺在正文里了
+			});
+			var options = {
+				method: "POST",
+				headers: headers(),
+				body: postBody,
+				cache: "no-store"
+			};
+			if (controller) options.signal = controller.signal;
 
-		postJson(url, options, SUBMIT_TIMEOUT).then(function (data) {
-			if (timer) clearTimeout(timer);
-			finish();
-			// 提交期间用户可能已经关掉弹窗、又开了新的一份：这一份的结果不该出现。
-			// 内容其实已经提交成功了，所以只丢弃「提示与字段清空」，不重试、不报错。
-			var stale = session !== modalSession;
+			postJson(url, options, SUBMIT_TIMEOUT).then(function (data) {
+				if (timer) clearTimeout(timer);
+				finish();
+				// 提交期间用户可能已经关掉弹窗、又开了新的一份：这一份的结果不该出现。
+				// 内容其实已经提交成功了，所以只丢弃「提示与字段清空」，不重试、不报错。
+				var stale = session !== modalSession;
 
-			if (data && data.success) {
-				if (!stale) {
-					clearDraft();
-					if (els.title) els.title.value = "";
-					if (els.body) els.body.value = "";
-					if (els.contact) els.contact.value = "";
-					if (els.page) els.page.value = "";
-					clearImages();
-					setStatus("已提交，谢谢！", "Success");
-					// 图片没跟上的话必须说清楚：帖子已经发出去了，但图不在里面
-					if (data.imageError) {
-						setStatus("已提交，但" + data.imageError + "。可以到 GitHub 里手动补图。", "Warning");
+				if (data && data.success) {
+					if (!stale) {
+						clearDraft();
+						if (els.title) els.title.value = "";
+						if (els.body) els.body.value = "";
+						if (els.contact) els.contact.value = "";
+						if (els.page) els.page.value = "";
+						clearImages();
+						setStatus("已提交，谢谢！", "Success");
+						// 图片没跟上的话必须说清楚：帖子已经发出去了，但图不在里面
+						if (data.imageError) {
+							setStatus("已提交，但" + data.imageError + "。可以到 GitHub 里手动补图。", "Warning");
+						}
+						// 登录了却没被认出来：也得说清楚，否则用户只能看到一个「匿名」的帖子
+						var notice = authNoticeAfterWrite(data);
+						if (notice) setStatus(notice, "Warning");
+						if (data.url) {
+							var a = document.createElement("a");
+							a.className = "fbOpenLink";
+							a.href = data.url;
+							a.target = "_blank";
+							a.rel = "noopener noreferrer";
+							a.textContent = " 查看讨论" + (data.number ? " #" + data.number : "") + " ↗";
+							if (els.status) els.status.appendChild(a);
+						}
 					}
-					if (data.url) {
-						var a = document.createElement("a");
-						a.className = "fbOpenLink";
-						a.href = data.url;
-						a.target = "_blank";
-						a.rel = "noopener noreferrer";
-						a.textContent = " 查看讨论" + (data.number ? " #" + data.number : "") + " ↗";
-						if (els.status) els.status.appendChild(a);
+					// 列表里立刻跟上这条（不等重新拉取）：这一条对列表是无害的，无论是否 stale
+					if (data.number) {
+						allDiscussions.unshift({
+							number: data.number,
+							title: data.title || buildTitle(p),
+							url: data.url,
+							createdAt: new Date().toISOString(),
+							updatedAt: new Date().toISOString(),
+							category: { name: data.category || typeMap[p.type] || typeDef(p.type).github, slug: p.type },
+							author: null,
+							comments: 0,
+							upvotes: 0,
+							closed: false,
+							state: "open",
+							// 刚发出去的这条如果记下了站内身份，列表里就用自己的名字显示（issue #45）。
+							// 头像先留空（这里拿不到 user_profiles），下一次拉列表会带上真头像。
+							siteAuthor: data.submitter && data.submitter.loggedIn
+								? { username: data.submitter.username, avatarUrl: null }
+								: undefined,
+							mine: !!(data.submitter && data.submitter.loggedIn) || undefined,
+							excerpt: firstLine(p.body)
+						});
+						renderList();
 					}
+					return;
 				}
-				// 列表里立刻跟上这条（不等重新拉取）：这一条对列表是无害的，无论是否 stale
-				if (data.number) {
-					allDiscussions.unshift({
-						number: data.number,
-						title: data.title || buildTitle(p),
-						url: data.url,
-						createdAt: new Date().toISOString(),
-						updatedAt: new Date().toISOString(),
-						category: { name: data.category || typeMap[p.type] || typeDef(p.type).github, slug: p.type },
-						author: null,
-						comments: 0,
-						upvotes: 0,
-						closed: false,
-						state: "open",
-						excerpt: firstLine(p.body)
-					});
-					renderList();
-				}
-				return;
-			}
 
-			if (data && data.configure) {
-				if (!stale) {
-					setStatus("自动提交未配置，已改用 GitHub 提交", "Warning");
-					openGithub();
+				if (data && data.configure) {
+					if (!stale) {
+						setStatus("自动提交未配置，已改用 GitHub 提交", "Warning");
+						openGithub();
+					}
+					return;
 				}
-				return;
-			}
-			if (!stale) setStatus((data && data.message) || "提交失败，请稍后再试", "Error");
-		}).catch(function (err) {
-			if (timer) clearTimeout(timer);
+				if (!stale) setStatus((data && data.message) || "提交失败，请稍后再试", "Error");
+			}).catch(function (err) {
+				if (timer) clearTimeout(timer);
+				finish();
+				// 同上：这份表单已经不在了，错误提示也不该落到新表单上
+				if (session !== modalSession) return;
+				var aborted = err && err.name === "AbortError";
+				// 草稿一直在本机，重试不会丢字
+				setStatus(aborted
+					? "提交超时：反馈服务没响应。内容已保存为草稿，可稍后重试。"
+					: "网络异常：连不上反馈服务。内容已保存为草稿，可稍后重试。", "Error");
+			});
+		}).catch(function () {
 			finish();
-			// 同上：这份表单已经不在了，错误提示也不该落到新表单上
 			if (session !== modalSession) return;
-			var aborted = err && err.name === "AbortError";
-			// 草稿一直在本机，重试不会丢字
-			setStatus(aborted
-				? "提交超时：反馈服务没响应。内容已保存为草稿，可稍后重试。"
-				: "网络异常：连不上反馈服务。内容已保存为草稿，可稍后重试。", "Error");
+			setStatus("读取登录状态失败，请刷新后重试（内容已保存为草稿）", "Error");
 		});
 
 		function finish() {
@@ -2734,9 +2943,19 @@
 		draftReady = true;
 		refreshRestoreBtn();
 
-		// 进页即预热（列表请求同时也把分类映射带回来）
-		prewarm();
-		loadList(true);
+		// 先确认登录态，再发第一批请求（issue #45）：
+		// 顺序反了的话，列表第一屏就是「游客视角」——自己的帖子全显示成匿名，
+		// 而且这一屏会被缓存住，用户看到的正是「登录没生效」。
+		hookAuthManager();
+		primeAuth(false).then(function () {
+			updateTypeHint();
+			// 进页即预热（列表请求同时也把分类映射带回来）
+			prewarm();
+			loadList(true);
+		}).catch(function () {
+			prewarm();
+			loadList(true);
+		});
 
 		// 从 nav 图标进来（?new=1）→ 直接开新建弹窗
 		var params = new URLSearchParams(window.location.search);
@@ -2754,6 +2973,25 @@
 	// 自检钩子（.tests/feedback-markdown.test.js 与手工排查用）：只读/纯函数，不参与正式流程
 	window.__fbMarkdown = markdownLite;
 	window.__fbMarkdownFallback = markdownFallback;
+
+	/**
+	 * 身份自检钩子（issue #45）：排查「登录了却显示匿名」时，
+	 * 在控制台跑 `await __fbAuth(true)` 就能看到用的是哪张令牌、从哪来的、还剩多久。
+	 * 顺带让自动化测试能直接断言这条链路，不必真的登录。
+	 */
+	window.__fbAuth = function (force) {
+		return primeAuth(!!force).then(function (r) {
+			return {
+				hasToken: !!r.token,
+				source: authState.source,
+				reason: r.reason || "",
+				expiresInSec: authState.expiresAt
+					? Math.round(authState.expiresAt - Date.now() / 1000)
+					: null,
+				headers: headers()
+			};
+		});
+	};
 
 	if (document.readyState === "loading") {
 		document.addEventListener("DOMContentLoaded", boot);

@@ -456,6 +456,8 @@ async function appApi(jwt: string, path: string, init?: RequestInit): Promise<an
 interface Submitter {
 	userId: string;
 	username: string | null;
+	/** 头像 URL（Storage 公开桶）；拿不到为 null，前端退回剪影图标 */
+	avatarUrl: string | null;
 }
 
 function supabaseBase(): string {
@@ -480,6 +482,105 @@ function serviceKey(): string {
 		}
 	}
 	return (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
+}
+
+/* ---- 名字回退链（issue #45 的核心） ---- */
+
+/**
+ * 从一堆候选里挑一个能显示的名字。
+ *
+ * ⚠️ 为什么要「回退」：以前只读 `user_profiles.username`，而那张表
+ * **只有用户自己跑到 /user/profile/ 手动点保存**才会有值。绝大多数账号从没设过，
+ * 于是登录态、user_id 全都记下了，唯独 username 是 null ——
+ * 读取时 `lookupAuthorProfile()` 见名字为空就直接返回 null ⇒ 页面显示「匿名」。
+ * 用户看到的就是「我明明登录了，发出来还是匿名」，也就是 issue #45。
+ *
+ * 现在的顺序：资料表用户名 → 注册时填的 metadata 名字 → 邮箱 @ 前面那段。
+ * 邮箱是 Auth 的必有字段，所以**任何真实账号都能得到一个可读名字**，
+ * 不再是「没手动设过用户名就永远匿名」。
+ */
+function pickName(...candidates: Array<unknown>): string | null {
+	for (const raw of candidates) {
+		if (typeof raw !== "string") continue;
+		const name = raw.trim().replace(/^@+/, "").trim();
+		if (!name) continue;
+		return name.slice(0, 32);
+	}
+	return null;
+}
+
+/** 邮箱 → 可读名字（@ 前面那段）。连着两个账号同名前缀也无所谓，只用于显示 */
+function nameFromEmail(email: unknown): string | null {
+	if (typeof email !== "string") return null;
+	const raw = email.trim();
+	const at = raw.indexOf("@");
+	if (at <= 0) return null;
+	return pickName(raw.slice(0, at));
+}
+
+/** 把 user_profiles 的一行变成「名字 + 头像 URL」；与前端 profileManager 同一口径 */
+function profileFromRow(row: any, base: string): {
+	username: string | null;
+	avatarPath: string | null;
+	avatarUrl: string | null;
+} {
+	const username = pickName(row && row.username);
+	const avatarPath = row && typeof row.avatar_path === "string" && row.avatar_path
+		? row.avatar_path
+		: null;
+	let avatarUrl: string | null = null;
+	if (avatarPath) {
+		avatarUrl = `${base}/storage/v1/object/public/avatars/${avatarPath}`;
+		const ver = row && row.updated_at ? encodeURIComponent(String(row.updated_at)) : "";
+		if (ver) avatarUrl += `?v=${ver}`;
+	}
+	return { username, avatarPath, avatarUrl };
+}
+
+/** 取某个 user_id 的资料行（service key）；没有行 / 出错都返回 null */
+async function profileRowFor(userId: string): Promise<any | null> {
+	const base = supabaseBase();
+	const key = serviceKey();
+	if (!base || !key || !userId) return null;
+	try {
+		const q = `${base}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(userId)}`
+			+ `&select=user_id,username,avatar_path,updated_at&limit=1`;
+		const res = await fetch(q, { headers: { "apikey": key, "Authorization": `Bearer ${key}` } });
+		if (!res.ok) return null;
+		const rows = await res.json();
+		return Array.isArray(rows) && rows[0] ? rows[0] : null;
+	} catch {
+		return null;
+	}
+}
+
+/** 用 Auth 管理接口拿邮箱，再从邮箱取名字（资料表没名字时的最后一步） */
+async function nameFromAuth(userId: string): Promise<string | null> {
+	const base = supabaseBase();
+	const key = serviceKey();
+	if (!base || !key || !userId) return null;
+	try {
+		const res = await fetch(`${base}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+			headers: { "apikey": key, "Authorization": `Bearer ${key}` },
+		});
+		if (!res.ok) return null;
+		const user = await res.json();
+		return nameFromEmail(user && user.email);
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * 某个 user_id 现在该显示成什么名字。
+ * 读取历史记录时用：老行可能只记了 user_id、username 是空的。
+ */
+async function displayNameFor(userId: string | null): Promise<string | null> {
+	if (!userId) return null;
+	const row = await profileRowFor(userId);
+	const fromProfile = pickName(row && row.username);
+	if (fromProfile) return fromProfile;
+	return await nameFromAuth(userId);
 }
 
 /**
@@ -520,23 +621,17 @@ async function resolveSubmitter(req: Request): Promise<Submitter | null> {
 		const user = await res.json();
 		if (!user || !user.id) return null;
 
-		// 顺手取用户名（user_profiles.username），失败不影响主流程
-		let username: string | null = null;
-		if (key) {
-			try {
-				const pr = await fetch(
-					`${base}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(user.id)}&select=username&limit=1`,
-					{ headers: { "apikey": key, "Authorization": `Bearer ${key}` } },
-				);
-				if (pr.ok) {
-					const rows = await pr.json();
-					if (Array.isArray(rows) && rows[0] && typeof rows[0].username === "string") {
-						username = rows[0].username;
-					}
-				}
-			} catch { /* 忽略 */ }
-		}
-		return { userId: String(user.id), username };
+		const userId = String(user.id);
+		const meta = user.user_metadata || {};
+
+		// 名字优先级：资料表（用户自己设的，最权威）→ 注册时带的 metadata → 邮箱前缀
+		const row = await profileRowFor(userId);
+		const prof = profileFromRow(row, base);
+		const username = prof.username
+			|| pickName(meta.username, meta.display_name, meta.name, meta.full_name, meta.nickname)
+			|| nameFromEmail(user.email);
+
+		return { userId, username, avatarUrl: prof.avatarUrl };
 	} catch {
 		return null;
 	}
@@ -552,9 +647,15 @@ async function recordSubmission(input: {
 }): Promise<boolean> {
 	const base = supabaseBase();
 	const key = serviceKey();
-	if (!base || !key) return false;
+	if (!base || !key) {
+		console.warn("[feedback] 站内留痕跳过：缺少 SUPABASE_URL / service key");
+		return false;
+	}
 	try {
-		const res = await fetch(`${base}/rest/v1/feedback_submissions`, {
+		// on_conflict 必须写：不写的话 PostgREST 按主键（id）判冲突，
+		// 撞上 discussion_number 的唯一约束就会 409，而这里又是「失败只记日志」，
+		// 表现就是「提交成功但站内没记住是谁」。
+		const res = await fetch(`${base}/rest/v1/feedback_submissions?on_conflict=discussion_number`, {
 			method: "POST",
 			headers: {
 				"apikey": key,
@@ -571,8 +672,14 @@ async function recordSubmission(input: {
 				page: input.page.slice(0, 300),
 			}),
 		});
+		if (!res.ok) {
+			// 留痕失败不能挡住提交，但一定要能在日志里查出来是哪一步坏了
+			const detail = await res.text().catch(() => "");
+			console.warn(`[feedback] 站内留痕失败 HTTP ${res.status}: ${detail.slice(0, 300)}`);
+		}
 		return res.ok;
-	} catch {
+	} catch (err) {
+		console.warn("[feedback] 站内留痕异常:", (err as Error)?.message || err);
 		return false;
 	}
 }
@@ -612,7 +719,12 @@ async function lookupSubmissions(numbers: number[]): Promise<Record<string, { us
  * 前端自己拼也可以，但它拿不到 user_id（GitHub 那边是 bot 匿名），
  * 所以这里用 service key 反查一次，把 { username, avatarUrl } 一起给前端。
  *
- * 拿不到（游客提交 / 老记录）时返回 null，前端就显示「匿名」。
+ * 拿不到（游客提交）时返回 null，前端就显示「匿名」。
+ *
+ * ⚠️ 两类「老记录」要能救回来（issue #45）：
+ *   · 当年只记了 user_id、username 是空的行 —— 用 user_id 现在去解析名字；
+ *   · 提交者从没在 /user/profile/ 设过用户名的行 —— 回退到邮箱前缀。
+ * 只要行里还留着 user_id，就不该显示成匿名。
  */
 async function lookupAuthorProfile(discussionNumber: number): Promise<{
 	username: string;
@@ -629,29 +741,15 @@ async function lookupAuthorProfile(discussionNumber: number): Promise<{
 		const rows = await res.json();
 		const row = Array.isArray(rows) ? rows[0] : null;
 		if (!row) return null;
-		const username = typeof row.username === "string" && row.username.trim() ? row.username.trim() : "";
+
+		const userId = row.user_id ? String(row.user_id) : "";
+		// 名字：快照优先（历史真实），没了就用 user_id 现在解析出来的
+		const username = pickName(row.username) || (userId ? await displayNameFor(userId) : null);
 		if (!username) return null;
 
-		// 再查一次资料表拿头像路径（feedback_submissions 里没存它）
-		let avatarUrl: string | null = null;
-		if (row.user_id) {
-			try {
-				const pq = `${base}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(row.user_id)}`
-					+ `&select=avatar_path,updated_at&limit=1`;
-				const pr = await fetch(pq, { headers: { "apikey": key, "Authorization": `Bearer ${key}` } });
-				if (pr.ok) {
-					const prows = await pr.json();
-					const prof = Array.isArray(prows) ? prows[0] : null;
-					if (prof && typeof prof.avatar_path === "string" && prof.avatar_path) {
-						// 与前端 profileManager.getAvatarUrl 同一口径：公开桶 + 可选版本号
-						avatarUrl = `${base}/storage/v1/object/public/avatars/${prof.avatar_path}`;
-						const ver = prof.updated_at ? encodeURIComponent(String(prof.updated_at)) : "";
-						if (ver) avatarUrl += `?v=${ver}`;
-					}
-				}
-			} catch { /* 头像拿不到不影响显示名字 */ }
-		}
-		return { username, avatarUrl };
+		// 头像路径在资料表里（feedback_submissions 没存它）
+		const prof = userId ? profileFromRow(await profileRowFor(userId), base) : null;
+		return { username, avatarUrl: prof ? prof.avatarUrl : null };
 	} catch {
 		return null;
 	}
@@ -717,33 +815,47 @@ async function lookupCommentAuthors(
 		const rows = await res.json();
 		if (!Array.isArray(rows) || !rows.length) return {};
 
-		// 一次性把这些用户的头像路径查出来（避免 N 次往返）
+		// 一次把这些用户的名字与头像查出来（避免 N 次往返）
 		const userIds = [...new Set(rows.map((r: any) => r && r.user_id).filter(Boolean))];
 		const avatars: Record<string, string> = {};
+		const names: Record<string, string> = {};
 		if (userIds.length) {
 			try {
 				const inList = userIds.map((u) => `"${String(u).replace(/"/g, "")}"`).join(",");
 				const pq = `${base}/rest/v1/user_profiles?user_id=in.(${inList})`
-					+ `&select=user_id,avatar_path,updated_at`;
+					+ `&select=user_id,username,avatar_path,updated_at`;
 				const pr = await fetch(pq, { headers: { "apikey": key, "Authorization": `Bearer ${key}` } });
 				if (pr.ok) {
 					const prows = await pr.json();
 					for (const p of Array.isArray(prows) ? prows : []) {
-						if (!p || typeof p.avatar_path !== "string" || !p.avatar_path) continue;
-						let url = `${base}/storage/v1/object/public/avatars/${p.avatar_path}`;
-						if (p.updated_at) url += `?v=${encodeURIComponent(String(p.updated_at))}`;
-						avatars[String(p.user_id)] = url;
+						if (!p) continue;
+						const prof = profileFromRow(p, base);
+						if (prof.avatarUrl) avatars[String(p.user_id)] = prof.avatarUrl;
+						if (prof.username) names[String(p.user_id)] = prof.username;
 					}
 				}
 			} catch { /* 头像拿不到不影响显示名字 */ }
 		}
 
+		// 名字兜底：老记录（含 issue #45 之前提交的）只有 user_id、没有用户名快照。
+		// 逐个补一次，但设上限 —— 一条帖子的回复里不该为了显示名字打十几次 Auth 接口。
+		let budget = 5;
+		for (const uid of userIds) {
+			const id = String(uid);
+			if (names[id]) continue;
+			if (budget <= 0) break;
+			budget -= 1;
+			const fallback = await nameFromAuth(id);
+			if (fallback) names[id] = fallback;
+		}
+
 		const out: Record<string, { username: string; avatarUrl: string | null }> = {};
 		for (const r of rows) {
 			if (!r || typeof r.comment_id !== "string") continue;
-			const username = typeof r.username === "string" ? r.username.trim() : "";
+			const uid = r.user_id ? String(r.user_id) : "";
+			const username = pickName(r.username) || (uid ? names[uid] : null);
 			if (!username) continue;
-			out[r.comment_id] = { username, avatarUrl: avatars[String(r.user_id)] || null };
+			out[r.comment_id] = { username, avatarUrl: avatars[uid] || null };
 		}
 		return out;
 	} catch {
@@ -1687,9 +1799,19 @@ Deno.serve(async (req: Request) => {
 					missing: rc.missing,
 					// 维护者登录名：前端据此给这个账号打「管理员」标签（issue #38）
 					maintainer: maintainerLogin(),
-					discussions: page.discussions.map((d: any) => (
-						mine[String(d.number)] ? { ...d, mine: true } : d
-					)),
+					// 自己的帖子连名字一起回（issue #45）：列表以前只能拿到 GitHub 上的 bot 作者，
+					// 于是「我提交的」在广场里也显示成「匿名」，看着就像登录没生效。
+					// 只补自己的那几条 —— 别人的身份仍然不在列表里露出（与 #33 的隐私口径一致）。
+					discussions: page.discussions.map((d: any) => {
+						if (!mine[String(d.number)]) return d;
+						return {
+							...d,
+							mine: true,
+							siteAuthor: viewer
+								? { username: viewer.username, avatarUrl: viewer.avatarUrl }
+								: null,
+						};
+					}),
 					pageInfo: page.pageInfo,
 					viewer: viewer ? { loggedIn: true, username: viewer.username } : { loggedIn: false, username: null },
 				};

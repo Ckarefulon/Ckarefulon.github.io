@@ -208,6 +208,54 @@ POST https://uploads.github.com/user-attachments/assets
   不用首字母、也不用「匿」字 —— 那个字符紧挨着名字会读成「匿匿名」。
 - **Chat 类不显示跟进状态**：闲聊没有「已完成 / 已计划」可言，只留类型标签。
   列表与详情共用 `showStateTag(type)` 一个判断，别两边各写一份。
+- **列表里自己提的那几条也用自己的名字**（issue #45）：后端随列表下发
+  `siteAuthor`（只给自己的那几条，别人的身份仍然不在列表暴露），
+  前端用 `siteAuthorLabel()` 画成「头像 + 名字」，而不是 GitHub 那个 bot 名。
+
+### 名字从哪来（issue #45：这里漏过一整条回退链）
+
+⚠️ **`user_profiles.username` 是「用户手动设过」才有的**，不是注册就有。
+所以「名字只从这张表取」等于「没打开过 /user/profile/ 的人永远匿名」——
+而 user_id 其实一直记着，页面却显示「匿名」，看现象就像「登录没生效」。
+
+现在取名字是这条链，任一命中即可：
+
+| 顺序 | 来源 | 说明 |
+| --- | --- | --- |
+| 1 | `user_profiles.username` | 用户自己设的，最权威 |
+| 2 | `user.user_metadata`（`username` / `display_name` / `name` / `full_name` / `nickname`） | 注册时带过来的名字 |
+| 3 | 邮箱 `@` 前面那段 | Auth 必有字段，保证任何真实账号都有可读名字 |
+
+读取老记录时同理：`feedback_submissions.username` 为空但还有 `user_id`，
+就用 `user_id` 现查一次（资料表 → `auth/v1/admin/users` 的邮箱前缀）。
+迁移 `20261123000001` 还会把历史行直接回填一遍，老帖子不用重发也能认出是谁。
+
+### 前端怎么拿令牌（同一处漏过四个坑）
+
+首屏不加载 supabase-js（省 217KB），所以令牌是从存储里自己取的。旧实现
+「扫第一个形如 `sb-*-auth-token` 的键」有四个坑，全都会退化成「匿名」：
+
+| 坑 | 后果 | 现在 |
+| --- | --- | --- |
+| `…-auth-token-code-verifier` 也是这个前缀 | 解析失败 → 当游客 | 正则精确匹配 `-auth-token$` |
+| access_token 过期后没人刷新 | 服务端 401 → 当游客 | 先问 `supabaseClient.auth.getSession()`，没有客户端就自己用 `refresh_token` 换一张 |
+| 过期/坏会话静默降级 | 用户完全看不出来 | 记住原因，表单提示「登录已过期：去顶栏重新登录」 |
+| 「已提交，谢谢！」但没带身份 | 事后无法补救 | 响应里 `submitter.loggedIn === false` 时提示「没认出你的登录身份（会显示为匿名）」 |
+
+顺序也是硬要求：**先确认身份，再发第一批请求**。反过来的话第一屏列表就是游客视角，
+自己提的全是「匿名」，看着就是「登录没生效」。
+
+排查钩子：控制台 `await __fbAuth(true)` 会回 `{hasToken, source, reason, expiresInSec, headers}`，
+`source` 是 `client / storage / refresh / expired / none` 之一。
+
+### 站内留痕失败必须留日志
+
+`feedback_submissions` / `feedback_comment_authors` 的写入失败**不能挡住提交**，
+但以前是彻底静默的 —— 表现同样是「匿名」，且无从查起。现在失败会打一行
+`console.warn`（含 HTTP 状态与响应体前 300 字），在 `supabase functions logs` 里能直接看到。
+
+顺带修了 upsert：写 `feedback_submissions` 时显式带 `?on_conflict=discussion_number`。
+不写的话 PostgREST 按主键（`id`）判冲突，撞上 `discussion_number` 的唯一约束会 409。
 
 ### 「楼主」到底怎么判（这里返工过一次）
 
@@ -519,10 +567,12 @@ Edge Function 现场去 `api.github.com/graphql` 往返。
 ## 自检
 
 ```bash
-# 函数逻辑（86 项，不联网，GitHub/Supabase 都是桩）：
+# 函数逻辑（106 项，不联网，GitHub/Supabase 都是桩）：
 #   含「标题优先用用户填的 / 留空退回首行 / 只有一个就互相补」
 #       「来源页面写在正文最上面」「六种跟进状态」「维护者可配置」
 #       「type 缺省为 bug」「编辑/关闭/重开/删除/表情」「图片上传与失败降级」
+#       「没设过用户名时退回 metadata / 邮箱前缀」「老记录只有 user_id 也能认出是谁」
+#       「列表里自己的帖子带站内身份，别人的不带」
 node .tests/feedback-function.test.js
 
 # 同源中继（23 项，不联网，fetch 打桩）：白名单、方法限制、路径穿越、失败回退信号
