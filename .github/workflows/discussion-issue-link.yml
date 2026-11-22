@@ -212,8 +212,45 @@ jobs:
               return true;
             }
 
-            // 处理单个 Issue；返回新增留言条数
-            async function syncIssue(issue, action) {
+            // 尝试把 Discussion 关闭（内部还有「是否仍有未关闭 Issue 引用」的保护）
+            async function ensureClosed(num, reason) {
+              // completed → RESOLVED；not_planned → OUTDATED；duplicate → DUPLICATE
+              if (!['completed', 'not_planned', 'duplicate'].includes(reason)) return;
+              try {
+                const d = await loadDiscussion(num);
+                if (d) await closeDiscussion(d, num, reason);
+              } catch (e) {
+                core.warning(`Discussion #${num} 关闭流程失败：${e.message}`);
+              }
+            }
+
+            async function ensureOpen(num) {
+              try {
+                const d = await loadDiscussion(num);
+                if (d) await reopenDiscussion(d, num);
+              } catch (e) {
+                core.warning(`Discussion #${num} 重开流程失败：${e.message}`);
+              }
+            }
+
+            // 关闭原因的文案，集中一处，避免各分支写漏
+            function closedLabel(reason) {
+              return reason === 'completed' ? '已完成'
+                : reason === 'not_planned' ? '已关闭（不计划处理）'
+                : reason === 'duplicate' ? '已关闭（重复）'
+                : '已关闭';
+            }
+
+            /**
+             * 把一个 Issue 与它引用的 Discussion 收敛到一致状态。
+             *
+             * 关键点：不按「事件类型」决定发哪几条，而是按「当前真实状态」补齐缺的那几条。
+             * 因为任何一条事件都可能被漏掉（工作流未部署、失败、GITHUB_TOKEN 触发被吞），
+             * 只按事件发就会出现「有已关闭但没有已链接」这种残缺记录。
+             * 去重靠隐藏标记，所以重复调用是安全的、幂等的。
+             */
+            async function syncIssue(issue, opts) {
+              const o = opts || {};
               const nums = discussionNums(issue.body);
               if (!nums.length) {
                 core.info(`Issue #${issue.number} 正文没有 Discussion #N 引用，跳过。`);
@@ -221,52 +258,46 @@ jobs:
               }
               const url = `https://github.com/${owner}/${repo}/issues/${issue.number}`;
               const title = issue.title || '';
+              const isClosed = String(issue.state || '').toLowerCase() === 'closed';
+              // 事件 payload 用 state_reason（下划线），GraphQL 返回用 stateReason（驼峰），两者都认。
+              const reason = String(issue.stateReason || issue.state_reason || '').toLowerCase();
               let posted = 0;
 
               for (const num of nums) {
-                let ok = false;
-                if (action === 'opened' || action === 'edited') {
-                  ok = await commentOnDiscussion(issue, num, 'linked', () =>
-                    `已链接到 Issue #${issue.number}：${title}\n\n${url}`);
-                } else if (action === 'closed') {
-                  const reason = issue.state_reason || '';
-                  const what = reason === 'completed' ? '已完成'
-                    : reason === 'not_planned' ? '已关闭（不计划处理）'
-                    : reason === 'duplicate' ? '已关闭（重复）'
-                    : '已关闭';
-                  ok = await commentOnDiscussion(issue, num, `closed-${reason}`, () =>
-                    `${what}，详见 Issue #${issue.number}：${title}\n\n${url}`);
-                  // Issue 关闭后，Discussion 也一并关闭（三种原因都映射）：
-                  // completed → RESOLVED；not_planned → OUTDATED；duplicate → DUPLICATE。
-                  // 但若还有别的未关闭 Issue 引用它，则保留（见 closeDiscussion）。
-                  if (['completed', 'not_planned', 'duplicate'].includes(reason)) {
-                    try {
-                      const d = await loadDiscussion(num);
-                      if (d) await closeDiscussion(d, num, reason);
-                    } catch (e) {
-                      core.warning(`Discussion #${num} 关闭流程失败：${e.message}`);
-                    }
-                  }
-                } else if (action === 'reopened') {
-                  ok = await commentOnDiscussion(issue, num, 'reopened', () =>
-                    `Issue #${issue.number} 已重新打开：${title}\n\n${url}`);
-                  // Issue 重开 → Discussion 也跟着重开，两边状态保持一致
-                  try {
-                    const d = await loadDiscussion(num);
-                    if (d) await reopenDiscussion(d, num);
-                  } catch (e) {
-                    core.warning(`Discussion #${num} 重开流程失败：${e.message}`);
-                  }
+                // ① 链接留言：只要还没有就补（否则关闭/重开时会出现「无链接」的残缺记录）
+                if (await commentOnDiscussion(issue, num, 'linked', () =>
+                  `已链接到 Issue #${issue.number}：${title}\n\n${url}`)) {
+                  posted += 1;
                 }
-                if (ok) posted += 1;
+
+                // ② 按当前真实状态补齐后续留言
+                if (isClosed) {
+                  if (['completed', 'not_planned', 'duplicate'].includes(reason)) {
+                    if (await commentOnDiscussion(issue, num, `closed-${reason}`, () =>
+                      `${closedLabel(reason)}，详见 Issue #${issue.number}：${title}\n\n${url}`)) {
+                      posted += 1;
+                    }
+                    await ensureClosed(num, reason);
+                  }
+                } else if (o.reopenNotice) {
+                  // 只有「刚被重开」这个事件才写重开留言；补跑时不写，
+                  // 免得给「本来就开着」的 Issue 凭空造一条重开记录。
+                  if (await commentOnDiscussion(issue, num, 'reopened', () =>
+                    `Issue #${issue.number} 已重新打开：${title}\n\n${url}`)) {
+                    posted += 1;
+                  }
+                  await ensureOpen(num);
+                }
               }
               return posted;
             }
 
             // —— 常规事件 ——
             if (context.payload.action) {
-              const n = await syncIssue(context.payload.issue, context.payload.action);
-              core.info(`事件 ${context.eventName}.${context.payload.action}：新增留言 ${n} 条。`);
+              const action = context.payload.action;
+              // 补跑/常规都走同一套收敛逻辑；只有 reopened 才额外写「重新打开」留言。
+              const n = await syncIssue(context.payload.issue, { reopenNotice: action === 'reopened' });
+              core.info(`事件 ${context.eventName}.${action}：新增留言 ${n} 条。`);
               return;
             }
 
@@ -277,12 +308,45 @@ jobs:
               return;
             }
 
+            // 统一用 GraphQL 取 Issue：REST 列表接口的 state_reason 不可靠，
+            // 拿不到会让关闭文案退化成「已关闭」、Discussion 也不会被关。
+            const ISSUE_FIELDS = `number title body state stateReason`;
+            async function fetchIssue(num) {
+              const res = await github.graphql(
+                `query($o:String!,$r:String!,$n:Int!){
+                   repository(owner:$o,name:$r){ issue(number:$n){ ${ISSUE_FIELDS} } }
+                 }`,
+                { o: owner, r: repo, n: num }
+              );
+              return res && res.repository ? res.repository.issue : null;
+            }
+
+            async function fetchAllIssues() {
+              const out = [];
+              let after = null;
+              for (let page = 0; page < 20; page++) {
+                const res = await github.graphql(
+                  `query($o:String!,$r:String!,$after:String){
+                     repository(owner:$o,name:$r){
+                       issues(first:50,after:$after,states:[OPEN,CLOSED]){
+                         nodes{ ${ISSUE_FIELDS} }
+                         pageInfo{ hasNextPage endCursor }
+                       }
+                     }
+                   }`,
+                  { o: owner, r: repo, after }
+                );
+                const conn = res.repository.issues;
+                out.push(...conn.nodes);
+                if (!conn.pageInfo.hasNextPage) break;
+                after = conn.pageInfo.endCursor;
+              }
+              return out;
+            }
+
             let issues = [];
             if (raw.toLowerCase() === 'all') {
-              const all = await github.paginate(github.rest.issues.listForRepo, {
-                owner, repo, state: 'all', per_page: 100
-              });
-              issues = all.filter(i => !i.pull_request);
+              issues = await fetchAllIssues();
             } else {
               for (const part of raw.split(/[,\s]+/).filter(Boolean)) {
                 const num = Number(part.replace(/^#/, ''));
@@ -291,8 +355,9 @@ jobs:
                   continue;
                 }
                 try {
-                  const { data } = await github.rest.issues.get({ owner, repo, issue_number: num });
-                  issues.push(data);
+                  const iss = await fetchIssue(num);
+                  if (iss) issues.push(iss);
+                  else core.warning(`Issue #${num} 不存在，跳过。`);
                 } catch (e) {
                   core.warning(`Issue #${num} 读取失败：${e.message}`);
                 }
@@ -301,7 +366,8 @@ jobs:
 
             let total = 0;
             for (const iss of issues) {
-              const action = iss.state === 'closed' ? 'closed' : 'opened';
-              total += await syncIssue(iss, action);
+              // 走同一套收敛逻辑：缺「已链接」补已链接，已关闭的补关闭留言并关讨论。
+              // 补跑不写「重新打开」留言（那不是当前状态，会给开着的 Issue 凭空造记录）。
+              total += await syncIssue(iss, { reopenNotice: false });
             }
             core.info(`补跑检查 ${issues.length} 个 Issue，新增留言 ${total} 条。`);
