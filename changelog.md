@@ -1,3 +1,18 @@
+## [22.6.2845] - 2026-11-23
+
+### Cube/Analyzer
+
+#### Changed
+- Analyzer 里的 OLL 与 PLL case 示意图，每个色块自带一圈黑色描边。 `Done #14`
+
+### feedback
+
+#### Changed
+- 管理员在站内回复时改用他自己的 GitHub 账号发布，GitHub 上不再显示成站点机器人。 `Partial #33`
+
+#### Added
+- 回复框会说明这条回复最终以谁的身份发布。 `Partial #33`
+
 ## [22.5.2836] - 2026-11-23
 
 ### feedback

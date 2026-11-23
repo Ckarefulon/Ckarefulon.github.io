@@ -2100,11 +2100,21 @@ Deno.serve(async (req: Request) => {
 			return json({ success: false, message: "同样的回复刚发过了" }, 409);
 		}
 		try {
-			const created = await addComment(token, repo, number, commentBody);
-			// 记下这条回复的真实作者（登录用户才有）——回复在 GitHub 上仍是 bot 代发，
-			// 但站内要能显示成本人，并据此判断谁是楼主。
+			// ── 用什么身份发这条回复（issue #44：「给本站管理员账号用 PAT 评论」）──
+			//
+			// 默认仍走站点 App（GitHub 上显示 bot，适合代发/匿名场景）。
+			// 但如果**发回复的人本身就是管理员**，就改用 PAT 发 —— 这样 GitHub 上显示的
+			// 是他自己的账号，而不是「一个机器人替他说了句话」。
+			//
+			// 只有管理员有 PAT（全站只有一个 DISCUSSIONS_TOKEN，代表维护者本人），
+			// 所以普通用户和游客的回复仍然走 bot，没法冒充别人。
 			const commenter = await resolveSubmitter(req);
-			// 「匿名回复」：勾上就不记名字，但仍记 user_id —— 只有这样才认得出楼主是谁
+			const pat = (Deno.env.get("DISCUSSIONS_TOKEN") || "").trim();
+			const asMaintainer = !!pat && viewerCanManage(commenter);
+			const postToken = asMaintainer ? pat : token;
+			const created = await addComment(postToken, repo, number, commentBody);
+			// 记下这条回复的真实作者（登录用户才有）——即便用 PAT 发、GitHub 上已经是他本人，
+			// 站内还是要有一份归属：显示用的名字/头像以站内为准，判定楼主也靠它。
 			const anonymous = raw?.anonymous === true;
 			let linked = false;
 			if (commenter && created.id) {
@@ -2119,7 +2129,10 @@ Deno.serve(async (req: Request) => {
 				success: true,
 				number,
 				comment: created,
-				identity: { mode: ident.mode, bot: ident.botName },
+				// 如实告诉前端这条是用哪个身份发的：pat = 显示成管理员本人
+				identity: asMaintainer
+					? { mode: "pat", bot: null, as: "maintainer" }
+					: { mode: ident.mode, bot: ident.botName, as: "bot" },
 				anonymous: anonymous && !!commenter,
 				commenter: commenter
 					? {

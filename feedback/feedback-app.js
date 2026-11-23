@@ -1855,7 +1855,10 @@
 
 	function renderReplyForm(identity) {
 		var hint = "";
-		if (identity && identity.mode === "app" && identity.bot) {
+		// 管理员（且不是勾了匿名）→ 后端会用他本人的 PAT 发，GitHub 上就是他自己的账号
+		if (canManage() && authState.token) {
+			hint = "回复将以你自己的 GitHub 账号发布";
+		} else if (identity && identity.mode === "app" && identity.bot) {
 			hint = "回复将以 " + escapeHtml(identity.bot) + " 的身份发布";
 		} else if (identity) {
 			hint = "回复将以维护者账号发布（如需显示为站点代发，请配置 GitHub App）";
