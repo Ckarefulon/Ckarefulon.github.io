@@ -25,7 +25,8 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        # v5 起改为 node24 运行时；v4 跑在 node20 上，会报 Node.js 20 弃用警告。
+        uses: actions/checkout@v7
 
       - name: Setup Supabase CLI
         # v3：数据库命令默认打本地栈，改动托管项目需要显式 --remote / --yes。
@@ -55,6 +56,9 @@ jobs:
           DISCUSSIONS_TOKEN: ${{ secrets.DISCUSSIONS_TOKEN }}
           FEEDBACK_REPO: ${{ vars.FEEDBACK_REPO }}
           DISCUSSIONS_CATEGORIES: ${{ vars.DISCUSSIONS_CATEGORIES }}
+          # 谁能在反馈详情里编辑/关闭/删除（逗号分隔的站内用户名或邮箱）。
+          # 不配 = 任何登录账号都可以；配了就只认名单。
+          FEEDBACK_ADMINS: ${{ vars.FEEDBACK_ADMINS }}
           APP_ID: ${{ secrets.APP_ID }}
           APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
           APP_INSTALLATION_ID: ${{ vars.APP_INSTALLATION_ID }}
@@ -83,6 +87,7 @@ jobs:
           set_secret DISCUSSIONS_TOKEN   "$DISCUSSIONS_TOKEN"
           set_secret FEEDBACK_REPO       "$FEEDBACK_REPO"
           set_secret DISCUSSIONS_CATEGORIES "$DISCUSSIONS_CATEGORIES"
+          set_secret FEEDBACK_ADMINS    "$FEEDBACK_ADMINS"
           set_secret APP_ID              "$APP_ID"
           set_secret APP_PRIVATE_KEY     "$APP_PRIVATE_KEY"
           set_secret APP_INSTALLATION_ID "$APP_INSTALLATION_ID"

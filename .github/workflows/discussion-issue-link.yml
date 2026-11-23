@@ -35,7 +35,7 @@ jobs:
           exit 1
 
       - name: 在关联的 Discussion 下留言
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.ISSUE_SYNC_PAT }}
           script: |

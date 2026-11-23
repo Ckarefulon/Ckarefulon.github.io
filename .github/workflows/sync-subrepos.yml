@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout source repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: source
 
@@ -42,12 +42,12 @@ jobs:
 
     steps:
       - name: Checkout source repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: source
 
       - name: Checkout target repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: Ckarefulon/${{ matrix.target_repo }}
           token: ${{ secrets.TARGET_REPO_TOKEN }}

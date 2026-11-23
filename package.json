@@ -1,0 +1,10 @@
+{
+  "$comment": "Static site: no dependencies, no build step. This file exists only to pin the Node.js major version used by hosting platforms. Vercel reads only Project Settings or engines here (it ignores .nvmrc), and Node 20 was disabled by Vercel on 2026-10-01, which fails every new deployment.",
+  "name": "ckarefulon-github-io",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Careful S. static site (no build, no dependencies)",
+  "engines": {
+    "node": "24.x"
+  }
+}

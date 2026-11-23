@@ -458,6 +458,8 @@ interface Submitter {
 	username: string | null;
 	/** 头像 URL（Storage 公开桶）；拿不到为 null，前端退回剪影图标 */
 	avatarUrl: string | null;
+	/** 邮箱：只用于 FEEDBACK_ADMINS 名单比对，**不下发**给前端 */
+	email?: string;
 }
 
 function supabaseBase(): string {
@@ -631,7 +633,7 @@ async function resolveSubmitter(req: Request): Promise<Submitter | null> {
 			|| pickName(meta.username, meta.display_name, meta.name, meta.full_name, meta.nickname)
 			|| nameFromEmail(user.email);
 
-		return { userId, username, avatarUrl: prof.avatarUrl };
+		return { userId, username, avatarUrl: prof.avatarUrl, email: user.email || "" };
 	} catch {
 		return null;
 	}
@@ -1647,6 +1649,36 @@ function maintainerLogin(): string {
 	return (Deno.env.get("FEEDBACK_MAINTAINER") || "Ckarefulon").trim() || "Ckarefulon";
 }
 
+/**
+ * 拦住「谁能看到编辑 / 关闭 / 删除」。
+ *
+ * 曾经写成「站内用户名 == GitHub 登录名」，结果是**谁都看不到按钮** ——
+ * 站点用户名来自 user_profiles 或邮箱前缀，和 GitHub 登录名没有任何绑定关系，
+ * 永远比不中。用户反馈「编辑删除都没有」，根因就是这三行。
+ *
+ * 现在的口径：
+ *   · 没登录 → false（按钮不给游客看）
+ *   · 配了 FEEDBACK_ADMINS（逗号分隔的站内用户名）→ 只认名单里的人
+ *   · 没配 → **任何登录用户都可以**（默认放行，站点自己的账号能用）
+ *
+ * ⚠️ 这只是 UI 开关，不是安全边界：真正的写权限在 token 那侧，
+ *    函数里每个写动作都要过 resolveIdentity()。要收紧就配 FEEDBACK_ADMINS。
+ */
+function adminAllowlist(): string[] {
+	const raw = (Deno.env.get("FEEDBACK_ADMINS") || "").trim();
+	if (!raw) return [];
+	return raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+}
+
+function viewerCanManage(viewer: Submitter | null): boolean {
+	if (!viewer) return false;
+	const list = adminAllowlist();
+	if (!list.length) return true;   // 没配名单：登录即可管理
+	const name = String(viewer.username || "").toLowerCase();
+	const mail = String(viewer.email || "").toLowerCase();
+	return (!!name && list.includes(name)) || (!!mail && list.includes(mail));
+}
+
 /** 六种状态；前端按这个顺序渲染标签与筛选框 */
 type FollowState = "open" | "followed" | "planned" | "complete" | "duplicate" | "not_planned";
 
@@ -1881,8 +1913,7 @@ Deno.serve(async (req: Request) => {
 				// 也知道维护者是谁，只有两者对得上才给 true。这只是「别把按钮摊给所有人」的
 				// UI 开关，真正的写权限仍然由 token 本身决定。
 				const detailViewer = await resolveSubmitter(req);
-				const canManage = !!detailViewer && !!detailViewer.username
-					&& detailViewer.username.toLowerCase() === maintainerLogin().toLowerCase();
+				const canManage = viewerCanManage(detailViewer);
 				// 站内身份（issue 三轮）：提交者如果是本站登录用户，就显示他自己的名字与头像，
 				// 而不是「站点代发」。游客提交时为 null，前端显示「游客」；
 				// 勾了匿名的返回 { anonymous: true }，前端显示「匿名」。

@@ -44,6 +44,14 @@ while :; do
 	while IFS= read -r -d '' item; do
 		name="${item##*/}"
 		[[ "$name" == [a-z]* ]] || continue   # 只要小写开头，大写兄弟与点开头都不算
+		# 站点根专用的托管配置，不进子仓库：
+		#   package.json 只为钉住 Vercel 的 Node 大版本（engines），一旦进子仓库，
+		#   Netlify 会把子站当成 Node 项目去跑 npm install；vercel.json 同理。
+		case "$parent:$name" in
+			'.:package.json'|'.:vercel.json')
+				echo "  [跳过] ${prefix}$name（站点根专用托管配置）"
+				continue ;;
+		esac
 		if [ -d "$item" ]; then
 			mkdir -p "$TARGET_ROOT/${prefix}$name"
 			cp -a "$item/." "$TARGET_ROOT/${prefix}$name/"

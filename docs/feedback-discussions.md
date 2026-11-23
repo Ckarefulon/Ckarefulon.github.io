@@ -313,14 +313,47 @@ GitHub 的 `addUpvote` **按凭证类型拒绝**：只要是以 GitHub App 或 t
 所以这里不做 upvote，只做表情。
 `upvoteCount` 仍然读得到，但它是个改不动的数字 —— 别把它做成按钮。
 
-### canManage 为什么由后端给
+### canManage：谁能编辑 / 关闭 / 删除
 
-前端**不能**拿站点用户名去比 GitHub 登录名：`user_profiles.username` 与 GitHub 账号名
-没有强绑定，比不中按钮就永远不出现。所以详情接口在服务端验完 JWT 后直接回一个
-`canManage` 布尔值，前端只照着显隐。
+详情接口在服务端验完 JWT 后回一个 `canManage` 布尔值，前端只照着显隐按钮。
 
-它只是 UI 开关，不是安全边界 —— 真正的写权限在 token 那侧，函数里每个写动作都要过
-`resolveIdentity()`。副作用：详情响应因此改成 `Cache-Control: private`（按人变化，不能公共缓存）。
+⚠️ **这里返工过一次，值得记下来**。最初的判定是「站内用户名 == GitHub 登录名」
+（`FEEDBACK_MAINTAINER`）。问题是站内用户名来自 `user_profiles.username`，
+没有就退回注册 metadata、再退回邮箱前缀 —— 和 GitHub 登录名**没有任何绑定关系**，
+于是永远比不中，**站长登录后也看不到编辑/删除按钮**。用户反馈「编辑删除都没有」就是它。
+
+现在的口径（`viewerCanManage`）：
+
+| 情况 | 结果 |
+| --- | --- |
+| 未登录 | `false`（按钮不给游客看） |
+| 已登录、没配 `FEEDBACK_ADMINS` | `true` —— **任何登录账号都能管理** |
+| 已登录、配了 `FEEDBACK_ADMINS` | 只有名单里的人（逗号分隔，可写用户名或邮箱） |
+
+要收紧成「仅站长」：
+
+```bash
+supabase secrets set FEEDBACK_ADMINS=你的站内用户名
+```
+
+它只是 UI 开关，**不是安全边界** —— 真正的写权限在 token 那侧，函数里每个写动作
+都要过 `resolveIdentity()`。副作用：详情响应因此是 `Cache-Control: private`（按人变化，不能公共缓存）。
+
+### 四条写动作都真机验过
+
+不要只看单元测试，这四条 mutation 的形状都用真实 GitHub 走过一遍
+（建临时讨论 → 打一遍 → 删掉）：
+
+| 动作 | mutation | 实测 |
+| --- | --- | --- |
+| 编辑 | `updateDiscussion` | 标题与正文都能改 |
+| 关闭 | `closeDiscussion`（`RESOLVED`） | `closed=true` |
+| 重新打开 | `reopenDiscussion` | `closed=false` |
+| 表情 | `addReaction` / `removeReaction` | 加/取消都成功 |
+| 删除 | `deleteDiscussion`（入参是 `id`，不是 `discussionId`） | 成功 |
+
+⚠️ `deleteDiscussion` 的入参字段名是 **`id`**，写成 `discussionId` 会报
+`InputObject 'DeleteDiscussionInput' doesn't accept argument 'discussionId'`。
 
 ## 弹窗的几个易错细节
 
