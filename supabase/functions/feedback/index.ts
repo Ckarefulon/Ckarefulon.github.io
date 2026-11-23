@@ -760,6 +760,83 @@ function isAdminName(name?: string | null, mail?: string | null): boolean {
 }
 
 /**
+ * 批量取一批讨论的站内作者（名字 + 头像 + 匿名标记 + 是否管理员）。
+ *
+ * 列表页要用：详情页早就按帖显示「谁提的 + 头像」，列表却只补「自己提的」那几条，
+ * 于是同一条帖子在广场里是「游客 + 剪影头像」、点进去却是「Careful S. + 本人头像」——
+ * 看着像两套数据。这里按详情页的口径批量补全。
+ *
+ * 隐私边界没变：只回**已经在详情页公开显示**的字段（站内昵称与头像），
+ * 不回 user_id、不回邮箱。
+ */
+async function lookupListAuthors(
+	numbers: number[],
+): Promise<Record<string, AuthorBadge>> {
+	const base = supabaseBase();
+	const key = serviceKey();
+	const list = numbers.filter((n) => Number.isInteger(n) && n > 0).slice(0, 100);
+	if (!base || !key || !list.length) return {};
+	try {
+		const q = `${base}/rest/v1/feedback_submissions?discussion_number=in.(${list.join(",")})`
+			+ `&select=discussion_number,user_id,username,anonymous`;
+		const res = await fetch(q, { headers: { "apikey": key, "Authorization": `Bearer ${key}` } });
+		if (!res.ok) return {};
+		const rows = await res.json();
+		if (!Array.isArray(rows) || !rows.length) return {};
+
+		// 一次把头像路径查出来，避免 N 次往返
+		const userIds = [...new Set(rows.map((r: any) => r && r.user_id).filter(Boolean))];
+		const avatars: Record<string, string> = {};
+		const profiles: Record<string, string> = {};
+		if (userIds.length) {
+			try {
+				const inList = userIds.map((u) => `"${String(u).replace(/"/g, "")}"`).join(",");
+				const pq = `${base}/rest/v1/user_profiles?user_id=in.(${inList})`
+					+ `&select=user_id,username,avatar_path,updated_at`;
+				const pr = await fetch(pq, { headers: { "apikey": key, "Authorization": `Bearer ${key}` } });
+				if (pr.ok) {
+					const prows = await pr.json();
+					for (const p of Array.isArray(prows) ? prows : []) {
+						if (!p) continue;
+						if (typeof p.avatar_path === "string" && p.avatar_path) {
+							let url = `${base}/storage/v1/object/public/avatars/${p.avatar_path}`;
+							if (p.updated_at) url += `?v=${encodeURIComponent(String(p.updated_at))}`;
+							avatars[String(p.user_id)] = url;
+						}
+						if (typeof p.username === "string" && p.username) {
+							profiles[String(p.user_id)] = p.username;
+						}
+					}
+				}
+			} catch { /* 头像/名字拿不到不影响列表 */ }
+		}
+
+		const out: Record<string, AuthorBadge> = {};
+		for (const row of rows) {
+			if (!row || row.discussion_number == null) continue;
+			const uid = row.user_id ? String(row.user_id) : "";
+			if (row.anonymous === true) {
+				// 提交时勾了匿名：只留标记，名字与头像都不给
+				out[String(row.discussion_number)] = { anonymous: true };
+				continue;
+			}
+			const username = (typeof row.username === "string" && row.username.trim())
+				|| (uid ? profiles[uid] : "")
+				|| "";
+			if (!username) continue;
+			out[String(row.discussion_number)] = {
+				username,
+				avatarUrl: avatars[uid] || null,
+				admin: isAdminName(username, null),
+			};
+		}
+		return out;
+	} catch {
+		return {};
+	}
+}
+
+/**
  * 取「这条讨论是哪个站内用户提的」。
  *
  * 为什么要在服务端做：头像存在 Supabase Storage 的 `avatars` 桶里，
@@ -1908,6 +1985,12 @@ Deno.serve(async (req: Request) => {
 					}
 				}
 
+				// 列表也要显示「谁提的 + 头像」：以前只补自己那几条，
+				// 导致同一条帖子在广场里是「游客 + 剪影」、点进详情却是「Careful S. + 本人头像」。
+				const listAuthors = await lookupListAuthors(
+					page.discussions.map((d: any) => d.number),
+				);
+
 				const payload = {
 					success: true,
 					repo,
@@ -1916,17 +1999,16 @@ Deno.serve(async (req: Request) => {
 					missing: rc.missing,
 					// 维护者登录名：前端据此给这个账号打「管理员」标签（issue #38）
 					maintainer: maintainerLogin(),
-					// 自己的帖子连名字一起回（issue #45）：列表以前只能拿到 GitHub 上的 bot 作者，
-					// 于是「我提交的」在广场里也显示成「匿名」，看着就像登录没生效。
-					// 只补自己的那几条 —— 别人的身份仍然不在列表里露出（与 #33 的隐私口径一致）。
 					discussions: page.discussions.map((d: any) => {
-						if (!mine[String(d.number)]) return d;
+						const site = listAuthors[String(d.number)] || null;
+						if (!site && !mine[String(d.number)]) return d;
 						return {
 							...d,
-							mine: true,
-							siteAuthor: viewer
+							...(mine[String(d.number)] ? { mine: true } : {}),
+							// 详情页怎么显示，列表就怎么显示（名字 + 头像 + 匿名标记 + 管理员）
+							siteAuthor: site || (viewer
 								? { username: viewer.username, avatarUrl: viewer.avatarUrl }
-								: null,
+								: null),
 						};
 					}),
 					pageInfo: page.pageInfo,

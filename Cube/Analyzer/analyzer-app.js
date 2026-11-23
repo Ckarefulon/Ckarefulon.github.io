@@ -506,7 +506,7 @@
     return diff<0?`近 7 天较上周快 ${Math.abs(diff*100).toFixed(1)}%`:`近 7 天较上周慢 ${(diff*100).toFixed(1)}%`;
   }
   function caseImgUrl(type,name){
-    const v='?v=2845';
+    const v='?v=2860';
     if(type==='OLL'){const m=/OLL\s*(\d+)/.exec(String(name||''));return m?`./assets/cases/OLL/OLL${m[1]}.svg${v}`:null}
     if(type==='PLL'){return /^[A-Z]{1,2}[ab]?$/.test(String(name||''))?`./assets/cases/PLL/PLL_${name}.svg${v}`:null}
     return null; // F2L / CMLL 暂无配图，纯文字回退

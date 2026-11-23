@@ -1231,25 +1231,20 @@
 	/**
 	 * 站内显示名 → 展示用的名字。
 	 *
-	 * 用户要求：站点维护者统一显示成 `Careful S. (Ckarefulon)` ——
-	 * 前面是站内昵称、括号里是 GitHub 登录名，两种叫法的人都认得。
-	 *
-	 * 判定按**站内昵称**：维护者的站内名是 `Careful S.`，
-	 * 但历史上也可能直接写成 GitHub 登录名，所以两种都认。
-	 * 只有维护者本人这么处理；其他站内用户原样显示。
+	 * 维护者统一显示成 `Careful S.`（不带括号里的 GitHub 登录名）。
+	 * 判定按**昵称**：维护者的站内名是 `Careful S.`，但历史上也可能直接写成
+	 * GitHub 登录名（`Ckarefulon`），两种都归一到同一个显示名。
+	 * 其他站内用户原样显示。
 	 */
 	function displayNameFor(username) {
 		var raw = String(username || "").trim();
 		if (!raw) return "";
 		var maintainer = maintainerLogin();   // GitHub 登录名，默认 Ckarefulon
 		var low = raw.toLowerCase();
-		// 已经是「A (B)」形态就不重复包
-		if (/\([^)]+\)\s*$/.test(raw)) return raw;
 		// 站内昵称「Careful S.」（大小写与空格宽松比较）
 		var norm = low.replace(/[\s.]+/g, "");
-		var maintNorm = maintainer.toLowerCase().replace(/[\s.]+/g, "");
 		if (norm === "carefuls" || low === maintainer.toLowerCase()) {
-			return "Careful S. (" + maintainer + ")";
+			return "Careful S.";
 		}
 		return raw;
 	}
@@ -1850,9 +1845,18 @@
 		function headHtml(node) {
 			var site = node && node.siteAuthor;
 			var anonymous = !!(site && site.anonymous);
+			// 头像来源按优先级：
+			//   ① 站内身份（本人上传的头像）
+			//   ② GitHub 真实头像 —— 用户直接在 GitHub 上发的帖/回复只有这一份
+			//   ③ 都没有才退回剪影
+			// ⚠️ 以前没站内身份时把 avatarUrl 写死成空串，于是「直接在 GitHub 发」
+			// 的那些回复全成了剪影，明明 GitHub 那边是带着真头像回来的。
 			var display = site && site.username
 				? { login: site.username, avatarUrl: site.avatarUrl || "" }
-				: { login: "", avatarUrl: "" };
+				: {
+					login: (node.author && node.author.login) || "",
+					avatarUrl: (node.author && node.author.avatarUrl) || "",
+				};
 			var line = (site && (site.username || anonymous))
 				? siteAuthorNameHtml(site, isOp(node))
 				: authorNameHtml(node.author, { patDeputy: patDeputy });

@@ -1,3 +1,19 @@
+## [22.8.2860] - 2026-11-23
+
+### Cube/Analyzer
+
+#### Changed
+- Analyzer 里的 OLL 与 PLL case 示意图，每个色块自带一圈黑色描边，块与块之间没有细缝。 `Done #14`
+
+### feedback
+
+#### Changed
+- 站长的显示名统一为「Careful S.」，不再附带 GitHub 登录名。 `Partial #33`
+
+#### Fixed
+- 修复直接在 GitHub 上发的帖子与回复在本站没有头像的问题。 `Partial #33`
+- 修复反馈列表里的作者没有头像、与详情页不一致的问题。 `Partial #33`
+
 ## [22.7.2852] - 2026-11-23
 
 ### feedback
