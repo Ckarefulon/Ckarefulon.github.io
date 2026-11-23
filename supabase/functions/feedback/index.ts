@@ -1679,6 +1679,21 @@ function viewerCanManage(viewer: Submitter | null): boolean {
 	return (!!name && list.includes(name)) || (!!mail && list.includes(mail));
 }
 
+/**
+ * 严格版：**必须显式配了名单并且命中**才算管理员。
+ *
+ * 用于「用维护者的 PAT 代替某人发言」这种敏感动作 —— 那个动作会在 GitHub 上
+ * 以站长的账号出现，绝不能顺手给任何登录用户。名单没配就一律 false。
+ */
+function isListedAdmin(viewer: Submitter | null): boolean {
+	if (!viewer) return false;
+	const list = adminAllowlist();
+	if (!list.length) return false;
+	const name = String(viewer.username || "").toLowerCase();
+	const mail = String(viewer.email || "").toLowerCase();
+	return (!!name && list.includes(name)) || (!!mail && list.includes(mail));
+}
+
 /** 六种状态；前端按这个顺序渲染标签与筛选框 */
 type FollowState = "open" | "followed" | "planned" | "complete" | "duplicate" | "not_planned";
 
@@ -1914,6 +1929,10 @@ Deno.serve(async (req: Request) => {
 				// UI 开关，真正的写权限仍然由 token 本身决定。
 				const detailViewer = await resolveSubmitter(req);
 				const canManage = viewerCanManage(detailViewer);
+				// 回复会不会用「本人 PAT」发：只有显式配了名单并命中才为真，
+				// 前端据此决定回复框里那句提示怎么写。
+				const adminAsSelf = isListedAdmin(detailViewer)
+					&& !!(Deno.env.get("DISCUSSIONS_TOKEN") || "").trim();
 				// 站内身份（issue 三轮）：提交者如果是本站登录用户，就显示他自己的名字与头像，
 				// 而不是「站点代发」。游客提交时为 null，前端显示「游客」；
 				// 勾了匿名的返回 { anonymous: true }，前端显示「匿名」。
@@ -1949,6 +1968,7 @@ Deno.serve(async (req: Request) => {
 					types: describeTypes(rc),
 					maintainer: maintainerLogin(),
 					canManage,
+					adminAsSelf,
 					siteAuthor,
 					...detail,
 					comments: commentsWithAuthor,
@@ -2110,7 +2130,10 @@ Deno.serve(async (req: Request) => {
 			// 所以普通用户和游客的回复仍然走 bot，没法冒充别人。
 			const commenter = await resolveSubmitter(req);
 			const pat = (Deno.env.get("DISCUSSIONS_TOKEN") || "").trim();
-			const asMaintainer = !!pat && viewerCanManage(commenter);
+			// ⚠️ 必须**显式配了名单**才用 PAT。
+			// 不能拿「登录即可管理」那个宽松口径来判断 —— 那会让任何登录用户的回复
+			// 都用维护者的 PAT 发出去，等于在 GitHub 上冒充站长发言。
+			const asMaintainer = !!pat && isListedAdmin(commenter);
 			const postToken = asMaintainer ? pat : token;
 			const created = await addComment(postToken, repo, number, commentBody);
 			// 记下这条回复的真实作者（登录用户才有）——即便用 PAT 发、GitHub 上已经是他本人，

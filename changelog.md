@@ -1,3 +1,13 @@
+## [22.7.2852] - 2026-11-23
+
+### feedback
+
+#### Changed
+- 管理员身份改由名单 `FEEDBACK_ADMINS` 决定，只有名单里的账号才会用本人 GitHub 身份发回复。 `Partial #33`
+
+#### Security
+- 未配置管理员名单时，任何人的回复都不会冒用维护者的 GitHub 身份发布。 `Partial #33`
+
 ## [22.6.2845] - 2026-11-23
 
 ### Cube/Analyzer
