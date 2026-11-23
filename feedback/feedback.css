@@ -858,6 +858,14 @@
 	flex-wrap: wrap;
 }
 
+/* 没有管理权限时替代按钮的一句提示 */
+.fbPostToolsHint {
+	margin-left: auto;
+	font-size: var(--dsk-text-xs);
+	color: var(--dsk-foreground-subtle);
+	white-space: nowrap;
+}
+
 .fbTool {
 	padding: 3px 10px;
 	border-radius: var(--dsk-radius-full);

@@ -1369,7 +1369,8 @@
 						: '			<button class="fbTool" type="button" data-post-act="close" title="关闭这条讨论">关闭</button>')
 					+ '			<button class="fbTool fbToolDanger" type="button" data-post-act="delete" title="删除这条讨论">删除</button>'
 					+ "		</div>"
-				: "")
+				// 看不到按钮时给一句原因，别让人以为「这站没有编辑功能」
+				: '		<span class="fbPostToolsHint">' + manageHint() + "</span>")
 			+ "	</header>"
 			+ '	<div class="fbPostTags">' + badgeHtml(type, d.category ? d.category.name : "未分类")
 			// Chat 类不该有跟进状态（三轮）：它只是闲聊，没有「已完成 / 已计划」可言
@@ -1398,6 +1399,19 @@
 	 */
 	function canManage() {
 		return !!(currentDetail && currentDetail.canManage);
+	}
+
+	/**
+	 * 看不到管理按钮时给一句原因。
+	 *
+	 * 之前按钮不出现时页面一声不响，用户会以为「这站压根没有编辑/删除功能」——
+	 * 实际只是没登录、或登录态过期。三种情况分开说，别都糊成一句。
+	 */
+	function manageHint() {
+		if (!authState.token) {
+			return authState.reason === "expired" ? "登录已过期，重新登录后可编辑" : "登录后可编辑 / 删除";
+		}
+		return "当前账号没有管理权限";
 	}
 
 	/**
