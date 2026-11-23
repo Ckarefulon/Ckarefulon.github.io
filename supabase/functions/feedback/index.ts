@@ -644,6 +644,8 @@ async function recordSubmission(input: {
 	kind: string;
 	title: string;
 	page: string;
+	/** 登录用户勾了「匿名提交」：记 user_id（判楼主），不记名字 */
+	anonymous?: boolean;
 }): Promise<boolean> {
 	const base = supabaseBase();
 	const key = serviceKey();
@@ -666,7 +668,9 @@ async function recordSubmission(input: {
 			body: JSON.stringify({
 				discussion_number: input.number,
 				user_id: input.submitter ? input.submitter.userId : null,
-				username: input.submitter ? input.submitter.username : null,
+				// 勾了匿名：只留 user_id（判楼主用），名字一个字都不落
+				username: input.submitter && input.anonymous !== true ? input.submitter.username : null,
+				anonymous: input.submitter ? input.anonymous === true : false,
 				kind: input.kind,
 				title: input.title.slice(0, 300),
 				page: input.page.slice(0, 300),
@@ -712,46 +716,70 @@ async function lookupSubmissions(numbers: number[]): Promise<Record<string, { us
 }
 
 /**
- * 取「这条讨论是哪个站内用户提的」—— 含头像。
+ * 站内作者「该怎么显示」的三种状态（用户此刻的口径）：
+ *
+ *   · 游客（没有任何站内身份）      → 前端写「游客」，**整帖不出现楼主**
+ *   · 登录用户勾了「匿名」          → 前端写「匿名」，但**照常标楼主**
+ *   · 登录用户实名                  → 显示名字 + 头像，标楼主
+ *
+ * 后两种在库里都只有 `user_id`（匿名那行的 username 是 null 且 anonymous=true），
+ * 所以「是不是楼主」只能由服务端比 `user_id`，前端拿到的只是 `op: true`。
+ */
+interface AuthorBadge {
+	username?: string;
+	avatarUrl?: string | null;
+	/** 登录用户自己勾了匿名：不显示名字与头像 */
+	anonymous?: boolean;
+}
+
+/**
+ * 取「这条讨论是哪个站内用户提的」。
  *
  * 为什么要在服务端做：头像存在 Supabase Storage 的 `avatars` 桶里，
  * 路径是 `user_profiles.avatar_path`，公开 URL 要用项目 Storage 地址拼出来。
  * 前端自己拼也可以，但它拿不到 user_id（GitHub 那边是 bot 匿名），
- * 所以这里用 service key 反查一次，把 { username, avatarUrl } 一起给前端。
+ * 所以这里用 service key 反查一次。
  *
- * 拿不到（游客提交）时返回 null，前端就显示「匿名」。
+ * 拿不到（游客提交）时返回 null，前端就显示「游客」。
+ * 勾了匿名的行返回 `{ anonymous: true }`：不透露名字，但 user_id 仍留着判楼主。
  *
  * ⚠️ 两类「老记录」要能救回来（issue #45）：
  *   · 当年只记了 user_id、username 是空的行 —— 用 user_id 现在去解析名字；
  *   · 提交者从没在 /user/profile/ 设过用户名的行 —— 回退到邮箱前缀。
- * 只要行里还留着 user_id，就不该显示成匿名。
+ * 只要行里还留着 user_id，就该认出是谁（匿名勾过的除外）。
  */
-async function lookupAuthorProfile(discussionNumber: number): Promise<{
-	username: string;
-	avatarUrl: string | null;
-} | null> {
+async function lookupSubmissionAuthor(discussionNumber: number): Promise<{
+	badge: AuthorBadge | null;
+	userId: string | null;
+}> {
+	const none = { badge: null as AuthorBadge | null, userId: null as string | null };
 	const base = supabaseBase();
 	const key = serviceKey();
-	if (!base || !key) return null;
+	if (!base || !key) return none;
 	try {
 		const q = `${base}/rest/v1/feedback_submissions?discussion_number=eq.${discussionNumber}`
-			+ `&select=user_id,username&limit=1`;
+			+ `&select=user_id,username,anonymous&limit=1`;
 		const res = await fetch(q, { headers: { "apikey": key, "Authorization": `Bearer ${key}` } });
-		if (!res.ok) return null;
+		if (!res.ok) return none;
 		const rows = await res.json();
 		const row = Array.isArray(rows) ? rows[0] : null;
-		if (!row) return null;
+		if (!row) return none;
 
 		const userId = row.user_id ? String(row.user_id) : "";
+		// 勾了匿名：认得出「是不是同一个人」就够了，名字一个字都不给
+		if (row.anonymous === true) {
+			return { badge: { anonymous: true }, userId: userId || null };
+		}
+
 		// 名字：快照优先（历史真实），没了就用 user_id 现在解析出来的
 		const username = pickName(row.username) || (userId ? await displayNameFor(userId) : null);
-		if (!username) return null;
+		if (!username) return { badge: null, userId: userId || null };
 
 		// 头像路径在资料表里（feedback_submissions 没存它）
 		const prof = userId ? profileFromRow(await profileRowFor(userId), base) : null;
-		return { username, avatarUrl: prof ? prof.avatarUrl : null };
+		return { badge: { username, avatarUrl: prof ? prof.avatarUrl : null }, userId: userId || null };
 	} catch {
-		return null;
+		return none;
 	}
 }
 
@@ -766,12 +794,15 @@ async function recordCommentAuthor(input: {
 	commentId: string;
 	number: number;
 	submitter: Submitter;
+	/** 勾了「匿名回复」：只记「是同一个人」，不记名字（仍然要能认出楼主） */
+	anonymous?: boolean;
 }): Promise<boolean> {
 	const base = supabaseBase();
 	const key = serviceKey();
 	if (!base || !key) return false;
 	if (!input.commentId) return false;
 	try {
+		const anonymous = input.anonymous === true;
 		const res = await fetch(`${base}/rest/v1/feedback_comment_authors`, {
 			method: "POST",
 			headers: {
@@ -784,7 +815,9 @@ async function recordCommentAuthor(input: {
 				comment_id: input.commentId,
 				discussion_number: input.number,
 				user_id: input.submitter.userId,
-				username: input.submitter.username,
+				// 匿名回复：不落名字快照，只留 user_id 用来判「是不是楼主」
+				username: anonymous ? null : input.submitter.username,
+				anonymous,
 			}),
 		});
 		return res.ok;
@@ -794,14 +827,17 @@ async function recordCommentAuthor(input: {
 }
 
 /**
- * 批量取一批回复的站内作者（含头像）。
+ * 批量取一批回复的站内作者。
  *
  * 只查登录用户写过的那些；游客回复不在表里，返回的 map 里就没有它们，
- * 前端据此显示「匿名」。
+ * 前端据此显示「游客」。
+ *
+ * 返回值里带 `userId` **只给服务端自己用**（判「是不是楼主」），
+ * 拼响应前必须剥掉，绝不能下发给浏览器。
  */
 async function lookupCommentAuthors(
 	commentIds: string[],
-): Promise<Record<string, { username: string; avatarUrl: string | null }>> {
+): Promise<Record<string, { badge: AuthorBadge; userId: string | null }>> {
 	const base = supabaseBase();
 	const key = serviceKey();
 	const ids = commentIds.filter((id) => typeof id === "string" && id).slice(0, 200);
@@ -809,7 +845,7 @@ async function lookupCommentAuthors(
 	try {
 		const list = ids.map((id) => `"${id.replace(/"/g, "")}"`).join(",");
 		const q = `${base}/rest/v1/feedback_comment_authors?comment_id=in.(${list})`
-			+ `&select=comment_id,user_id,username`;
+			+ `&select=comment_id,user_id,username,anonymous`;
 		const res = await fetch(q, { headers: { "apikey": key, "Authorization": `Bearer ${key}` } });
 		if (!res.ok) return {};
 		const rows = await res.json();
@@ -849,13 +885,18 @@ async function lookupCommentAuthors(
 			if (fallback) names[id] = fallback;
 		}
 
-		const out: Record<string, { username: string; avatarUrl: string | null }> = {};
+		const out: Record<string, { badge: AuthorBadge; userId: string | null }> = {};
 		for (const r of rows) {
 			if (!r || typeof r.comment_id !== "string") continue;
 			const uid = r.user_id ? String(r.user_id) : "";
+		 // 勾了匿名：同样只回「有这么个人」，名字与头像一律不给
+			if (r.anonymous === true) {
+				out[r.comment_id] = { badge: { anonymous: true }, userId: uid || null };
+				continue;
+			}
 			const username = pickName(r.username) || (uid ? names[uid] : null);
 			if (!username) continue;
-			out[r.comment_id] = { username, avatarUrl: avatars[uid] || null };
+			out[r.comment_id] = { badge: { username, avatarUrl: avatars[uid] || null }, userId: uid || null };
 		}
 		return out;
 	} catch {
@@ -1843,14 +1884,33 @@ Deno.serve(async (req: Request) => {
 				const canManage = !!detailViewer && !!detailViewer.username
 					&& detailViewer.username.toLowerCase() === maintainerLogin().toLowerCase();
 				// 站内身份（issue 三轮）：提交者如果是本站登录用户，就显示他自己的名字与头像，
-				// 而不是「站点代发」。拿不到（游客 / 老记录）时为 null，前端显示「匿名」。
-				const siteAuthor = await lookupAuthorProfile(number);
+				// 而不是「站点代发」。游客提交时为 null，前端显示「游客」；
+				// 勾了匿名的返回 { anonymous: true }，前端显示「匿名」。
+				const postAuthor = await lookupSubmissionAuthor(number);
+				const siteAuthor = postAuthor.badge;
 				// 回复也要能显示成本人：GitHub 上都是 bot 代发，作者归属只能在站内表里查。
-				const commentIds = (detail.comments || []).map((c: any) => c.id);
-				const commentAuthors = await lookupCommentAuthors(commentIds);
-				const commentsWithAuthor = (detail.comments || []).map((c: any) => (
-					commentAuthors[c.id] ? { ...c, siteAuthor: commentAuthors[c.id] } : c
-				));
+				// 主回复与二级回复都要查 —— 少查一层，那一层的回复就永远显示「游客」。
+				const allComments: any[] = [];
+				for (const c of (detail.comments || [])) {
+					allComments.push(c);
+					for (const r of (c.replies || [])) allComments.push(r);
+				}
+				const commentAuthors = await lookupCommentAuthors(allComments.map((c) => c.id));
+				// 「楼主」：库里比 user_id，**不比名字**（匿名帖没有名字，游客帖没有身份）。
+				// 算完只把布尔值给前端，userId 永远不下发。
+				const postUserId = postAuthor.userId;
+				function withAuthor(node: any): any {
+					const row = node && commentAuthors[node.id];
+					if (!row) return node;
+					const out: any = { ...node, siteAuthor: row.badge };
+					if (postUserId && row.userId && row.userId === postUserId) out.op = true;
+					return out;
+				}
+				const commentsWithAuthor = (detail.comments || []).map((c: any) => {
+					const head = withAuthor(c);
+					if (!c.replies || !c.replies.length) return head;
+					return { ...head, replies: c.replies.map(withAuthor) };
+				});
 				return json({
 					success: true,
 					repo,
@@ -2013,18 +2073,31 @@ Deno.serve(async (req: Request) => {
 			// 记下这条回复的真实作者（登录用户才有）——回复在 GitHub 上仍是 bot 代发，
 			// 但站内要能显示成本人，并据此判断谁是楼主。
 			const commenter = await resolveSubmitter(req);
+			// 「匿名回复」：勾上就不记名字，但仍记 user_id —— 只有这样才认得出楼主是谁
+			const anonymous = raw?.anonymous === true;
 			let linked = false;
 			if (commenter && created.id) {
-				linked = await recordCommentAuthor({ commentId: created.id, number, submitter: commenter });
+				linked = await recordCommentAuthor({
+					commentId: created.id,
+					number,
+					submitter: commenter,
+					anonymous,
+				});
 			}
 			return json({
 				success: true,
 				number,
 				comment: created,
 				identity: { mode: ident.mode, bot: ident.botName },
+				anonymous: anonymous && !!commenter,
 				commenter: commenter
-					? { loggedIn: true, username: commenter.username, linked }
-					: { loggedIn: false, username: null, linked: false },
+					? {
+						loggedIn: true,
+						username: anonymous ? null : commenter.username,
+						anonymous: anonymous,
+						linked,
+					}
+					: { loggedIn: false, username: null, anonymous: false, linked: false },
 			});
 		} catch (err) {
 			const message = describe(err);
@@ -2082,11 +2155,14 @@ Deno.serve(async (req: Request) => {
 			throw new Error((firstError && firstError.message) || "创建讨论失败");
 		}
 
-		// 站内留痕：谁提的只存自己库里，GitHub 那边仍是 bot 匿名
+		// 站内留痕：谁提的只存自己库里，GitHub 那边仍由站点 App 代发
 		const submitter = await resolveSubmitter(req);
+		// 「匿名提交」：勾上就不记名字，但仍记 user_id —— 只有这样帖内回复才认得出楼主
+		const anonymous = raw?.anonymous === true && !!submitter;
 		const recorded = await recordSubmission({
 			number: discussion.number,
 			submitter,
+			anonymous,
 			kind: type,
 			title,
 			page: page || "/feedback/",
@@ -2103,8 +2179,11 @@ Deno.serve(async (req: Request) => {
 			degraded: !rc.byType[type],
 			// 作者身份：app = 站点代发（bot），pat = 维护者本人
 			identity: { mode: ident.mode, bot: ident.botName },
-			// 站内关联：登录用户提交时会记下用户名；游客为 null
-			submitter: submitter ? { loggedIn: true, username: submitter.username } : { loggedIn: false, username: null },
+			// 站内关联：登录用户提交时会记下身份；游客为 null
+			anonymous,
+			submitter: submitter
+				? { loggedIn: true, username: anonymous ? null : submitter.username, anonymous }
+				: { loggedIn: false, username: null, anonymous: false },
 			linked: recorded,
 			// 图片结果：帖子已经发出去了，图没跟上时要让用户知道
 			images: pending.images,

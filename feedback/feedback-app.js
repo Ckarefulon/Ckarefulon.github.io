@@ -351,13 +351,35 @@
 
 	/** 记下「登录着、但这次没能带上身份」，提交后要如实告诉用户 */
 	function authNoticeAfterWrite(data) {
+		// 自己勾了匿名/游客身份提交的，不是「没认出身份」，别吓人
+		if (data && (data.anonymous === true)) return "";
+		if (data && data.submitter && data.submitter.anonymous === true) return "";
+		if (data && data.commenter && data.commenter.anonymous === true) return "";
 		var loggedIn = !!(authState.token);
 		if (!loggedIn) return "";
 		var ok = data && (data.submitter
 			? data.submitter.loggedIn === true
 			: (data && data.commenter ? data.commenter.loggedIn === true : false));
 		if (ok) return "";
-		return "已提交，但站点没认出你的登录身份（这条会显示为匿名）";
+		return "已提交，但站点没认出你的登录身份（这条会记成游客）";
+	}
+
+	/**
+	 * 「匿名提交」这一行只在**登录着**的时候出现（issue #45 后续要求）。
+	 *
+	 * 游客本来就是游客身份，给他一个「匿名」勾选框只会让人以为两者不同。
+	 * 登录用户勾上之后：库里只留 user_id（用来认楼主），名字一个字都不落。
+	 */
+	function syncAnonOption() {
+		if (!els.anonField) return;
+		var canAnon = !!authState.token;
+		els.anonField.hidden = !canAnon;
+		if (!canAnon && els.anon) els.anon.checked = false;
+	}
+
+	/** 这次提交要不要匿名（未登录时永远按游客处理，勾选框也看不见） */
+	function wantAnonymous() {
+		return !!(els.anon && els.anon.checked && authState.token);
 	}
 
 	/**
@@ -377,6 +399,7 @@
 		auth.onAuthStateChange(function () {
 			primeAuth(true).then(function () {
 				updateTypeHint();
+				syncAnonOption();
 				// 登录态变了，「我提的」标记也该跟着变：重拉一页列表
 				if (els.list && allDiscussions.length) loadList(true);
 			}).catch(function () {});
@@ -499,11 +522,11 @@
 		//   · 令牌过期且续不上 → 明说「登录已过期」，否则用户以为登录还是好的
 		//   · 从没登录 → 未登录
 		if (authState.token) {
-			parts.push("站内会记录是你提交的（GitHub 上不显示）");
+			parts.push("站内会记成你本人（也可以勾下面的「匿名提交」）");
 		} else if (authState.reason === "expired") {
 			parts.push("登录已过期：去顶栏重新登录一次才会记录你");
 		} else {
-			parts.push("未登录：GitHub 上匿名，站内也不留痕");
+			parts.push("未登录：以游客身份提交，站内不记录身份");
 		}
 		els.typeHint.textContent = parts.join(" · ");
 		els.typeHint.className = "fbTypeHint";
@@ -1182,8 +1205,9 @@
 		var bot = isBotLogin(login);
 		var out = "";
 		if (bot || !login) {
-			// 游客提交：GitHub 那边挂的是站点机器人，站内又没有身份 ⇒ 就是匿名
-			out += '<span class="fbAuthorName">匿名</span>';
+			// 游客提交：GitHub 那边挂的是站点机器人，站内又没有身份 ⇒ 就是「游客」
+			// （用户口径：这里叫「游客」，不再写「匿名」；登录用户想匿名时也是这一档）
+			out += '<span class="fbAuthorName">游客</span>';
 		} else {
 			out += '<span class="fbAuthorName">' + escapeHtml(login) + "</span>";
 		}
@@ -1194,15 +1218,20 @@
 	}
 
 	/**
-	 * 站内身份（issue #33 三轮）：提交者是本站登录用户时，直接显示他自己的名字。
+	 * 站内身份（issue #33 三轮 + 后续口径）：
 	 *
-	 * 用户要求：匿名 → 写「匿名」，不打标签；
-	 * 登录用户发的帖 → 名字后面带「楼主」（他自己就是这帖的楼主）。
+	 * | 身份 | 显示 | 楼主 |
+	 * | --- | --- | --- |
+	 * | 游客（没有站内身份） | 游客 | **不标** |
+	 * | 登录用户勾了「匿名」 | 匿名 | **照标**（读的人知道是同一个人） |
+	 * | 登录用户实名 | 名字（+头像） | 照标 |
 	 */
 	function siteAuthorNameHtml(site, isOp) {
-		var name = String((site && site.username) || "").trim();
-		if (!name) return '<span class="fbAuthorName">匿名</span>';
-		return '<span class="fbAuthorName">' + escapeHtml(name) + "</span>"
+		var anonymous = !!(site && site.anonymous);
+		var name = anonymous ? "匿名" : String((site && site.username) || "").trim();
+		if (!name) return '<span class="fbAuthorName">游客</span>';
+		return '<span class="fbAuthorName' + (anonymous ? " fbAuthorNameAnon" : "") + '">'
+			+ escapeHtml(name) + "</span>"
 			+ (isOp ? '<span class="fbAuthorTag fbAuthorTagOp">楼主</span>' : "");
 	}
 
@@ -1214,11 +1243,13 @@
 	 * 后端现在会把本人的名字与头像随列表一起下发，这里按与 authorLabel 相同的结构画。
 	 */
 	function siteAuthorLabel(site) {
-		var name = String((site && site.username) || "").trim();
+		var anonymous = !!(site && site.anonymous);
+		var name = anonymous ? "匿名" : String((site && site.username) || "").trim();
 		if (!name) return authorLabel(null, listIdentity);
 		return '<span class="fbAuthorInline">'
-			+ avatarHtml({ login: "", avatarUrl: site.avatarUrl }, false)
-			+ '<span class="fbAuthorName">' + escapeHtml(name) + "</span>"
+			+ avatarHtml({ login: "", avatarUrl: anonymous ? "" : site.avatarUrl }, false)
+			+ '<span class="fbAuthorName' + (anonymous ? " fbAuthorNameAnon" : "") + '">'
+			+ escapeHtml(name) + "</span>"
 			+ "</span>";
 	}
 
@@ -1748,22 +1779,30 @@
 		}
 		var patDeputy = !!(identity && identity.mode === "pat");
 		var opName = postSite && postSite.username ? String(postSite.username).toLowerCase() : "";
+		// 帖子本身有站内身份（实名或匿名）才有「楼主」可言；游客帖一律不标
+		var postHasIdentity = !!(postSite && (postSite.username || postSite.anonymous));
 
-		/** 这一条回复是不是楼主发的（匿名帖一律 false） */
+		/**
+		 * 这一条回复是不是楼主发的。
+		 * **优先用服务端算好的 `op`**：服务端比的是 user_id，匿名的帖子也对得上；
+		 * 前端只拿名字（或什么都没有），比不出来。没有 op 字段时退回按名字比（老函数）。
+		 */
 		function isOp(comment) {
-			if (!opName) return false;
+			if (!postHasIdentity) return false;
+			if (comment && typeof comment.op === "boolean") return comment.op;
 			var site = comment && comment.siteAuthor;
-			if (!site || !site.username) return false;
+			if (!site || !site.username || !opName) return false;
 			return String(site.username).toLowerCase() === opName;
 		}
 
-		/** 一条回复的头部：有站内身份就用本人的名字与头像，否则匿名 */
+		/** 一条回复的头部：有站内身份就用它（实名给名字、匿名给「匿名」），否则「游客」 */
 		function headHtml(node) {
 			var site = node && node.siteAuthor;
+			var anonymous = !!(site && site.anonymous);
 			var display = site && site.username
 				? { login: site.username, avatarUrl: site.avatarUrl || "" }
-				: node.author;
-			var line = site && site.username
+				: { login: "", avatarUrl: "" };
+			var line = (site && (site.username || anonymous))
 				? siteAuthorNameHtml(site, isOp(node))
 				: authorNameHtml(node.author, { patDeputy: patDeputy });
 			return '<div class="fbCommentHead">'
@@ -1807,6 +1846,10 @@
 		} else if (identity) {
 			hint = "回复将以维护者账号发布（如需显示为站点代发，请配置 GitHub App）";
 		}
+		// 「匿名回复」只对登录用户有意义（游客本来就没有身份）
+		var anonRow = authState.token
+			? '		<label class="fbStateCheck fbReplyAnon"><input type="checkbox" id="fbReplyAnonymous"><span>匿名回复</span></label>'
+			: "";
 		return ''
 			+ '<div class="fbReplyForm">'
 			+ '	<label class="fbLabel" for="fbReplyBody">写回复</label>'
@@ -1815,7 +1858,8 @@
 			+ '	<input class="fbHp" id="fbReplyHp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">'
 			+ '	<div class="fbReplyFoot">'
 			+ '		<span class="fbReplyHint">' + hint + "</span>"
-			+ '		<div class="fbReplyBtns">'
+			+ "		<div class=\"fbReplyBtns\">"
+			+ anonRow
 			+ '			<button class="siteHeaderBtn" id="fbReplyGithubBtn" type="button">在 GitHub 回复</button>'
 			+ '			<button class="siteHeaderBtn loginBtnPrimary fbSubmit" id="fbReplySubmitBtn" type="button">发布回复</button>'
 			+ "		</div>"
@@ -1831,6 +1875,8 @@
 		var status = $("fbReplyStatus");
 		var btn = $("fbReplySubmitBtn");
 		var ghBtn = $("fbReplyGithubBtn");
+		var anonBox = $("fbReplyAnonymous");
+		var anonymous = !!(anonBox && anonBox.checked && authState.token);
 
 		function setStatus(text, kind) {
 			if (!status) return;
@@ -1864,6 +1910,7 @@
 					action: "comment",
 					number: detailNumber,
 					body: body,
+					anonymous: anonymous,
 					hp: (hp && hp.value || "").trim()
 				}),
 				cache: "no-store"
@@ -1877,10 +1924,11 @@
 					if (box) box.value = "";
 					// 重新拉详情会重建整块 DOM，提示要等重建之后再落回去
 					var notice = authNoticeAfterWrite(data);
+					var okText = data.anonymous ? "已发布（匿名），谢谢！" : "已发布，谢谢！";
 					loadDetail(detailNumber, function () {
 						var s = $("fbReplyStatus");
 						if (!s) return;
-						s.textContent = notice || "已发布，谢谢！";
+						s.textContent = notice || okText;
 						s.className = "fbStatus " + (notice ? "isWarning" : "isSuccess");
 					});
 					return;
@@ -2350,6 +2398,8 @@
 			if (els.page) els.page.value = "";
 			// 附带项也回到默认：每次打开都是全新表单
 			resetAttach();
+			// 匿名是「这一次」的选择，不跨表单保留（默认实名）
+			if (els.anon) els.anon.checked = false;
 			// 图片同理：不跨表单保留；预览模式也回到「写」
 			clearImages();
 			setPreviewMode(false);
@@ -2374,8 +2424,10 @@
 		// 用户可能刚在顶栏登录/退出，也可能令牌正好过期。
 		// 有 authManager 就顺手挂上状态监听，之后登录完成提示也会跟着更新。
 		hookAuthManager();
+		syncAnonOption();
 		primeAuth(true).then(function () {
 			updateTypeHint();
+			syncAnonOption();
 		}).catch(function () {});
 		if (focusBody !== false) {
 			setTimeout(function () {
@@ -2529,6 +2581,8 @@
 				body: p.body,
 				contact: p.contact,
 				hp: (els.hp && els.hp.value || "").trim(),
+				// 勾了「匿名提交」：库里只留 user_id（认楼主），不记名字
+				anonymous: wantAnonymous(),
 				// 只有勾上的项才进这个串；一项没勾就是空串，正文里不会有环境信息块
 				meta: metaLines(),
 				page: p.page || window.location.pathname || "/feedback/"
@@ -2557,7 +2611,7 @@
 						if (els.contact) els.contact.value = "";
 						if (els.page) els.page.value = "";
 						clearImages();
-						setStatus("已提交，谢谢！", "Success");
+						setStatus(data.anonymous ? "已提交（匿名），谢谢！" : "已提交，谢谢！", "Success");
 						// 图片没跟上的话必须说清楚：帖子已经发出去了，但图不在里面
 						if (data.imageError) {
 							setStatus("已提交，但" + data.imageError + "。可以到 GitHub 里手动补图。", "Warning");
@@ -2589,12 +2643,14 @@
 							upvotes: 0,
 							closed: false,
 							state: "open",
-							// 刚发出去的这条如果记下了站内身份，列表里就用自己的名字显示（issue #45）。
-							// 头像先留空（这里拿不到 user_profiles），下一次拉列表会带上真头像。
-							siteAuthor: data.submitter && data.submitter.loggedIn
-								? { username: data.submitter.username, avatarUrl: null }
-								: undefined,
-							mine: !!(data.submitter && data.submitter.loggedIn) || undefined,
+							// 刚发出去的这条如果记下了站内身份，列表里就用自己的名字显示（issue #45）；
+							// 勾了匿名的这条只标「匿名」，不进「我提的」（本来也没记身份）。
+							siteAuthor: data.anonymous
+								? { anonymous: true }
+								: (data.submitter && data.submitter.loggedIn
+									? { username: data.submitter.username, avatarUrl: null }
+									: undefined),
+							mine: (!data.anonymous && data.submitter && data.submitter.loggedIn) || undefined,
 							excerpt: firstLine(p.body)
 						});
 						renderList();
@@ -2687,6 +2743,8 @@
 			contact: $("fbContact"),
 			page: $("fbPage"),
 			hp: $("fbHp"),
+			anonField: $("fbAnonField"),
+			anon: $("fbAnonymous"),
 			status: $("fbStatus"),
 			submit: $("fbSubmitBtn"),
 			github: $("fbGithubBtn"),
@@ -2947,8 +3005,10 @@
 		// 顺序反了的话，列表第一屏就是「游客视角」——自己的帖子全显示成匿名，
 		// 而且这一屏会被缓存住，用户看到的正是「登录没生效」。
 		hookAuthManager();
+		syncAnonOption();
 		primeAuth(false).then(function () {
 			updateTypeHint();
+			syncAnonOption();
 			// 进页即预热（列表请求同时也把分类映射带回来）
 			prewarm();
 			loadList(true);

@@ -1397,6 +1397,12 @@
 	color: var(--dsk-foreground);
 }
 
+/* 登录用户勾了「匿名」：仍然是「有身份的人」，只是不署名。
+   所以比「游客」重一点（游客用同一套字重，但这一个略灰），没有额外标签。 */
+.fbAuthorNameAnon {
+	color: var(--dsk-foreground-muted);
+}
+
 /* 名字的几种标签：楼主 / 管理员 / 站点代发 */
 .fbAuthorTag {
 	padding: 1px 7px;
@@ -1498,8 +1504,16 @@
 
 .fbReplyBtns {
 	display: flex;
+	align-items: center;
 	gap: 8px;
 	flex-shrink: 0;
+}
+
+/* 回复框里的「匿名回复」：跟两个按钮同一行，放在最左边。
+   不给它 flex:1 —— 那会把按钮挤到右边变形（窄屏规则里按钮才是弹性的）。 */
+.fbReplyAnon {
+	margin-right: 4px;
+	white-space: nowrap;
 }
 
 .fbReplyBtns .siteHeaderBtn {
@@ -1515,6 +1529,11 @@
 @media (max-width: 560px) {
 	.fbReplyBtns {
 		width: 100%;
+		flex-wrap: wrap;
+	}
+	.fbReplyAnon {
+		flex: 1 0 100%;
+		margin-right: 0;
 	}
 	.fbReplyBtns .siteHeaderBtn {
 		flex: 1;

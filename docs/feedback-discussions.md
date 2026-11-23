@@ -189,7 +189,7 @@ POST https://uploads.github.com/user-attachments/assets
 只算一次。所以站内点击带来的真实增量最多到 1，之后服务端返回的数字不会再涨
 （本地乐观 +1 会在刷新后回到真实值）。要真正累加，得像 GitHub 那样一人一个身份。
 
-### 作者展示：头像 + 名字，匿名就写匿名
+### 作者展示：头像 + 名字，三种身份各说各的
 
 帖子头部和每条回复用同一套结构：
 
@@ -203,14 +203,30 @@ POST https://uploads.github.com/user-attachments/assets
 - **本站登录用户提交的**（`siteAuthor`）：显示他自己的名字和头像，名字后带 `楼主`。
   头像来自 `user_profiles.avatar_path` → Supabase Storage 的公开 `avatars` 桶，
   由**服务端**拼 URL（前端拿不到 user_id，GitHub 那边是 bot 匿名）。
-- **匿名提交的**：直接写「匿名」，**不打任何标签**。
-- **匿名/无头像统一用「几何人头」剪影图标**（自绘 SVG，`AVATAR_SILHOUETTE`），
+- **无头像统一用「几何人头」剪影图标**（自绘 SVG，`AVATAR_SILHOUETTE`），
   不用首字母、也不用「匿」字 —— 那个字符紧挨着名字会读成「匿匿名」。
 - **Chat 类不显示跟进状态**：闲聊没有「已完成 / 已计划」可言，只留类型标签。
   列表与详情共用 `showStateTag(type)` 一个判断，别两边各写一份。
 - **列表里自己提的那几条也用自己的名字**（issue #45）：后端随列表下发
   `siteAuthor`（只给自己的那几条，别人的身份仍然不在列表暴露），
   前端用 `siteAuthorLabel()` 画成「头像 + 名字」，而不是 GitHub 那个 bot 名。
+
+### 三种身份：游客 / 匿名 / 实名（用户口径）
+
+| 身份 | 怎么来的 | 显示 | 楼主 |
+| --- | --- | --- | --- |
+| **游客** | 没登录就提交 | `游客` | **不标**（整帖一个都不出现） |
+| **匿名** | 登录着，自己勾「匿名提交 / 匿名回复」 | `匿名` | **照标** |
+| **实名** | 登录着，没勾匿名 | 名字（+ 头像） | 照标 |
+
+- 匿名**不等于不记录**：库里仍然写 `user_id`，只是 `username` 为空、`anonymous=true`。
+  没有 `user_id` 就判不出「这条回复和主帖是不是同一个人」，匿名的帖子就没法标楼主。
+- `user_id` **绝不下发**。详情接口下发的是 `siteAuthor: { anonymous: true }` 和一个
+  算好的布尔 `op`，浏览器只能知道「是不是楼主」，不知道是谁。
+- 「匿名」名字旁边**没有额外标签**，只把字色压成 muted（`.fbAuthorNameAnon`）——
+  它仍然是「有身份的人」，只是不署名；「游客」才是真的没有身份。
+- 勾选框只在**登录着**的时候出现：游客本来就是游客，给他一个「匿名」勾选项
+  只会让人以为两者不同。每次打开新建弹窗都复位成实名（不跟着草稿存）。
 
 ### 名字从哪来（issue #45：这里漏过一整条回退链）
 
@@ -233,17 +249,17 @@ POST https://uploads.github.com/user-attachments/assets
 ### 前端怎么拿令牌（同一处漏过四个坑）
 
 首屏不加载 supabase-js（省 217KB），所以令牌是从存储里自己取的。旧实现
-「扫第一个形如 `sb-*-auth-token` 的键」有四个坑，全都会退化成「匿名」：
+「扫第一个形如 `sb-*-auth-token` 的键」有四个坑，全都会退化成「游客」：
 
 | 坑 | 后果 | 现在 |
 | --- | --- | --- |
 | `…-auth-token-code-verifier` 也是这个前缀 | 解析失败 → 当游客 | 正则精确匹配 `-auth-token$` |
 | access_token 过期后没人刷新 | 服务端 401 → 当游客 | 先问 `supabaseClient.auth.getSession()`，没有客户端就自己用 `refresh_token` 换一张 |
 | 过期/坏会话静默降级 | 用户完全看不出来 | 记住原因，表单提示「登录已过期：去顶栏重新登录」 |
-| 「已提交，谢谢！」但没带身份 | 事后无法补救 | 响应里 `submitter.loggedIn === false` 时提示「没认出你的登录身份（会显示为匿名）」 |
+| 「已提交，谢谢！」但没带身份 | 事后无法补救 | 响应里 `submitter.loggedIn === false` 时提示「没认出你的登录身份（会记成游客）」 |
 
 顺序也是硬要求：**先确认身份，再发第一批请求**。反过来的话第一屏列表就是游客视角，
-自己提的全是「匿名」，看着就是「登录没生效」。
+自己提的全是「游客」，看着就是「登录没生效」。
 
 排查钩子：控制台 `await __fbAuth(true)` 会回 `{hasToken, source, reason, expiresInSec, headers}`，
 `source` 是 `client / storage / refresh / expired / none` 之一。
@@ -251,7 +267,7 @@ POST https://uploads.github.com/user-attachments/assets
 ### 站内留痕失败必须留日志
 
 `feedback_submissions` / `feedback_comment_authors` 的写入失败**不能挡住提交**，
-但以前是彻底静默的 —— 表现同样是「匿名」，且无从查起。现在失败会打一行
+但以前是彻底静默的 —— 表现同样是「游客」，且无从查起。现在失败会打一行
 `console.warn`（含 HTTP 状态与响应体前 300 字），在 `supabase functions logs` 里能直接看到。
 
 顺带修了 upsert：写 `feedback_submissions` 时显式带 `?on_conflict=discussion_number`。
@@ -266,16 +282,21 @@ POST https://uploads.github.com/user-attachments/assets
 
 | 帖子的身份 | 帖子上 | 回复上 |
 | --- | --- | --- |
-| 匿名（`siteAuthor` 为 null） | 匿名，无标签 | 全部匿名，**整帖不出现「楼主」** |
-| 登录用户 A | `A 楼主` | A 自己的回复 `A 楼主`；别人的回复匿名、不标 |
+| 游客（`siteAuthor` 为 null） | `游客`，无标签 | 全部 `游客`，**整帖不出现「楼主」** |
+| 匿名（`siteAuthor.anonymous`） | `匿名 楼主` | 同一人的回复 `匿名 楼主`；别人的 `匿名` 或 `游客`，不标 |
+| 登录用户 A | `A 楼主` | A 自己的回复 `A 楼主`；别人的不标 |
 
 要做到这点，必须知道「每条回复是谁写的」——GitHub 数据里没有。所以有一张表
-`feedback_comment_authors`（迁移 `20261122000001`）：
+`feedback_comment_authors`（迁移 `20261122000001`，`20261123000002` 加了 `anonymous`）：
 
-- 站内登录用户发回复时，函数把 `comment_id → user_id/username` 记一笔
-- 详情接口按这批 id 反查，给每条回复附上 `siteAuthor`（含头像）
-- 游客回复不记（本来也没身份），所以查不到 → 前端显示「匿名」
+- 站内登录用户发回复时，函数把 `comment_id → user_id` 记一笔（实名的另存 `username` 快照）
+- 详情接口按这批 id 反查，给每条回复附上 `siteAuthor`；**主回复与二级回复都查**
+  （只查一层的话，二级回复永远显示成游客）
+- 游客回复不记（本来也没身份），所以查不到 → 前端显示「游客」
 - 只有 `service_role` 能读写，浏览器端不碰
+
+**「是不是楼主」由服务端比 `user_id` 算出来**，前端只拿到 `op: true/false`。
+原因是匿名帖没有任何名字可比 —— 让前端去比名字，匿名帖就永远标不出楼主。
 
 这也是「登录用户发的回复要显示成本人」的唯一可行做法。
 
@@ -567,12 +588,13 @@ Edge Function 现场去 `api.github.com/graphql` 往返。
 ## 自检
 
 ```bash
-# 函数逻辑（106 项，不联网，GitHub/Supabase 都是桩）：
+# 函数逻辑（115 项，不联网，GitHub/Supabase 都是桩）：
 #   含「标题优先用用户填的 / 留空退回首行 / 只有一个就互相补」
 #       「来源页面写在正文最上面」「六种跟进状态」「维护者可配置」
 #       「type 缺省为 bug」「编辑/关闭/重开/删除/表情」「图片上传与失败降级」
 #       「没设过用户名时退回 metadata / 邮箱前缀」「老记录只有 user_id 也能认出是谁」
 #       「列表里自己的帖子带站内身份，别人的不带」
+#       「匿名提交只记 user_id 不落名字」「匿名帖照样标楼主，游客帖一个都没有」
 node .tests/feedback-function.test.js
 
 # 同源中继（23 项，不联网，fetch 打桩）：白名单、方法限制、路径穿越、失败回退信号
