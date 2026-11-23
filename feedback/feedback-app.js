@@ -1209,7 +1209,9 @@
 			// （用户口径：这里叫「游客」，不再写「匿名」；登录用户想匿名时也是这一档）
 			out += '<span class="fbAuthorName">游客</span>';
 		} else {
-			out += '<span class="fbAuthorName">' + escapeHtml(login) + "</span>";
+			// 没有站内身份、但拿得到 GitHub 登录名（例如用 PAT 发出来的回复）：
+			// 同样走统一显示名，维护者会显示成 `Careful S. (Ckarefulon)`
+			out += '<span class="fbAuthorName">' + escapeHtml(displayNameFor(login)) + "</span>";
 		}
 		if (opts.isAuthor) out += '<span class="fbAuthorTag fbAuthorTagOp">楼主</span>';
 		if (!bot && login && isMaintainer(login)) out += '<span class="fbAuthorTag fbAuthorTagAdmin">管理员</span>';
@@ -1226,13 +1228,45 @@
 	 * | 登录用户勾了「匿名」 | 匿名 | **照标**（读的人知道是同一个人） |
 	 * | 登录用户实名 | 名字（+头像） | 照标 |
 	 */
+	/**
+	 * 站内显示名 → 展示用的名字。
+	 *
+	 * 用户要求：站点维护者统一显示成 `Careful S. (Ckarefulon)` ——
+	 * 前面是站内昵称、括号里是 GitHub 登录名，两种叫法的人都认得。
+	 *
+	 * 判定按**站内昵称**：维护者的站内名是 `Careful S.`，
+	 * 但历史上也可能直接写成 GitHub 登录名，所以两种都认。
+	 * 只有维护者本人这么处理；其他站内用户原样显示。
+	 */
+	function displayNameFor(username) {
+		var raw = String(username || "").trim();
+		if (!raw) return "";
+		var maintainer = maintainerLogin();   // GitHub 登录名，默认 Ckarefulon
+		var low = raw.toLowerCase();
+		// 已经是「A (B)」形态就不重复包
+		if (/\([^)]+\)\s*$/.test(raw)) return raw;
+		// 站内昵称「Careful S.」（大小写与空格宽松比较）
+		var norm = low.replace(/[\s.]+/g, "");
+		var maintNorm = maintainer.toLowerCase().replace(/[\s.]+/g, "");
+		if (norm === "carefuls" || low === maintainer.toLowerCase()) {
+			return "Careful S. (" + maintainer + ")";
+		}
+		return raw;
+	}
+
 	function siteAuthorNameHtml(site, isOp) {
 		var anonymous = !!(site && site.anonymous);
-		var name = anonymous ? "匿名" : String((site && site.username) || "").trim();
-		if (!name) return '<span class="fbAuthorName">游客</span>';
+		var raw = anonymous ? "匿名" : String((site && site.username) || "").trim();
+		if (!raw) return '<span class="fbAuthorName">游客</span>';
+		var name = anonymous ? "匿名" : displayNameFor(raw);
+		// 管理员标签：后端在 badge 里给了 admin（按 FEEDBACK_ADMINS 名单判），
+		// 它和「楼主」是两个独立维度 —— 楼主是「这帖谁发的」，管理员是「这站谁管」，
+		// 同一个人可以两个都有，所以两处都要打。
+		var admin = !anonymous && site && site.admin;
 		return '<span class="fbAuthorName' + (anonymous ? " fbAuthorNameAnon" : "") + '">'
 			+ escapeHtml(name) + "</span>"
-			+ (isOp ? '<span class="fbAuthorTag fbAuthorTagOp">楼主</span>' : "");
+			+ (isOp ? '<span class="fbAuthorTag fbAuthorTagOp">楼主</span>' : "")
+			+ (admin ? '<span class="fbAuthorTag fbAuthorTagAdmin">管理员</span>' : "");
 	}
 
 	/**
@@ -1244,12 +1278,15 @@
 	 */
 	function siteAuthorLabel(site) {
 		var anonymous = !!(site && site.anonymous);
-		var name = anonymous ? "匿名" : String((site && site.username) || "").trim();
-		if (!name) return authorLabel(null, listIdentity);
+		var raw = anonymous ? "匿名" : String((site && site.username) || "").trim();
+		if (!raw) return authorLabel(null, listIdentity);
+		var name = anonymous ? "匿名" : displayNameFor(raw);
+		var admin = !anonymous && site && site.admin;
 		return '<span class="fbAuthorInline">'
 			+ avatarHtml({ login: "", avatarUrl: anonymous ? "" : site.avatarUrl }, false)
 			+ '<span class="fbAuthorName' + (anonymous ? " fbAuthorNameAnon" : "") + '">'
 			+ escapeHtml(name) + "</span>"
+			+ (admin ? '<span class="fbAuthorTag fbAuthorTagAdmin">管理员</span>' : "")
 			+ "</span>";
 	}
 

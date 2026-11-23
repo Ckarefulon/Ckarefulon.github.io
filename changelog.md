@@ -3,7 +3,11 @@
 ### feedback
 
 #### Changed
+- 站长的显示名统一为「Careful S. (Ckarefulon)」，站内昵称与 GitHub 登录名一起给出。 `Partial #33`
 - 管理员身份改由名单 `FEEDBACK_ADMINS` 决定，只有名单里的账号才会用本人 GitHub 身份发回复。 `Partial #33`
+
+#### Fixed
+- 修复站长发言时看不到「管理员」标签的问题。 `Partial #33`
 
 #### Security
 - 未配置管理员名单时，任何人的回复都不会冒用维护者的 GitHub 身份发布。 `Partial #33`

@@ -403,13 +403,41 @@ supabase secrets set FEEDBACK_ADMINS=你的站内用户名
 
 ## 维护者 / 管理员（issue #38）
 
-维护者登录名由后端下发（`maintainer` 字段），默认 `Ckarefulon`，可用
-`FEEDBACK_MAINTAINER` 改。前端据此：
+维护者 GitHub 登录名由后端下发（`maintainer` 字段），默认 `Ckarefulon`，可用
+`FEEDBACK_MAINTAINER` 改。用它判断「已跟进 / 已计划」。
 
-- 在他名字后面加「管理员」标签；
-- 用同一个名字判断「已跟进 / 已计划」。
+**「管理员」标签**则是另一套口径（`FEEDBACK_ADMINS` 名单），因为它指的是
+「这个站内账号有管理权限」，而不是「GitHub 上那个登录名」：
 
-两边共用同一个来源，不各写一份。
+| 配置 | 谁能看到管理按钮 | 谁回复时用本人 PAT |
+| --- | --- | --- |
+| 没配 `FEEDBACK_ADMINS` | 任何登录账号 | **没有人**（一律 bot，防冒充） |
+| 配了（如 `Careful S.`） | 名单内账号 | 名单内账号 |
+
+给站内用户打标签时，后端在 `siteAuthor.admin` 里带上结论，前端只照着画。
+
+### 显示名统一成 `Careful S. (Ckarefulon)`
+
+站长的站内昵称是 `Careful S.`，GitHub 登录名是 `Ckarefulon`，两种叫法都有人用，
+所以统一显示成 `Careful S. (Ckarefulon)`（前端 `displayNameFor`）。
+
+⚠️ 这里有个必须注意的连带影响：**判定管理员时两种名字都要认**。
+- 站内身份走的是昵称 `Careful S.`
+- 而用 PAT 发出来的回复，GitHub 上的作者是登录名 `Ckarefulon`
+
+所以 `isAdminName` 会把这两个写法互相当别名，否则「管理员发的回复」会因为
+拿到的是登录名而判不出管理员，标签就丢了。
+
+### 站长回复用他自己的 GitHub 账号
+
+`action=comment` 时会判断：**发回复的人是不是名单内管理员**。
+
+- 是 → 用 `DISCUSSIONS_TOKEN`（维护者本人的 PAT）发，GitHub 上显示 `Ckarefulon`
+- 否 → 用站点 App 的 installation token 发，显示 `xxx[bot]`
+
+⚠️ 这条必须用**严格版** `isListedAdmin`（要求显式配名单并命中），
+不能用「登录即可管理」的 `viewerCanManage` —— 否则任何登录用户的回复都会
+用维护者的 PAT 发出去，等于在 GitHub 上冒充站长说话。
 
 
 > **为什么要有中继**：部分网络按域名拦 `*.supabase.co`（TCP 通、TLS 带正确 SNI

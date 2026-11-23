@@ -732,6 +732,31 @@ interface AuthorBadge {
 	avatarUrl?: string | null;
 	/** 登录用户自己勾了匿名：不显示名字与头像 */
 	anonymous?: boolean;
+	/** 这个站内账号是否管理员（在 FEEDBACK_ADMINS 名单里）→ 前端据此打「管理员」标签 */
+	admin?: boolean;
+}
+
+/**
+ * 某个站内用户名/邮箱算不算管理员。
+ * 与 isListedAdmin 同一口径，只是这里只有一个名字、没有 JWT。
+ */
+function isAdminName(name?: string | null, mail?: string | null): boolean {
+	const list = adminAllowlist();
+	if (!list.length) return false;
+	const n = String(name || "").toLowerCase();
+	const m = String(mail || "").toLowerCase();
+	// 维护者本人有「站内昵称」和「GitHub 登录名」两种写法（Careful S. / Ckarefulon），
+	// 名单里写任一种都该认出他来 —— 否则用 PAT 发出来的回复作者是 Ckarefulon，
+	// 就判不出管理员，标签会丢。
+	const aliases = [n];
+	if (n) {
+		const norm = n.replace(/[\s.]+/g, "");
+		const maintNorm = maintainerLogin().toLowerCase().replace(/[\s.]+/g, "");
+		if (norm === "carefuls" || n === maintainerLogin().toLowerCase()) {
+			aliases.push(maintainerLogin().toLowerCase(), "careful s.");
+		}
+	}
+	return aliases.some((a) => !!a && list.includes(a)) || (!!m && list.includes(m));
 }
 
 /**
@@ -779,7 +804,14 @@ async function lookupSubmissionAuthor(discussionNumber: number): Promise<{
 
 		// 头像路径在资料表里（feedback_submissions 没存它）
 		const prof = userId ? profileFromRow(await profileRowFor(userId), base) : null;
-		return { badge: { username, avatarUrl: prof ? prof.avatarUrl : null }, userId: userId || null };
+		return {
+			badge: {
+				username,
+				avatarUrl: prof ? prof.avatarUrl : null,
+				admin: isAdminName(username, null),
+			},
+			userId: userId || null,
+		};
 	} catch {
 		return none;
 	}
@@ -898,7 +930,10 @@ async function lookupCommentAuthors(
 			}
 			const username = pickName(r.username) || (uid ? names[uid] : null);
 			if (!username) continue;
-			out[r.comment_id] = { badge: { username, avatarUrl: avatars[uid] || null }, userId: uid || null };
+			out[r.comment_id] = {
+				badge: { username, avatarUrl: avatars[uid] || null, admin: isAdminName(username, null) },
+				userId: uid || null,
+			};
 		}
 		return out;
 	} catch {
@@ -1672,11 +1707,8 @@ function adminAllowlist(): string[] {
 
 function viewerCanManage(viewer: Submitter | null): boolean {
 	if (!viewer) return false;
-	const list = adminAllowlist();
-	if (!list.length) return true;   // 没配名单：登录即可管理
-	const name = String(viewer.username || "").toLowerCase();
-	const mail = String(viewer.email || "").toLowerCase();
-	return (!!name && list.includes(name)) || (!!mail && list.includes(mail));
+	if (!adminAllowlist().length) return true;   // 没配名单：登录即可管理
+	return isAdminName(viewer.username, viewer.email);
 }
 
 /**
@@ -1687,11 +1719,8 @@ function viewerCanManage(viewer: Submitter | null): boolean {
  */
 function isListedAdmin(viewer: Submitter | null): boolean {
 	if (!viewer) return false;
-	const list = adminAllowlist();
-	if (!list.length) return false;
-	const name = String(viewer.username || "").toLowerCase();
-	const mail = String(viewer.email || "").toLowerCase();
-	return (!!name && list.includes(name)) || (!!mail && list.includes(mail));
+	if (!adminAllowlist().length) return false;
+	return isAdminName(viewer.username, viewer.email);
 }
 
 /** 六种状态；前端按这个顺序渲染标签与筛选框 */
