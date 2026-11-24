@@ -1641,6 +1641,16 @@
 			min-width: 0;
 		}
 
+		/* 名称后面紧跟的一句说明：这个库是干什么的 */
+		.libraryDesc {
+			margin-left: 7px;
+			font-style: normal;
+			font-size: 11px;
+			font-weight: 500;
+			color: var(--muted, var(--dsk-foreground-muted, #8a8a99));
+			opacity: .8;
+		}
+
 		.libraryTitle strong,
 		.libraryFormulaName {
 			display: block;
@@ -1649,6 +1659,19 @@
 			white-space: nowrap;
 			color: var(--ink);
 			font-weight: 800;
+		}
+
+		/* 库标题：名称 + 说明要留在同一行，所以强名称改回行内，省略号交给整行 */
+		.libraryTitle strong {
+			display: block;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.libraryTitle strong .libraryDesc {
+			display: inline;
+			white-space: nowrap;
 		}
 
 		.libraryTitle small,

@@ -2127,14 +2127,31 @@
 					}
 					this.formulaLibraryLoading = true;
 					this.renderLibs();
-					fetch("assets/DB.txt", { cache: "no-store" }).then(function(response) {
+					// 只读索引（库清单）。每个库的具体公式等展开时再读，
+					// 这样首屏不会一次拉 134 个文件。
+					fetch("../algs/index.json", { cache: "no-store" }).then(function(response) {
 						if (!response.ok) {
 							throw new Error("HTTP " + response.status);
 						}
-						return response.arrayBuffer();
-					}).then(function(buffer) {
-						var text = self.decodeTextBuffer(buffer);
-						self.formulaLibraries = self.parseLibText(text);
+						return response.json();
+					}).then(function(indexData) {
+						var libs = (indexData && indexData.libraries) || [];
+						if (!libs.length) {
+							throw new Error("索引里没有公式库");
+						}
+						self.formulaLibraries = libs.map(function(lib) {
+							return {
+								id: lib.id,
+								name: lib.name || lib.id,
+								desc: lib.desc || "",
+								group: lib.group || "Other",
+								count: Number(lib.count) || 0,
+								formulas: [],
+								loaded: false,
+								loading: null,
+								skipped: 0
+							};
+						});
 						self.formulaLibrarySelections = {};
 						self.formulaLibraryLoaded = true;
 						self.formulaLibraryLoading = false;
@@ -2145,50 +2162,58 @@
 							self.elements.libraryStatus.textContent = "读取公式库失败: " + String(error && error.message || error);
 						}
 						if (self.elements.libraryList) {
-							self.elements.libraryList.innerHTML = '<div class="libraryEmpty">请检查 assets/DB.txt</div>';
+							self.elements.libraryList.innerHTML = '<div class="libraryEmpty">请检查 ../algs/index.json</div>';
 						}
 					});
 				},
 
-				parseLibText: function(text) {
-					var source = String(text || "");
-					var headerPattern = /<([^\/<>]+)>/g;
-					var headers = [];
-					var match;
-					while ((match = headerPattern.exec(source))) {
-						headers.push({
-							name: match[1].trim(),
-							headerStart: match.index,
-							contentStart: headerPattern.lastIndex
-						});
-					}
-					if (headers.length === 0) {
-						return [this.buildFormulaLibrary("公式库", source, 0)];
-					}
-					var libraries = [];
-					for (var i = 0; i < headers.length; i++) {
-						var nextStart = i + 1 < headers.length ? headers[i + 1].headerStart : source.length;
-						libraries.push(this.buildFormulaLibrary(headers[i].name || "公式库 " + (i + 1), source.slice(headers[i].contentStart, nextStart), i));
-					}
-					return libraries;
-				},
-
-				buildFormulaLibrary: function(name, raw, index) {
-					var parsed = this.parseFormulaDefs(raw);
-					var libraryId = "library-" + index;
-					return {
-						id: libraryId,
-						name: name,
-						skipped: parsed.skipped,
-						formulas: parsed.formulas.map(function(state, stateIndex) {
-							return {
-								id: libraryId + "-formula-" + stateIndex,
-								name: state.name,
-								alg: state.alg,
-								moves: state.moves
-							};
+				/**
+				 * 按需读取某个库的公式（展开或勾选时才会走到这里）。
+				 * alg 保持原始记法（X'2 不改写成 X2），moves 交给 parseMoveSequence 现算。
+				 * 只有带 alg 的案例才进公式库（只有状态、没有解法的条目跳过）。
+				 */
+				ensureLibraryLoaded: function(library) {
+					if (!library) { return Promise.resolve(null); }
+					if (library.loaded) { return Promise.resolve(library); }
+					if (library.loading) { return library.loading; }
+					var self = this;
+					library.loading = fetch("../algs/" + library.id + ".json", { cache: "no-store" })
+						.then(function(r) {
+							if (!r.ok) { throw new Error("HTTP " + r.status); }
+							return r.json();
 						})
-					};
+						.then(function(data) {
+							var cases = (data && data.cases) || [];
+							var formulas = [];
+							var skipped = 0;
+							for (var k = 0; k < cases.length; k++) {
+								var item = cases[k] || {};
+								var name = String(item.name || "").trim();
+								var alg = String(item.alg || "").trim();
+								if (!name || !alg) { skipped++; continue; }
+								try {
+									formulas.push({
+										id: library.id + "-formula-" + formulas.length,
+										name: name,
+										alg: self.compressAlgText(alg),
+										moves: self.parseMoveSequence(alg)
+									});
+								} catch (error) {
+									skipped++;
+								}
+							}
+							library.formulas = formulas;
+							library.skipped = skipped;
+							library.loaded = true;
+							library.loading = null;
+							return library;
+						})
+						.catch(function(error) {
+							library.loading = null;
+							library.loadError = String(error && error.message || error);
+							return library;
+						});
+					return library.loading;
 				},
 
 				bindLibList: function() {
@@ -2225,7 +2250,16 @@
 				},
 
 				toggleFormulaLibrary: function(libraryId) {
-					this.expandedFormulaLibraries[libraryId] = !this.expandedFormulaLibraries[libraryId];
+					var self = this;
+					var expanded = !this.expandedFormulaLibraries[libraryId];
+					this.expandedFormulaLibraries[libraryId] = expanded;
+					// 展开时才去读这个库的公式
+					if (expanded) {
+						var library = this.findFormulaLibrary(libraryId);
+						if (library && !library.loaded && !library.loading) {
+							this.ensureLibraryLoaded(library).then(function() { self.renderLibs(); });
+						}
+					}
 					this.renderLibs();
 				},
 
@@ -2263,8 +2297,16 @@
 				},
 
 				setLibrarySelection: function(libraryId, checked) {
+					var self = this;
 					var library = this.findFormulaLibrary(libraryId);
 					if (!library) {
+						return;
+					}
+					// 库还没读过公式：先把整库拉下来，再勾选
+					if (!library.loaded) {
+						this.ensureLibraryLoaded(library).then(function() {
+							self.setLibrarySelection(libraryId, checked);
+						});
 						return;
 					}
 					(library.formulas || []).forEach(function(formula) {
@@ -2337,8 +2379,10 @@
 							selected++;
 						}
 					}
+					// 库还没读过公式时，总数先用索引里声明的条数，免得列表显示 0/0
+					var total = (library && library.loaded) ? formulas.length : ((library && library.count) || 0);
 					return {
-						total: formulas.length,
+						total: total,
 						selected: selected,
 						checked: formulas.length > 0 && selected === formulas.length,
 						indeterminate: selected > 0 && selected < formulas.length
@@ -2371,7 +2415,7 @@
 					}
 					this.syncLibStatus();
 					if (this.formulaLibraryLoading && this.formulaLibraries.length === 0) {
-						this.elements.libraryList.innerHTML = '<div class="libraryEmpty">正在读取 assets/DB.txt</div>';
+						this.elements.libraryList.innerHTML = '<div class="libraryEmpty">正在读取 ../algs/</div>';
 						return;
 					}
 					if (!this.formulaLibraries.length) {
@@ -2384,10 +2428,16 @@
 						var state = self.getLibPickState(library);
 						var countText = self.getLibCountText(library, state);
 						var skippedText = library.skipped ? "，跳过 " + library.skipped + " 条" : "";
-						var formulasHtml = (library.formulas || []).map(function(formula) {
-							return '<div class="libraryFormulaRow" data-formula-row="' + self.escapeAttr(formula.id) + '"><div><span class="libraryFormulaName">' + self.escapeHtml(formula.name) + '</span><span class="libraryFormulaAlg">' + self.escapeHtml(formula.alg) + '</span></div><label class="smartCheck" aria-label="选择公式"><input type="checkbox" data-formula-check="' + self.escapeAttr(formula.id) + '"><span class="checkVisual"></span></label></div>';
-						}).join("") || '<div class="libraryEmpty">此库没有可导入公式' + self.escapeHtml(skippedText) + '</div>';
-						return '<div class="libraryItem' + (expanded ? " isExpanded" : "") + '" data-library-id="' + self.escapeAttr(library.id) + '"><div class="libraryHeader" data-library-toggle="' + self.escapeAttr(library.id) + '" aria-expanded="' + (expanded ? "true" : "false") + '"><span class="libraryToggle" aria-hidden="true"></span><div class="libraryTitle"><strong>' + self.escapeHtml(library.name) + '</strong><small data-library-count="' + self.escapeAttr(library.id) + '">' + self.escapeHtml(countText) + '</small></div><label class="smartCheck" aria-label="选择公式库"><input type="checkbox" data-library-check="' + self.escapeAttr(library.id) + '"><span class="checkVisual"></span></label></div><div class="libraryFormulas">' + formulasHtml + '</div></div>';
+						var formulasHtml;
+						if (!library.loaded) {
+							// 还没展开/勾选过：不拉文件，只显示占位
+							formulasHtml = '<div class="libraryEmpty">' + (expanded ? "正在读取…" : "展开后读取") + '</div>';
+						} else {
+							formulasHtml = (library.formulas || []).map(function(formula) {
+								return '<div class="libraryFormulaRow" data-formula-row="' + self.escapeAttr(formula.id) + '"><div><span class="libraryFormulaName">' + self.escapeHtml(formula.name) + '</span><span class="libraryFormulaAlg">' + self.escapeHtml(formula.alg) + '</span></div><label class="smartCheck" aria-label="选择公式"><input type="checkbox" data-formula-check="' + self.escapeAttr(formula.id) + '"><span class="checkVisual"></span></label></div>';
+							}).join("") || '<div class="libraryEmpty">此库没有可导入公式' + self.escapeHtml(skippedText) + '</div>';
+						}
+						return '<div class="libraryItem' + (expanded ? " isExpanded" : "") + '" data-library-id="' + self.escapeAttr(library.id) + '"><div class="libraryHeader" data-library-toggle="' + self.escapeAttr(library.id) + '" aria-expanded="' + (expanded ? "true" : "false") + '"><span class="libraryToggle" aria-hidden="true"></span><div class="libraryTitle"><strong>' + self.escapeHtml(library.name) + (library.desc ? '<em class="libraryDesc">' + self.escapeHtml(library.desc) + '</em>' : '') + '</strong><small data-library-count="' + self.escapeAttr(library.id) + '">' + self.escapeHtml(countText) + '</small></div><label class="smartCheck" aria-label="选择公式库"><input type="checkbox" data-library-check="' + self.escapeAttr(library.id) + '"><span class="checkVisual"></span></label></div><div class="libraryFormulas">' + formulasHtml + '</div></div>';
 					}).join("");
 					this.syncLibChecks();
 				},
@@ -2402,7 +2452,8 @@
 					var selected = this.getPickedLibFormulas().length;
 					var total = 0;
 					for (var i = 0; i < this.formulaLibraries.length; i++) {
-						total += (this.formulaLibraries[i].formulas || []).length;
+						var lib = this.formulaLibraries[i];
+						total += lib.loaded ? (lib.formulas || []).length : (lib.count || 0);
 					}
 					if (this.elements.confirmLibraryImportBtn) {
 						this.elements.confirmLibraryImportBtn.disabled = selected === 0;

@@ -1,0 +1,963 @@
+{
+  "_schema": {
+    "version": 1,
+    "updated": "2026-11-24",
+    "note": "公式与案例状态的唯一数据源。每个库一个文件，本文件是索引。",
+    "notation": {
+      "wide": "小写字母表示双层（r），不使用 Rw 写法",
+      "modifier": "X'2 / X2' 表示两次该方向（U'2 = U' U'），与 X2 同为 180°"
+    },
+    "caseData": {
+      "faceOrder": [
+        "U",
+        "B",
+        "F",
+        "L",
+        "R"
+      ],
+      "faces": "45 字符串：按 faceOrder 每面 9 格（行优先）。颜色 r/o/b/g/w/y，l = 未指定（灰）。原样保留示意图的灰格。",
+      "alg": "复原公式：解掉该案例。手写公式库优先，其余由原始打乱公式取逆得到。",
+      "arrows": "PLL 专有的换位箭头，只有 PLL 的 case 带这个字段。'U0>U2' 单向、'U1<>U7' 双头；U0..U8 = 顶面九格的行优先编号。"
+    }
+  },
+  "libraries": [
+    {
+      "id": "oll",
+      "name": "OLL",
+      "desc": "顶面定向",
+      "group": "CFOP",
+      "count": 57
+    },
+    {
+      "id": "pll",
+      "name": "PLL",
+      "desc": "顶层排列",
+      "group": "CFOP",
+      "count": 21
+    },
+    {
+      "id": "f2l",
+      "name": "F2L",
+      "desc": "前两层",
+      "group": "CFOP",
+      "count": 41
+    },
+    {
+      "id": "advancedf2l",
+      "name": "AF2L",
+      "desc": "高级前两层",
+      "group": "CFOP",
+      "count": 54
+    },
+    {
+      "id": "cmll",
+      "name": "CMLL",
+      "desc": "角块定向与排列",
+      "group": "Roux",
+      "count": 42
+    },
+    {
+      "id": "sbls",
+      "name": "SBLS",
+      "desc": "第二块",
+      "group": "Roux",
+      "count": 65
+    },
+    {
+      "id": "eo4a",
+      "name": "EO4A",
+      "desc": "四棱定向",
+      "group": "Roux",
+      "count": 9
+    },
+    {
+      "id": "coll",
+      "name": "COLL",
+      "desc": "顶层角块",
+      "group": "COLL",
+      "count": 40
+    },
+    {
+      "id": "antipll",
+      "name": "AntiPLL",
+      "desc": "反向顶层排列",
+      "group": "COLL",
+      "count": 22
+    },
+    {
+      "id": "ell",
+      "name": "ELL",
+      "desc": "顶层棱块",
+      "group": "ELL",
+      "count": 25
+    },
+    {
+      "id": "wv",
+      "name": "WV",
+      "desc": "冬季变体",
+      "group": "VLS",
+      "count": 27
+    },
+    {
+      "id": "sv",
+      "name": "SV",
+      "desc": "夏季变体",
+      "group": "VLS",
+      "count": 27
+    },
+    {
+      "id": "cls",
+      "name": "CLS",
+      "desc": "角块插入",
+      "group": "F2L",
+      "count": 97
+    },
+    {
+      "id": "fruf",
+      "name": "FRUF",
+      "desc": "前右上组合",
+      "group": "Other",
+      "count": 42
+    },
+    {
+      "id": "1lll01",
+      "name": "1LLL 01",
+      "desc": "对应 OLL 1 形",
+      "group": "1LLL",
+      "count": 40
+    },
+    {
+      "id": "1lll02",
+      "name": "1LLL 02",
+      "desc": "对应 OLL 2 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll03",
+      "name": "1LLL 03",
+      "desc": "对应 OLL 3 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll04",
+      "name": "1LLL 04",
+      "desc": "对应 OLL 4 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll05",
+      "name": "1LLL 05",
+      "desc": "对应 OLL 5 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll06",
+      "name": "1LLL 06",
+      "desc": "对应 OLL 6 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll07",
+      "name": "1LLL 07",
+      "desc": "对应 OLL 7 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll08",
+      "name": "1LLL 08",
+      "desc": "对应 OLL 8 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll09",
+      "name": "1LLL 09",
+      "desc": "对应 OLL 9 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll10",
+      "name": "1LLL 10",
+      "desc": "对应 OLL 10 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll11",
+      "name": "1LLL 11",
+      "desc": "对应 OLL 11 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll12",
+      "name": "1LLL 12",
+      "desc": "对应 OLL 12 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll13",
+      "name": "1LLL 13",
+      "desc": "对应 OLL 13 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll14",
+      "name": "1LLL 14",
+      "desc": "对应 OLL 14 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll15",
+      "name": "1LLL 15",
+      "desc": "对应 OLL 15 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll16",
+      "name": "1LLL 16",
+      "desc": "对应 OLL 16 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll17",
+      "name": "1LLL 17",
+      "desc": "对应 OLL 17 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll18",
+      "name": "1LLL 18",
+      "desc": "对应 OLL 18 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll19",
+      "name": "1LLL 19",
+      "desc": "对应 OLL 19 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll28",
+      "name": "1LLL 28",
+      "desc": "对应 OLL 28 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll29",
+      "name": "1LLL 29",
+      "desc": "对应 OLL 29 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll30",
+      "name": "1LLL 30",
+      "desc": "对应 OLL 30 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll31",
+      "name": "1LLL 31",
+      "desc": "对应 OLL 31 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll32",
+      "name": "1LLL 32",
+      "desc": "对应 OLL 32 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll33",
+      "name": "1LLL 33",
+      "desc": "对应 OLL 33 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll34",
+      "name": "1LLL 34",
+      "desc": "对应 OLL 34 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll35",
+      "name": "1LLL 35",
+      "desc": "对应 OLL 35 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll36",
+      "name": "1LLL 36",
+      "desc": "对应 OLL 36 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll37",
+      "name": "1LLL 37",
+      "desc": "对应 OLL 37 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll38",
+      "name": "1LLL 38",
+      "desc": "对应 OLL 38 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll39",
+      "name": "1LLL 39",
+      "desc": "对应 OLL 39 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll40",
+      "name": "1LLL 40",
+      "desc": "对应 OLL 40 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll41",
+      "name": "1LLL 41",
+      "desc": "对应 OLL 41 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll42",
+      "name": "1LLL 42",
+      "desc": "对应 OLL 42 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll43",
+      "name": "1LLL 43",
+      "desc": "对应 OLL 43 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll44",
+      "name": "1LLL 44",
+      "desc": "对应 OLL 44 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll45",
+      "name": "1LLL 45",
+      "desc": "对应 OLL 45 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll46",
+      "name": "1LLL 46",
+      "desc": "对应 OLL 46 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll47",
+      "name": "1LLL 47",
+      "desc": "对应 OLL 47 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll48",
+      "name": "1LLL 48",
+      "desc": "对应 OLL 48 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll49",
+      "name": "1LLL 49",
+      "desc": "对应 OLL 49 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll50",
+      "name": "1LLL 50",
+      "desc": "对应 OLL 50 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll51",
+      "name": "1LLL 51",
+      "desc": "对应 OLL 51 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll52",
+      "name": "1LLL 52",
+      "desc": "对应 OLL 52 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll53",
+      "name": "1LLL 53",
+      "desc": "对应 OLL 53 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll54",
+      "name": "1LLL 54",
+      "desc": "对应 OLL 54 形",
+      "group": "1LLL",
+      "count": 72
+    },
+    {
+      "id": "1lll55",
+      "name": "1LLL 55",
+      "desc": "对应 OLL 55 形",
+      "group": "1LLL",
+      "count": 40
+    },
+    {
+      "id": "1lll56",
+      "name": "1LLL 56",
+      "desc": "对应 OLL 56 形",
+      "group": "1LLL",
+      "count": 40
+    },
+    {
+      "id": "1lll57",
+      "name": "1LLL 57",
+      "desc": "对应 OLL 57 形",
+      "group": "1LLL",
+      "count": 40
+    },
+    {
+      "id": "ollcp1",
+      "name": "OLLCP 01",
+      "desc": "对应 OLL 1 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp2",
+      "name": "OLLCP 02",
+      "desc": "对应 OLL 2 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp3",
+      "name": "OLLCP 03",
+      "desc": "对应 OLL 3 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp4",
+      "name": "OLLCP 04",
+      "desc": "对应 OLL 4 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp5",
+      "name": "OLLCP 05",
+      "desc": "对应 OLL 5 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp6",
+      "name": "OLLCP 06",
+      "desc": "对应 OLL 6 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp7",
+      "name": "OLLCP 07",
+      "desc": "对应 OLL 7 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp8",
+      "name": "OLLCP 08",
+      "desc": "对应 OLL 8 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp9",
+      "name": "OLLCP 09",
+      "desc": "对应 OLL 9 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp10",
+      "name": "OLLCP 10",
+      "desc": "对应 OLL 10 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp11",
+      "name": "OLLCP 11",
+      "desc": "对应 OLL 11 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp12",
+      "name": "OLLCP 12",
+      "desc": "对应 OLL 12 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp13",
+      "name": "OLLCP 13",
+      "desc": "对应 OLL 13 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp14",
+      "name": "OLLCP 14",
+      "desc": "对应 OLL 14 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp15",
+      "name": "OLLCP 15",
+      "desc": "对应 OLL 15 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp16",
+      "name": "OLLCP 16",
+      "desc": "对应 OLL 16 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp17",
+      "name": "OLLCP 17",
+      "desc": "对应 OLL 17 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp18",
+      "name": "OLLCP 18",
+      "desc": "对应 OLL 18 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp19",
+      "name": "OLLCP 19",
+      "desc": "对应 OLL 19 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp20",
+      "name": "OLLCP 20",
+      "desc": "对应 OLL 20 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp21",
+      "name": "OLLCP 21",
+      "desc": "对应 OLL 21 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp22",
+      "name": "OLLCP 22",
+      "desc": "对应 OLL 22 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp23",
+      "name": "OLLCP 23",
+      "desc": "对应 OLL 23 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp24",
+      "name": "OLLCP 24",
+      "desc": "对应 OLL 24 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp25",
+      "name": "OLLCP 25",
+      "desc": "对应 OLL 25 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp26",
+      "name": "OLLCP 26",
+      "desc": "对应 OLL 26 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp27",
+      "name": "OLLCP 27",
+      "desc": "对应 OLL 27 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp28",
+      "name": "OLLCP 28",
+      "desc": "对应 OLL 28 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp29",
+      "name": "OLLCP 29",
+      "desc": "对应 OLL 29 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp30",
+      "name": "OLLCP 30",
+      "desc": "对应 OLL 30 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp31",
+      "name": "OLLCP 31",
+      "desc": "对应 OLL 31 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp32",
+      "name": "OLLCP 32",
+      "desc": "对应 OLL 32 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp33",
+      "name": "OLLCP 33",
+      "desc": "对应 OLL 33 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp34",
+      "name": "OLLCP 34",
+      "desc": "对应 OLL 34 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp35",
+      "name": "OLLCP 35",
+      "desc": "对应 OLL 35 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp36",
+      "name": "OLLCP 36",
+      "desc": "对应 OLL 36 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp37",
+      "name": "OLLCP 37",
+      "desc": "对应 OLL 37 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp38",
+      "name": "OLLCP 38",
+      "desc": "对应 OLL 38 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp39",
+      "name": "OLLCP 39",
+      "desc": "对应 OLL 39 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp40",
+      "name": "OLLCP 40",
+      "desc": "对应 OLL 40 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp41",
+      "name": "OLLCP 41",
+      "desc": "对应 OLL 41 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp42",
+      "name": "OLLCP 42",
+      "desc": "对应 OLL 42 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp43",
+      "name": "OLLCP 43",
+      "desc": "对应 OLL 43 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp44",
+      "name": "OLLCP 44",
+      "desc": "对应 OLL 44 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp45",
+      "name": "OLLCP 45",
+      "desc": "对应 OLL 45 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp46",
+      "name": "OLLCP 46",
+      "desc": "对应 OLL 46 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp47",
+      "name": "OLLCP 47",
+      "desc": "对应 OLL 47 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp48",
+      "name": "OLLCP 48",
+      "desc": "对应 OLL 48 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp49",
+      "name": "OLLCP 49",
+      "desc": "对应 OLL 49 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp50",
+      "name": "OLLCP 50",
+      "desc": "对应 OLL 50 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp51",
+      "name": "OLLCP 51",
+      "desc": "对应 OLL 51 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp52",
+      "name": "OLLCP 52",
+      "desc": "对应 OLL 52 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp53",
+      "name": "OLLCP 53",
+      "desc": "对应 OLL 53 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp54",
+      "name": "OLLCP 54",
+      "desc": "对应 OLL 54 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp55",
+      "name": "OLLCP 55",
+      "desc": "对应 OLL 55 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp56",
+      "name": "OLLCP 56",
+      "desc": "对应 OLL 56 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "ollcp57",
+      "name": "OLLCP 57",
+      "desc": "对应 OLL 57 形",
+      "group": "OLLCP",
+      "count": 6
+    },
+    {
+      "id": "vlsne",
+      "name": "VLSNE",
+      "desc": "顶棱不朝上",
+      "group": "VLS",
+      "count": 27
+    },
+    {
+      "id": "vlsub",
+      "name": "VLSUB",
+      "desc": "顶棱 UB",
+      "group": "VLS",
+      "count": 27
+    },
+    {
+      "id": "vlsubul",
+      "name": "VLSUBUL",
+      "desc": "顶棱 UB+UL",
+      "group": "VLS",
+      "count": 27
+    },
+    {
+      "id": "vlsuf",
+      "name": "VLSUF",
+      "desc": "顶棱 UF",
+      "group": "VLS",
+      "count": 27
+    },
+    {
+      "id": "vlsufub",
+      "name": "VLSUFUB",
+      "desc": "顶棱 UF+UB",
+      "group": "VLS",
+      "count": 27
+    },
+    {
+      "id": "vlsuful",
+      "name": "VLSUFUL",
+      "desc": "顶棱 UF+UL",
+      "group": "VLS",
+      "count": 27
+    },
+    {
+      "id": "vlsul",
+      "name": "VLSUL",
+      "desc": "顶棱 UL",
+      "group": "VLS",
+      "count": 27
+    },
+    {
+      "id": "zbllas",
+      "name": "ZBLLAS",
+      "desc": "AS 形",
+      "group": "ZBLL",
+      "count": 72
+    },
+    {
+      "id": "zbllh",
+      "name": "ZBLLH",
+      "desc": "H 形",
+      "group": "ZBLL",
+      "count": 40
+    },
+    {
+      "id": "zblll",
+      "name": "ZBLLL",
+      "desc": "L 形",
+      "group": "ZBLL",
+      "count": 72
+    },
+    {
+      "id": "zbllpi",
+      "name": "ZBLLPi",
+      "desc": "Pi 形",
+      "group": "ZBLL",
+      "count": 72
+    },
+    {
+      "id": "zblls",
+      "name": "ZBLLS",
+      "desc": "S 形",
+      "group": "ZBLL",
+      "count": 72
+    },
+    {
+      "id": "zbllt",
+      "name": "ZBLLT",
+      "desc": "T 形",
+      "group": "ZBLL",
+      "count": 72
+    },
+    {
+      "id": "zbllu",
+      "name": "ZBLLU",
+      "desc": "U 形",
+      "group": "ZBLL",
+      "count": 72
+    }
+  ]
+}

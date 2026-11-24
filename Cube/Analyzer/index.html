@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="utf-8">
@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="../assets/state-reset/state-reset.css?v=1949">
   <!-- 魔方展开图（Cube 公用 /Cube/assets/cube-net/），与 Cross、Trainer 共用同一份 -->
   <link rel="stylesheet" href="../assets/cube-net/cube-net.css?v=2664">
-  <link rel="stylesheet" href="./analyzer.css?v=2767">
+  <link rel="stylesheet" href="./assets/analyzer.css?v=2875">
 
   <script src="../assets/base/jquery-4.0.0.min.js"></script>
   <script src="../assets/base/compat.js?v=1877" defer></script>
@@ -57,25 +57,30 @@
   <script src="../assets/cube-3d/twisty.js?v=1877" defer></script>
   <script src="../assets/cube-3d/twistynnn.js?v=2450" defer></script>
 
-  <script src="./analyzer-core.js?v=1877" defer></script>
+  <script src="./assets/analyzer-core.js?v=1877" defer></script>
   <!-- 魔方展开图（Cube 公用 /Cube/assets/cube-net/）。必须排在 analyzer-app.js 之前：
        状态图在 init 里就要用到 window.CubeNet。 -->
   <script src="../assets/cube-net/cube-net.js?v=2664" defer></script>
-  <script src="./analyzer-import.js?v=2063" defer></script>
-  <script src="./analyzer-charts.js?v=1877" defer></script>
+  <!-- Case 示意图（2026-11-24）：静态 SVG 目录 assets/cases/ 已删除，改为现场出图。
+       cube-figure.js 负责「状态 → 矢量图」，cube-case-data.js 提供 OLL/PLL/CMLL 的案例状态
+       与 PLL 换位箭头。两者都必须排在 analyzer-app.js 之前。 -->
+  <script src="../assets/cube-figure/cube-figure.js?v=2875" defer></script>
+  <script src="./assets/cube-case-data.js?v=2888" defer></script>
+  <script src="./assets/analyzer-import.js?v=2063" defer></script>
+  <script src="./assets/analyzer-charts.js?v=1877" defer></script>
   <!-- 智能魔方蓝牙桥：Cube 公用（/Cube/assets/bluetooth/smartcube-bridge.js），
        与 Cross / Trainer 共用同一份。对外仍是 window.CubeAnalyzerSmartCube。 -->
   <script src="../assets/bluetooth/smartcube-bridge.js?v=2683" defer></script>
-  <script src="./solve-analyzer.js?v=1877" defer></script>
+  <script src="./assets/solve-analyzer.js?v=1877" defer></script>
   <script src="/assets/services/sync/payload-codec.js?v=1892" defer></script>
-  <script src="./analyzer-store.js?v=2579" defer></script>
-  <script src="./analyzer-cloud.js?v=2579" defer></script>
+  <script src="./assets/analyzer-store.js?v=2579" defer></script>
+  <script src="./assets/analyzer-cloud.js?v=2579" defer></script>
   <script src="../assets/scramble/scramble.js?v=1892" defer></script>
   <script src="../assets/audio/cube-audio.js?v=2034" defer></script>
-  <script src="./analyzer-quality.js?v=2005" defer></script>
-  <script src="./analyzer-ai.js?v=2005" defer></script>
-  <script src="./analyzer-replay.js?v=2767" defer></script>
-  <script src="./analyzer-app.js?v=2860" defer></script>
+  <script src="./assets/analyzer-quality.js?v=2005" defer></script>
+  <script src="./assets/analyzer-ai.js?v=2005" defer></script>
+  <script src="./assets/analyzer-replay.js?v=2767" defer></script>
+  <script src="./assets/analyzer-app.js?v=2888" defer></script>
 </head>
 <body data-workspace="training">
   <div class="page-shell">
