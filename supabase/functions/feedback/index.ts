@@ -1762,19 +1762,9 @@ function maintainerLogin(): string {
 }
 
 /**
- * 拦住「谁能看到编辑 / 关闭 / 删除」。
+ * 管理员名单：逗号分隔的站内用户名或邮箱，来自 `FEEDBACK_ADMINS`。
  *
- * 曾经写成「站内用户名 == GitHub 登录名」，结果是**谁都看不到按钮** ——
- * 站点用户名来自 user_profiles 或邮箱前缀，和 GitHub 登录名没有任何绑定关系，
- * 永远比不中。用户反馈「编辑删除都没有」，根因就是这三行。
- *
- * 现在的口径：
- *   · 没登录 → false（按钮不给游客看）
- *   · 配了 FEEDBACK_ADMINS（逗号分隔的站内用户名）→ 只认名单里的人
- *   · 没配 → **任何登录用户都可以**（默认放行，站点自己的账号能用）
- *
- * ⚠️ 这只是 UI 开关，不是安全边界：真正的写权限在 token 那侧，
- *    函数里每个写动作都要过 resolveIdentity()。要收紧就配 FEEDBACK_ADMINS。
+ * 这是「谁能管全站」的唯一来源。
  */
 function adminAllowlist(): string[] {
 	const raw = (Deno.env.get("FEEDBACK_ADMINS") || "").trim();
@@ -1782,17 +1772,13 @@ function adminAllowlist(): string[] {
 	return raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 }
 
-function viewerCanManage(viewer: Submitter | null): boolean {
-	if (!viewer) return false;
-	if (!adminAllowlist().length) return true;   // 没配名单：登录即可管理
-	return isAdminName(viewer.username, viewer.email);
-}
-
 /**
- * 严格版：**必须显式配了名单并且命中**才算管理员。
+ * 是不是名单内的管理员。**必须显式配名单并命中**。
  *
- * 用于「用维护者的 PAT 代替某人发言」这种敏感动作 —— 那个动作会在 GitHub 上
- * 以站长的账号出现，绝不能顺手给任何登录用户。名单没配就一律 false。
+ * ⚠️ 这里刻意不提供「没配名单就人人可管理」的宽松模式。
+ * 早期版本那样写过，后果是：谁都能编辑/删除别人的帖子，普通用户的回复
+ * 还会用维护者的 PAT 发出去。写操作一律按「管理员 or 本人」判，
+ * 名单没配就等于没有管理员。
  */
 function isListedAdmin(viewer: Submitter | null): boolean {
 	if (!viewer) return false;
@@ -2039,7 +2025,6 @@ Deno.serve(async (req: Request) => {
 				// 也知道维护者是谁，只有两者对得上才给 true。这只是「别把按钮摊给所有人」的
 				// UI 开关，真正的写权限仍然由 token 本身决定。
 				const detailViewer = await resolveSubmitter(req);
-				const canManage = viewerCanManage(detailViewer);
 				// 回复会不会用「本人 PAT」发：只有显式配了名单并命中才为真，
 				// 前端据此决定回复框里那句提示怎么写。
 				const adminAsSelf = isListedAdmin(detailViewer)
@@ -2049,6 +2034,15 @@ Deno.serve(async (req: Request) => {
 				// 勾了匿名的返回 { anonymous: true }，前端显示「匿名」。
 				const postAuthor = await lookupSubmissionAuthor(number);
 				const siteAuthor = postAuthor.badge;
+				// 「能编辑 / 关闭 / 删除」的 UI 开关，必须与后端写操作的真实鉴权同一口径：
+				//   · 管理员 → 任何帖
+				//   · 普通登录用户 → 只有自己发的帖
+				//   · 游客 → 都不给
+				// 否则会出现「按钮点了报 403」或者「能点但本不该能点」。
+				const canManage = !!detailViewer && (
+					isListedAdmin(detailViewer)
+					|| (!!postAuthor.userId && postAuthor.userId === detailViewer.userId)
+				);
 				// 回复也要能显示成本人：GitHub 上都是 bot 代发，作者归属只能在站内表里查。
 				// 主回复与二级回复都要查 —— 少查一层，那一层的回复就永远显示「游客」。
 				const allComments: any[] = [];
@@ -2164,6 +2158,28 @@ Deno.serve(async (req: Request) => {
 		const number = Number(raw?.number || 0);
 		if (!Number.isInteger(number) || number <= 0) {
 			return json({ success: false, message: "讨论编号无效" }, 400);
+		}
+		// ── 写操作的鉴权（关键）──
+		//
+		// 这几条动作是用**服务端自己的高权限 token** 执行的，GitHub 那边不看是谁在调。
+		// 所以身份校验只能在这里做，否则任何人都能匿名 POST 一个
+		//   {action:"delete", number:47, confirm:true}
+		// 把别人的帖子删掉 —— 前端需要点按钮，但后端永远不能信前端。
+		//
+		// 规则：
+		//   · 管理员（FEEDBACK_ADMINS 名单内）→ 可以管任何帖
+		//   · 普通登录用户 → 只能管**自己发的**帖
+		//   · 游客 → 一律拒绝
+		const actor = await resolveSubmitter(req);
+		if (!actor) return json({ success: false, message: "请先登录后再操作" }, 401);
+		const isAdmin = isListedAdmin(actor);
+		if (!isAdmin) {
+			// 不是管理员：必须确认这条帖子是他本人提的（比 user_id，不比名字）
+			const owner = await lookupSubmissionAuthor(number);
+			const ownerId = owner && owner.userId;
+			if (!ownerId || ownerId !== actor.userId) {
+				return json({ success: false, message: "只能操作自己发的内容" }, 403);
+			}
 		}
 		try {
 			if (action === "edit") {
