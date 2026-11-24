@@ -518,10 +518,17 @@
    */
   function caseThumb(type,name){
     const t=String(type||'').toUpperCase();
-    if(t!=='OLL'&&t!=='PLL'&&t!=='CMLL')return null; // F2L 暂无配图
+    if(t!=='OLL'&&t!=='PLL'&&t!=='F2L'&&t!=='CMLL')return null;
     if(!window.CubeCaseData||!window.CubeFigure)return null;
     try{
-      return window.CubeCaseData.svg(t,String(name||''),{view:'net',palette:'site',size:75});
+      const label=String(name||'');
+      // Analyzer 把 AF2L 的案例也归在 F2L 这一大类里（caseName 形如「AF2L 24」），
+      // 所以 F2L 查不到时要去 AF2L 库里再找一次。
+      let svg=window.CubeCaseData.svg(t,label,{palette:'site'});
+      if(!svg&&t==='F2L'&&/^AF2L/i.test(label)){
+        svg=window.CubeCaseData.svg('AF2L',label,{palette:'site'});
+      }
+      return svg||null;
     }catch(e){return null}
   }
 

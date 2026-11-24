@@ -54,17 +54,22 @@ Cube/algs/
 | `faces` | 45 字符串，按 `faceOrder`（U/B/F/L/R）每面 9 格，行优先。**由公式真实算出**，保证图与公式一致 |
 | `arrows` | **只有 PLL 有**。`"U0>U2"` 单向、`"U1<>U7"` 双头；`U0..U8` = 顶面九格的行优先编号 |
 
-### faces 的两种口径
+### faces 的三种口径
 
-| 库 | 口径 |
-|---|---|
-| OLL / CMLL / COLL / AntiPLL | **只标顶面**：顶面本色 `y`，其他一律灰 `l` |
-| 其余（PLL、F2L、ZBLL…） | **完整颜色**：每格标它所属面的颜色 |
+| 库 | 口径 | 用途 |
+|---|---|---|
+| F2L / AF2L | **槽位示意**：直接用原始 `fl`，顶层基本全灰，只标相关的那对块 | 看出那对块在槽位的什么位置 |
+| OLL / CMLL / COLL / AntiPLL | **只标顶面**：顶面本色 `y`，其他一律灰 `l` | 只看顶面定向 |
+| 其余（PLL、ZBLL…） | **完整颜色**：每格标它所属面的颜色 | 要看整圈换位 |
 
 颜色字母：`r` 红 `o` 橙 `b` 蓝 `g` 绿 `w` 白 `y` 黄，`l` = 未指定（灰）。
 
-**OLL 的朝向**：手工公式与既有示意图在 U 轴方向差一个朝向（四种之一）。公式不动，
-生成时按旧图的顶面把它转正，所以 57 条 OLL 的顶面朝向与既有示意图完全一致。
+**OLL 的朝向**：公式取逆算出来的原始朝向就是正确的，**不要加任何 U 轴旋转**。
+（曾经试着按旧示意图转 U/U2/U' 对齐，结果把九宫格转歪了 —— 比如 OLL 4 本来是
+「中心+左上」，转 U' 后变成「中心+左下」。）
+
+**视角**：F2L / AF2L 用立体斜视图（`view:'iso'`），其余用展开图（`view:'net'`）。
+见 `Cube/Analyzer/assets/cube-case-data.js` 的 `VIEW_OF_TYPE`。
 
 不存打乱公式（`setup`）—— 需要时对 `alg` 取逆即可。
 
@@ -93,7 +98,14 @@ Cube/algs/
 |---|---|
 | Cube/Formula | 先读 `index.json`，**展开某个库时才读 `<id>.json`** |
 | Cube/Formula/Classic | 同上（按需） |
-| Cube/Analyzer | 直接读 `oll.json` / `pll.json` / `cmll.json`，不走索引 |
+| Cube/Analyzer | 直接读 `oll.json` / `pll.json` / `f2l.json` / `advancedf2l.json` / `cmll.json`，不走索引 |
+
+**注意 AF2L 的归类**：Analyzer 只有 `OLL / PLL / F2L / CMLL` 四个 case 大类，
+高级前两层（AF2L）的案例是以 `caseType:'F2L'` + `caseName:'AF2L xx'` 的形式产出的
+（见 `solve-analyzer.js` 的 `STANDARD_CASES.F2L`）。所以：
+
+- 页面上**不要**为 AF2L 单独加一个分类按钮，它本来就属于 F2L 这一类；
+- 取图时 F2L 查不到、且名字以 `AF2L` 开头，要再去 `advancedf2l.json` 里找一次。
 
 首屏只加载索引（18KB），不会一次拉 134 个文件。
 

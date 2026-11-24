@@ -21,8 +21,23 @@
 	// algs/ 相对 Analyzer 页面的位置（Analyzer 在 Cube/Analyzer/）
 	var ALGS_BASE = '../algs/';
 
-	// Analyzer 只用到这三个库，直接按名字读，不走索引
-	var TYPES = { OLL: 'oll.json', PLL: 'pll.json', CMLL: 'cmll.json' };
+	// Analyzer 用到的库，直接按名字读，不走索引
+	// OLL / PLL / F2L / AF2L / CMLL —— 与 solve-analyzer.js 产出的 caseType 对应
+	var TYPES = {
+		OLL: 'oll.json',
+		PLL: 'pll.json',
+		F2L: 'f2l.json',
+		AF2L: 'advancedf2l.json',
+		CMLL: 'cmll.json'
+	};
+
+	// 各类型用的视角：
+	//   F2L / AF2L 关心「那一对块在槽位的哪个位置」，斜视图能同时看到顶面和两个立面，最直观；
+	//   其余是顶面定向 / 顶面排列，展开图看得更清楚。
+	var VIEW_OF_TYPE = { F2L: 'iso', AF2L: 'iso' };
+
+	// 斜视图能画出的面只有 U / F / R，其余三面在背面。
+	// F2L 的 faces 里 L / B / D 的格子斜视图看不到，交给 CubeFigure 自动忽略。
 
 	// DB 里 faces 是 45 字符串，按此顺序切面
 	var FACE_ORDER = ['U', 'B', 'F', 'L', 'R'];
@@ -93,11 +108,14 @@
 		return m ? Object.keys(m) : [];
 	}
 
-	/** 直接出图：faces 交给 CubeFigure */
+	/** 直接出图：faces 交给 CubeFigure，按类型选视角 */
 	function svg(type, name, opts) {
 		var c = get(type, name);
 		if (!c || !c.faces || !root.CubeFigure) { return null; }
-		var o = { view: 'net', palette: 'site', state: c.faces, size: 75 };
+		var t = String(type || '').toUpperCase();
+		var view = VIEW_OF_TYPE[t] || 'net';
+		// iso 没有 L/B/D 三面，看得到的是 U/F/R；尺寸也稍大一点才看得清
+		var o = { view: view, palette: 'site', state: c.faces, size: view === 'iso' ? 100 : 75 };
 		for (var k in (opts || {})) { o[k] = opts[k]; }
 		if (!o.arrows && c.arrows && c.arrows.length) { o.arrows = c.arrows; }
 		try { return root.CubeFigure.svg(o); } catch (e) { return null; }
